@@ -11,6 +11,7 @@ runs each worker in its own process, or nested calls within one test)
 never share mutable module state.
 """
 import os
+import sys
 import types
 import xml.etree.ElementTree as ET
 
@@ -29,6 +30,39 @@ _SKIN_DIR = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i')
 #: 1510-test suite, so parsing each file more than once would be wasted
 #: work many times over.
 _SKIN_CONTROL_IDS = {}
+
+
+class SwigPyObjectType(type):
+    """Metatype mirroring Kodi 22's stock-SWIG `-builtin` bindings
+    (xbmc/xbmc#28958): `SwigPyObjectType_setattro` in SWIG's
+    `Lib/python/builtin.swg` refuses every class-level write on any class
+    using it - including Python subclasses, which inherit the metatype.
+    Rebinding an attribute that is not a data descriptor raises
+    "cannot modify read-only attribute", adding a new one "has no
+    attribute". Without this, production code patching a window class
+    passes here and breaks every window import on Kodi 22 (issue #64).
+
+    Enforced only for writes made from `lib.*` code: that is what runs on
+    Kodi. Tests stay free to `monkeypatch.setattr()` a window class."""
+
+    def __setattr__(cls, name, value):
+        if sys._getframe(1).f_globals.get('__name__', '').startswith('lib.'):
+            _swig_check_setattr(cls, name)
+        super().__setattr__(name, value)
+
+    def __delattr__(cls, name):
+        if sys._getframe(1).f_globals.get('__name__', '').startswith('lib.'):
+            _swig_check_setattr(cls, name)
+        super().__delattr__(name)
+
+
+def _swig_check_setattr(cls, name):
+    for klass in cls.__mro__:
+        if name in klass.__dict__:
+            if hasattr(type(klass.__dict__[name]), '__set__'):
+                return
+            raise AttributeError("cannot modify read-only attribute '%s.%s'" % (cls.__qualname__, name))
+    raise AttributeError("type '%s' has no attribute '%s'" % (cls.__qualname__, name))
 
 
 def _declared_control_ids(xml_name):
@@ -363,7 +397,7 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
         def getId(self):
             return self._id
 
-    class WindowXML:
+    class WindowXML(metaclass=SwigPyObjectType):
         """Stand-in for `xbmcgui.WindowXML` (and `WindowXMLDialog`):
         enough surface to construct `lib.ui.infowindow.ShowcaseWindow`
         and drive its onInit()/onClick()/onAction() directly from a

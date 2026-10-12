@@ -388,9 +388,11 @@ class _ProbeWindow:
             def onInit(self):
                 self.inits += 1
 
+            @uicommon_mod.gated_input
             def onClick(self, control_id):
                 self.clicks.append(control_id)
 
+            @uicommon_mod.gated_input
             def onAction(self, action):
                 self.actions.append(action.getId())
                 super().onAction(action)
@@ -462,10 +464,23 @@ def test_the_input_gate_covers_every_stack_screen_class_and_leaves_oninit_alone(
 
     class Direct(ctx.uicommon.ModalStackWindow, ctx.uicommon.xbmcgui.WindowXMLDialog):
         # DetailWindow/ShowcaseWindow shape: the mixin without BaseWindow.
+        @ctx.uicommon.gated_input
         def onClick(self, control_id):
             raise AssertionError('must not run during the player phase')
 
     Direct('Some.xml', '/addon/path', 'Default', '1080i').onClick(1)
+
+
+def test_an_ungated_input_callback_fails_at_class_creation(load_uicommon):
+    # A forgotten @gated_input must not silently leave a screen live during
+    # the player phase; __init_subclass__ can only check, not patch the
+    # class (Kodi 22's SWIG metatype forbids class writes, issue #64).
+    ctx = load_uicommon()
+
+    with pytest.raises(TypeError, match=r'Forgot\.onAction must be decorated with @gated_input'):
+        class Forgot(ctx.uicommon.BaseWindow):
+            def onAction(self, action):
+                pass
 
 
 def test_domodal_ends_the_player_phase_so_a_missed_end_can_never_leave_screens_deaf(

@@ -22,7 +22,7 @@ permanent top-level row (see `catalogpicker.open_catalog_picker()` and
 import xbmcgui
 
 from lib.ui.dependencies import get_store
-from lib.ui.uicommon import BaseWindow, UiHeartbeat, open_window
+from lib.ui.uicommon import BaseWindow, UiHeartbeat, gated_input, open_window
 
 BACKGROUND = 30000
 LIST = 30002
@@ -205,6 +205,7 @@ class HomeWindow(BaseWindow):
         self.getControl(STATUS_LABEL).setLabel(_status_text(auth))
         self.setFocusId(LIST)
 
+    @gated_input
     def onClick(self, control_id):
         if control_id != LIST:
             return

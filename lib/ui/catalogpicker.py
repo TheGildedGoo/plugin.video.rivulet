@@ -34,7 +34,14 @@ from lib.stremio.addons import (
     safe_url_for_log,
 )
 from lib.ui.dependencies import get_store
-from lib.ui.uicommon import BACK_ACTIONS, CANCELLED, BaseWindow, open_window, run_cancellable
+from lib.ui.uicommon import (
+    BACK_ACTIONS,
+    CANCELLED,
+    BaseWindow,
+    gated_input,
+    open_window,
+    run_cancellable,
+)
 
 LIST = 30002
 HEADING = 30006
@@ -213,6 +220,7 @@ class CatalogPickerWindow(BaseWindow):
             return None
         return self.catalogs[int(focused.getProperty('position'))]
 
+    @gated_input
     def onAction(self, action):
         action_id = action.getId()
         if action_id == _CONTEXT_MENU_ACTION and self.getFocusId() == LIST:
@@ -221,6 +229,7 @@ class CatalogPickerWindow(BaseWindow):
         if action_id in BACK_ACTIONS:
             self.close()
 
+    @gated_input
     def onClick(self, control_id):
         if control_id != LIST:
             return

@@ -575,7 +575,7 @@ def test_back_while_the_series_screen_computes_new_episodes_returns_without_open
 # ---------------------------------------------------------------------------
 # Phases: Back / clicks across the 1 (addon) -> 2 (player) -> 3 (addon)
 # transitions. Phase state lives in uicommon (`input_suppressed()`); every
-# `ModalStackWindow` screen is gated in one place by `__init_subclass__`.
+# `ModalStackWindow` screen is gated by `@gated_input`, enforced by `__init_subclass__`.
 # ---------------------------------------------------------------------------
 
 
@@ -828,6 +828,7 @@ def test_non_back_actions_still_reach_the_screen_while_a_spinner_is_up(load_ui):
     seen = []
 
     class _Screen(ctx.uicommon.BaseWindow):
+        @ctx.uicommon.gated_input
         def onAction(self, action):
             seen.append(action.getId())
 

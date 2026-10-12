@@ -49,6 +49,7 @@ from lib.ui.uicommon import (
     BACK_ACTIONS,
     BaseWindow,
     escape_label,
+    gated_input,
     open_window,
     register_transient_dialog,
     unregister_transient_dialog,
@@ -477,6 +478,7 @@ class _ConfirmWindow(BaseWindow):
         with contextlib.suppress(Exception):
             self.setFocusId(CONFIRM_YES)
 
+    @gated_input
     def onClick(self, control_id):
         if control_id == CONFIRM_YES:
             self.result = True
@@ -544,6 +546,7 @@ class _OptionListWindow(BaseWindow):
         with contextlib.suppress(Exception):
             self.setFocusId(OPTIONLIST_LIST)
 
+    @gated_input
     def onClick(self, control_id):
         if control_id != OPTIONLIST_LIST:
             return

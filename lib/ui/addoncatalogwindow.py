@@ -56,7 +56,14 @@ import threading
 import xbmcgui
 
 from lib.ui.dependencies import get_client, get_store
-from lib.ui.uicommon import BACK_ACTIONS, CANCELLED, BaseWindow, open_window, run_cancellable
+from lib.ui.uicommon import (
+    BACK_ACTIONS,
+    CANCELLED,
+    BaseWindow,
+    gated_input,
+    open_window,
+    run_cancellable,
+)
 
 LIST = 30360
 
@@ -488,6 +495,7 @@ class AddonCatalogWindow(BaseWindow):
         self.filter_query = ''
         self._render()
 
+    @gated_input
     def onAction(self, action):
         # Drain first: a queued page appends rows, and doing that before
         # any back-action handling means a page landing right as the
@@ -504,6 +512,7 @@ class AddonCatalogWindow(BaseWindow):
         self._stop_paging()
         super().close()
 
+    @gated_input
     def onClick(self, control_id):
         if control_id != LIST:
             return

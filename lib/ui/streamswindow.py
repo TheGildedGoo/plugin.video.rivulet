@@ -102,6 +102,7 @@ from lib.ui.uicommon import (
     deliver_queued_input,
     end_player_phase,
     escape_label,
+    gated_input,
     open_window,
 )
 
@@ -737,6 +738,7 @@ class StreamsWindow(BaseWindow):
         self._rebuild_list()
         self.setFocusId(LIST)
 
+    @gated_input
     def onAction(self, action):
         # Drain first, on the GUI thread, exactly like
         # infowindow.ShowcaseWindow.onAction() calls _apply_enriched()
@@ -744,6 +746,7 @@ class StreamsWindow(BaseWindow):
         self._apply_pending()
         super().onAction(action)
 
+    @gated_input
     def onClick(self, control_id):
         if control_id != LIST:
             return

@@ -318,7 +318,7 @@ def open_window(window_cls, xml_name, *args, **kwargs):
 #    the polling `waitForAbort()` of the playback wait, so a Back/click made
 #    before the handoff was replayed against screens that were no longer
 #    there. `input_suppressed()` gates every `ModalStackWindow` callback
-#    (see `ModalStackWindow.__init_subclass__`).
+#    (see `gated_input()` / `ModalStackWindow.__init_subclass__`).
 # 2. When playback stops Kodi re-activates the Videos window the addon was
 #    launched from; CGUIMediaWindow::OnInitWindow() re-fetches a plugin
 #    path ~200ms later (PLUGIN_REFRESH_DELAY), which runs `default.py` with
@@ -527,6 +527,20 @@ def _gate_input(callback, name=''):
     return gated
 
 
+def gated_input(callback):
+    """Decorator gating a `ModalStackWindow` input callback (one of
+    `_GATED_CALLBACKS`) behind `input_suppressed()` - see `_gate_input()`.
+
+    Applied in the class body rather than by `__init_subclass__` patching
+    the finished class: since xbmc/xbmc#28958 (Kodi 22) the bindings are
+    stock SWIG `-builtin`, whose `SwigPyObjectType` metatype - inherited
+    by every Python subclass of an `xbmcgui` type - refuses any class-level
+    attribute write ("cannot modify read-only attribute"). Patching the
+    class after creation made importing this module fail, so no window
+    could open (issue #64)."""
+    return _gate_input(callback, callback.__name__)
+
+
 # --- transient dialogs -------------------------------------------------------
 #
 # A spinner (`busy_dialog`/`run_cancellable`) or a `RivuletProgress` is
@@ -614,16 +628,16 @@ class ModalStackWindow:
     _closed_for_playback = False
 
     def __init_subclass__(cls, **kwargs):
-        """Gate every input callback a screen defines behind
-        `input_suppressed()` in ONE place, instead of an `if` at the top of
-        a dozen windows' `onClick()`/`onAction()` (see the phase notes
-        above). A subclass that calls `super().onAction()` hits the already
-        gated base method too - harmless."""
+        """Enforce, in ONE place, that every input callback a screen defines
+        is gated behind `input_suppressed()` (see the phase notes above):
+        a `_GATED_CALLBACKS` method missing `@gated_input` fails at import,
+        so the test suite catches it. Only checks - never mutates `cls`,
+        which Kodi 22's SWIG metatype forbids (see `gated_input()`)."""
         super().__init_subclass__(**kwargs)
         for name in _GATED_CALLBACKS:
             callback = cls.__dict__.get(name)
             if callable(callback) and not getattr(callback, '_rivulet_input_gated', False):
-                setattr(cls, name, _gate_input(callback, name))
+                raise TypeError('%s.%s must be decorated with @gated_input' % (cls.__qualname__, name))
 
     def doModal(self):
         # A Rivulet screen opening IS phase 3: it cannot be on screen while
@@ -710,6 +724,7 @@ class BaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
     override `onAction` and still check `BACK_ACTIONS` themselves rather
     than subclass this - see `infowindow.ShowcaseWindow`."""
 
+    @gated_input
     def onAction(self, action):
         if action.getId() in BACK_ACTIONS:
             self.close()

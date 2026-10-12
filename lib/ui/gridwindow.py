@@ -42,7 +42,7 @@ import xbmc
 import xbmcgui
 
 from lib.ui.compat import log
-from lib.ui.uicommon import BaseWindow, escape_label, open_window
+from lib.ui.uicommon import BaseWindow, escape_label, gated_input, open_window
 
 BACKGROUND = 30000
 ROWS = 30001
@@ -316,6 +316,7 @@ class GridWindow(BaseWindow):
         except Exception as exc:  # noqa: BLE001 - a broken/partial skin must never crash navigation
             log('gridwindow: setImage failed: %r' % (exc,), xbmc.LOGDEBUG)
 
+    @gated_input
     def onAction(self, action):
         """Close on a back action; otherwise refresh the hero and fanart,
         since any other action may have moved the focus - including up/down
@@ -330,6 +331,7 @@ class GridWindow(BaseWindow):
         # property read plus a setImage()), so it needs no settle timer.
         self._update_background()
 
+    @gated_input
     def onClick(self, control_id):
         """Record the picked title and close, so `start()` can return it.
         Clicks on anything but a band row are ignored."""

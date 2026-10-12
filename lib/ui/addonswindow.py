@@ -14,7 +14,7 @@ catalog/stream fan-out call site walks in order. Built/run via
 import xbmcgui
 
 from lib.ui.dependencies import get_client, get_store
-from lib.ui.uicommon import CANCELLED, BaseWindow, open_window
+from lib.ui.uicommon import CANCELLED, BaseWindow, gated_input, open_window
 
 LIST = 30002
 
@@ -92,6 +92,7 @@ class AddonsWindow(BaseWindow):
             items.append(item)
         return items
 
+    @gated_input
     def onClick(self, control_id):
         if control_id != LIST:
             return

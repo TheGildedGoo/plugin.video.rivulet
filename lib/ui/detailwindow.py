@@ -44,6 +44,7 @@ from lib.ui.uicommon import (
     CANCELLED,
     ModalStackWindow,
     escape_label,
+    gated_input,
     open_window,
     run_cancellable,
 )
@@ -540,6 +541,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self._populate_episode_list(self._active_videos())
         self.setFocusId(LIST)
 
+    @gated_input
     def onAction(self, action):
         action_id = action.getId()
         if action_id in _SEASON_NAV_ACTIONS and self.getFocusId() == SEASON_BAR:
@@ -744,6 +746,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             return False
         return True
 
+    @gated_input
     def onClick(self, control_id):
         if control_id == SEASON_BAR:
             self._sync_season_from_bar()

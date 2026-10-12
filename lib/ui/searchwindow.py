@@ -23,7 +23,14 @@ import xbmc
 import xbmcgui
 
 from lib.ui.dependencies import get_client, get_store
-from lib.ui.uicommon import BaseWindow, busy_dialog, deliver_queued_input, escape_label, open_window
+from lib.ui.uicommon import (
+    BaseWindow,
+    busy_dialog,
+    deliver_queued_input,
+    escape_label,
+    gated_input,
+    open_window,
+)
 
 LIST = 30002
 
@@ -73,6 +80,7 @@ class SearchWindow(BaseWindow):
             items.append(clear_item)
         return items
 
+    @gated_input
     def onClick(self, control_id):
         if control_id != LIST:
             return

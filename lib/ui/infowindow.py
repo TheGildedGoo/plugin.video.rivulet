@@ -38,7 +38,7 @@ import threading
 import xbmcgui
 
 from lib.ui.playbackmeta import resolve_art
-from lib.ui.uicommon import ModalStackWindow, escape_label
+from lib.ui.uicommon import ModalStackWindow, escape_label, gated_input
 
 BACKGROUND = 30000
 LOADING = 30001
@@ -427,6 +427,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         if items:
             self._enrich_focused(items[0], settle=False)
 
+    @gated_input
     def onAction(self, action):
         # Before reading focus: a queued page appends items, and doing it
         # first means the strip is whole by the time anything below asks
@@ -673,6 +674,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         # back action.
         xbmc.executebuiltin('Action(noop)')
 
+    @gated_input
     def onClick(self, control_id):
         if control_id == SELECT:
             focused = self.getControl(SELECT).getSelectedItem()

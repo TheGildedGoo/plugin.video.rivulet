@@ -1536,9 +1536,11 @@ def test_full_play_stop_cycle_phase1_to_phase2_to_phase3(load_streamswindow, mon
             self.clicks = 0
             self.backs = 0
 
+        @uic.gated_input
         def onClick(self, control_id):
             self.clicks += 1  # in real life: opens another screen / another pick
 
+        @uic.gated_input
         def onAction(self, action):
             if action.getId() in uic.BACK_ACTIONS:
                 self.backs += 1
