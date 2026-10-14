@@ -1001,3 +1001,32 @@ msgstr "アドオンを同期中…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "カタログには最初の%dページのみ表示されます。それ以降の項目は読み込まれません"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "視聴"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "探す"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "後で見る"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "この端末でまだ再生していないライブラリのタイトル"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "まだ再生していないライブラリのタイトルを見るにはログインしてください。"
+
+msgctxt "#30425"
+msgid "More"
+msgstr "その他"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "未再生のライブラリタイトルはありません。作品ページから追加してください。"
+

@@ -1001,3 +1001,32 @@ msgstr "Eklentiler eşitleniyor…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Katalog yalnızca ilk %d sayfayı gösteriyor; diğer öğeler yüklenmiyor"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "İzle"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "Gözat"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "Daha sonra izle"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "Bu cihazda henüz başlatılmamış kayıtlı kitaplık başlıkları"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "Henüz başlatmadığınız kitaplık başlıklarını görmek için oturum açın."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Diğer"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "Başlatılmamış kitaplık başlığı yok. Birini sayfasından ekleyin."
+

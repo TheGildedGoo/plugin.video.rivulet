@@ -1001,3 +1001,32 @@ msgstr "애드온 동기화 중…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "카탈로그에는 처음 %d페이지만 표시되며 나머지 항목은 불러오지 않습니다"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "시청"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "둘러보기"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "나중에 보기"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "이 기기에서 아직 시작하지 않은 라이브러리 제목"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "아직 시작하지 않은 라이브러리 제목을 보려면 로그인하세요."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "더보기"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "시작하지 않은 라이브러리 제목이 없습니다. 제목 화면에서 추가하세요."
+

@@ -1001,3 +1001,32 @@ msgstr "Addons werden synchronisiert…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Der Katalog zeigt nur die ersten %d Seiten; weitere Einträge werden nicht geladen"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "Ansehen"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "Stöbern"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "Später ansehen"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "Gespeicherte Bibliothekstitel, die auf diesem Gerät noch nicht gestartet wurden"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "Melde dich an, um Bibliothekstitel zu sehen, die du noch nicht gestartet hast."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Mehr"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "Keine ungestarteten Bibliothekstitel. Füge einen auf seiner Seite hinzu."
+

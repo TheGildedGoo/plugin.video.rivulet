@@ -1001,3 +1001,32 @@ msgstr "Synchronizowanie dodatków…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Katalog pokazuje tylko pierwsze %d stron; kolejne pozycje nie są ładowane"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "Oglądaj"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "Przeglądaj"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "Obejrzyj później"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "Zapisane pozycje biblioteki, których nie rozpoczęto na tym urządzeniu"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "Zaloguj się, aby zobaczyć pozycje biblioteki, których jeszcze nie rozpoczęto."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Więcej"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "Brak nierozpoczętych pozycji biblioteki. Dodaj jedną na jej stronie."
+

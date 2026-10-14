@@ -1001,3 +1001,32 @@ msgstr "Addons synchroniseren…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "De catalogus toont alleen de eerste %d pagina's; meer items worden niet geladen"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "Kijken"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "Bladeren"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "Later kijken"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "Opgeslagen bibliotheektitels die op dit apparaat nog niet zijn gestart"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "Meld je aan om bibliotheektitels te zien die je nog niet bent gestart."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Meer"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "Geen ongestarte bibliotheektitels. Voeg er een toe vanaf de pagina."
+

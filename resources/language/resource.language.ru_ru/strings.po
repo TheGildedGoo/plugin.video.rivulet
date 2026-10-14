@@ -1001,3 +1001,32 @@ msgstr "Синхронизация аддонов…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Каталог показывает только первые %d страниц; остальные элементы не загружаются"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "Смотреть"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "Обзор"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "Смотреть позже"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "Сохраненные названия из библиотеки, которые еще не начаты на этом устройстве"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "Войдите, чтобы увидеть названия библиотеки, которые вы еще не начали."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Еще"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "Нет неначатых названий библиотеки. Добавьте название на его странице."
+

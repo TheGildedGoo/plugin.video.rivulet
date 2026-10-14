@@ -152,13 +152,14 @@ def test_menu_items_lists_every_row_with_label_and_icon(load_homewindow):
     items = ctx.homewindow._menu_items(True, _ALL_TYPE_ADDONS)
 
     assert [item.getProperty('action') for item in items] == [
-        'mystuff', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
+        'mystuff', 'watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
     ]
     assert [item.getLabel() for item in items] == [
-        'STR30241', 'STR30213', 'STR30214', 'STR30215', 'STR30001', 'STR30003', 'STR30004',
+        'STR30241', 'STR30422', 'STR30213', 'STR30214', 'STR30215', 'STR30001', 'STR30003', 'STR30004',
     ]
     assert [item.art['icon'] for item in items] == [
         ctx.compat.addon_media_path('mystuff.png'),
+        ctx.compat.addon_media_path('watchlater.png'),
         ctx.compat.addon_media_path('movies.png'),
         ctx.compat.addon_media_path('series.png'),
         ctx.compat.addon_media_path('anime.png'),
@@ -167,7 +168,7 @@ def test_menu_items_lists_every_row_with_label_and_icon(load_homewindow):
         ctx.compat.addon_media_path('settings.png'),
     ]
     assert [item.getProperty('subtitle') for item in items] == [
-        'STR30232', 'STR30216', 'STR30217', 'STR30218', 'STR30149', 'STR30151', 'STR30152',
+        'STR30232', 'STR30423', 'STR30216', 'STR30217', 'STR30218', 'STR30149', 'STR30151', 'STR30152',
     ]
 
 
@@ -177,7 +178,7 @@ def test_menu_items_omits_library_when_show_library_false(load_homewindow):
     items = ctx.homewindow._menu_items(False, _ALL_TYPE_ADDONS)
 
     assert [item.getProperty('action') for item in items] == [
-        'movies', 'series', 'anime', 'search', 'addons', 'settings',
+        'watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
     ]
 
 
@@ -200,7 +201,7 @@ def test_menu_items_hides_a_type_row_nothing_publishes(load_homewindow):
     items = ctx.homewindow._menu_items(False, addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'movies', 'search', 'addons', 'settings',
+        'watchlater', 'movies', 'search', 'addons', 'settings',
     ]
 
 
@@ -214,7 +215,7 @@ def test_menu_items_groups_tv_catalogs_under_the_series_row(load_homewindow):
     items = ctx.homewindow._menu_items(False, addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'series', 'search', 'addons', 'settings',
+        'watchlater', 'series', 'search', 'addons', 'settings',
     ]
 
 
@@ -223,7 +224,9 @@ def test_menu_items_with_no_addons_shows_no_type_rows(load_homewindow):
 
     items = ctx.homewindow._menu_items(False, [])
 
-    assert [item.getProperty('action') for item in items] == ['search', 'addons', 'settings']
+    assert [item.getProperty('action') for item in items] == [
+        'watchlater', 'search', 'addons', 'settings',
+    ]
 
 
 def test_menu_items_classifies_dotted_anime_subtypes_into_anime_row(load_homewindow):
@@ -237,7 +240,7 @@ def test_menu_items_classifies_dotted_anime_subtypes_into_anime_row(load_homewin
     items = ctx.homewindow._menu_items(False, addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'anime', 'search', 'addons', 'settings',
+        'watchlater', 'anime', 'search', 'addons', 'settings',
     ]
 
 
@@ -250,7 +253,7 @@ def test_menu_items_type_matching_is_case_insensitive(load_homewindow):
     items = ctx.homewindow._menu_items(False, addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'series', 'search', 'addons', 'settings',
+        'watchlater', 'series', 'search', 'addons', 'settings',
     ]
 
 
@@ -264,9 +267,9 @@ def test_menu_items_shows_other_row_for_a_type_no_curated_row_claims(load_homewi
     items = ctx.homewindow._menu_items(False, addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'other', 'search', 'addons', 'settings',
+        'watchlater', 'other', 'search', 'addons', 'settings',
     ]
-    other = items[0]
+    other = items[1]
     assert other.getLabel() == 'STR30227'
     assert other.getProperty('subtitle') == 'STR30228'
 
@@ -279,7 +282,7 @@ def test_menu_items_omits_other_row_when_only_curated_types_are_installed(load_h
     items = ctx.homewindow._menu_items(True, _ALL_TYPE_ADDONS)
 
     assert [item.getProperty('action') for item in items] == [
-        'mystuff', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
+        'mystuff', 'watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
     ]
 
 
@@ -291,7 +294,7 @@ def test_menu_items_hides_other_row_its_setting_turns_off(load_homewindow):
     items = ctx.homewindow._menu_items(False, addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'search', 'addons', 'settings',
+        'watchlater', 'search', 'addons', 'settings',
     ]
 
 
@@ -341,8 +344,16 @@ def test_oninit_shows_mystuff_row_when_authenticated(load_homewindow, monkeypatc
 
     win.onInit()
 
-    actions = [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items]
-    assert actions == ['mystuff', 'movies', 'series', 'anime', 'search', 'addons', 'settings']
+    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items] == [
+        'mystuff', 'watchlater',
+    ]
+    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.BROWSE_LIST).items] == [
+        'movies', 'series', 'anime',
+    ]
+    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.TOOLS_LIST).items] == [
+        'search', 'addons', 'settings',
+    ]
+    assert win.getProperty('HomeTools') == '1'
     assert win.getControl(ctx.homewindow.BACKGROUND).image == ctx.compat.ADDON_FANART
     assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as ?'
     assert win.getFocusId() == ctx.homewindow.LIST
@@ -398,7 +409,10 @@ def test_oninit_omits_type_row_supplied_only_by_a_disabled_addon(load_homewindow
 
     win.onInit()
 
-    actions = [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items]
+    actions = [
+        item.getProperty('action')
+        for item in win.getControl(ctx.homewindow.BROWSE_LIST).items
+    ]
     assert 'anime' not in actions
     assert 'movies' in actions
 
@@ -562,6 +576,62 @@ def test_onclick_settings_opens_native_settings_without_closing(load_homewindow)
 
     assert ctx.env.opened_settings is True
     assert win.closed is False
+
+
+def test_onclick_browse_list_opens_its_type_row(load_homewindow, monkeypatch):
+    """Movies lives on the browse list after the split. A click there
+    must take the same picker path a click on the old single list did."""
+    ctx = load_homewindow()
+    calls = []
+    monkeypatch.setattr(
+        ctx.catalogpicker, 'open_catalog_picker',
+        lambda types=None, heading='': (calls.append(types), False)[1],
+    )
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = xbmcgui.ListItem('Movies')
+    item.setProperty('action', 'movies')
+    win.getControl(ctx.homewindow.BROWSE_LIST).addItems([item])
+
+    win.onClick(ctx.homewindow.BROWSE_LIST)
+
+    assert calls == [ctx.homewindow.TYPE_ROW_TYPES['movies']]
+    assert win.closed is False
+
+
+def test_onclick_tools_list_opens_search(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.searchwindow, 'open_search', lambda: True)
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = xbmcgui.ListItem('Search')
+    item.setProperty('action', 'search')
+    win.getControl(ctx.homewindow.TOOLS_LIST).addItems([item])
+
+    win.onClick(ctx.homewindow.TOOLS_LIST)
+
+    assert win.closed is True
+
+
+def test_oninit_moves_tools_onto_browse_when_nothing_publishes_a_type(load_homewindow, monkeypatch):
+    """No type row means the browse list would be empty, and Down from
+    Watch is wired to that list. The tool rows move up onto it, and the
+    separate More strip stays hidden."""
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(addons=[]))
+    monkeypatch.setattr(ctx.mystuff, 'has_content', lambda store: False)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+
+    win.onInit()
+
+    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items] == [
+        'watchlater',
+    ]
+    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.BROWSE_LIST).items] == [
+        'search', 'addons', 'settings',
+    ]
+    assert win.getControl(ctx.homewindow.TOOLS_LIST).items == []
+    assert win.getProperty('HomeTools') == ''
 
 
 # ---------------------------------------------------------------------------
@@ -776,7 +846,7 @@ def test_menu_items_shows_mystuff_row_first_when_show_mystuff_true(load_homewind
     items = ctx.homewindow._menu_items(True, _ALL_TYPE_ADDONS)
 
     assert [item.getProperty('action') for item in items] == [
-        'mystuff', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
+        'mystuff', 'watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
     ]
     assert items[0].getLabel() == 'STR30241'
     assert items[0].art['icon'] == ctx.compat.addon_media_path('mystuff.png')
@@ -791,9 +861,10 @@ def test_menu_items_omits_mystuff_row_when_gate_false(load_homewindow):
     items = ctx.homewindow._menu_items(False, _ALL_TYPE_ADDONS)
 
     actions = [item.getProperty('action') for item in items]
-    assert actions == ['movies', 'series', 'anime', 'search', 'addons', 'settings']
+    assert actions == ['watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings']
     assert 'continue' not in actions
     assert 'library' not in actions
+    assert 'mystuff' not in actions
 
 
 # ---------------------------------------------------------------------------
@@ -860,6 +931,25 @@ def test_onclick_mystuff_stays_open_when_open_my_stuff_returns_false(load_homewi
     win.onClick(ctx.homewindow.LIST)
 
     assert win.closed is False
+
+
+def test_onclick_watchlater_opens_only_the_library_band(load_homewindow, monkeypatch):
+    """Watch Later is the saved, never-started library band, not a second
+    copy of Continue and not a new collection."""
+    ctx = load_homewindow()
+    seen = {}
+
+    def _open(bands=None):
+        seen['bands'] = bands
+        return True
+
+    monkeypatch.setattr(ctx.mystuff, 'open_my_stuff', _open)
+    win = _window_with_focused_action(ctx.homewindow, 'watchlater')
+
+    win.onClick(ctx.homewindow.LIST)
+
+    assert seen['bands'] == (ctx.mystuff.BAND_LIBRARY,)
+    assert win.closed is True
 
 
 # ---------------------------------------------------------------------------

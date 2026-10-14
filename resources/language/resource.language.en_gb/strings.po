@@ -1001,3 +1001,32 @@ msgstr ""
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr ""
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr ""
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr ""
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr ""
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr ""
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr ""
+
+msgctxt "#30425"
+msgid "More"
+msgstr ""
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr ""
+
