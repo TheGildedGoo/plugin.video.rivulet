@@ -1,0 +1,35 @@
+{
+  "id": "tt0944947",
+  "type": "series",
+  "name": "Game of Thrones",
+  "poster": "https://images.metahub.space/poster/small/tt0944947/img",
+  "background": "https://images.metahub.space/background/medium/tt0944947/img",
+  "logo": "https://images.metahub.space/logo/medium/tt0944947/img",
+  "description": "Nine noble families vie for control of Westeros and the Iron Throne, while an ancient threat beyond The Wall begins to stir.",
+  "videos": [
+    {
+      "name": "The Kingsroad",
+      "season": 1,
+      "number": 2,
+      "episode": 2,
+      "released": "2011-04-25T05:00:00.000Z",
+      "thumbnail": "https://episodes.metahub.space/tt0944947/1/2/w780.jpg",
+      "overview": "The Lannisters plot to ensure Bran's silence; Jon and Tyrion head to the Wall; Ned faces a family crisis en route to King's Landing.",
+      "description": "The Lannisters plot to ensure Bran's silence; Jon and Tyrion head to the Wall; Ned faces a family crisis en route to King's Landing.",
+      "id": "tt0944947:1:2",
+      "firstAired": "2011-04-25T05:00:00.000Z"
+    },
+    {
+      "name": "Lord Snow",
+      "season": 1,
+      "number": 3,
+      "episode": 3,
+      "released": "2011-05-02T05:00:00.000Z",
+      "thumbnail": "https://episodes.metahub.space/tt0944947/1/3/w780.jpg",
+      "overview": "Jon impresses Tyrion at Castle Black; Ned confronts his past and future at King's Landing; Daenerys finds herself at odds with Viserys.",
+      "description": "Jon impresses Tyrion at Castle Black; Ned confronts his past and future at King's Landing; Daenerys finds herself at odds with Viserys.",
+      "id": "tt0944947:1:3",
+      "firstAired": "2011-05-02T05:00:00.000Z"
+    }
+  ]
+}

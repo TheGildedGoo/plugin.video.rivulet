@@ -3,6 +3,9 @@
 
 """HubWindow: one poster row per catalog, exercised against the kodistubs."""
 import contextlib
+import datetime
+import json
+import os
 
 import pytest
 
@@ -275,3 +278,67 @@ def test_hub_bar_is_right_aligned_and_posters_have_a_focus_frame():
     assert 'focusleft' not in blob
     assert blob.count('focus_stroke.png') == 8
     assert 'pill_fill.png' in ET.tostring(bar, encoding='unicode')
+
+
+def test_new_episodes_row_paints_the_cinemeta_still_the_skin_reads(load_hub, monkeypatch):
+    """Game of Thrones S1E3, as Cinemeta actually returns it.
+
+    HubWindow.xml does not read ListItem.Art(thumb/poster/fanart). The
+    card texture is ``$INFO[ListItem.Property(p0)]``, and ``_apply_posters``
+    copies the focused poster's ``thumbnail`` property into ``p0``. That
+    property has to be the episode still, not the series poster. The
+    hero title is ``S1E3 · Lord Snow`` and the plot is the episode
+    overview. The series logo stays off, or the skin hides the title.
+    """
+    import xml.etree.ElementTree as ET
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    skin = ET.parse(os.path.join(
+        root, 'resources', 'skins', 'Default', '1080i', 'HubWindow.xml',
+    )).getroot()
+    row = skin.find(".//control[@id='31000']")
+    textures = [
+        node.text.strip()
+        for node in row.iter('texture')
+        if node.text and 'ListItem.Property(p0)' in node.text
+    ]
+    assert textures
+    assert all(text == '$INFO[ListItem.Property(p0)]' for text in textures)
+    blob = ET.tostring(row, encoding='unicode')
+    assert 'ListItem.Art(poster)' not in blob
+    assert 'ListItem.Art(thumb)' not in blob
+    assert 'ListItem.Art(fanart)' not in blob
+
+    with open(os.path.join(root, 'tests', 'fixtures', 'cinemeta_tt0944947.json')) as fh:
+        meta = json.load(fh)
+    from lib.newepisodes import new_episodes
+    episodes = new_episodes(
+        [{'type': 'series', 'id': meta['id'], 'video_id': 'tt0944947:1:2'}],
+        {meta['id']: meta},
+        {},
+        datetime.datetime(2026, 10, 15),
+    )
+    assert len(episodes) == 1
+    episode = episodes[0]
+    still = 'https://episodes.metahub.space/tt0944947/1/3/w780.jpg'
+    assert episode['poster'] == still
+    assert episode['poster'] != meta['poster']
+    assert episode['background'] == still
+    assert episode['label'] == 'S1E3 \u00b7 Lord Snow'
+    assert episode['overview'].startswith('Jon impresses Tyrion')
+
+    ctx = load_hub()
+    monkeypatch.setattr(ctx.catalogpicker, '_new_episode_items', lambda store: episodes)
+    desc = ctx.hubwindow._episode_descriptor(_Store(), frozenset({'series', 'tv'}))
+    assert desc is not None
+    import xbmcgui
+    row_item = xbmcgui.ListItem('New Episodes')
+    ctx.hubwindow._apply_posters(row_item, desc['posters'], 0)
+
+    assert row_item.getProperty('p0') == still
+    assert meta['poster'] not in row_item.getProperty('p0')
+    assert row_item.getProperty('hero_title') == 'S1E3 \u00b7 Lord Snow'
+    assert row_item.getProperty('hero_meta') == 'Game of Thrones'
+    assert row_item.getProperty('hero_plot').startswith('Jon impresses Tyrion')
+    assert row_item.getProperty('hero_logo') == ''
+    assert row_item.getProperty('fanart') == still

@@ -192,14 +192,30 @@ def test_new_episodes_prefers_the_episode_still_over_series_art():
     assert result[0]['background'] == 'still.jpg'
 
 
-def test_new_episodes_result_carries_display_fields_from_the_series_meta():
+def test_new_episodes_builds_a_metahub_still_when_the_video_has_none():
+    """An imdb id with no thumbnail still must not fall back to the series
+    poster. The URL is the one Cinemeta writes into ``thumbnail``."""
     meta = _meta(name='A Show', poster='poster.jpg', background='bg.jpg',
-                 videos=[_video('s1e1', 1, 1, PAST), _video('s1e2', 1, 2, PAST)])
+                 videos=[_video('s1e1', 1, 1, PAST), _video('s1e2', 1, 2, PAST, title='Next')])
     result = new_episodes([_series(video_id='s1e1')], {'tt1': meta}, {}, NOW)
+    still = 'https://episodes.metahub.space/tt1/1/2/w780.jpg'
     assert result == [{
         'type': 'series', 'id': 'tt1', 'video_id': 's1e2', 'season': 1, 'episode': 2,
-        'released': PAST, 'name': 'A Show', 'poster': 'poster.jpg', 'background': 'bg.jpg',
+        'released': PAST, 'name': 'A Show', 'title': 'Next', 'label': 'S1E2 \u00b7 Next',
+        'overview': '', 'poster': still, 'background': still,
     }]
+
+
+def test_new_episodes_keeps_series_art_when_no_still_can_be_built():
+    meta = _meta(name='A Show', poster='poster.jpg', background='bg.jpg',
+                 videos=[_video('s1e1', 1, 1, PAST), _video('s1e2', 1, 2, PAST)])
+    result = new_episodes(
+        [_series(sid='kitsu:1', video_id='s1e1')], {'kitsu:1': meta}, {}, NOW,
+    )
+    assert result[0]['poster'] == 'poster.jpg'
+    assert result[0]['background'] == 'bg.jpg'
+    assert result[0]['label'] == 'S1E2'
+    assert result[0]['overview'] == ''
 
 
 def test_new_episodes_ignores_a_series_item_missing_type_or_id():

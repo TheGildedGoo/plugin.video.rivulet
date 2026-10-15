@@ -196,6 +196,38 @@ def _action_item(label, url, icon=None):
     return (url, li, False)
 
 
+def _series_video_rank(meta):
+    """How useful `meta` is as the source of a New Episodes row.
+
+    0 -- no episode list. Catalog previews and several proxy addons
+    answer ``meta`` with an id and a poster and nothing else. Using
+    that poster is the series box art.
+    1 -- ``videos`` entries, but none of them carry a still or an
+    overview. The row can still build a metahub still from the imdb
+    id, and it cannot show what the episode is about.
+    2 -- at least one episode has a thumbnail (or ``thumb``) or an
+    overview. That is what Cinemeta's meta resource returns.
+    """
+    if not isinstance(meta, dict):
+        return 0
+    videos = meta.get('videos')
+    if not isinstance(videos, list):
+        return 0
+    rank = 0
+    for video in videos:
+        if not isinstance(video, dict) or not video.get('id'):
+            continue
+        rank = 1
+        for key in ('thumbnail', 'thumb'):
+            raw = video.get(key)
+            if isinstance(raw, str) and raw.strip():
+                return 2
+        overview = video.get('overview') or video.get('description')
+        if isinstance(overview, str) and overview.strip():
+            return 2
+    return rank
+
+
 def _usable_meta(meta):
     """A meta the detail screen can open: a dict with a non-empty string id.
 
@@ -229,7 +261,7 @@ def _pause_before_meta_retry(seconds):
     return xbmc.Monitor().waitForAbort(seconds)
 
 
-def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; ratchet
+def _fetch_meta(stype, sid, store=True, on_miss=None, require_videos=False):  # noqa: C901 - legacy; ratchet
     """Aggregate meta across every installed addon supporting it for
     (stype, sid); Stremio addons commonly disagree on coverage, so the
     first addon to return a usable object wins.
@@ -294,16 +326,38 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
     restamping `ts` for every warm candidate on every reopen would
     perpetually re-arm each entry's TTL and defeat `metacache.TTL_SECONDS`
     from ever actually expiring one (Finding 7's adversarial-review fix).
+
+    `require_videos=True` is the New Episodes fetch. The first addon
+    with an id is the wrong winner there: a catalog preview has an id
+    and the series poster and no ``videos`` array, and a proxy can
+    list episodes with neither a still nor an overview. Either one
+    paints the box art and an empty hero. A cached preview is not a
+    hit either -- it would hide Cinemeta for the whole TTL. A cached
+    episode list that already carries a still or an overview is a hit.
+    A cached list that carries neither is a hit only after a previous
+    ``require_videos`` fetch stored it (``videos_checked``), so a
+    proxy that is the only answer does not get re-fetched on every
+    Series open. While addons are still answering, the first meta that
+    actually has a still or an overview wins; a poster-only body does
+    not end the wait.
     """
     data_store = get_store()
     client = get_client()
 
     cache_dir = getattr(data_store, 'data_dir', None)
     if cache_dir is not None:
-        from lib.ui.metacache import load_cached_meta
-        cached = load_cached_meta(cache_dir, stype, sid)
-        if _usable_meta(cached):
-            return cached
+        if require_videos:
+            from lib.ui.metacache import load_cached_record
+            record = load_cached_record(cache_dir, stype, sid)
+            cached = record.get('meta') if record else None
+            rank = _series_video_rank(cached)
+            if rank >= 2 or (rank >= 1 and record.get('videos_checked')):
+                return cached
+        else:
+            from lib.ui.metacache import load_cached_meta
+            cached = load_cached_meta(cache_dir, stype, sid)
+            if _usable_meta(cached):
+                return cached
 
     if on_miss is not None:
         on_miss()
@@ -359,23 +413,49 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
 
         finished = {}
         result = None
-        while len(finished) < len(targets):
-            index, one = results.get()
-            finished[index] = one
-            if _usable_meta(one):
-                # Only consults results already in hand - never blocks on a
-                # still-running addon - then picks the earliest-index winner
-                # among those, preserving list-order preference whenever the
-                # preferred addon is at least as fast as the others. An
-                # id-less body is not a winner: the loop keeps waiting for
-                # an addon that actually has this title.
-                winning_index = min(i for i, r in finished.items() if _usable_meta(r))
-                result = finished[winning_index]
-                break
+        if require_videos:
+            # A poster-only answer must not win while an addon that has
+            # the episode list is still in flight. Rank 2 (a still or
+            # an overview) ends the wait the same way a usable id does
+            # for every other caller. Rank 1 is kept only if nothing
+            # richer arrives.
+            best_rank = 0
+            best_index = -1
+            while len(finished) < len(targets):
+                index, one = results.get()
+                finished[index] = one
+                rank = _series_video_rank(one)
+                if rank > best_rank or (rank == best_rank and rank and index < best_index):
+                    result = one
+                    best_rank = rank
+                    best_index = index
+                if best_rank >= 2:
+                    break
+            if best_rank < 1:
+                result = None
+        else:
+            while len(finished) < len(targets):
+                index, one = results.get()
+                finished[index] = one
+                if _usable_meta(one):
+                    # Only consults results already in hand - never blocks on a
+                    # still-running addon - then picks the earliest-index winner
+                    # among those, preserving list-order preference whenever the
+                    # preferred addon is at least as fast as the others. An
+                    # id-less body is not a winner: the loop keeps waiting for
+                    # an addon that actually has this title.
+                    winning_index = min(i for i, r in finished.items() if _usable_meta(r))
+                    result = finished[winning_index]
+                    break
+
+    if require_videos and _series_video_rank(result) < 1:
+        result = None
 
     if store and cache_dir is not None and _usable_meta(result):
         from lib.ui.metacache import store_cached_meta
-        store_cached_meta(cache_dir, stype, sid, result)
+        store_cached_meta(
+            cache_dir, stype, sid, result, videos_checked=bool(require_videos),
+        )
     return result
 
 

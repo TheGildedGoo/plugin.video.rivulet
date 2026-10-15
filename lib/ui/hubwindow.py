@@ -20,8 +20,13 @@ viewer types a query. A genre-required catalog uses its first declared
 genre so the row is not empty.
 
 Series, and only Series, may pin a New Episodes row. That calls
-`catalogpicker._new_episode_items` and `_mark_episode_seen` and does
-not change them.
+`catalogpicker._new_episode_items` and `_mark_episode_seen`. The
+card image is the episode still those items carry (`poster`), copied
+onto `p0`..`p7`. HubWindow.xml paints `$INFO[ListItem.Property(pN)]`.
+It does not read `ListItem.Art`. The hero title is the episode label
+(`S1E3 · Title`) and the hero plot is the episode overview. The
+series clearlogo is left off that row: the skin hides the title
+whenever `HeroLogo` is set.
 
 This module does not change playback, the player, or the Stremio client.
 """
@@ -38,7 +43,7 @@ from lib.ui.homewindow import (
     STATUS_LABEL,
     paint_hero,
 )
-from lib.ui.uicommon import BaseWindow, gated_input, open_window
+from lib.ui.uicommon import BaseWindow, escape_label, gated_input, open_window
 
 #: The vertical list of catalog rows. One control, any number of rows.
 HUB_LIST = 31000
@@ -137,13 +142,22 @@ def _episode_descriptor(store, types):
     posters = []
     kept = []
     for index, episode in enumerate(episodes[:SHELF_CAP]):
+        # `name` is what `_poster_item` writes into `hero_title`. For
+        # this row that has to be the episode (`S1E3 · Title`), not the
+        # series. The series name moves to `hero_meta`, under the title.
+        # No logo: HubWindow.xml hides the title while HeroLogo is set,
+        # and the series clearlogo would put the show's name back.
         item = _poster_item({
-            'name': episode.get('name'),
+            'name': episode.get('label') or episode.get('name'),
             'type': episode.get('type'),
             'id': episode.get('id'),
             'poster': episode.get('poster'),
-            'background': episode.get('background'),
+            'background': episode.get('background') or episode.get('poster'),
+            'description': episode.get('overview') or '',
         })
+        show = episode.get('name') or ''
+        if show and episode.get('label'):
+            item.setProperty('hero_meta', escape_label(show))
         item.setProperty('episode_index', str(index))
         posters.append(item)
         kept.append(episode)

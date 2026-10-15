@@ -23,6 +23,8 @@ lib.ui.dependencies), since both are single process-wide singletons owned
 by that module.
 """
 import contextlib
+import json
+import os
 import threading
 
 import pytest
@@ -308,6 +310,47 @@ def test_addon_fanart_returns_configured_fanart_path(load_views):
 # ---------------------------------------------------------------------------
 # _fetch_meta()
 # ---------------------------------------------------------------------------
+
+
+def test_fetch_meta_require_videos_skips_a_poster_only_body(load_views, tmp_path):
+    """New Episodes must not stop on the series poster. A fast addon that
+    returns an id and a poster, and a cached copy of that same preview,
+    both lose to the addon that actually has the episode list."""
+    ctx = load_views()
+    views = ctx.views
+    poster_only = {
+        'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones',
+        'poster': 'https://images.metahub.space/poster/small/tt0944947/img',
+    }
+    with open(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'tests', 'fixtures', 'cinemeta_tt0944947.json',
+    )) as fh:
+        rich = json.load(fh)
+    preview = {
+        'transportUrl': 'https://preview.example/manifest.json',
+        'manifest': {'id': 'org.preview', 'resources': ['meta'], 'types': ['series'], 'idPrefixes': ['tt']},
+    }
+    cinemeta = {
+        'transportUrl': 'https://v3-cinemeta.strem.io/manifest.json',
+        'manifest': {'id': 'com.linvo.cinemeta', 'resources': ['meta'], 'types': ['series'], 'idPrefixes': ['tt']},
+    }
+    client = FakeAddonClient(meta_results={
+        preview['transportUrl']: poster_only,
+        cinemeta['transportUrl']: rich,
+    })
+    store = FakeStore(addons=[preview, cinemeta], data_dir=str(tmp_path))
+    from lib.ui.metacache import store_cached_meta
+    store_cached_meta(str(tmp_path), 'series', 'tt0944947', poster_only)
+    _wire_data_layer(views, store, client)
+
+    result = views._fetch_meta('series', 'tt0944947', require_videos=True)
+
+    assert result['videos'][1]['thumbnail'] == (
+        'https://episodes.metahub.space/tt0944947/1/3/w780.jpg'
+    )
+    assert result['poster'] == rich['poster']
+    assert client.meta_calls  # the cached preview was not a hit
 
 
 def test_fetch_meta_skips_unsupported_and_erroring_addons_first_hit_wins(load_views):

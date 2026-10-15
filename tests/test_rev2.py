@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 M0RF30
 # SPDX-License-Identifier: MIT
-"""Rev2Rivulet stays beside RevRivulet, and its posters are not the oval mask."""
+"""The Rev2 skin stays in the tree. The published repository is RevRivulet only."""
 import re
 import struct
 import zipfile
@@ -124,8 +124,7 @@ def test_rank_prefers_a_cached_playable_stream_over_a_cam():
     assert cached.score > cam.score
 
 
-def test_publish_builds_rev2_beside_revrivulet_without_rewriting_the_tree(tmp_path):
-    from scripts.publish_repo import REV2_ID as PUBLISHED_ID
+def test_publish_ships_revrivulet_only_and_a_two_link_index(tmp_path):
     from scripts.publish_repo import build_repo
 
     addon_before = (_ROOT / 'addon.xml').read_text(encoding='utf-8')
@@ -135,21 +134,18 @@ def test_publish_builds_rev2_beside_revrivulet_without_rewriting_the_tree(tmp_pa
         str(output / 'addons.xml')
     ).getroot()
     ids = [addon.get('id') for addon in root.findall('addon')]
-    assert 'plugin.video.revrivulet' in ids
-    assert PUBLISHED_ID in ids
-    rev2 = root.find("addon[@id='%s']" % PUBLISHED_ID)
-    assert rev2.get('version') == '0.1.0.r2.3'
-    assert rev2.get('name') == 'Rev2Rivulet'
-    zip_path = output / PUBLISHED_ID / ('%s-0.1.0.r2.3.zip' % PUBLISHED_ID)
-    with zipfile.ZipFile(str(zip_path)) as zf:
-        addon_py = zf.read('%s/lib/addonid.py' % PUBLISHED_ID).decode('utf-8')
-        home = zf.read('%s/resources/skins/Default/1080i/Rev2HomeWindow.xml' % PUBLISHED_ID).decode('utf-8')
-    assert 'ADDON_ID = "%s"' % PUBLISHED_ID in addon_py
-    assert 'round_mask.png' not in home
-    assert 'rv_mask_200x300.png' in home
+    assert ids == ['plugin.video.revrivulet', 'repository.revrivulet']
+    assert not (output / 'plugin.video.rev2rivulet').exists()
+    assert not list(output.glob('plugin.video.rev2rivulet*.zip'))
+    hrefs = re.findall(r'href="([^"]+)"', (output / 'index.html').read_text(encoding='utf-8'))
+    assert hrefs == [
+        'repository.revrivulet.zip',
+        'plugin.video.revrivulet.zip',
+    ]
     plain = zipfile.ZipFile(str(output / 'plugin.video.revrivulet.zip'))
-    assert 'plugin.video.revrivulet' in plain.read('plugin.video.revrivulet/addon.xml').decode('utf-8')
-    assert PUBLISHED_ID not in plain.read('plugin.video.revrivulet/lib/addonid.py').decode('utf-8')
+    addon_xml = plain.read('plugin.video.revrivulet/addon.xml').decode('utf-8')
+    assert 'plugin.video.revrivulet' in addon_xml
+    assert 'plugin.video.rev2rivulet' not in addon_xml
 
 
 def test_search_sheet_appends_a_letter_and_settings_toggle_a_bool():

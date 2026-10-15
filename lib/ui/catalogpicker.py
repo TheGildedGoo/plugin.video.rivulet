@@ -429,13 +429,22 @@ def _fetch_series_metas(series_items):
     metas: `views._fetch_meta()` sits behind `lib.ui.metacache`'s
     short-TTL disk cache, so a render that already computed this
     recently costs a handful of disk reads, not a fresh addon
-    round-trip per followed series."""
+    round-trip per followed series.
+
+    `require_videos=True` is load-bearing. The plain fetch returns the
+    first addon body that has an id, and a catalog preview has an id
+    and the series poster and no episode list. New Episodes then had
+    nothing to paint but that poster. A body with no ``videos`` is not
+    an answer here; one whose episodes carry a still or an overview
+    beats one that does not.
+    """
     from lib.ui import views
 
     if not series_items:
         return {}
     fetched = views._map_addons(
-        lambda item: views._fetch_meta(item['type'], item['id']), series_items,
+        lambda item: views._fetch_meta(item['type'], item['id'], require_videos=True),
+        series_items,
     )
     return {item['id']: meta for item, meta in zip(series_items, fetched) if meta}
 
