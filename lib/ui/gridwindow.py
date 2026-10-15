@@ -4,8 +4,8 @@
 """GridWindow: the merged "Continue" screen, opened via `open_grid()` -
 one labelled, horizontally-scrolling poster row per band of
 `lib.ui.mystuff`'s merge, stacked vertically in `GridWindow.xml`'s
-`grouplist`. The focused band is pinned in the lower part of the
-screen and the next band peeks under it.
+`grouplist`. The focused band is pinned at the bottom of the
+screen. Up and down switch bands; only that band is visible.
 
 This module fills those rows and returns the title picked. Each cell
 carries four runtime properties the skin draws (Kodi's skin engine can
@@ -87,7 +87,7 @@ LIST = BAND_ROWS['resume'][0]
 #: overhung the artwork by 12px each side, plainly visible on a real
 #: device against the focused cell's outline. A test pins them together.
 #: The poster shrank from 288x432 so a whole band, title and badge
-#: included, fits in the lower row band with the next band peeking.
+#: included, fits in the one visible row at the bottom of the skin.
 PROGRESS_TRACK_WIDTH = 200
 
 #: Floor on a rendered progress bar, in skin pixels. A title watched 1-2%

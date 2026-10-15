@@ -10,15 +10,17 @@ never runs behind the rows. The title (or the clearlogo), the metadata
 line, and the description sit in the upper left, in that order, and
 end above the band.
 
-The focused row is pinned inside the band (y=652, height 428, the
-bottom 40% of the skin — about the bottom 35% once the heading above
-the poster is counted; the poster art itself starts at y=684). Home
-and Library pin it by making every row group exactly as tall as the
-viewport: Kodi top-aligns on the way up and bottom-aligns on the way
-down, and those are the same scroll when the heights match. A negative
-itemgap pulls the next row into the bottom of that viewport, so at
-most one partial row shows. The hubs are one fixedlist with
-focusposition 0 and a height of one row plus a peek.
+The focused row is the only row on screen, pinned to the bottom edge.
+Home's row is 388px (a 32px heading plus the 356px poster panel), the
+hubs' row is the existing 340px catalog item, and Library's row is
+396px (a 32px header plus the 364px panel). A 300px poster plus its
+heading does not fit in a literal quarter of 1080 without clipping the
+focus frame, so the band is one card tall instead. Home and Library
+pin it by making every row group exactly as tall as the viewport and
+setting itemgap to 0: Kodi top-aligns on the way up and bottom-aligns
+on the way down, and those are the same scroll when the heights match.
+A negative gap would pull the next heading into the band. The hubs are
+one fixedlist with focusposition 0 and a height of exactly one row.
 
 Showcase keeps the older top third. It is a single horizontal strip,
 not this row band.
@@ -30,11 +32,7 @@ _SKIN = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     'resources', 'skins', 'Default', '1080i',
 )
-# Poster art starts at band_top + the 32px heading. 1080 - 684 is 36.7%
-# of the skin: the closest a 300px poster, its caption, and a peek of
-# the next row can sit while staying on the 1080 frame.
-_BAND_TOP = 652
-_BAND_HEIGHT = 428
+# One row, sitting on y=1080. Poster and focus-frame sizes are unchanged.
 _SCREEN = 1080
 
 # font13 is 30. Two lines fit in 64 and a third (90) does not.
@@ -43,32 +41,32 @@ _ROWS = {
     'HomeWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
         'rows': '30001', 'pills': '30010', 'lines': 2, 'font': 30, 'title_h': 64,
-        'kind': 'grouplist',
+        'kind': 'grouplist', 'band': (692, 388),
     },
     'Rev2HomeWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
         'rows': '30001', 'pills': '30010', 'lines': 2, 'font': 30, 'title_h': 64,
-        'kind': 'grouplist',
+        'kind': 'grouplist', 'band': (692, 388),
     },
     'HubWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
         'rows': '31000', 'lines': 2, 'font': 30, 'title_h': 64,
-        'kind': 'fixedlist',
+        'kind': 'fixedlist', 'band': (740, 340),
     },
     'Rev2HubWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
         'rows': '31000', 'lines': 2, 'font': 30, 'title_h': 64,
-        'kind': 'fixedlist',
+        'kind': 'fixedlist', 'band': (740, 340),
     },
     'GridWindow.xml': {
         'title': '30020', 'meta': '30021', 'plot': '30024',
         'rows': '30001', 'lines': 2, 'font': 30, 'title_h': 64,
-        'kind': 'grouplist',
+        'kind': 'grouplist', 'band': (684, 396),
     },
     'Rev2GridWindow.xml': {
         'title': '30020', 'meta': '30021', 'plot': '30024',
         'rows': '30001', 'lines': 2, 'font': 30, 'title_h': 64,
-        'kind': 'grouplist',
+        'kind': 'grouplist', 'band': (684, 396),
     },
 }
 _SHOWCASE = {
@@ -139,9 +137,10 @@ def _assert_text_stack(name, title, meta, plot, spec):
 
 
 def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
-    """Fanart fills the screen. The focused row stays in the lower band,
-    and at most one partial row shows under it."""
+    """Fanart fills the screen. Exactly one row is visible, pinned to
+    the bottom of the skin. Up and down switch rows."""
     for name, spec in _ROWS.items():
+        band_top, band_height = spec['band']
         root = _root(name)
         fanart = _by_id(root, '30000')
         assert _px(fanart, 'width') == 1920 and _px(fanart, 'height') == _SCREEN, name
@@ -157,12 +156,12 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
         # fade_v.png reaches alpha 255 at about 75% of its height and
         # stays there. That point has to be at or above the row band.
         opaque_at = _px(fade, 'top') + int(0.75 * _px(fade, 'height'))
-        assert opaque_at <= _BAND_TOP, name
+        assert opaque_at <= band_top, name
 
         plates = [
             el for el in root.iter('control')
             if el.get('type') == 'image' and _texture_name(el) == 'white.png'
-            and (el.findtext('top') or '').strip() == str(_BAND_TOP)
+            and (el.findtext('top') or '').strip() == str(band_top)
         ]
         assert len(plates) == 1, name
         plate = plates[0]
@@ -185,7 +184,7 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
 
         rows = _by_id(root, spec['rows'])
         row_top, row_h = _px(rows, 'top'), _px(rows, 'height')
-        assert row_top == _BAND_TOP and row_h == _BAND_HEIGHT, name
+        assert row_top == band_top and row_h == band_height, name
         assert row_top + row_h == _SCREEN, name
         assert row_top >= plot_bottom, name
 
@@ -207,15 +206,11 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
             assert (rows.findtext('orientation') or '').strip() == 'vertical', name
             item_h = int(rows.find('itemlayout').get('height'))
             focused_h = int(rows.find('focusedlayout').get('height'))
-            assert item_h == focused_h, name
-            # One full row, plus a partial next row, and not a second full one.
-            assert item_h < row_h < item_h * 2, name
+            assert item_h == focused_h == row_h, name
         else:
             assert rows.get('type') == 'grouplist', name
             gap = int((rows.findtext('itemgap') or '').strip())
-            assert gap < 0, name
-            peek = -gap
-            assert 16 <= peek < row_h, name
+            assert gap == 0, name
             groups = [
                 child for child in list(rows)
                 if child.tag == 'control' and child.get('type') == 'group'
@@ -227,6 +222,7 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
                     child for child in list(group)
                     if child.tag == 'control' and child.get('type') == 'panel'
                 )
+                assert _px(panel, 'top') + _px(panel, 'height') <= row_h, name
                 assert panel.find('onup') is not None and panel.find('ondown') is not None, name
                 assert panel.find('onleft') is not None and panel.find('onright') is not None, name
 

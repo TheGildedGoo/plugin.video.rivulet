@@ -15,10 +15,10 @@
             <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio>scale</aspectratio></control>
             <control type="image"><width>1280</width><height>1080</height><texture colordiffuse="E607090B">fade_h.png</texture></control>
             <!-- fade_v.png is opaque only from about 75% of its height.
-                 280 + 0.75*496 = 652, the top of the row band. The solid
-                 plate under it is what keeps the art off the rows. -->
-            <control type="image"><left>0</left><top>280</top><width>1920</width><height>496</height><texture colordiffuse="FF07090B">fade_v.png</texture></control>
-            <control type="image"><left>0</left><top>652</top><width>1920</width><height>428</height><texture colordiffuse="FF07090B">white.png</texture></control>
+                 368 + 0.75*496 = 740, the top of the one visible row.
+                 The solid plate under it keeps the art off that row. -->
+            <control type="image"><left>0</left><top>368</top><width>1920</width><height>496</height><texture colordiffuse="FF07090B">fade_v.png</texture></control>
+            <control type="image"><left>0</left><top>740</top><width>1920</width><height>340</height><texture colordiffuse="FF07090B">white.png</texture></control>
 
             <control type="image"><left>64</left><top>22</top><width>48</width><height>48</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
             <control type="label"><left>124</left><top>16</top><width>360</width><height>52</height><font>font37</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny><label>[B]RevRivulet[/B]</label></control>
@@ -72,11 +72,11 @@
             <!-- One list item per catalog. Kodi draws only the visible rows; Python fills posters as the remote moves. -->
             <!-- Catalog rows are mask_poster.png, a 2:3 rounded rectangle. New Episodes sets layout=land and draws mask_land.png at 392x220 in the same row. A square diffuse stretches into an oval, so each mask matches its box. The grey plate is that same mask. -->
             <control type="fixedlist" id="31000">
-                <left>48</left><top>652</top><width>1840</width><height>428</height>
+                <left>48</left><top>740</top><width>1840</width><height>340</height>
                 <orientation>vertical</orientation>
                 <!-- focusposition 0 pins the focused catalog at the top of
-                     this band. The height is one 340px row plus a peek of
-                     the next, so moving down scrolls rows up into the band. -->
+                     this band. The list is exactly one 340px row, so up
+                     and down replace it with the next catalog. -->
                 <focusposition>0</focusposition>
                 <onleft>31000</onleft><onright>31000</onright>
                 <onup>30011</onup><ondown>31000</ondown>

@@ -448,9 +448,10 @@ def test_skin_list_focused_layout_matches_and_divides_row_height():
             row_height = int(item_height)
             if row_height and int(own_height) % row_height != 0:
                 extra = int(own_height) - row_height
-                # The hub row band pins the focused catalog (focusposition 0)
-                # and lets the next one peek. One partial row is the layout.
-                # Any other non-multiple is the DetailWindow clipped-row bug.
+                # A vertical list with focusposition 0 may be one row plus a
+                # partial next row. The current hubs are an exact multiple
+                # (one row, no peek). Any other non-multiple is the
+                # DetailWindow clipped-row bug.
                 if orient == 'vertical' and focus == '0' and 0 < extra < row_height:
                     continue
                 offenders.append('%s: control %s height=%s is not a whole multiple of its %spx row - the last row clips'

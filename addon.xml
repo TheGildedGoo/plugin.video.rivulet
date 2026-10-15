@@ -16,7 +16,7 @@
 - Fix: Add to Library and Remove from Library save to your Stremio account immediately. The title shows in Library right away, newest first.
 - New: near the end of an episode, Up next counts down and plays the next one. It prefers the highest cached source. Continue Resume rolls into that too. Back on the card leaves you where playback started.
 - Fix: while sources load, the list shows how many addons have answered. It opens on the first source.
-- Updated: the picture behind Home, the hubs, and Library fills the screen. The row you are on sits low, and the next row peeks under it.
+- Updated: Home, the hubs, and Library show the focused title's picture across the top, fading to black, and one row at the bottom. Up and down switch rows.
 - New: Movies can be browsed by decade, from the 2020s through the 1960s. Opening one lists the popular titles of those years.
 - Fix: addons added in a browser show up here. Sync addons now keeps them.
 - Updated: the next row of a category loads while you move, and posters are ready sooner.

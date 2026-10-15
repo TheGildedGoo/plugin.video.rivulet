@@ -4,8 +4,9 @@
      ONE ROW PER BAND. Each band (resume / next up / watched / library)
      has its own labelled header and its own horizontally-scrolling poster
      row, stacked in a vertical `grouplist` (30001). The focused band is
-     pinned in the lower part of the 1920x1080 skin and the next band
-     peeks under it. This is Kodi's own idiom for sectioned content:
+     pinned at the bottom of the 1920x1080 skin. Up and down switch
+     bands, and only the focused band is on screen. This is Kodi's own
+     idiom for sectioned content:
      skin.estuary's Home builds its widget rows exactly this way
      (`WidgetListPoster` inside `WidgetGroupListCommon`, each preceded by
      a `CategoryLabel`).
@@ -21,13 +22,12 @@
      focused control on the way up and bottom-aligns it on the way down.
      Those land on the same scroll position only when that control is
      exactly as tall as the viewport. Each band is a group of height
-     428, the grouplist is 428 tall starting at y=652, and `itemgap` is
-     -32. The negative gap draws the next band's header into the bottom
-     of the viewport: one partial row, and no second full one. A 432px
-     poster cannot sit in that band with its title and badge and still
-     leave the peek, so the artwork is 200x300 (a true 2:3, the same
-     poster Home uses). The row is still wider than the frame, so the
-     last poster bleeds off the right edge.
+     396, the grouplist is 396 tall starting at y=684, and `itemgap` is
+     0. A negative gap would pull the next header into the band; zero
+     leaves exactly one band on screen. The artwork stays 200x300 (a
+     true 2:3, the same poster Home uses) so the title, badge, and
+     focus frame fit in that one row. The row is still wider than the
+     frame, so the last poster bleeds off the right edge.
 
      The group is what scrolls, not the panel. AddControl rewires
      onup/ondown on direct children only, so each panel sets that chain
@@ -101,10 +101,10 @@
             <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio>scale</aspectratio></control>
             <control type="image"><width>1280</width><height>1080</height><texture colordiffuse="E60A0C0E">fade_h.png</texture></control>
             <!-- fade_v.png is opaque only from about 75% of its height.
-                 280 + 0.75*496 = 652, the top of the row band. The solid
-                 plate under it is what keeps the art off the rows. -->
-            <control type="image"><left>0</left><top>280</top><width>1920</width><height>496</height><texture colordiffuse="FF0A0C0E">fade_v.png</texture></control>
-            <control type="image"><left>0</left><top>652</top><width>1920</width><height>428</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
+                 312 + 0.75*496 = 684, the top of the one visible row.
+                 The solid plate under it keeps the art off that row. -->
+            <control type="image"><left>0</left><top>312</top><width>1920</width><height>496</height><texture colordiffuse="FF0A0C0E">fade_v.png</texture></control>
+            <control type="image"><left>0</left><top>684</top><width>1920</width><height>396</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
 
             <!-- Set at runtime by GridWindow: "RevRivulet / CONTINUE". -->
             <control type="image"><left>96</left><top>60</top><width>34</width><height>34</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
@@ -129,9 +129,9 @@
             </control>
 
             <control type="grouplist" id="30001">
-                <left>96</left><top>652</top><width>1980</width><height>428</height>
+                <left>96</left><top>684</top><width>1980</width><height>396</height>
                 <orientation>vertical</orientation>
-                <itemgap>-32</itemgap>
+                <itemgap>0</itemgap>
                 <usecontrolcoords>true</usecontrolcoords>
                 <scrolltime tween="cubic" easing="out">300</scrolltime>
                 <!-- Vertical navigation cycles through the populated band
@@ -142,7 +142,7 @@
                      rows is indistinguishable from refusing to move. -->
 
                 <!-- resume -->
-                <control type="group"><left>0</left><top>0</top><width>1960</width><height>428</height><visible>!String.IsEmpty(Window.Property(band_resume))</visible><control type="label" id="30107"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
+                <control type="group"><left>0</left><top>0</top><width>1960</width><height>396</height><visible>!String.IsEmpty(Window.Property(band_resume))</visible><control type="label" id="30107"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
                     <label></label>
                     <visible>!String.IsEmpty(Window.Property(band_resume))</visible>
                 </control>
@@ -218,7 +218,7 @@
                 </control></control>
 
                 <!-- next_up -->
-                <control type="group"><left>0</left><top>0</top><width>1960</width><height>428</height><visible>!String.IsEmpty(Window.Property(band_next_up))</visible><control type="label" id="30117"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>FFFBBF24</textcolor><aligny>center</aligny>
+                <control type="group"><left>0</left><top>0</top><width>1960</width><height>396</height><visible>!String.IsEmpty(Window.Property(band_next_up))</visible><control type="label" id="30117"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>FFFBBF24</textcolor><aligny>center</aligny>
                     <label></label>
                     <visible>!String.IsEmpty(Window.Property(band_next_up))</visible>
                 </control>
@@ -293,7 +293,7 @@
                 </control></control>
 
                 <!-- recent -->
-                <control type="group"><left>0</left><top>0</top><width>1960</width><height>428</height><visible>!String.IsEmpty(Window.Property(band_recent))</visible><control type="label" id="30127"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>8CEEF3F6</textcolor><aligny>center</aligny>
+                <control type="group"><left>0</left><top>0</top><width>1960</width><height>396</height><visible>!String.IsEmpty(Window.Property(band_recent))</visible><control type="label" id="30127"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>8CEEF3F6</textcolor><aligny>center</aligny>
                     <label></label>
                     <visible>!String.IsEmpty(Window.Property(band_recent))</visible>
                 </control>
@@ -368,7 +368,7 @@
                 </control></control>
 
                 <!-- library -->
-                <control type="group"><left>0</left><top>0</top><width>1960</width><height>428</height><visible>!String.IsEmpty(Window.Property(band_library))</visible><control type="label" id="30137"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>8CEEF3F6</textcolor><aligny>center</aligny>
+                <control type="group"><left>0</left><top>0</top><width>1960</width><height>396</height><visible>!String.IsEmpty(Window.Property(band_library))</visible><control type="label" id="30137"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>8CEEF3F6</textcolor><aligny>center</aligny>
                     <label></label>
                     <visible>!String.IsEmpty(Window.Property(band_library))</visible>
                 </control>

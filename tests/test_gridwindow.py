@@ -564,11 +564,9 @@ def test_cell_is_tall_enough_for_everything_it_draws():
         % (cell_h, max(bottoms)))
 
 
-def test_the_focused_band_is_pinned_and_the_next_one_peeks():
+def test_the_focused_band_is_the_only_row_on_screen():
     """The focused band fills the row viewport, so up and down leave it
-    in the same place. The next band overlaps that viewport by itemgap:
-    its header shows, and less than a poster of it, which is a peek
-    rather than a second row."""
+    in the same place. itemgap is 0, so the next band stays off screen."""
     import re
     import xml.etree.ElementTree as ET
 
@@ -579,8 +577,7 @@ def test_the_focused_band_is_pinned_and_the_next_one_peeks():
     height = int(rows.findtext('height'))
     gap = int(rows.findtext('itemgap'))
     assert top + height == 1080, 'the row band must run to the bottom of the skin'
-    assert gap < 0, 'a positive gap shows a second full band instead of a peek'
-    peek = -gap
+    assert gap == 0, 'a non-zero gap shows part of another band'
 
     groups = [
         child for child in list(rows)
@@ -599,23 +596,15 @@ def test_the_focused_band_is_pinned_and_the_next_one_peeks():
     assert badge, 'no badge line in the cell layout'
     # The header is the top of the band group. The badge's top is inside
     # the panel, which starts under that header.
-    panel_top = int(groups[0].find(".//control[@type='panel']").findtext('top'))
+    panel = groups[0].find(".//control[@type='panel']")
+    panel_top = int(panel.findtext('top'))
+    panel_h = int(panel.findtext('height'))
     badge_end = panel_top + int(badge.group(1)) + int(badge.group(2))
     assert header == panel_top
-    # The focused badge stays above the peek. The peek itself is the next
-    # header, shorter than a poster, so it cannot read as a second row.
-    assert badge_end <= height - peek, (
-        'the badge ends at %d inside a %dpx band whose peek starts at %d'
-        % (badge_end, height, height - peek))
-    poster = re.search(
-        r'<top>0</top><left>\d+</left><width>\d+</width><height>(\d+)</height>\s*'
-        r'<texture[^>]*background="true">', xml)
-    assert poster, 'no poster box found'
-    poster_h = int(poster.group(1))
-    assert header <= peek < poster_h, (
-        'peek of %dpx should show the %dpx header and not a %dpx poster'
-        % (peek, header, poster_h))
-    # And the whole focused band, peek included, is on the 1080 frame.
+    assert panel_top + panel_h == height, (
+        'the panel must fill the band so one row is visible and nothing clips')
+    assert badge_end <= height, (
+        'the badge ends at %d inside a %dpx band' % (badge_end, height))
     assert top + badge_end <= 1080
 
 
