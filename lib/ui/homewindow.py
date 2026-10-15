@@ -3,16 +3,20 @@
 
 """HomeWindow: RevRivulet's entry screen.
 
-A full-bleed fanart hero for the focused title, then horizontal rows:
-Continue (in progress), Library (the Stremio library), the type chips,
-and one poster preview per installed type. Search, Add-ons and Settings
-are buttons in a right-aligned grouplist so they stay on the right edge
-at any resolution. There is no large card row. The old Continue card
-opened `open_my_stuff()` with no band filter, and that screen's last
-band is the library, which is why the card showed saved titles.
+A full-bleed fanart hero for the focused title. The type chips
+(Movies, Series, Anime, Other) sit in a pill row under the top bar.
+Under that, horizontal rows: Continue (in progress), Library (the
+Stremio library), and one poster preview per installed type. Search,
+Add-ons and Settings are buttons in a right-aligned grouplist so they
+stay on the right edge at any resolution. There is no large card row.
+The old Continue card opened `open_my_stuff()` with no band filter, and
+that screen's last band is the library, which is why the card showed
+saved titles.
 
-Picking a poster opens its page. Picking a type chip opens the catalog
-hub (`lib.ui.hubwindow`), one poster row per catalog of that type.
+Picking a poster opens its page. The menu button (long-press on a
+remote) offers Add to Library or Remove from Library. Picking a type
+chip opens the catalog hub (`lib.ui.hubwindow`), one poster row per
+catalog of that type, loaded as the remote moves down.
 
 Shared helpers this module calls and does not modify:
 `lib.ui.mystuff` (`merge_entries`, `library_metas`, `_fetch_library_entries`,
@@ -47,6 +51,11 @@ BTN_SIGNIN = 30073
 #: How many posters a row keeps. `iter_catalog_pages()` is consumed once
 #: and then closed, so Home does not walk the rest of the catalog.
 SHELF_CAP = 12
+
+#: Set when a hub poster changes the account library. Home has no handle
+#: on that window, and its row cache would otherwise keep the old
+#: Library row until the auth key changed.
+_library_dirty = False
 
 #: (action, panel id, header label id) for the poster rows under the
 #: chips. Must match HomeWindow.xml, including each row's
@@ -455,10 +464,16 @@ def _load_rows(window, store, addons, auth):
     from lib.ui.compat import L
     from lib.ui.uicommon import CANCELLED, run_cancellable
 
+    global _library_dirty
+
     enabled = _enabled_shelf_types(addons)
     key = (auth or {}).get('authKey')
     cached = getattr(window, '_row_key', None) == key and getattr(window, '_catalog_pages', None) is not None
-    if cached:
+    if cached and not _library_dirty:
+        return window._continue_items, window._library_items, window._catalog_pages, enabled
+    if cached and _library_dirty:
+        _library_dirty = False
+        _refill_saved_rows(window, store, auth)
         return window._continue_items, window._library_items, window._catalog_pages, enabled
 
     def _load():
@@ -504,6 +519,75 @@ def _fill_shelves(window, store, addons, auth, show_continue):
             window, list_id, label_id, 'shelf_%s' % action,
             L(L_FOR_ACTION[action]).upper(), items,
         )
+
+
+def _refill_saved_rows(window, store, auth):
+    """Continue and Library from a fresh account read. Catalog pages stay
+    as they were: a library write does not change what a catalog returns."""
+    from lib.ui.compat import setting_bool
+
+    entries = _fetch_library(store, auth)
+    show_continue = setting_bool('home_show_mystuff', True)
+    continue_items = _played_posters(store, entries) if show_continue else []
+    library_items = _library_posters(auth, entries)
+    window._continue_items = continue_items
+    window._library_items = library_items
+
+
+def mark_library_dirty():
+    """The next Home paint re-reads the account library."""
+    global _library_dirty
+    _library_dirty = True
+
+
+def refresh_library_row(window):
+    """Re-read the account library into Home's Continue and Library rows.
+
+    A hub has no Library row. It marks the cache dirty and Home refills
+    when the hub closes (`onInit` runs again). The read is the same
+    `_fetch_library` Home already uses, not a new API method.
+    """
+    global _library_dirty
+
+    try:
+        window.getControl(LIBRARY_SHELF)
+    except Exception:
+        _library_dirty = True
+        return
+    from lib.ui.compat import L
+    from lib.ui.uicommon import CANCELLED, run_cancellable
+
+    def _read():
+        store = get_store()
+        auth = store.get_auth()
+        return store, auth
+
+    loaded = run_cancellable(_read, L(30033))
+    if loaded is CANCELLED or not isinstance(loaded, tuple):
+        _library_dirty = True
+        return
+    store, auth = loaded
+    _refill_saved_rows(window, store, auth)
+    _set_shelf(
+        window, CONTINUE_SHELF, 30140, 'shelf_continue',
+        L(30241).upper(), window._continue_items,
+    )
+    _set_shelf(
+        window, LIBRARY_SHELF, 30141, 'shelf_library',
+        L(30422).upper(), window._library_items,
+    )
+    _library_dirty = False
+
+
+def _offer_library(window, item):
+    """Menu button on a poster. A chip or a notice has nothing to save."""
+    from lib.ui.libraryaction import meta_from_item, offer
+
+    meta = meta_from_item(item)
+    if meta is None:
+        return
+    if offer(meta):
+        refresh_library_row(window)
 
 
 def _focus_first(window):
@@ -605,9 +689,21 @@ class HomeWindow(BaseWindow):
     def onAction(self, action):
         from lib.ui.uicommon import BACK_ACTIONS
 
-        if action.getId() in BACK_ACTIONS:
+        action_id = action.getId()
+        if action_id in BACK_ACTIONS:
             self.close()
             return
+        if action_id == 117:
+            focus = self.getFocusId()
+            if focus in _CLICKABLE and focus != BROWSE_LIST:
+                _offer_library(self, self.getControl(focus).getSelectedItem())
+            return
+        # The pills are the Down target of the top bar. With no types
+        # installed that list is hidden, and a hidden target does not
+        # take focus, so Down would stick on Settings.
+        if action_id == 4 and not self.getControl(BROWSE_LIST).size():
+            if self.getFocusId() in _BUTTON_ACTIONS or self.getFocusId() == TOOLS_LIST:
+                _focus_first(self)
         paint_hero(self)
 
     @gated_input

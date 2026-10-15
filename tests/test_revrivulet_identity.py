@@ -39,7 +39,7 @@ def _py_files():
 def test_constant_is_the_side_by_side_id():
     assert ADDON_ID == "plugin.video.revrivulet"
     assert ADDON_NAME == "RevRivulet"
-    assert WORDMARK == "REVRIVULET"
+    assert WORDMARK == "RevRivulet"
     assert _OFFICIAL_ID not in ADDON_ID
 
 
