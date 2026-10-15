@@ -161,7 +161,15 @@ def fetch_addon_catalog(client_or_session, transport_url, type_, id_):
     if requests_mod is None:
         raise AddonError('the "requests" package is required to fetch an addon catalog')
 
-    session = getattr(client_or_session, 'session', client_or_session)
+    # Workers in `fetch_addon_catalogs()`'s pool must not share one
+    # `requests.Session`. `AddonClient._active_session()` hands each thread
+    # its own; a bare session (or a test double with no such method) is
+    # used as-is.
+    active = getattr(client_or_session, '_active_session', None)
+    if callable(active):
+        session = active()
+    else:
+        session = getattr(client_or_session, 'session', client_or_session)
     timeout = getattr(client_or_session, 'timeout', 15)
 
     url = validate_transport_url(build_resource_url(transport_url, 'addon_catalog', type_, id_))

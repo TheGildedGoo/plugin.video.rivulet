@@ -983,8 +983,8 @@ msgid "No enabled addon supports search. Enable one, such as Cinemeta."
 msgstr "没有已启用的插件支持搜索。请启用一个，例如 Cinemeta。"
 
 msgctxt "#30382"
-msgid "Search failed: no addon answered. Try again or enable another search addon, such as Cinemeta."
-msgstr "搜索失败：没有插件响应。请重试，或启用另一个支持搜索的插件，例如 Cinemeta。"
+msgid "Search failed: no addon answered. Enable another search addon, such as Cinemeta."
+msgstr "搜索失败：没有插件响应。请启用另一个支持搜索的插件，例如 Cinemeta。"
 
 msgctxt "#30383"
 msgid "Search incomplete, no answer from: %s"
@@ -1042,3 +1042,11 @@ msgstr "请在此登录一次。RevRivulet使用自己的 Stremio 登录。"
 msgctxt "#30429"
 msgid "%d min"
 msgstr "%d 分钟"
+
+msgctxt "#30430"
+msgid "This title could not be loaded."
+msgstr "无法加载此标题。"
+
+msgctxt "#30431"
+msgid "No source answered."
+msgstr "没有来源响应。"

@@ -582,7 +582,7 @@ def test_window_property_failures_degrade_to_no_marker(load_uicommon, monkeypatc
     (True, 'player', False, True),    # the post-stop refresh, mid CloseFile
     (True, 'player', True, True),     # a refresh while the video still plays
     (True, 'addon', False, True),     # the same refresh landing just after phase 3 began
-    (True, 'addon', True, False),     # background playback + deliberate launch
+    (True, 'addon', True, True),      # Stop refresh that still sees isPlaying(); a second Home is wrong
 ])
 def test_is_duplicate_launch_matrix(load_uicommon, alive, phase, playing, duplicate):
     ctx = load_uicommon()

@@ -582,12 +582,35 @@ def test_run_search_addonerror_from_one_addon_is_skipped_others_still_aggregate(
 
     assert captured['metas'] == metas_b
     assert store.search_queries == ['batman']
-    assert sorted(client.calls, key=lambda call: call[0]) == [
-        (transport_a, 'movie', 'search', [('search', 'batman')]),
-        (transport_b, 'movie', 'search', [('search', 'batman')]),
-    ]
+    failing = [call for call in client.calls if call[0] == transport_a]
+    working = [call for call in client.calls if call[0] == transport_b]
+    assert len(failing) == ctx.searchwindow._SEARCH_ATTEMPTS
+    assert working == [(transport_b, 'movie', 'search', [('search', 'batman')])]
     assert any('a.example' in msg and 'AddonError' in msg for msg, _level in ctx.env.log_calls)
     assert not any('upstream down' in msg or transport_a in msg for msg, _level in ctx.env.log_calls)
+
+
+def test_run_query_retries_a_failing_catalog_then_returns_its_results(load_searchwindow):
+    """A catalog that errors is asked again while the spinner is up.
+    Results from the later attempt are the search; the user is not told
+    to try again."""
+    ctx = load_searchwindow()
+    store, (transport,) = _addons('A')
+    state = {'n': 0}
+
+    def _flaky():
+        state['n'] += 1
+        if state['n'] < ctx.searchwindow._SEARCH_ATTEMPTS:
+            raise AddonError('timed out', category='ReadTimeout')
+        return [_meta('tt1', 'Batman')]
+
+    report = ctx.searchwindow.SearchReport()
+    result = ctx.searchwindow.run_query(store, _ScriptedClient({transport: _flaky}), 'batman', report=report)
+
+    assert [m['id'] for m in result] == ['tt1']
+    assert report.failures == []
+    assert ctx.env.notifications == []
+    assert state['n'] == ctx.searchwindow._SEARCH_ATTEMPTS
 
 
 def test_run_search_addon_failure_log_never_leaks_credentials_path_or_query(load_searchwindow, monkeypatch):

@@ -478,31 +478,26 @@ def ui_owner_alive(max_age=UI_HEARTBEAT_MAX_AGE_SECONDS, clock=None):
 
 def is_duplicate_launch():
     """True when a bare plugin-root run (`default.py` home action) must NOT open
-    another HomeWindow: another interpreter's UI is alive AND either its
-    phase is `player`, or Kodi is not playing anything.
+    another HomeWindow: some interpreter's `UiHeartbeat` is still fresh.
 
-    - alive + `player`: the player owns the screen; this is Kodi refreshing
-      the Videos container the addon was started from. Whatever it plays or
-      closes now, a second UI is wrong.
-    - alive + not playing (+ phase `addon`): the same refresh landing just
-      after the old UI came back (it ends the phase before the refresh's
-      interpreter starts), or any stray re-run while a UI is on screen.
-    - alive + playing + `addon`: a video is running in the background and the
-      user opened Rivulet from Kodi's menus while an earlier session is still
-      up - a deliberate launch, honoured.
-    - not alive (never started, exited, killed - stamp stale): a genuine
-      launch, always honoured, so a crashed interpreter can never lock the
-      user out.
+    Kodi re-fetches the Videos container the addon was started from when
+    playback stops (`CGUIMediaWindow::OnInitWindow`). That second
+    interpreter used to be let through when the heartbeat was alive, the
+    phase already read `addon`, and `Player.isPlaying()` was still true.
+    `isPlaying()` flips false at the *start* of `CVideoPlayer::CloseFile()`
+    while the player-closed callback fires only after `CloseFile()` returns,
+    and the phase used to be cleared before the restored picker existed.
+    Either observation is enough for the old rule to treat the refresh as a
+    deliberate launch. `default.py` then called `Dialog.Close(all)`, which
+    does not set `_closed_for_playback`, so the stack unwound to a fresh
+    Home and Back from the empty plugin folder landed on Kodi's menu.
+
+    A live heartbeat means a UI is already up, whatever the phase and
+    whatever `isPlaying()` says. The 10s max age is unchanged: a killed
+    interpreter's stamp goes stale and a real launch is honoured, so a
+    dead UI can never lock the user out.
     """
-    if not ui_owner_alive():
-        return False
-    if _home_property(PHASE_PROPERTY) == PHASE_PLAYER:
-        return True
-    try:
-        playing = xbmc.Player().isPlaying()
-    except Exception:  # noqa: BLE001 - cannot tell: treat as "not playing"
-        playing = False
-    return not playing
+    return ui_owner_alive()
 
 
 #: `ModalStackWindow` callbacks gated by `input_suppressed()`: the ones that

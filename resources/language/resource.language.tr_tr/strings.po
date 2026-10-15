@@ -983,8 +983,8 @@ msgid "No enabled addon supports search. Enable one, such as Cinemeta."
 msgstr "Aramayı destekleyen etkin bir eklenti yok. Cinemeta gibi bir eklentiyi etkinleştirin."
 
 msgctxt "#30382"
-msgid "Search failed: no addon answered. Try again or enable another search addon, such as Cinemeta."
-msgstr "Arama başarısız: hiçbir eklenti yanıt vermedi. Yeniden deneyin veya Cinemeta gibi başka bir arama eklentisi etkinleştirin."
+msgid "Search failed: no addon answered. Enable another search addon, such as Cinemeta."
+msgstr "Arama başarısız: hiçbir eklenti yanıt vermedi. Cinemeta gibi başka bir arama eklentisi etkinleştirin."
 
 msgctxt "#30383"
 msgid "Search incomplete, no answer from: %s"
@@ -1042,3 +1042,11 @@ msgstr "Burada bir kez oturum açın. RevRivulet kendi Stremio girişini kullan�
 msgctxt "#30429"
 msgid "%d min"
 msgstr "%d dk"
+
+msgctxt "#30430"
+msgid "This title could not be loaded."
+msgstr "Bu başlık yüklenemedi."
+
+msgctxt "#30431"
+msgid "No source answered."
+msgstr "Hiçbir kaynak yanıt vermedi."

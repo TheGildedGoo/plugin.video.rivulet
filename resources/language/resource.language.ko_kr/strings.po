@@ -983,8 +983,8 @@ msgid "No enabled addon supports search. Enable one, such as Cinemeta."
 msgstr "검색을 지원하는 활성화된 애드온이 없습니다. Cinemeta처럼 검색을 지원하는 애드온을 활성화하세요."
 
 msgctxt "#30382"
-msgid "Search failed: no addon answered. Try again or enable another search addon, such as Cinemeta."
-msgstr "검색 실패: 응답한 애드온이 없습니다. 다시 시도하거나 Cinemeta처럼 검색을 지원하는 다른 애드온을 활성화하세요."
+msgid "Search failed: no addon answered. Enable another search addon, such as Cinemeta."
+msgstr "검색 실패: 응답한 애드온이 없습니다. Cinemeta처럼 검색을 지원하는 다른 애드온을 활성화하세요."
 
 msgctxt "#30383"
 msgid "Search incomplete, no answer from: %s"
@@ -1042,3 +1042,11 @@ msgstr "여기에서 한 번 로그인하세요. RevRivulet은 자체 Stremio �
 msgctxt "#30429"
 msgid "%d min"
 msgstr "%d분"
+
+msgctxt "#30430"
+msgid "This title could not be loaded."
+msgstr "이 제목을 불러오지 못했습니다."
+
+msgctxt "#30431"
+msgid "No source answered."
+msgstr "응답한 소스가 없습니다."

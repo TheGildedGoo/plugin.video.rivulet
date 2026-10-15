@@ -983,8 +983,8 @@ msgid "No enabled addon supports search. Enable one, such as Cinemeta."
 msgstr "Geen ingeschakelde addon ondersteunt zoeken. Schakel er een in, zoals Cinemeta."
 
 msgctxt "#30382"
-msgid "Search failed: no addon answered. Try again or enable another search addon, such as Cinemeta."
-msgstr "Zoeken mislukt: geen enkele addon heeft geantwoord. Probeer het opnieuw of schakel een andere zoekaddon in, zoals Cinemeta."
+msgid "Search failed: no addon answered. Enable another search addon, such as Cinemeta."
+msgstr "Zoeken mislukt: geen enkele addon heeft geantwoord. Schakel een andere zoekaddon in, zoals Cinemeta."
 
 msgctxt "#30383"
 msgid "Search incomplete, no answer from: %s"
@@ -1042,3 +1042,11 @@ msgstr "Meld je hier eenmaal aan. RevRivulet heeft een eigen Stremio-login."
 msgctxt "#30429"
 msgid "%d min"
 msgstr "%d min"
+
+msgctxt "#30430"
+msgid "This title could not be loaded."
+msgstr "Deze titel kon niet worden geladen."
+
+msgctxt "#30431"
+msgid "No source answered."
+msgstr "Geen enkele bron heeft geantwoord."

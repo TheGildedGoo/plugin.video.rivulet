@@ -73,11 +73,14 @@ call bounded by `AddonClient`'s own 15s timeout - taking as long as
 27.6s to open this picker, and 5.0s even in the ordinary case, because
 one slow or unresponsive addon held up every addon queued behind it
 (`streamswindow: 1 addon(s) failed` on every single fetch, whether or
-not that addon was the slow one). `_fetch_stream_pairs()` (still used,
-unchanged, by `_try_binge_watch()`) fetches every addon concurrently
-but still blocks until all of them answer; `open_streams()` goes
-further and opens the picker as soon as the FIRST addon answers,
-letting the rest stream their own results in live onto the open
+not that addon was the slow one). `_fetch_stream_pairs()` (still used
+by `_try_binge_watch()`) fetches every addon concurrently but still
+blocks until all of them answer; `open_streams()` goes
+further and opens the picker as soon as the FIRST addon answers with
+streams. A timeout or error is retried silently (see
+`_STREAM_ATTEMPTS`) while the spinner stays up; an empty success is
+the addon's answer and is not retried. The rest stream their own
+results in live onto the open
 `StreamsWindow` (`StreamsWindow.add_pairs()`/`set_loading()`) exactly
 like `infowindow.ShowcaseWindow`'s background meta-enrich worker feeds
 an already-open coverflow - see that module's docstring and
@@ -1097,6 +1100,56 @@ def _query_addon_streams(client, transport_url, addon_name, stype, sid):
     return pairs, False, None
 
 
+#: First try plus two silent retries. A dead addon used to become
+#: "No streams found" (#30030) the moment its one request timed out,
+#: and the same tap a second later succeeded. Only a failed attempt
+#: is retried — an addon that answers `[]` has nothing, and asking
+#: again would only hold the spinner.
+_STREAM_ATTEMPTS = 3
+
+#: Short waits between those retries, long enough for a stalled addon
+#: to accept a new connection, short enough that the spinner does not
+#: feel stuck. Local to this fan-out, the same way
+#: `_MAX_STREAM_ADDON_WORKERS` is: each call site bounds its own pool
+#: and its own patience.
+_STREAM_RETRY_BACKOFF_SECONDS = (0.4, 0.8)
+
+
+def _pause_before_stream_retry(seconds):
+    """Wait out one silent-retry backoff. Returns True if Kodi is
+    aborting, in which case the worker should post the failure it
+    already has and stop.
+
+    `Monitor.waitForAbort` is what every other spinner-side wait in
+    this addon uses: the test stubs return immediately (they advance a
+    fake clock), and a timeout of `<= 0` would wait forever on Kodi,
+    so a non-positive `seconds` skips the call entirely."""
+    if seconds <= 0:
+        return False
+    import xbmc
+
+    return xbmc.Monitor().waitForAbort(seconds)
+
+
+def _query_addon_streams_retrying(client, transport_url, addon_name, stype, sid):
+    """`_query_addon_streams()` with silent retries on failure only.
+
+    The consumer still sees one `(pairs, failed, reason)` per addon,
+    so the spinner stays up until a real stream arrives or every
+    attempt has failed. Backing out does not wait for the backoff:
+    the consumer polls cancellation on its own thread while this one
+    sleeps."""
+    pairs, failed, reason = [], True, None
+    for attempt in range(_STREAM_ATTEMPTS):
+        pairs, failed, reason = _query_addon_streams(
+            client, transport_url, addon_name, stype, sid)
+        if not failed or attempt + 1 >= _STREAM_ATTEMPTS:
+            return pairs, failed, reason
+        if _pause_before_stream_retry(_STREAM_RETRY_BACKOFF_SECONDS[attempt]):
+            return pairs, failed, reason
+    return pairs, failed, reason
+
+
 def _supported_stream_addons(stype, sid):
     """Every installed addon whose manifest declares `stream` support
     for (stype, sid) - the exact filter the old serial loop applied
@@ -1151,14 +1204,21 @@ def _start_stream_fetch_workers(stype, sid, addons):
     results = queue.Queue()
 
     def _worker():
-        while True:
-            try:
-                transport_url, addon_name = work.get_nowait()
-            except queue.Empty:
-                return
-            addon_pairs, failed, reason = _query_addon_streams(
-                client, transport_url, addon_name, stype, sid)
-            results.put((addon_name, addon_pairs, failed, reason))
+        try:
+            while True:
+                try:
+                    transport_url, addon_name = work.get_nowait()
+                except queue.Empty:
+                    return
+                addon_pairs, failed, reason = _query_addon_streams_retrying(
+                    client, transport_url, addon_name, stype, sid)
+                results.put((addon_name, addon_pairs, failed, reason))
+        finally:
+            # Drop this thread's private requests session. A fake client
+            # has no such method and keeps the object the test substituted.
+            release = getattr(client, '_release_worker_session', None)
+            if callable(release):
+                release()
 
     for _ in range(min(len(addons), _MAX_STREAM_ADDON_WORKERS)):
         threading.Thread(target=_worker, daemon=True).start()
@@ -1434,8 +1494,10 @@ def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
             if not ended_naturally:
                 # The user stopped this auto-played episode instead of
                 # letting it end - stop the chain here, exactly like any
-                # other "nothing left to binge into" case above.
-                end_player_phase()
+                # other "nothing left to binge into" case above. The
+                # phase stays `player` until the picker's doModal: ending
+                # it here is the gap a Videos-window refresh used to
+                # Dialog.Close through.
                 return None
             if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):
                 end_player_phase()
@@ -1447,7 +1509,9 @@ def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
             current_video_id = candidate.get('id')
             binge_group = picked_info.get('binge_group')
     except Exception as exc:  # noqa: BLE001 - a binge-chain hiccup must fall back to the picker, never crash open_streams()
-        end_player_phase()
+        # Leave the phase alone. The caller reopens the picker, and that
+        # window's doModal ends `player`. Ending it here is the same gap
+        # a Stop refresh uses to Dialog.Close the stack.
         log('streamswindow: binge-watching failed: %r (falling back to the picker)' % (exc,), xbmc.LOGWARNING)
         return None
 
@@ -1584,7 +1648,15 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
             # screen they came from.
             log('streamswindow: stream lookup cancelled by the user', xbmc.LOGINFO)
             return False
-        notify(L(30030))
+        # Every addon failed (timeout, HTTP error, exception), after the
+        # silent retries above. That is not "this title has no streams":
+        # #30030 stays for an addon that actually answered with an empty
+        # list. #30431 does not ask the user to try again — the retries
+        # already happened.
+        if len(failures) == total:
+            notify(L(30431))
+        else:
+            notify(L(30030))
         return False
 
     sort_key = ADDON.getSetting('stream_sort') or 'quality'
@@ -1635,6 +1707,11 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
             if live:
                 stop_event.set()
                 feed.stop()
+            # No window opened, so nothing else will end the phase. A
+            # reopen that fails after Stop would otherwise leave every
+            # ancestor deaf (`super().doModal()` on the way back does not
+            # call `end_player_phase()`).
+            end_player_phase()
             return False
         finally:
             # A normal return means StreamsWindow already closed itself (its
@@ -1688,8 +1765,13 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
         # (after CloseFile() returned), and the settle pause that follows
         # is spent calling into Kodi, which is what delivers - to screens
         # that still ignore input, phase `player` - anything queued while
-        # the player owned the screen. Only then does the phase end and a
-        # window open, so nothing opens behind a frozen GUI thread.
+        # the player owned the screen. The phase stays `player` until the
+        # restored picker's own `doModal()` (its first line ends the
+        # phase). Ending it in this gap is what let a Stop refresh see
+        # phase `addon` and `Dialog.Close(all)` the stack that was about
+        # to come back. A natural end is the exception: binge's countdown
+        # is a Rivulet screen and needs input, so the phase ends before
+        # that and `_try_binge_watch()` owns it from there.
         proceed, ended_naturally = _wait_for_playback_end()
         if not proceed:
             end_player_phase()
@@ -1697,7 +1779,6 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
         if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):  # brief settle pause before reopening
             end_player_phase()
             return False
-        end_player_phase()
 
         # Binge-watching: try to auto-play straight through as many
         # consecutive "next episodes" as apply (see _try_binge_watch()'s
@@ -1709,6 +1790,7 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
         # fired mid-chain, which must return False immediately instead,
         # reopening nothing, same as every other abort check above.
         if ended_naturally:
+            end_player_phase()
             played_info = win.played_pair[0] if win.played_pair else None
             if _try_binge_watch(stype, meta, poster, art, video_id, played_info) is False:
                 return False

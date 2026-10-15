@@ -50,11 +50,14 @@ if _action == 'home':
             # Kodi re-ran the plugin root (it re-fetches the Videos container
             # the addon was started from whenever that window is activated
             # again - e.g. when playback stops: kodi.log 01:07:59.987 ->
-            # 01:08:00.189) while another interpreter's UI is alive. The
-            # directory handle is satisfied above; opening Home here would
-            # stack a second UI over the restored picker, and
-            # dismiss_busy_dialog() would close that picker. See
-            # lib.ui.uicommon's "UI phases" notes for the exact rule.
+            # 01:08:00.189) while another interpreter's UI is alive. Any
+            # fresh heartbeat counts, including while a video is still
+            # reported as playing and the phase already reads `addon`.
+            # The directory handle is satisfied above. Opening Home here
+            # would stack a second UI over the restored picker, and
+            # dismiss_busy_dialog() is Dialog.Close(all), which would
+            # close that picker without marking it for restore. See
+            # lib.ui.uicommon.is_duplicate_launch().
             log('default: a Rivulet UI is already running - ignoring bare launch', xbmc.LOGINFO)
         else:
             dismiss_busy_dialog()

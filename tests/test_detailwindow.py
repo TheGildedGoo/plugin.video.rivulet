@@ -1500,7 +1500,7 @@ def test_open_detail_not_found_notifies_and_returns_false_without_building_a_win
     result = ctx.detailwindow.open_detail('movie', 'tt404')
 
     assert result is False
-    assert ctx.env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30430', 'info', 4000)]
 
 
 def test_open_detail_movie_skips_detailwindow_and_opens_streams_directly(

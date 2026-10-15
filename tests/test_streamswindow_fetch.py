@@ -273,7 +273,8 @@ def test_open_streams_addonerror_is_logged_and_skipped_not_fatal(load_streamswin
     result = sw.open_streams('movie', 'tt1')
 
     assert result is False
-    assert [call[0] for call in client.calls] == [failing_transport, ok_transport]
+    assert [call[0] for call in client.calls].count(failing_transport) == sw._STREAM_ATTEMPTS
+    assert [call[0] for call in client.calls].count(ok_transport) == 1
     assert [s for _info, s in captured['pairs']] == [ok_stream]
     # The failing addon must never hit ERROR (that was the noisy old
     # behavior) - one DEBUG line naming its safe scheme+host, plus exactly
@@ -416,8 +417,8 @@ def test_open_streams_multiple_addon_failures_still_log_a_single_aggregate_warni
 
     assert result is False
     debug_msgs = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGDEBUG]
-    assert sum(1 for msg in debug_msgs if 'fail-a.example' in msg) == 1
-    assert sum(1 for msg in debug_msgs if 'fail-b.example' in msg) == 1
+    assert sum(1 for msg in debug_msgs if 'fail-a.example' in msg) == sw._STREAM_ATTEMPTS
+    assert sum(1 for msg in debug_msgs if 'fail-b.example' in msg) == sw._STREAM_ATTEMPTS
     assert not any('boom a' in msg or 'boom b' in msg for msg in debug_msgs)
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
     assert len(warnings) == 1
@@ -629,6 +630,79 @@ def test_open_streams_no_results_notifies_and_returns_false_without_building_a_w
 
     assert result is False
     assert ctx.env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
+
+
+def test_open_streams_retries_a_failing_addon_then_opens_on_the_streams_that_arrive(
+    load_streamswindow, monkeypatch,
+):
+    """A timeout on the first attempt used to toast "No streams found"
+    and make the user retry. The spinner stays up across the silent
+    retries; the picker opens as soon as a real stream arrives, and
+    nothing asks the user to try again."""
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    transport = 'https://flaky.example/manifest.json'
+    stream = {'url': 'https://a.example/a.mp4'}
+    descriptor = {
+        'transportUrl': transport,
+        'manifest': {'name': 'Flaky', 'resources': ['stream'], 'types': ['movie']},
+    }
+
+    class _Flaky:
+        def __init__(self):
+            self.calls = []
+
+        def streams(self, transport_url, stype, sid):
+            self.calls.append((transport_url, stype, sid))
+            if len(self.calls) == 1:
+                raise AddonError('timed out', category='ReadTimeout')
+            return [stream]
+
+    client = _Flaky()
+    _wire_data_layer(sw, _FakeStore(addons=[descriptor]), client)
+    captured = {}
+
+    class RecordingWindow(sw.StreamsWindow):
+        def start(self, pairs, stype, sid, poster=None, heading='', art=None, meta=None, video_id=None):
+            captured['pairs'] = pairs
+            return False
+
+    monkeypatch.setattr(sw, 'StreamsWindow', RecordingWindow)
+
+    result = sw.open_streams('movie', 'tt1')
+
+    assert result is False
+    assert len(client.calls) == 2
+    assert [s for _info, s in captured['pairs']] == [stream]
+    assert ctx.env.notifications == []
+    assert 0.4 in ctx.env.wait_calls  # the one backoff before the successful retry
+
+
+def test_open_streams_notifies_when_every_retry_fails_and_does_not_use_no_streams_found(
+    load_streamswindow, monkeypatch,
+):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    transport = 'https://down.example/manifest.json'
+    descriptor = {
+        'transportUrl': transport,
+        'manifest': {'name': 'Down', 'resources': ['stream'], 'types': ['movie']},
+    }
+    client = _FakeAddonClient({transport: AddonError('down', category='HTTP 500')})
+    _wire_data_layer(sw, _FakeStore(addons=[descriptor]), client)
+
+    def _unexpected(*a, **k):
+        raise AssertionError('StreamsWindow must never be constructed when every retry failed')
+
+    monkeypatch.setattr(sw, 'StreamsWindow', _unexpected)
+
+    result = sw.open_streams('movie', 'tt1')
+
+    assert result is False
+    assert len(client.calls) == sw._STREAM_ATTEMPTS
+    assert ctx.env.notifications == [('RevRivulet', 'STR30431', 'info', 4000)]
+    assert sw._STREAM_RETRY_BACKOFF_SECONDS[0] in ctx.env.wait_calls
+    assert sw._STREAM_RETRY_BACKOFF_SECONDS[1] in ctx.env.wait_calls
 
 
 def test_open_streams_reads_stream_sort_setting_and_applies_it_to_final_order(load_streamswindow, monkeypatch):
@@ -924,7 +998,8 @@ def test_fetch_stream_pairs_aggregates_every_addon_and_logs_a_single_warning_on_
     pairs = sw._fetch_stream_pairs('movie', 'tt1')
 
     assert [s for _info, s in pairs] == [ok_stream]
-    assert sorted(call[0] for call in client.calls) == [failing_transport, ok_transport]
+    assert [call[0] for call in client.calls].count(failing_transport) == sw._STREAM_ATTEMPTS
+    assert [call[0] for call in client.calls].count(ok_transport) == 1
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
     assert warnings == ['[plugin.video.revrivulet] streamswindow: 1 addon(s) failed: Failing (AddonError)']
 
