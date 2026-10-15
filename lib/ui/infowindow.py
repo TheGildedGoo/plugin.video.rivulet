@@ -739,8 +739,9 @@ def open_showcase(metas, catalog_title=None, more_pages=None):
     catalog's remaining pages, appended to the strip as they arrive -
     see `ShowcaseWindow.start()` for why they are not waited on."""
     from lib.ui.compat import ADDON
+    from lib.ui.rev2.skin import skin_for
     path = ADDON.getAddonInfo('path')
-    win = ShowcaseWindow('ShowcaseWindow.xml', path, 'Default', '1080i')
+    win = ShowcaseWindow(skin_for('ShowcaseWindow.xml'), path, 'Default', '1080i')
     try:
         return win.start(metas, catalog_title=catalog_title, more_pages=more_pages)
     finally:

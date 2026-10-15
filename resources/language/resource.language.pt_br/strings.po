@@ -1050,3 +1050,27 @@ msgstr "Não foi possível carregar este título."
 msgctxt "#30431"
 msgid "No source answered."
 msgstr "Nenhuma fonte respondeu."
+
+msgctxt "#30432"
+msgid "Rev2Rivulet"
+msgstr "Rev2Rivulet"
+
+msgctxt "#30433"
+msgid "Delete"
+msgstr "Excluir"
+
+msgctxt "#30434"
+msgid "Space"
+msgstr "Espaço"
+
+msgctxt "#30435"
+msgid "All settings"
+msgstr "Todas as configurações"
+
+msgctxt "#30436"
+msgid "On"
+msgstr "Ligado"
+
+msgctxt "#30437"
+msgid "Off"
+msgstr "Desligado"

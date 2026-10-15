@@ -1050,3 +1050,27 @@ msgstr "تعذر تحميل هذا العنوان."
 msgctxt "#30431"
 msgid "No source answered."
 msgstr "لم يرد أي مصدر."
+
+msgctxt "#30432"
+msgid "Rev2Rivulet"
+msgstr "Rev2Rivulet"
+
+msgctxt "#30433"
+msgid "Delete"
+msgstr "حذف"
+
+msgctxt "#30434"
+msgid "Space"
+msgstr "مسافة"
+
+msgctxt "#30435"
+msgid "All settings"
+msgstr "كل الإعدادات"
+
+msgctxt "#30436"
+msgid "On"
+msgstr "تشغيل"
+
+msgctxt "#30437"
+msgid "Off"
+msgstr "إيقاف"

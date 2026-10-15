@@ -295,7 +295,13 @@ def open_window(window_cls, xml_name, *args, **kwargs):
     """Build `window_cls(xml_name, addon_skin_path(), 'Default', '1080i')`
     and return it (unconstructed screens are useless - callers still call
     `.start(...)` themselves, since each screen's `start()` signature
-    differs)."""
+    differs).
+
+    Rev2Rivulet loads ``Rev2`` plus the same filename. The window class
+    is unchanged, so stream retry and stop-return keep their controls.
+    """
+    from lib.ui.rev2.skin import skin_for
+    xml_name = skin_for(xml_name)
     return window_cls(xml_name, addon_skin_path(), 'Default', '1080i', *args, **kwargs)
 
 

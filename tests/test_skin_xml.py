@@ -81,7 +81,9 @@ def test_skin_file_discovery_finds_every_window():
     """Guards every other test in this file: a glob that silently matches
     nothing would make every rule below pass by scanning zero files."""
     paths = _skin_files()
-    assert len(paths) == 15, 'expected 15 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
+    # 15 RevRivulet windows, a Rev2 copy of each, plus the Rev2 search
+    # sheet and the Rev2 settings window.
+    assert len(paths) == 32, 'expected 32 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
 
 
 @pytest.mark.parametrize('path', _skin_files(), ids=lambda p: os.path.basename(p))
