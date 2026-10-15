@@ -374,6 +374,30 @@ def test_library_add_payload_does_not_mutate_meta():
     assert meta == snapshot
 
 
+def test_library_add_from_existing_keeps_state_and_stamps_added_time():
+    """A pulled playback row is not replaced. removed is cleared, the
+    resume point stays, and a tombstone's _ctime becomes the new add."""
+    existing = library.build_library_item(_meta(), now=NOW)
+    existing = library.merge_playback(existing, 5000, 90000, video_id="tt1", now=NOW)
+    existing["removed"] = True
+    existing["temp"] = True
+    added = library.library_add_from_existing(_meta(), existing, now=LATER)
+    assert added["removed"] is False
+    assert added["temp"] is False
+    assert added["_mtime"] == LATER_ISO
+    assert added["_ctime"] == LATER_ISO
+    assert added["state"]["timeOffset"] == 5000
+    assert existing["removed"] is True
+
+
+def test_library_add_from_existing_without_a_row_is_a_fresh_add():
+    added = library.library_add_from_existing(_meta(), None, now=NOW)
+    assert added == library.library_add_payload(_meta(), now=NOW)
+    assert added["state"]["timeOffset"] == 0
+    assert added["_ctime"] == NOW_ISO
+    assert added["_mtime"] == NOW_ISO
+
+
 # --- library_remove_payload -------------------------------------------------
 
 

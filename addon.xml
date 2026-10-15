@@ -13,6 +13,7 @@
     <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote stremio-server-go streaming server, and optionally sync your addon collection with your Stremio account.</description>
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
     <news>v0.30.1.rev11:
+- Fix: Add to Library and Remove from Library save to your Stremio account immediately. The title shows in Library right away, newest first.
 - New: near the end of an episode, Up next counts down and plays the next one. It prefers the highest cached source. Continue Resume rolls into that too. Back on the card leaves you where playback started.
 - Fix: while sources load, the list shows how many addons have answered. It opens on the first source.
 - Updated: the picture behind Home, the hubs, and Library fills the screen. The row you are on sits low, and the next row peeks under it.

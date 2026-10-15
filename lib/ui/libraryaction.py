@@ -102,8 +102,30 @@ def offer(meta):
     picked = dialogs.choose(meta.get('name') or meta.get('id') or '', [label])
     if picked != 0:
         return None
-    payload = library.library_remove_payload(item) if in_library else library.library_add_payload(meta)
+    # Pull again at the moment of the write. The menu lookup can be
+    # seconds old, and a fresh `library_add_payload` would replace
+    # another client's `state` with a blank one.
+    fresh, fresh_ok = _lookup(auth, meta.get('id'))
+    if fresh is CANCELLED:
+        return None
+    if not fresh_ok:
+        notify(L(30302))
+        return None
+    if in_library:
+        if not isinstance(fresh, dict):
+            notify(L(30302))
+            return None
+        payload = library.library_remove_payload(fresh)
+    else:
+        payload = library.library_add_from_existing(
+            meta, fresh if isinstance(fresh, dict) else None,
+        )
     if not _push(auth, payload):
         return None
+    from lib.ui.homewindow import mark_library_dirty
+    from lib.ui.mystuff import note_library_write
+
+    note_library_write(payload)
+    mark_library_dirty()
     notify(L(30298) if in_library else L(30297))
     return 'removed' if in_library else 'added'
