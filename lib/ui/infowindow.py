@@ -437,6 +437,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         # open on a blank plot until the user scrolls off it and back.
         if items:
             self._enrich_focused(items[0], settle=False)
+            self._apply_ratings(items[0])
 
     def _page_row(self, direction):
         """Move one viewport of titles. Down is +1, Up is -1.
@@ -488,6 +489,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
                 # since the last action, then arm a fetch for this item.
                 self._apply_enriched()
                 self._enrich_focused(focused)
+                self._apply_ratings(focused)
         if action_id == _INFO_ACTION:
             return
         if action_id == _CONTEXT_MENU_ACTION:
@@ -538,6 +540,23 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         timer, self._enrich_timer = self._enrich_timer, None
         if timer is not None:
             timer.cancel()
+
+    def _apply_ratings(self, focused):
+        """Rebuild `meta_line` when a ratings key has a cached answer.
+
+        No key leaves the line the catalog built. A miss starts the
+        fetch; the noop it posts comes back through onAction."""
+        if focused is None:
+            return
+        try:
+            index = int(focused.getProperty('position'))
+        except (TypeError, ValueError):
+            return
+        if index < 0 or index >= len(self.metas):
+            return
+        from lib.ui.ratingsched import apply_to_property
+
+        apply_to_property(focused, self.metas[index], 'meta_line')
 
     def _apply_enriched(self):
         """Apply merged properties queued by workers onto the live ListItems.

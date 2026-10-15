@@ -1133,3 +1133,19 @@ msgstr "جارٍ تحميل كل المصادر…"
 msgctxt "#30452"
 msgid "Loading all sources… %d/%d"
 msgstr "جارٍ تحميل كل المصادر… %d/%d"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "مفتاح API لـ OMDb"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "مفتاح API لـ MDBList"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "مفتاح API لـ OMDb (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "مفتاح API لـ MDBList (mdblist.com/preferences/)"

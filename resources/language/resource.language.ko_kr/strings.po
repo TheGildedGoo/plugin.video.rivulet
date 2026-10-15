@@ -1133,3 +1133,19 @@ msgstr "모든 소스 불러오는 중…"
 msgctxt "#30452"
 msgid "Loading all sources… %d/%d"
 msgstr "모든 소스 불러오는 중… %d/%d"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API 키"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API 키"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "OMDb API 키 (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "MDBList API 키 (mdblist.com/preferences/)"

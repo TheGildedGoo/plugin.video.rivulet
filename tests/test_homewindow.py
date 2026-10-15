@@ -1099,6 +1099,98 @@ def test_onaction_paints_the_hero_from_the_focused_poster(load_homewindow, monke
     assert win.getControl(ctx.homewindow.BACKGROUND).image == 'https://img/dune.jpg'
 
 
+def _hero_with_facts(ctx, facts, meta='2021'):
+    import json
+
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = xbmcgui.ListItem('Shawshank')
+    item.setProperties({
+        'hero_title': 'Shawshank',
+        'hero_meta': meta,
+        'hero_plot': 'A man and a wall.',
+        'hero_facts': json.dumps(facts),
+        'fanart': 'https://img/shawshank.jpg',
+        'sid': 'tt0111161',
+        'stype': 'movie',
+    })
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([item])
+    win.setFocusId(ctx.homewindow.CONTINUE_SHELF)
+    return win
+
+
+def test_cached_ratings_replace_the_hero_panel(load_homewindow, monkeypatch, tmp_path):
+    """A key plus a fresh cache rebuilds the right-quarter panel. The
+    key itself never lands in the label."""
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    import lib.ui.ratingsched as ratingsched
+    from lib.stremio.ratings import RatingsCache
+
+    cache = RatingsCache(str(tmp_path / 'ratings.json'))
+    cache.store('tt0111161', {
+        'rottenTomatoes': '91%',
+        'metascore': '95',
+        'imdbRating': '8.8',
+    })
+    scheduled = []
+    monkeypatch.setattr(ratingsched, '_keys', lambda: ('secret-omdb', ''))
+    monkeypatch.setattr(ratingsched, '_get_cache', lambda: cache)
+    monkeypatch.setattr(ratingsched, '_schedule', lambda *args: scheduled.append(args))
+    win = _hero_with_facts(ctx, {'id': 'tt0111161', 'year': 2021})
+
+    import xbmcgui
+    win.onAction(xbmcgui.Action(1))
+
+    text = win.getControl(ctx.homewindow.HERO_META).text
+    assert text == 'Rotten Tomatoes 91%\nMetascore 95\nIMDb 8.8\n2021'
+    assert 'secret-omdb' not in text
+    assert scheduled == []
+
+
+def test_an_empty_ratings_key_keeps_the_catalog_line(load_homewindow, monkeypatch):
+    """No key means no fetch. The catalog's IMDb line stays, and the
+    missing Rotten Tomatoes and Metascore lines stay hidden."""
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    import lib.ui.ratingsched as ratingsched
+
+    def _forbidden(*_args, **_kwargs):
+        raise AssertionError('a fetch was scheduled with no key')
+
+    monkeypatch.setattr(ratingsched, '_schedule', _forbidden)
+    win = _hero_with_facts(ctx, {'id': 'tt0111161', 'year': 2021, 'imdbRating': '9.3'})
+
+    import xbmcgui
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getControl(ctx.homewindow.HERO_META).text == '2021'
+    logged = ' '.join(msg for msg, _level in ctx.env.log_calls)
+    assert 'secret-omdb' not in logged
+
+
+def test_a_ratings_miss_keeps_the_catalog_line_and_schedules(load_homewindow, monkeypatch, tmp_path):
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    import lib.ui.ratingsched as ratingsched
+    from lib.stremio.ratings import RatingsCache
+
+    cache = RatingsCache(str(tmp_path / 'ratings.json'))
+    scheduled = []
+    monkeypatch.setattr(ratingsched, '_keys', lambda: ('secret-omdb', ''))
+    monkeypatch.setattr(ratingsched, '_get_cache', lambda: cache)
+    monkeypatch.setattr(ratingsched, '_schedule', lambda *args: scheduled.append(args[0]))
+    win = _hero_with_facts(ctx, {'id': 'tt0111161', 'year': 2021})
+
+    import xbmcgui
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getControl(ctx.homewindow.HERO_META).text == '2021'
+    assert scheduled == ['tt0111161']
+    logged = ' '.join(msg for msg, _level in ctx.env.log_calls)
+    assert 'secret-omdb' not in logged
+
+
 def test_a_blank_focused_item_does_not_clear_the_hero(load_homewindow, monkeypatch):
     """Scrolling past the posters the row actually holds used to hand
     paint_hero a blank item. That cleared the title and the plot, and

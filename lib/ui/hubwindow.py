@@ -194,6 +194,8 @@ def _episode_descriptor(store, types):
         show = episode.get('name') or ''
         if show and episode.get('label'):
             item.setProperty('hero_meta', escape_label(show))
+            # The panel is the series name, not the show's ratings.
+            item.setProperty('hero_facts', '')
         item.setProperty('episode_index', str(index))
         posters.append(item)
         kept.append(episode)
@@ -334,6 +336,7 @@ def _apply_posters(row_item, posters, col, layout=''):
         poster = posters[col]
         row_item.setProperty('hero_title', poster.getProperty('hero_title'))
         row_item.setProperty('hero_meta', poster.getProperty('hero_meta'))
+        row_item.setProperty('hero_facts', poster.getProperty('hero_facts'))
         row_item.setProperty('hero_plot', poster.getProperty('hero_plot'))
         row_item.setProperty('hero_logo', poster.getProperty('hero_logo'))
         row_item.setProperty('fanart', poster.getProperty('fanart'))

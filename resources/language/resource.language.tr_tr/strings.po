@@ -1133,3 +1133,19 @@ msgstr "Tüm kaynaklar yükleniyor…"
 msgctxt "#30452"
 msgid "Loading all sources… %d/%d"
 msgstr "Tüm kaynaklar yükleniyor… %d/%d"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API anahtarı"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API anahtarı"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "OMDb API anahtarı (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "MDBList API anahtarı (mdblist.com/preferences/)"

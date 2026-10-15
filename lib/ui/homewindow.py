@@ -35,6 +35,8 @@ Login is this addon's own profile (`addon_data/<addon id>/auth.json`
 via `compat.addon_profile_dir()`), not the Stremio app's session and
 not official Rivulet's.
 """
+import json
+
 import xbmcgui
 
 from lib.ui.dependencies import get_store
@@ -231,6 +233,7 @@ def _hero_meta_text(meta):
 def _poster_item(meta, action=''):
     """One shelf cell. `action` set means the click opens that menu
     action (Sign in) instead of the title's page."""
+    from lib.stremio.ratings import panel_facts
     from lib.ui.uicommon import escape_label
 
     name = meta.get('name') or ''
@@ -242,6 +245,7 @@ def _poster_item(meta, action=''):
         'hero_title': escape_label(name),
         'hero_meta': escape_label(_hero_meta_text(meta)),
         'hero_plot': escape_label(_truncate(meta.get('description') or '', 280)),
+        'hero_facts': json.dumps(panel_facts(meta), ensure_ascii=False, separators=(',', ':')),
         'action': action,
         'stype': str(meta.get('type') or ''),
         'sid': str(meta.get('id') or ''),
@@ -844,6 +848,18 @@ def paint_hero(window):
     if not title and not label and not item.getProperty('sid') and not item.getProperty('hero_logo'):
         return
     meta = item.getProperty('hero_meta') or ''
+    facts_raw = item.getProperty('hero_facts') or ''
+    if facts_raw:
+        # A ratings key rebuilds this from the cached scores. No key, or
+        # a cache miss, leaves the catalog line alone and returns at once.
+        from lib.ui.ratingsched import overlay_text
+
+        try:
+            facts = json.loads(facts_raw)
+        except ValueError:
+            facts = None
+        if isinstance(facts, dict):
+            meta = overlay_text(facts, meta)
     plot = item.getProperty('hero_plot') or item.getProperty('subtitle') or ''
     fanart = item.getProperty('fanart') or ''
     logo = item.getProperty('hero_logo') or ''

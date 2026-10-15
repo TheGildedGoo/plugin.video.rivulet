@@ -18,6 +18,7 @@
 - Fix: while sources load, the list shows how many addons have answered. It opens on the first source.
 - Updated: Home, the hubs, Library, and a catalog, decade, or search list show the focused title's picture across the top, fading to black, and one row at the bottom. Up and down switch rows.
 - Updated: that picture is shown whole. Ratings sit on the right. The title and the description stay on the left.
+- Updated: an OMDb or MDBList key in Settings fills Rotten Tomatoes, Metascore, and IMDb for the title you are on. Leave both blank to keep the catalog's IMDb rating.
 - New: Movies can be browsed by decade, from the 2020s through the 1960s. Opening one lists the popular titles of those years.
 - Fix: addons added in a browser show up here. Sync addons now keeps them.
 - Updated: the next row of a category loads while you move, and posters are ready sooner.

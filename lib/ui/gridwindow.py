@@ -325,6 +325,24 @@ class GridWindow(BaseWindow):
             self.getControl(BACKGROUND).setImage((item or {}).get('background') or '')
         except Exception as exc:  # noqa: BLE001 - a broken/partial skin must never crash navigation
             log('gridwindow: setImage failed: %r' % (exc,), xbmc.LOGDEBUG)
+        self._refresh_ratings(item)
+
+    def _refresh_ratings(self, item):
+        """Overlay a cached ratings fetch onto the focused card.
+
+        The skin reads `hero_meta`. A key that is still fetching leaves
+        that property as the catalog composed it."""
+        if not isinstance(item, dict):
+            return
+        try:
+            listitem = self.getControl(self.getFocusId()).getSelectedItem()
+        except Exception:
+            return
+        if listitem is None:
+            return
+        from lib.ui.ratingsched import apply_to_property
+
+        apply_to_property(listitem, item, 'hero_meta')
 
     @gated_input
     def onAction(self, action):
