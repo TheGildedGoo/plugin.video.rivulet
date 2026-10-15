@@ -1,6 +1,6 @@
 # UI map
 
-This fork is **RevRivulet** (`plugin.video.revrivulet`), version **0.30.1.rev1**. It installs beside official Rivulet. Upstream of the Home redesign was **0.30.1**.
+This fork is **RevRivulet** (`plugin.video.revrivulet`), version **0.30.1.rev2**. It installs beside official Rivulet. Upstream of the Home redesign was **0.30.1**.
 
 The addon draws its own 1920×1080 skin (`resources/skins/Default/1080i/`). Kodi calls `default.py`. A bare launch (`action` missing or `home`) ends the directory handle and opens `HomeWindow`. Any other action goes to `lib/ui/router.py`. If `HomeWindow` itself raises, `default.py` falls back to `lib/ui/views.py:home()`, a recovery directory with a notice and Settings only.
 
@@ -15,15 +15,25 @@ Later UI work should stay in the files named for that screen. Shared helpers are
 | Row icons | `resources/media/<action>.png` |
 | Entry | `default.py` when `action` is `home` |
 
-Three lists, because a Kodi list has one row height:
+The backdrop (`30000`) and the hero labels (`30020` title, `30021` meta, `30022` plot) follow whichever card or poster has focus.
+
+Three menu lists, because a Kodi list has one item size. Poster rows under them are separate panels, hidden with `Window.Property(shelf_*)` when empty so the remote never stops on a blank row.
 
 | List | Control | Rows |
 |---|---|---|
-| Watch | `30002` | Continue (`mystuff`), Watch Later (`watchlater`) |
-| Browse | `30010` | Movies, Series, Anime, Other. A row is hidden when its setting is off or no enabled addon publishes that type. |
-| More | `30011` | Search, Add-ons, Settings |
+| Watch | `30002` | Continue (`mystuff`), Watch Later (`watchlater`). Large cards. Up from Browse lands here. |
+| Browse | `30010` | Movies, Series, Anime, Other. A chip is hidden when its setting is off or no enabled addon publishes that type. |
+| Menu | `30011` | Search, Add-ons, Settings, and Sign in (`signin`) when this profile has no login. |
 
-If no type row is visible, Search / Add-ons / Settings move onto the Browse list so Down from Watch still reaches them. `Window.Property(HomeTools)` is set only when the More strip is separate.
+If no type chip is visible, Search / Add-ons / Settings / Sign in move onto the Browse list so Down from Watch still reaches them. `Window.Property(HomeTools)` is set only when the top menu is separate.
+
+| Shelf | Control | Contents |
+|---|---|---|
+| Continue | `30040` | Played titles that already have a name or poster. Hidden when they do not; the Continue card still opens the grid. |
+| Watch Later | `30041` | A Sign in card when this profile is logged out. Signed in, a More card that opens the library band. The account fetch stays on that grid. |
+| Movies, Series, Anime, Other | `30042`–`30045` | First page of the first installed catalog of that type, then More. Loaded once per visit, behind the cancellable "Loading…" spinner. |
+
+A poster click calls `open_detail`. More opens the same picker the chip does. Home reads that first page through `iter_catalog_pages()` and stops; it does not change the fetcher.
 
 | Row | Opens | Closes Home when playback starts |
 |---|---|---|
@@ -96,7 +106,7 @@ Used by more than one screen. A change here is not local to Home.
 | `lib/ui/mystuff.py` | Continue, and Watch Later via the optional `bands` argument | yes |
 | `lib/ui/playbackmeta.py` | Episode codes and art. No `xbmc` import. | no |
 | `lib/ui/urlutil.py` | Plugin URLs. No `xbmc` import. | no |
-| `lib/ui/views.py` | Catalog and meta fan-out, login, the recovery directory. Home does not fetch catalogs itself. | no |
+| `lib/ui/views.py` | Catalog and meta fan-out, login, the recovery directory. Home calls `iter_catalog_pages()` and `login()` and does not change them. | yes |
 | `lib/ui/metacache.py` | Meta cache used by the grid and the coverflow | no |
 
 `open_my_stuff(bands=None)` is the one shared helper this Home pass changes. `bands=None` is still Continue. Watch Later passes `(BAND_LIBRARY,)`, which filters the list already merged from local progress and `libraryItem`. It does not add a fetch.
@@ -116,5 +126,7 @@ Playback, resume, next episode, the streaming server, subtitles, and the Stremio
 Stremio's library record (`lib/library.py`) is a `libraryItem`. A real saved title has `removed` false and `temp` false. A title that was only played, never added, is stored with both flags true and is dropped by `library_metas()`. There is no watch-later field and no second datastore collection. Local progress (`store.get_progress_entries()`) is resume data, not a list the user curates.
 
 So Watch Later on Home is the library band Continue already shows at the bottom: saved titles with no started playback on this device. Started titles stay on Continue. The empty states are string `#30424` (signed out) and `#30426` (signed in, nothing unstarted).
+
+RevRivulet reads that login from its own `addon_data/plugin.video.revrivulet/auth.json`. Official Rivulet and the Stremio app do not share the file, so a fresh install says it is not logged in until the viewer signs in once on Home (string `#30427` / `#30428`) or under Settings > Account. That dialog is `views.login()`.
 
 A separate Watch Later list would need a new addon-data file in `lib/store.py`, or a new Stremio collection plus read/write support in `lib/stremio/api.py` and `lib/library.py`. Neither exists today, and both are outside a UI-only pass.

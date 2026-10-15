@@ -628,7 +628,7 @@ def test_oninit_moves_tools_onto_browse_when_nothing_publishes_a_type(load_homew
         'watchlater',
     ]
     assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.BROWSE_LIST).items] == [
-        'search', 'addons', 'settings',
+        'search', 'addons', 'settings', 'signin',
     ]
     assert win.getControl(ctx.homewindow.TOOLS_LIST).items == []
     assert win.getProperty('HomeTools') == ''
@@ -935,7 +935,9 @@ def test_onclick_mystuff_stays_open_when_open_my_stuff_returns_false(load_homewi
 
 def test_onclick_watchlater_opens_only_the_library_band(load_homewindow, monkeypatch):
     """Watch Later is the saved, never-started library band, not a second
-    copy of Continue and not a new collection."""
+    copy of Continue and not a new collection. The profile has to be
+    signed in already: a signed-out press opens the login dialog
+    instead of an empty grid."""
     ctx = load_homewindow()
     seen = {}
 
@@ -944,6 +946,10 @@ def test_onclick_watchlater_opens_only_the_library_band(load_homewindow, monkeyp
         return True
 
     monkeypatch.setattr(ctx.mystuff, 'open_my_stuff', _open)
+    monkeypatch.setattr(
+        ctx.homewindow, 'get_store',
+        lambda: _FakeStore(auth={'authKey': 'k', 'user': {'email': 'a@b.c'}}),
+    )
     win = _window_with_focused_action(ctx.homewindow, 'watchlater')
 
     win.onClick(ctx.homewindow.LIST)
@@ -1010,3 +1016,90 @@ def test_migration_survives_a_broken_settings_write(load_homewindow, monkeypatch
     monkeypatch.setattr(ctx.compat.ADDON, 'setSetting', _boom)
 
     ctx.homewindow._migrate_mystuff_setting()   # must not raise
+
+
+def test_onclick_watchlater_asks_for_signin_when_this_profile_is_logged_out(
+        load_homewindow, monkeypatch):
+    """RevRivulet's auth.json is empty on a fresh profile even when the
+    Stremio app is signed in. Watch Later must open the existing login
+    dialog instead of the empty-library notice."""
+    ctx = load_homewindow()
+    calls = []
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    monkeypatch.setattr(ctx.mystuff, 'open_my_stuff', lambda bands=None: calls.append(('grid', bands)))
+
+    import lib.ui.views as views
+    monkeypatch.setattr(views, 'login', lambda: calls.append('login'))
+    win = _window_with_focused_action(ctx.homewindow, 'watchlater')
+
+    win.onClick(ctx.homewindow.LIST)
+
+    assert 'login' in calls
+    assert not any(item[0] == 'grid' for item in calls if isinstance(item, tuple))
+    assert win.closed is False
+
+
+def test_oninit_puts_signin_on_the_menu_when_logged_out(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+
+    win.onInit()
+
+    actions = [item.getProperty('action') for item in win.getControl(ctx.homewindow.TOOLS_LIST).items]
+    assert actions[-1] == 'signin'
+    assert win.getProperty('shelf_watchlater') == '1'
+    assert win.getControl(ctx.homewindow.WATCHLATER_SHELF).items[0].getProperty('action') == 'signin'
+
+
+def test_onaction_paints_the_hero_from_the_focused_poster(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = xbmcgui.ListItem('Dune')
+    item.setProperties({
+        'hero_title': 'Dune',
+        'hero_meta': '2021',
+        'hero_plot': 'A boy and a desert.',
+        'fanart': 'https://img/dune.jpg',
+        'sid': 'tt1',
+        'stype': 'movie',
+    })
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([item])
+    win.setFocusId(ctx.homewindow.CONTINUE_SHELF)
+
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.closed is False
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Dune'
+    assert win.getControl(ctx.homewindow.HERO_META).label == '2021'
+    assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'A boy and a desert.'
+    assert win.getControl(ctx.homewindow.BACKGROUND).image == 'https://img/dune.jpg'
+
+
+def test_home_lists_declare_a_visible_focus_and_navigation():
+    """Every remote move on Home has to land on a control whose focused
+    layout draws the accent colour, with a direction wired so the press
+    is not a dead end."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    path = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i', 'HomeWindow.xml')
+    root = ET.parse(path).getroot()
+    assert root.find('defaultcontrol') is not None
+    focusable = [
+        control for control in root.iter('control')
+        if control.get('type') in ('list', 'panel') and control.get('id')
+    ]
+    assert focusable, 'Home has no focusable lists'
+    missing = []
+    for control in focusable:
+        focused = control.find('focusedlayout')
+        blob = ET.tostring(focused, encoding='unicode') if focused is not None else ''
+        if 'FF38BDF8' not in blob:
+            missing.append(control.get('id'))
+        for direction in ('onleft', 'onright'):
+            if control.find(direction) is None:
+                missing.append('%s %s' % (control.get('id'), direction))
+    assert not missing, 'Home focus gaps: %s' % missing

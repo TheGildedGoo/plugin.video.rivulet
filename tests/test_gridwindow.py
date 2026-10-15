@@ -632,10 +632,11 @@ def test_focus_is_marked_without_scaling_the_cell():
 
 
 def test_the_focus_underline_spans_the_whole_poster():
-    """The accent underline is the only thing marking focus, so it must
-    match the poster it sits under. After the poster grew to 288 the
-    underline was left at 256 in all four bands - 32px short, and visibly
-    so against the artwork above it."""
+    """The accent underline must match the poster it sits under. After
+    the poster grew to 288 the underline was left at 256 in all four
+    bands - 32px short, and visibly so against the artwork above it.
+    The frame around the poster is a second mark; this one still has
+    to span the artwork."""
     import re
 
     xml = _grid_xml()
@@ -654,3 +655,19 @@ def test_the_focus_underline_spans_the_whole_poster():
     for x, w in underlines:
         assert (x, w) == (poster_x, poster_w), (
             'underline %s@%s does not match the poster %s@%s' % (w, x, poster_w, poster_x))
+
+
+def test_focus_frame_is_wider_than_the_poster_on_every_band():
+    """A 4px underline on its own was invisible from the sofa: the
+    navigation sound played and the Watch Later card never looked
+    selected. The focused layout paints an accent plate that sticks
+    out past the poster on every band."""
+    import re
+
+    xml = _grid_xml()
+    frames = re.findall(
+        r'<top>0</top><left>8</left><width>304</width><height>440</height>'
+        r'<texture colordiffuse="FF38BDF8">',
+        xml,
+    )
+    assert len(frames) == 4, 'expected one focus frame per band, found %d' % len(frames)

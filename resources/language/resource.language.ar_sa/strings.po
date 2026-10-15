@@ -1030,3 +1030,11 @@ msgctxt "#30426"
 msgid "No unstarted library titles. Add one from its page."
 msgstr "لا توجد عناوين مكتبة لم تبدأ. أضف عنوانا من صفحته."
 
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "تسجيل الدخول"
+
+msgctxt "#30428"
+msgid "Sign in once here. RevRivulet keeps its own Stremio login."
+msgstr "سجّل الدخول هنا مرة واحدة. يحتفظ RevRivulet بتسجيل دخول Stremio خاص به."

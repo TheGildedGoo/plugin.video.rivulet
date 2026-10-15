@@ -1030,3 +1030,11 @@ msgctxt "#30426"
 msgid "No unstarted library titles. Add one from its page."
 msgstr "没有尚未开始的资料库标题。请在标题页面添加。"
 
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "登录"
+
+msgctxt "#30428"
+msgid "Sign in once here. RevRivulet keeps its own Stremio login."
+msgstr "请在此登录一次。RevRivulet使用自己的 Stremio 登录。"
