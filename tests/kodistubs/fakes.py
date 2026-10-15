@@ -68,7 +68,9 @@ _DEFAULT_LOCALIZED = {
     30316: '%d new episodes ready to watch',
     30341: '%s needs configuration. Open %s in a browser, configure it, then paste the resulting manifest URL',
     30348: 'Showing %d of %d',
+    30022: 'Logged in as %s',
     30360: 'New episodes: %d',
+    30429: '%d min',
     30383: 'Search incomplete, no answer from: %s',
 }
 

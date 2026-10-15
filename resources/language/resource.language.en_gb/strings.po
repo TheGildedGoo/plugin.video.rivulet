@@ -1011,15 +1011,15 @@ msgid "Browse"
 msgstr ""
 
 msgctxt "#30422"
-msgid "Watch Later"
+msgid "Library"
 msgstr ""
 
 msgctxt "#30423"
-msgid "Saved library titles not started on this device"
+msgid "Titles saved in your Stremio library"
 msgstr ""
 
 msgctxt "#30424"
-msgid "Sign in to see library titles you have not started."
+msgid "Sign in to see your library."
 msgstr ""
 
 msgctxt "#30425"
@@ -1027,7 +1027,7 @@ msgid "More"
 msgstr ""
 
 msgctxt "#30426"
-msgid "No unstarted library titles. Add one from its page."
+msgid "Your library is empty. Add a title from its page."
 msgstr ""
 
 
@@ -1037,4 +1037,8 @@ msgstr ""
 
 msgctxt "#30428"
 msgid "Sign in once here. RevRivulet keeps its own Stremio login."
+msgstr ""
+
+msgctxt "#30429"
+msgid "%d min"
 msgstr ""

@@ -44,7 +44,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _RELOAD_MODULE_NAMES = (
     'lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.router', 'lib.ui.homewindow',
     'lib.ui.catalogpicker', 'lib.ui.searchwindow', 'lib.ui.mystuff', 'lib.ui.addonswindow',
-    'lib.ui.gridwindow', 'lib.ui.detailwindow',
+    'lib.ui.gridwindow', 'lib.ui.detailwindow', 'lib.ui.hubwindow',
 )
 
 
@@ -129,16 +129,26 @@ def load_homewindow():
         yield _load
 
 
-def _window_with_focused_action(homewindow_mod, action):
-    """Build a fresh HomeWindow whose LIST control has one focused row
+def _window_with_focused_action(homewindow_mod, action, control_id=None):
+    """Build a fresh HomeWindow whose browse list has one focused row
     carrying `action` as its 'action' Property - the shape onClick() reads,
     without needing a real onInit()/Store round-trip."""
     import xbmcgui
     win = homewindow_mod.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
     item = xbmcgui.ListItem('label')
     item.setProperty('action', action)
-    win.getControl(homewindow_mod.LIST).addItems([item])
+    control_id = homewindow_mod.BROWSE_LIST if control_id is None else control_id
+    win.getControl(control_id).addItems([item])
     return win
+
+
+def _patch_library(monkeypatch, ctx, entries=None):
+    """Home's signed-in paint reads the account library. The real call
+    opens a socket the suite forbids; tests pass the records they care
+    about and never touch the network."""
+    monkeypatch.setattr(
+        ctx.mystuff, '_fetch_library_entries', lambda store, _entries=list(entries or []): _entries,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -146,46 +156,44 @@ def _window_with_focused_action(homewindow_mod, action):
 # ---------------------------------------------------------------------------
 
 
-def test_menu_items_lists_every_row_with_label_and_icon(load_homewindow):
+def test_menu_items_lists_the_type_chips_with_label_and_icon(load_homewindow):
+    """Continue and Library are poster rows. Search, Add-ons and Settings
+    are the top-bar buttons. The chip list is only the type rows."""
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(True, _ALL_TYPE_ADDONS)
+    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
 
     assert [item.getProperty('action') for item in items] == [
-        'mystuff', 'watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
+        'movies', 'series', 'anime',
     ]
     assert [item.getLabel() for item in items] == [
-        'STR30241', 'STR30422', 'STR30213', 'STR30214', 'STR30215', 'STR30001', 'STR30003', 'STR30004',
+        'STR30213', 'STR30214', 'STR30215',
     ]
     assert [item.art['icon'] for item in items] == [
-        ctx.compat.addon_media_path('mystuff.png'),
-        ctx.compat.addon_media_path('watchlater.png'),
         ctx.compat.addon_media_path('movies.png'),
         ctx.compat.addon_media_path('series.png'),
         ctx.compat.addon_media_path('anime.png'),
-        ctx.compat.addon_media_path('search.png'),
-        ctx.compat.addon_media_path('addons.png'),
-        ctx.compat.addon_media_path('settings.png'),
     ]
     assert [item.getProperty('subtitle') for item in items] == [
-        'STR30232', 'STR30423', 'STR30216', 'STR30217', 'STR30218', 'STR30149', 'STR30151', 'STR30152',
+        'STR30216', 'STR30217', 'STR30218',
     ]
 
 
-def test_menu_items_omits_library_when_show_library_false(load_homewindow):
+def test_menu_items_has_no_continue_or_library_card(load_homewindow):
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(False, _ALL_TYPE_ADDONS)
+    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
 
-    assert [item.getProperty('action') for item in items] == [
-        'watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
-    ]
+    actions = [item.getProperty('action') for item in items]
+    assert 'mystuff' not in actions
+    assert 'watchlater' not in actions
+    assert 'search' not in actions
 
 
 def test_menu_items_hides_a_type_row_its_setting_turns_off(load_homewindow):
     ctx = load_homewindow(settings={'home_show_series': 'false'})
 
-    items = ctx.homewindow._menu_items(False, _ALL_TYPE_ADDONS)
+    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
 
     actions = [item.getProperty('action') for item in items]
     assert 'series' not in actions
@@ -198,10 +206,10 @@ def test_menu_items_hides_a_type_row_nothing_publishes(load_homewindow):
                'manifest': {'catalogs': [{'type': 'movie', 'id': 'm'}]}}]
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(False, addons)
+    items = ctx.homewindow._menu_items(addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'watchlater', 'movies', 'search', 'addons', 'settings',
+        'movies',
     ]
 
 
@@ -212,21 +220,19 @@ def test_menu_items_groups_tv_catalogs_under_the_series_row(load_homewindow):
                'manifest': {'catalogs': [{'type': 'tv', 'id': 'ch'}]}}]
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(False, addons)
+    items = ctx.homewindow._menu_items(addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'watchlater', 'series', 'search', 'addons', 'settings',
+        'series',
     ]
 
 
 def test_menu_items_with_no_addons_shows_no_type_rows(load_homewindow):
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(False, [])
+    items = ctx.homewindow._menu_items([])
 
-    assert [item.getProperty('action') for item in items] == [
-        'watchlater', 'search', 'addons', 'settings',
-    ]
+    assert [item.getProperty('action') for item in items] == []
 
 
 def test_menu_items_classifies_dotted_anime_subtypes_into_anime_row(load_homewindow):
@@ -237,10 +243,10 @@ def test_menu_items_classifies_dotted_anime_subtypes_into_anime_row(load_homewin
                                           {'type': 'anime.series', 'id': 's'}]}}]
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(False, addons)
+    items = ctx.homewindow._menu_items(addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'watchlater', 'anime', 'search', 'addons', 'settings',
+        'anime',
     ]
 
 
@@ -250,10 +256,10 @@ def test_menu_items_type_matching_is_case_insensitive(load_homewindow):
                'manifest': {'catalogs': [{'type': 'TV', 'id': 'ch'}]}}]
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(False, addons)
+    items = ctx.homewindow._menu_items(addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'watchlater', 'series', 'search', 'addons', 'settings',
+        'series',
     ]
 
 
@@ -264,12 +270,12 @@ def test_menu_items_shows_other_row_for_a_type_no_curated_row_claims(load_homewi
                'manifest': {'catalogs': [{'type': 'Porn', 'id': 'p'}]}}]
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(False, addons)
+    items = ctx.homewindow._menu_items(addons)
 
     assert [item.getProperty('action') for item in items] == [
-        'watchlater', 'other', 'search', 'addons', 'settings',
+        'other',
     ]
-    other = items[1]
+    other = items[0]
     assert other.getLabel() == 'STR30227'
     assert other.getProperty('subtitle') == 'STR30228'
 
@@ -279,10 +285,10 @@ def test_menu_items_omits_other_row_when_only_curated_types_are_installed(load_h
     # no remainder exists, so 'other' stays out exactly like today.
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(True, _ALL_TYPE_ADDONS)
+    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
 
     assert [item.getProperty('action') for item in items] == [
-        'mystuff', 'watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
+        'movies', 'series', 'anime',
     ]
 
 
@@ -291,11 +297,9 @@ def test_menu_items_hides_other_row_its_setting_turns_off(load_homewindow):
                'manifest': {'catalogs': [{'type': 'Porn', 'id': 'p'}]}}]
     ctx = load_homewindow(settings={'home_show_other': 'false'})
 
-    items = ctx.homewindow._menu_items(False, addons)
+    items = ctx.homewindow._menu_items(addons)
 
-    assert [item.getProperty('action') for item in items] == [
-        'watchlater', 'search', 'addons', 'settings',
-    ]
+    assert [item.getProperty('action') for item in items] == []
 
 
 # ---------------------------------------------------------------------------
@@ -334,29 +338,32 @@ def test_status_text_reports_not_logged_in_when_auth_is_none(load_homewindow):
 # ---------------------------------------------------------------------------
 
 
-def test_oninit_shows_mystuff_row_when_authenticated(load_homewindow, monkeypatch):
-    """Logging in is enough for the merged row on its own: the user may
-    have a library worth opening even with an empty local progress cache
-    (`lib.ui.mystuff.has_content()`)."""
+def test_oninit_shows_the_library_row_when_authenticated(load_homewindow, monkeypatch):
+    """A signed-in profile with a saved title draws that title on the
+    Library row. Continue stays hidden when nothing is in progress, which
+    is the case this used to get wrong: the old card opened every band."""
     ctx = load_homewindow(localized={30022: 'Logged in as %s'})
+    _patch_library(monkeypatch, ctx, [{
+        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
+    }])
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}))
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
 
     win.onInit()
 
-    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items] == [
-        'mystuff', 'watchlater',
-    ]
+    assert [item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items] == ['tt9']
+    assert win.getProperty('shelf_continue') == ''
+    assert win.getProperty('shelf_library') == '1'
+    assert win.getProperty('HomeSignedOut') == ''
     assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.BROWSE_LIST).items] == [
         'movies', 'series', 'anime',
     ]
-    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.TOOLS_LIST).items] == [
-        'search', 'addons', 'settings',
-    ]
-    assert win.getProperty('HomeTools') == '1'
-    assert win.getControl(ctx.homewindow.BACKGROUND).image == ctx.compat.ADDON_FANART
+    # Focus lands on the library poster, so the hero is that title's art
+    # (the poster, when the record has no background) rather than the
+    # addon fanart the window opened with.
+    assert win.getControl(ctx.homewindow.BACKGROUND).image == 's'
     assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as ?'
-    assert win.getFocusId() == ctx.homewindow.LIST
+    assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
 
 
 def test_oninit_hides_library_row_when_not_authenticated(load_homewindow, monkeypatch):
@@ -366,7 +373,8 @@ def test_oninit_hides_library_row_when_not_authenticated(load_homewindow, monkey
 
     win.onInit()
 
-    actions = [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items]
+    assert win.getProperty('HomeSignedOut') == '1'
+    actions = [item.getProperty('action') for item in win.getControl(ctx.homewindow.BROWSE_LIST).items]
     assert 'library' not in actions
     assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR 57EEF3F6]\u25cf[/COLOR] STR30190'
 
@@ -374,6 +382,7 @@ def test_oninit_hides_library_row_when_not_authenticated(load_homewindow, monkey
 def test_oninit_sets_status_label_to_email_when_authenticated_with_email(load_homewindow, monkeypatch):
     ctx = load_homewindow(localized={30022: 'Logged in as %s'})
     auth = {'authKey': 'x', 'user': {'email': 'me@example.com', 'name': 'Me'}}
+    _patch_library(monkeypatch, ctx)
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=auth))
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
 
@@ -385,6 +394,7 @@ def test_oninit_sets_status_label_to_email_when_authenticated_with_email(load_ho
 def test_oninit_sets_status_label_to_name_when_email_is_absent(load_homewindow, monkeypatch):
     ctx = load_homewindow(localized={30022: 'Logged in as %s'})
     auth = {'authKey': 'x', 'user': {'name': 'Me'}}
+    _patch_library(monkeypatch, ctx)
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=auth))
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
 
@@ -461,7 +471,7 @@ def test_onclick_list_with_no_focused_item_does_not_crash(load_homewindow):
     ctx = load_homewindow()
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     assert win.closed is False
 
@@ -470,7 +480,7 @@ def test_onclick_focused_item_with_unrecognized_action_does_not_crash_or_close(l
     ctx = load_homewindow()
     win = _window_with_focused_action(ctx.homewindow, 'not-a-real-action')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     assert win.closed is False
 
@@ -479,24 +489,24 @@ def test_onclick_type_row_closes_when_catalog_picker_returns_true(load_homewindo
     ctx = load_homewindow()
     calls = []
     monkeypatch.setattr(
-        ctx.catalogpicker, 'open_catalog_picker',
-        lambda types=None, heading='': (calls.append((types, heading)), True)[1],
+        ctx.hubwindow, 'open_hub',
+        lambda types=None, heading='', action='': (calls.append((types, heading, action)), True)[1],
     )
     win = _window_with_focused_action(ctx.homewindow, 'movies')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     # The picker is filtered to the row's own types and headed by its label.
-    assert calls == [(ctx.homewindow.TYPE_ROW_TYPES['movies'], 'STR30213')]
+    assert calls == [(ctx.homewindow.TYPE_ROW_TYPES['movies'], 'STR30213', 'movies')]
     assert win.closed is True
 
 
 def test_onclick_type_row_stays_open_when_catalog_picker_returns_false(load_homewindow, monkeypatch):
     ctx = load_homewindow()
-    monkeypatch.setattr(ctx.catalogpicker, 'open_catalog_picker', lambda types=None, heading='': False)
+    monkeypatch.setattr(ctx.hubwindow, 'open_hub', lambda types=None, heading='', action='': False)
     win = _window_with_focused_action(ctx.homewindow, 'movies')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     assert win.closed is False
 
@@ -505,12 +515,12 @@ def test_onclick_series_row_passes_its_own_types(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     calls = []
     monkeypatch.setattr(
-        ctx.catalogpicker, 'open_catalog_picker',
-        lambda types=None, heading='': (calls.append(types), False)[1],
+        ctx.hubwindow, 'open_hub',
+        lambda types=None, heading='', action='': (calls.append(types), False)[1],
     )
     win = _window_with_focused_action(ctx.homewindow, 'series')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     assert calls == [ctx.homewindow.TYPE_ROW_TYPES['series']]
     assert 'tv' in calls[0]
@@ -526,12 +536,12 @@ def test_onclick_other_row_passes_only_the_unclaimed_remainder(load_homewindow, 
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(addons=addons))
     calls = []
     monkeypatch.setattr(
-        ctx.catalogpicker, 'open_catalog_picker',
-        lambda types=None, heading='': (calls.append(types), False)[1],
+        ctx.hubwindow, 'open_hub',
+        lambda types=None, heading='', action='': (calls.append(types), False)[1],
     )
     win = _window_with_focused_action(ctx.homewindow, 'other')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     assert calls == [{'porn'}]
 
@@ -541,7 +551,7 @@ def test_onclick_search_closes_when_open_search_returns_true(load_homewindow, mo
     monkeypatch.setattr(ctx.searchwindow, 'open_search', lambda: True)
     win = _window_with_focused_action(ctx.homewindow, 'search')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     assert win.closed is True
 
@@ -551,7 +561,7 @@ def test_onclick_search_stays_open_when_open_search_returns_false(load_homewindo
     monkeypatch.setattr(ctx.searchwindow, 'open_search', lambda: False)
     win = _window_with_focused_action(ctx.homewindow, 'search')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     assert win.closed is False
 
@@ -562,7 +572,7 @@ def test_onclick_addons_never_closes_home(load_homewindow, monkeypatch):
     monkeypatch.setattr(ctx.addonswindow, 'open_addons', lambda: calls.append(1))
     win = _window_with_focused_action(ctx.homewindow, 'addons')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     assert calls == [1]
     assert win.closed is False
@@ -572,7 +582,7 @@ def test_onclick_settings_opens_native_settings_without_closing(load_homewindow)
     ctx = load_homewindow()
     win = _window_with_focused_action(ctx.homewindow, 'settings')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.BROWSE_LIST)
 
     assert ctx.env.opened_settings is True
     assert win.closed is False
@@ -584,8 +594,8 @@ def test_onclick_browse_list_opens_its_type_row(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     calls = []
     monkeypatch.setattr(
-        ctx.catalogpicker, 'open_catalog_picker',
-        lambda types=None, heading='': (calls.append(types), False)[1],
+        ctx.hubwindow, 'open_hub',
+        lambda types=None, heading='', action='': (calls.append(types), False)[1],
     )
     import xbmcgui
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
@@ -599,39 +609,29 @@ def test_onclick_browse_list_opens_its_type_row(load_homewindow, monkeypatch):
     assert win.closed is False
 
 
-def test_onclick_tools_list_opens_search(load_homewindow, monkeypatch):
+def test_onclick_search_button_opens_search(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     monkeypatch.setattr(ctx.searchwindow, 'open_search', lambda: True)
-    import xbmcgui
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
-    item = xbmcgui.ListItem('Search')
-    item.setProperty('action', 'search')
-    win.getControl(ctx.homewindow.TOOLS_LIST).addItems([item])
 
-    win.onClick(ctx.homewindow.TOOLS_LIST)
+    win.onClick(ctx.homewindow.BTN_SEARCH)
 
     assert win.closed is True
 
 
-def test_oninit_moves_tools_onto_browse_when_nothing_publishes_a_type(load_homewindow, monkeypatch):
-    """No type row means the browse list would be empty, and Down from
-    Watch is wired to that list. The tool rows move up onto it, and the
-    separate More strip stays hidden."""
+def test_oninit_keeps_the_top_bar_when_nothing_publishes_a_type(load_homewindow, monkeypatch):
+    """No type chip means the browse list is hidden. Search, Add-ons and
+    Settings stay on the top bar instead of moving onto that list."""
     ctx = load_homewindow()
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(addons=[]))
-    monkeypatch.setattr(ctx.mystuff, 'has_content', lambda store: False)
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
 
     win.onInit()
 
-    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items] == [
-        'watchlater',
-    ]
-    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.BROWSE_LIST).items] == [
-        'search', 'addons', 'settings', 'signin',
-    ]
-    assert win.getControl(ctx.homewindow.TOOLS_LIST).items == []
-    assert win.getProperty('HomeTools') == ''
+    assert win.getControl(ctx.homewindow.BROWSE_LIST).items == []
+    assert win.getProperty('HomeBrowse') == ''
+    assert win.getProperty('HomeSignedOut') == '1'
+    assert win.getProperty('shelf_library') == '1'
 
 
 # ---------------------------------------------------------------------------
@@ -812,27 +812,26 @@ def test_open_home_clears_the_heartbeat_when_the_window_raises(load_homewindow, 
 
 
 def test_every_menu_row_has_an_icon_shipped_for_it(load_homewindow):
-    """`_menu_items()` derives each row's icon from its action name
-    (`addon_media_path('%s.png' % action)`), so a row whose file is
-    missing renders with an empty icon slot - silently, since Kodi just
-    draws nothing. The `other` row shipped exactly that way: it was added
-    without an `other.png`, and the row it replaced (`discover`) left its
-    icon behind unreferenced.
+    """`_menu_items()` derives each chip's icon from its action name
+    (`addon_media_path('%s.png' % action)`), so a chip whose file is
+    missing renders with an empty icon slot.
 
-    Kodi resolves these at draw time against the real addon directory,
-    so this walks the repo rather than the stubbed path helper.
+    `settings.png` is not a Home chip. The recovery directory
+    (`lib/ui/views.py`) still draws it. Continue and Library are poster
+    rows and do not ship a card glyph.
     """
     media = os.path.join(_REPO_ROOT, 'resources', 'media')
     actions = [action for _string_id, action in load_homewindow().homewindow._MENU]
+    used = set(actions) | {'settings'}
 
     missing = [a for a in actions if not os.path.isfile(os.path.join(media, '%s.png' % a))]
     assert not missing, 'Home rows with no resources/media/<action>.png: %s' % missing
 
     unused = sorted(
         name for name in os.listdir(media)
-        if name.endswith('.png') and name[:-len('.png')] not in actions
+        if name.endswith('.png') and name[:-len('.png')] not in used
     )
-    assert not unused, 'icons in resources/media nothing on Home draws: %s' % unused
+    assert not unused, 'icons in resources/media nothing draws: %s' % unused
 
 
 # ---------------------------------------------------------------------------
@@ -840,122 +839,116 @@ def test_every_menu_row_has_an_icon_shipped_for_it(load_homewindow):
 # ---------------------------------------------------------------------------
 
 
-def test_menu_items_shows_mystuff_row_first_when_show_mystuff_true(load_homewindow):
+def test_menu_items_starts_with_movies(load_homewindow):
     ctx = load_homewindow()
 
-    items = ctx.homewindow._menu_items(True, _ALL_TYPE_ADDONS)
+    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
 
-    assert [item.getProperty('action') for item in items] == [
-        'mystuff', 'watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings',
+    assert items[0].getProperty('action') == 'movies'
+    assert items[0].getLabel() == 'STR30213'
+    assert 'mystuff' not in [item.getProperty('action') for item in items]
+
+
+def test_continue_row_is_in_progress_and_library_row_is_the_library(load_homewindow, monkeypatch):
+    """Local progress lands on Continue. A saved title with no progress
+    lands on Library and not on Continue. That split is what the old
+    Continue card did not do: it opened every band, library included."""
+    ctx = load_homewindow()
+    library = [
+        {'_id': 'tt1', 'name': 'Dune', 'type': 'movie', 'poster': 'p', 'removed': False},
+        {'_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False},
     ]
-    assert items[0].getLabel() == 'STR30241'
-    assert items[0].art['icon'] == ctx.compat.addon_media_path('mystuff.png')
-    assert items[0].getProperty('subtitle') == 'STR30232'
-
-
-def test_menu_items_omits_mystuff_row_when_gate_false(load_homewindow):
-    """The merged row replaced the separate Continue-watching and Library
-    rows, so neither survives in the menu whatever the gate says."""
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(False, _ALL_TYPE_ADDONS)
-
-    actions = [item.getProperty('action') for item in items]
-    assert actions == ['watchlater', 'movies', 'series', 'anime', 'search', 'addons', 'settings']
-    assert 'continue' not in actions
-    assert 'library' not in actions
-    assert 'mystuff' not in actions
-
-
-# ---------------------------------------------------------------------------
-# HomeWindow.onInit() - "My Stuff" row gating
-# ---------------------------------------------------------------------------
-
-
-def test_oninit_shows_mystuff_row_when_setting_on_and_has_content(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore())
-    monkeypatch.setattr(ctx.mystuff, 'has_content', lambda store: True)
-    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    actions = [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items]
-    assert actions[0] == 'mystuff'
-
-
-def test_oninit_hides_mystuff_row_when_setting_off(load_homewindow, monkeypatch):
-    ctx = load_homewindow(settings={'home_show_mystuff': 'false'})
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore())
-    monkeypatch.setattr(ctx.mystuff, 'has_content', lambda store: True)
-    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    actions = [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items]
-    assert 'mystuff' not in actions
-
-
-def test_oninit_hides_mystuff_row_when_no_content(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore())
-    monkeypatch.setattr(ctx.mystuff, 'has_content', lambda store: False)
-    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    actions = [item.getProperty('action') for item in win.getControl(ctx.homewindow.LIST).items]
-    assert 'mystuff' not in actions
-
-
-# ---------------------------------------------------------------------------
-# HomeWindow.onClick() - "My Stuff" row
-# ---------------------------------------------------------------------------
-
-
-def test_onclick_mystuff_closes_when_open_my_stuff_returns_true(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    monkeypatch.setattr(ctx.mystuff, 'open_my_stuff', lambda: True)
-    win = _window_with_focused_action(ctx.homewindow, 'mystuff')
-
-    win.onClick(ctx.homewindow.LIST)
-
-    assert win.closed is True
-
-
-def test_onclick_mystuff_stays_open_when_open_my_stuff_returns_false(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    monkeypatch.setattr(ctx.mystuff, 'open_my_stuff', lambda: False)
-    win = _window_with_focused_action(ctx.homewindow, 'mystuff')
-
-    win.onClick(ctx.homewindow.LIST)
-
-    assert win.closed is False
-
-
-def test_onclick_watchlater_opens_only_the_library_band(load_homewindow, monkeypatch):
-    """Watch Later is the saved, never-started library band, not a second
-    copy of Continue and not a new collection. The profile has to be
-    signed in already: a signed-out press opens the login dialog
-    instead of an empty grid."""
-    ctx = load_homewindow()
-    seen = {}
-
-    def _open(bands=None):
-        seen['bands'] = bands
-        return True
-
-    monkeypatch.setattr(ctx.mystuff, 'open_my_stuff', _open)
+    _patch_library(monkeypatch, ctx, library)
+    progress = [{
+        'type': 'movie', 'id': 'tt1', 'position_ms': 50000, 'duration_ms': 100000,
+        'updated_at': '2020-01-02T00:00:00Z',
+    }]
     monkeypatch.setattr(
         ctx.homewindow, 'get_store',
-        lambda: _FakeStore(auth={'authKey': 'k', 'user': {'email': 'a@b.c'}}),
+        lambda: _FakeStore(auth={'authKey': 'k'}, progress_entries=progress),
     )
-    win = _window_with_focused_action(ctx.homewindow, 'watchlater')
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onInit()
 
-    assert seen['bands'] == (ctx.mystuff.BAND_LIBRARY,)
+    continue_ids = [item.getProperty('sid') for item in win.getControl(ctx.homewindow.CONTINUE_SHELF).items]
+    library_ids = [item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items]
+    assert continue_ids == ['tt1']
+    assert 'tt9' not in continue_ids
+    assert library_ids == ['tt1', 'tt9']
+
+
+def test_continue_row_includes_in_progress_library_state(load_homewindow, monkeypatch):
+    """A title watched in the Stremio app has no local progress.json row.
+    Its libraryItem state is still in progress, so it belongs on Continue.
+    A removed-and-not-temp tombstone does not."""
+    ctx = load_homewindow()
+    library = [
+        {
+            '_id': 'tt3', 'name': 'App', 'type': 'movie', 'poster': 'a',
+            'removed': True, 'temp': True,
+            'state': {'timeOffset': 40000, 'duration': 100000},
+        },
+        {
+            '_id': 'tt4', 'name': 'Gone', 'type': 'movie', 'poster': 'g',
+            'removed': True, 'temp': False,
+            'state': {'timeOffset': 40000, 'duration': 100000},
+        },
+    ]
+    _patch_library(monkeypatch, ctx, library)
+    monkeypatch.setattr(
+        ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'k'}),
+    )
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+
+    win.onInit()
+
+    continue_ids = [item.getProperty('sid') for item in win.getControl(ctx.homewindow.CONTINUE_SHELF).items]
+    library_ids = [item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items]
+    assert continue_ids == ['tt3']
+    assert 'tt4' not in continue_ids
+    assert 'tt3' not in library_ids
+    assert 'tt4' not in library_ids
+
+
+def test_onclick_continue_poster_opens_detail(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    opened = []
+    monkeypatch.setattr(
+        ctx.detailwindow, 'open_detail',
+        lambda ctype, sid: opened.append((ctype, sid)) or True,
+    )
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = xbmcgui.ListItem('Dune')
+    item.setProperty('sid', 'tt1')
+    item.setProperty('stype', 'movie')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([item])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    assert opened == [('movie', 'tt1')]
     assert win.closed is True
+
+
+def test_oninit_hides_continue_when_the_setting_is_off(load_homewindow, monkeypatch):
+    ctx = load_homewindow(settings={'home_show_mystuff': 'false'})
+    library = [{'_id': 'tt1', 'name': 'Dune', 'type': 'movie', 'poster': 'p', 'removed': False}]
+    _patch_library(monkeypatch, ctx, library)
+    progress = [{
+        'type': 'movie', 'id': 'tt1', 'position_ms': 50000, 'duration_ms': 100000,
+        'updated_at': '2020-01-02T00:00:00Z',
+    }]
+    monkeypatch.setattr(
+        ctx.homewindow, 'get_store',
+        lambda: _FakeStore(auth={'authKey': 'k'}, progress_entries=progress),
+    )
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+
+    win.onInit()
+
+    assert win.getProperty('shelf_continue') == ''
+    assert win.getProperty('shelf_library') == '1'
 
 
 # ---------------------------------------------------------------------------
@@ -1018,38 +1011,38 @@ def test_migration_survives_a_broken_settings_write(load_homewindow, monkeypatch
     ctx.homewindow._migrate_mystuff_setting()   # must not raise
 
 
-def test_onclick_watchlater_asks_for_signin_when_this_profile_is_logged_out(
-        load_homewindow, monkeypatch):
+def test_onclick_library_signin_poster_opens_login(load_homewindow, monkeypatch):
     """RevRivulet's auth.json is empty on a fresh profile even when the
-    Stremio app is signed in. Watch Later must open the existing login
-    dialog instead of the empty-library notice."""
+    Stremio app is signed in. The Library row's Sign in cell opens the
+    existing login dialog."""
     ctx = load_homewindow()
     calls = []
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
-    monkeypatch.setattr(ctx.mystuff, 'open_my_stuff', lambda bands=None: calls.append(('grid', bands)))
 
     import lib.ui.views as views
     monkeypatch.setattr(views, 'login', lambda: calls.append('login'))
-    win = _window_with_focused_action(ctx.homewindow, 'watchlater')
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = xbmcgui.ListItem('Sign in')
+    item.setProperty('action', 'signin')
+    win.getControl(ctx.homewindow.LIBRARY_SHELF).addItems([item])
 
-    win.onClick(ctx.homewindow.LIST)
+    win.onClick(ctx.homewindow.LIBRARY_SHELF)
 
-    assert 'login' in calls
-    assert not any(item[0] == 'grid' for item in calls if isinstance(item, tuple))
+    assert calls == ['login']
     assert win.closed is False
 
 
-def test_oninit_puts_signin_on_the_menu_when_logged_out(load_homewindow, monkeypatch):
+def test_oninit_puts_signin_on_the_library_row_when_logged_out(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
 
     win.onInit()
 
-    actions = [item.getProperty('action') for item in win.getControl(ctx.homewindow.TOOLS_LIST).items]
-    assert actions[-1] == 'signin'
-    assert win.getProperty('shelf_watchlater') == '1'
-    assert win.getControl(ctx.homewindow.WATCHLATER_SHELF).items[0].getProperty('action') == 'signin'
+    assert win.getProperty('HomeSignedOut') == '1'
+    assert win.getProperty('shelf_library') == '1'
+    assert win.getControl(ctx.homewindow.LIBRARY_SHELF).items[0].getProperty('action') == 'signin'
 
 
 def test_onaction_paints_the_hero_from_the_focused_poster(load_homewindow, monkeypatch):
@@ -1080,24 +1073,40 @@ def test_onaction_paints_the_hero_from_the_focused_poster(load_homewindow, monke
 
 def test_home_lists_declare_a_visible_focus_and_navigation():
     """Every remote move on Home has to land on a control whose focused
-    layout draws the accent colour, with a direction wired so the press
-    is not a dead end."""
+    state is visible, with a direction wired so the press is not a dead end.
+    The top bar is a right-aligned grouplist and Settings is its last button."""
     import os
     import xml.etree.ElementTree as ET
 
     path = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i', 'HomeWindow.xml')
     root = ET.parse(path).getroot()
     assert root.find('defaultcontrol') is not None
+    assert root.find(".//control[@id='30002']") is None
+    bar = root.find(".//control[@id='30011']")
+    assert bar is not None and bar.get('type') == 'grouplist'
+    assert (bar.findtext('align') or '').strip() == 'right'
+    buttons = [child for child in list(bar) if child.tag == 'control' and child.get('type') == 'button']
+    assert [button.get('id') for button in buttons] == ['30073', '30070', '30071', '30072']
+    missing = []
+    for button in buttons:
+        focus = button.find('texturefocus')
+        idle = button.find('texturenofocus')
+        if focus is None or idle is None:
+            missing.append(button.get('id'))
+            continue
+        if (focus.get('colordiffuse') or '') == (idle.get('colordiffuse') or ''):
+            missing.append('%s contrast' % button.get('id'))
+        if button.find('ondown') is None:
+            missing.append('%s ondown' % button.get('id'))
     focusable = [
         control for control in root.iter('control')
         if control.get('type') in ('list', 'panel') and control.get('id')
     ]
     assert focusable, 'Home has no focusable lists'
-    missing = []
     for control in focusable:
         focused = control.find('focusedlayout')
         blob = ET.tostring(focused, encoding='unicode') if focused is not None else ''
-        if 'FF38BDF8' not in blob:
+        if 'FFFFFFFF' not in blob:
             missing.append(control.get('id'))
         for direction in ('onleft', 'onright'):
             if control.find(direction) is None:
