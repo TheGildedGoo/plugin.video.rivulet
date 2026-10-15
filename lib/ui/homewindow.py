@@ -276,18 +276,12 @@ def _one_catalog_page(transport, manifest, catalog, extra=None):
     (`_pull_more`), so opening Home does not pull a whole catalog.
     A failed addon yields an empty row rather than taking the screen down.
     """
-    from lib.ui.views import iter_catalog_pages
+    from lib.ui.catalogpages import cached_first_page
 
     try:
-        page = next(iter_catalog_pages(
-            transport, catalog.get('type'), catalog.get('id'),
-            extra=extra, catalog=catalog, manifest=manifest,
-        ))
-    except StopIteration:
-        return []
+        return cached_first_page(transport, manifest, catalog, extra)
     except Exception:
         return []
-    return [meta for meta in (page or []) if isinstance(meta, dict)]
 
 
 def _shelf_page_gen(state):
@@ -620,6 +614,20 @@ def _load_rows(window, store, addons, auth):
     return continue_items, library_items, pages, enabled
 
 
+def _warm_shelf_posters(pages):
+    """Poster textures for the first catalog rows, after they are on screen.
+
+    Continue and Library are not catalog pages. Backgrounds and logos
+    are not warmed. The worker waits on ``waitForAbort``.
+    """
+    from lib.ui.posterwarm import collect_poster_urls, request_warm
+
+    groups = []
+    for action, _list_id, _label_id in _SHELVES:
+        groups.append(pages.get(action) or [])
+    request_warm(collect_poster_urls(groups))
+
+
 def _fill_shelves(window, store, addons, auth, show_continue):
     from lib.ui.compat import L
 
@@ -644,6 +652,7 @@ def _fill_shelves(window, store, addons, auth, show_continue):
             window, list_id, label_id, 'shelf_%s' % action,
             L(L_FOR_ACTION[action]).upper(), items,
         )
+    _warm_shelf_posters(pages)
 
 
 def _refill_saved_rows(window, store, auth):
@@ -882,6 +891,12 @@ class HomeWindow(BaseWindow):
         _fill_shelves(self, store, addons, auth, show_continue)
         _focus_first(self)
         paint_hero(self)
+        # After the shelf spinner, not inside it. The 15-minute clock
+        # lives in addonsync, so a nested modal closing does not pull
+        # on every Back.
+        from lib.ui.addonsync import schedule_account_pull
+
+        schedule_account_pull(store, self)
 
     @gated_input
     def onAction(self, action):

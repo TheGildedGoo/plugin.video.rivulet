@@ -693,6 +693,12 @@ class _SyncStore:
 
 def _fake_api(ctx, monkeypatch, push):
     class _Api:
+        def addon_collection_get(self, auth_key):
+            return []
+
+        def addon_collection_state(self, auth_key):
+            return [], None
+
         def addon_collection_set(self, auth_key, payload):
             return push(auth_key, payload)
 

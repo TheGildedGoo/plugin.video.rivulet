@@ -111,6 +111,7 @@ SEEN_EPISODES_FILENAME = "seen_episodes.json"
 PENDING_SYNC_FILENAME = "pending_sync.json"
 LAST_STREAMS_FILENAME = "last_streams.json"
 AUTOPLAY_FINISH_FILENAME = "autoplay_finish.json"
+ADDON_SYNC_FILENAME = "addon_sync.json"
 
 #: How many last-chosen streams to keep. One entry per played episode,
 #: and a stream object is much larger than a progress sample, so this
@@ -954,6 +955,7 @@ class Store:
         self._pending_sync_path = os.path.join(self.data_dir, PENDING_SYNC_FILENAME)
         self._last_streams_path = os.path.join(self.data_dir, LAST_STREAMS_FILENAME)
         self._autoplay_finish_path = os.path.join(self.data_dir, AUTOPLAY_FINISH_FILENAME)
+        self._addon_sync_path = os.path.join(self.data_dir, ADDON_SYNC_FILENAME)
         #: Per-instance memoisation for `_cached_read`: `path -> ((mtime_ns,
         #: size), parsed_value)`. A single process/screen-render often
         #: calls e.g. `get_addons()` many times; a fresh eMMC/SD `open()`
@@ -1060,6 +1062,28 @@ class Store:
         addons = list(addons)
         _atomic_write(self._addons_path, addons)
         self._invalidate_cache(self._addons_path)
+
+    def get_addon_collection_mtime(self):
+        """The account collection's ``lastModified``, or None.
+
+        A pull whose timestamp matches this skips the ``addons.json``
+        write. The value lives in its own file so remembering it does
+        not rewrite the addon list. Fixed path, same read cache as the
+        other store files.
+        """
+        payload = self._cached_read(self._addon_sync_path, None)
+        if isinstance(payload, dict):
+            return payload.get("lastModified")
+        return None
+
+    def set_addon_collection_mtime(self, last_modified):
+        """Remember ``lastModified``. An equal value does not rewrite the file."""
+        if last_modified is None:
+            return
+        if self.get_addon_collection_mtime() == last_modified:
+            return
+        _atomic_write(self._addon_sync_path, {"lastModified": last_modified}, compact=True)
+        self._invalidate_cache(self._addon_sync_path)
 
     def update_addons(self, transform, max_attempts=3):
         """Safely read-modify-write the addon list against concurrent writers.

@@ -6,6 +6,7 @@ import contextlib
 import datetime
 import json
 import os
+import threading
 
 import pytest
 
@@ -33,8 +34,11 @@ def _addons():
             {'type': 'movie', 'id': 'top', 'name': 'Top'},
             {'type': 'movie', 'id': 'find', 'name': 'Find',
              'extra': [{'name': 'search', 'isRequired': True}]},
+            {'type': 'movie', 'id': 'genre', 'name': 'Genre', 'extra': [
+                {'name': 'genre', 'isRequired': True, 'options': ['Action', 'Comedy']},
+            ]},
             {'type': 'movie', 'id': 'year', 'name': 'Year', 'extra': [
-                {'name': 'genre', 'isRequired': True, 'options': ['2024', '2023']},
+                {'name': 'genre', 'isRequired': True, 'options': ['2026', '2024', '1994', '1950', '1920']},
             ]},
             {'type': 'series', 'id': 'shows', 'name': 'Shows'},
         ]},
@@ -66,9 +70,14 @@ def test_descriptors_skip_search_and_keep_the_first_genre(load_hub, monkeypatch)
     descs = ctx.hubwindow._descriptors(_addons(), frozenset({'movie'}))
     ctx.hubwindow._fill_prefix(descs, 8)
 
-    assert [desc['heading'] for desc in descs] == ['Top', 'Year']
-    assert seen == [('top', None), ('year', [('genre', '2024')])]
+    assert [desc['heading'] for desc in descs] == ['Top', 'Genre', 'Year']
+    # A word genre still uses its first option. A year catalog does not
+    # fetch: it is decade tiles, and nothing older than the 1960s.
+    assert seen == [('top', None), ('genre', [('genre', 'Action')])]
     assert descs[0]['posters'][0].getProperty('sid') == 'top'
+    assert descs[2]['kind'] == 'decade'
+    assert [item.getLabel() for item in descs[2]['posters']] == ['2020s', '1990s']
+    assert descs[2]['posters'][0].getProperty('decade_years') == '2026,2024'
 
 
 def test_hub_keeps_every_catalog_and_loads_only_the_first_screen(load_hub, monkeypatch):
@@ -99,9 +108,11 @@ def test_hub_keeps_every_catalog_and_loads_only_the_first_screen(load_hub, monke
 def test_moving_down_loads_the_next_unfetched_row(load_hub, monkeypatch):
     ctx = load_hub()
     seen = []
+    threads = []
 
     def _page(transport, manifest, catalog, extra=None):
         seen.append(catalog.get('id'))
+        threads.append(threading.current_thread().name)
         return [{'id': catalog.get('id'), 'name': catalog.get('name'), 'type': 'movie', 'poster': 'p'}]
 
     monkeypatch.setattr(ctx.homewindow, '_one_catalog_page', _page)
@@ -113,14 +124,18 @@ def test_moving_down_loads_the_next_unfetched_row(load_hub, monkeypatch):
     descs = ctx.hubwindow._descriptors(addons, frozenset({'movie'}))
     ctx.hubwindow._fill_prefix(descs, ctx.hubwindow._INITIAL_ROWS)
     seen.clear()
+    del threads[:]
     win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
     win._descs = descs
     ctx.hubwindow._paint_list(win, select=2)
 
     import xbmcgui
     win.onAction(xbmcgui.Action(4))
+    ctx.hubwindow._join_row_fetches(win)
 
     assert 'c3' in seen
+    assert threads
+    assert all(name != 'MainThread' for name in threads)
     assert descs[3]['posters']
     assert descs[3]['posters'][0].getProperty('sid') == 'c3'
 
@@ -313,6 +328,15 @@ def test_hub_bar_is_right_aligned_and_posters_have_a_focus_frame():
         visible = [(node.text or '').strip() for node in el.findall('visible')]
         assert 'String.IsEqual(ListItem.Property(layout),land)' in visible
     assert 'pill_fill.png' in ET.tostring(bar, encoding='unicode')
+    blob = ET.tostring(rows, encoding='unicode')
+    assert 'String.IsEqual(ListItem.Property(layout),decade)' in blob
+    assert blob.count('ListItem.Property(n0)') >= 2
+    rev2 = ET.parse(os.path.join(
+        root, 'resources', 'skins', 'Default', '1080i', 'Rev2HubWindow.xml',
+    )).getroot()
+    rev2_rows = ET.tostring(rev2.find(".//control[@id='31000']"), encoding='unicode')
+    assert 'String.IsEqual(ListItem.Property(layout),decade)' in rev2_rows
+    assert 'rv_mask_200x300.png' in rev2_rows
 
 
 def test_new_episodes_row_paints_the_cinemeta_still_the_skin_reads(load_hub, monkeypatch):
@@ -401,3 +425,56 @@ def test_landscape_row_slides_inside_four_slots(load_hub):
     assert row.getProperty('p0') == 'still-1'
     assert row.getProperty('p3') == 'still-4'
     assert row.getProperty('p4') == ''
+
+
+def test_series_year_catalog_stays_on_its_first_option(load_hub, monkeypatch):
+    """Decade tiles are the Movies hub only. Series keeps the first year."""
+    ctx = load_hub()
+    seen = []
+
+    def _page(transport, manifest, catalog, extra=None):
+        seen.append(extra)
+        return [{'id': 'show', 'name': 'Show', 'type': 'series', 'poster': 'p'}]
+
+    monkeypatch.setattr(ctx.homewindow, '_one_catalog_page', _page)
+    addons = [{'transportUrl': 'https://a/manifest.json', 'manifest': {'catalogs': [
+        {'type': 'series', 'id': 'year', 'name': 'New', 'extra': [
+            {'name': 'genre', 'isRequired': True, 'options': ['2024', '2020']},
+        ]},
+    ]}}]
+    descs = ctx.hubwindow._descriptors(addons, frozenset({'series', 'tv'}))
+    ctx.hubwindow._fill_prefix(descs, 3)
+    assert descs[0]['kind'] == 'catalog'
+    assert seen == [[('genre', '2024')]]
+
+
+def test_decade_tile_opens_the_coverflow(load_hub, monkeypatch):
+    ctx = load_hub()
+    opened = []
+
+    def _fetch(desc, years, label):
+        assert years == ['1994', '1990']
+        assert label == '1990s'
+        return [{'id': 'shawshank', 'type': 'movie', 'name': 'The Shawshank Redemption'}]
+
+    def _showcase(metas, catalog_title=None, more_pages=None):
+        opened.append((list(metas), catalog_title))
+        return None
+
+    monkeypatch.setattr(ctx.hubwindow, '_fetch_decade', _fetch)
+    monkeypatch.setattr('lib.ui.infowindow.open_showcase', _showcase)
+    import xbmcgui
+    tile = xbmcgui.ListItem('1990s')
+    tile.setProperty('decade', '1990')
+    tile.setProperty('decade_years', '1994,1990')
+    win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
+    win._descs = [{
+        'heading': 'New', 'kind': 'decade', 'layout': 'decade',
+        'transport': 'https://a/manifest.json',
+        'catalog': {'type': 'movie', 'id': 'year'},
+        'posters': [tile], 'col': 0,
+    }]
+    ctx.hubwindow._paint_list(win, select=0)
+    win.onClick(ctx.hubwindow.HUB_LIST)
+    assert opened == [([{'id': 'shawshank', 'type': 'movie', 'name': 'The Shawshank Redemption'}], 'New')]
+    assert win.closed is not True

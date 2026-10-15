@@ -500,18 +500,54 @@ class AddonClient:
         raises `AddonError` (category from `error_meta_category()`), so
         every `except AddonError` site - search, the catalog picker,
         discover links - reports it instead of showing "[X] AIOStreams"
-        as the one result of a 1-title coverflow."""
+        as the one result of a 1-title coverflow.
+
+        Cache hints on the envelope are dropped here. Callers that need
+        ``cacheMaxAge`` use :meth:`catalog_with_hints`.
+        """
+        metas, _hints = self.catalog_with_hints(base, rtype, cid, extra=extra)
+        return metas
+
+    def catalog_with_hints(self, base, rtype, cid, extra=None):
+        """Same metas as :meth:`catalog`, plus the envelope's cache hints.
+
+        ``(metas, hints)``. ``hints`` may carry ``cacheMaxAge``,
+        ``staleRevalidate``, ``staleError`` and ``hasMore``. The page
+        cache reads those; :meth:`catalog` keeps returning only the list
+        so existing callers do not change.
+        """
         url = build_resource_url(base, 'catalog', rtype, cid, extra)
-        metas = self._get_field(url, 'metas', 'list')
+        safe = safe_url_for_log(url)
+        envelope = self._get_json(url)
+        if not isinstance(envelope, dict):
+            raise AddonError(
+                'GET %s returned a malformed metas envelope' % safe, category='invalid JSON'
+            )
+        metas = envelope.get('metas')
+        if metas is None:
+            metas = []
+        if not isinstance(metas, list):
+            raise AddonError(
+                'GET %s returned a malformed metas envelope' % safe, category='invalid JSON'
+            )
         real = [meta for meta in metas if not is_error_meta(meta)]
-        if len(real) == len(metas):
-            return metas
-        if real:
-            return real
-        raise AddonError(
-            'GET %s answered with an error placeholder instead of a catalog' % safe_url_for_log(url),
-            category=error_meta_category(metas[0]),
-        )
+        if len(real) != len(metas):
+            if not real:
+                raise AddonError(
+                    'GET %s answered with an error placeholder instead of a catalog' % safe,
+                    category=error_meta_category(metas[0]),
+                )
+            metas = real
+        hints = {}
+        for name in ('cacheMaxAge', 'staleRevalidate', 'staleError'):
+            value = envelope.get(name)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+                continue
+            hints[name] = int(value)
+        has_more = envelope.get('hasMore')
+        if isinstance(has_more, bool):
+            hints['hasMore'] = has_more
+        return metas, hints
 
     def meta(self, base, rtype, mid):
         """GET a meta resource -> the meta object (resp['meta']).

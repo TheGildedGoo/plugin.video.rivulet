@@ -296,6 +296,18 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
 
         def __init__(self, window_id=0):
             self._props = env.window_properties.setdefault(window_id, {})
+            self.controls = []
+            self.shown = False
+            self.closed = False
+
+        def addControl(self, control):
+            self.controls.append(control)
+
+        def show(self):
+            self.shown = True
+
+        def close(self):
+            self.closed = True
 
         def setProperty(self, key, value):
             self._props[key] = value
@@ -386,6 +398,23 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
                 raise ValueError('Index out of range')
             return self.items[position]
 
+    class ControlImage:
+        """1x1 poster warmer. ``setImage`` is what fills Kodi's texture cache."""
+
+        def __init__(self, x, y, width, height, filename='', aspectRatio=0, colorDiffuse=''):
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+            self.image = filename
+            self.images = []
+            if filename:
+                self.images.append(filename)
+
+        def setImage(self, filename, useCache=True):
+            self.image = filename
+            self.images.append(filename)
+
     class FakeAction:
         """Stand-in for `xbmcgui.Action`: only `getId()` is used by
         `lib.ui.infowindow.ShowcaseWindow.onAction()`; a test builds one
@@ -462,6 +491,7 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             self.closed = True
 
     module.Window = Window
+    module.ControlImage = ControlImage
     module.Dialog = Dialog
     module.DialogProgress = DialogProgress
     module.WindowXML = WindowXML
