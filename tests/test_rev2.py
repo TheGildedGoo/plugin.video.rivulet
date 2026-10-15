@@ -138,12 +138,37 @@ def test_publish_builds_rev2_beside_revrivulet_without_rewriting_the_tree(tmp_pa
     assert 'plugin.video.revrivulet' in ids
     assert PUBLISHED_ID in ids
     rev2 = root.find("addon[@id='%s']" % PUBLISHED_ID)
-    assert rev2.get('version') == '0.1.0.r2.2'
+    assert rev2.get('version') == '0.1.1'
     assert rev2.get('name') == 'Rev2Rivulet'
-    zip_path = output / PUBLISHED_ID / ('%s-0.1.0.r2.2.zip' % PUBLISHED_ID)
+    meta = rev2.find("extension[@point='xbmc.addon.metadata']")
+    news = meta.findtext('news')
+    # Kodi's addon.xml docs cap <news> at 1500 characters. The variant used to
+    # inherit RevRivulet's full history, which is what made this row ~55KB.
+    assert len(news) < 1500
+    assert 'v0.30.1' not in news
+    assert meta.findtext('platform') == 'all'
+    services = rev2.findall("extension[@point='xbmc.service']")
+    assert [(item.get('library'), item.get('start')) for item in services] == [
+        ('service.py', 'startup'),
+    ]
+    assert rev2.find('extension[@point="xbmc.python.pluginsource"]/provides').text == 'video'
+    zip_path = output / PUBLISHED_ID / ('%s-0.1.1.zip' % PUBLISHED_ID)
     with zipfile.ZipFile(str(zip_path)) as zf:
+        names = zf.namelist()
+        assert names
+        assert all(name.startswith(PUBLISHED_ID + '/') for name in names)
+        inner = zf.read('%s/addon.xml' % PUBLISHED_ID).decode('utf-8')
+        assert 'id="%s"' % PUBLISHED_ID in inner
+        assert 'version="0.1.1"' in inner
         addon_py = zf.read('%s/lib/addonid.py' % PUBLISHED_ID).decode('utf-8')
         home = zf.read('%s/resources/skins/Default/1080i/Rev2HomeWindow.xml' % PUBLISHED_ID).decode('utf-8')
+        for rel in (
+            'resources/icon.png',
+            'resources/fanart.jpg',
+            'resources/screenshots/screenshot-01.png',
+        ):
+            assert '%s/%s' % (PUBLISHED_ID, rel) in names
+            assert (output / PUBLISHED_ID / rel).is_file()
     assert 'ADDON_ID = "%s"' % PUBLISHED_ID in addon_py
     assert 'round_mask.png' not in home
     assert 'rv_mask_200x300.png' in home

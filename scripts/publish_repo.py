@@ -224,11 +224,23 @@ def _stamp_rev2_addon_xml(addon_xml, version):
     )
     if count != 1:
         raise SystemExit("rev2 addon.xml has no version attribute")
+    # Replace the whole changelog. Prepending onto RevRivulet's <news> copied
+    # that addon's history (about 55KB, past the 1500 characters Kodi documents
+    # for this element) into the variant. The repository browser stores that
+    # text on the addon row. Rev2 gets one short entry of its own.
     news = (
         "v%s:\n- Rev2Rivulet test UI. Installs beside RevRivulet. "
         "Posters are rounded rectangles at the art size, with no grey plate.\n" % version
     )
-    text, count = re.subn(r"<news>", "<news>" + news, text, count=1)
+    if len(news) > 1500:
+        raise SystemExit("rev2 news is %d characters; Kodi documents a 1500 limit" % len(news))
+    text, count = re.subn(
+        r"<news>.*?</news>",
+        "<news>" + news + "</news>",
+        text,
+        count=1,
+        flags=re.S,
+    )
     if count != 1:
         raise SystemExit("rev2 addon.xml has no <news> element")
     addon_xml.write_text(text, encoding="utf-8")
