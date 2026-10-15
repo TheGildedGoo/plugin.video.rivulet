@@ -454,6 +454,37 @@ def test_onaction_back_actions_close_the_window(load_infowindow, action_id):
     assert win.selected is None
 
 
+def test_down_and_up_step_one_row_and_the_backdrop_follows(load_infowindow):
+    """Down moves eight titles, one viewport. Up moves back. The fanart
+    is the title that key landed on, including a Down that stops on the
+    last title."""
+    ctx = load_infowindow()
+    infowindow = ctx.infowindow
+    import xbmcgui
+    win = infowindow.ShowcaseWindow('ShowcaseWindow.xml', '/addon/path', 'Default', '1080i')
+    win.metas = [
+        _make_meta('tt%d' % index, 'Title %d' % index, background='https://x/bg%d.jpg' % index)
+        for index in range(10)
+    ]
+    win.onInit()
+    select = win.getControl(infowindow.SELECT)
+
+    win.onAction(xbmcgui.Action(infowindow._ACTION_DOWN))
+    assert select.getSelectedPosition() == 8
+    assert win.getControl(infowindow.BACKGROUND).image == 'https://x/bg8.jpg'
+
+    win.onAction(xbmcgui.Action(infowindow._ACTION_DOWN))
+    assert select.getSelectedPosition() == 9
+    assert win.getControl(infowindow.BACKGROUND).image == 'https://x/bg9.jpg'
+
+    win.onAction(xbmcgui.Action(infowindow._ACTION_UP))
+    assert select.getSelectedPosition() == 1
+    assert win.getControl(infowindow.BACKGROUND).image == 'https://x/bg1.jpg'
+
+    win.onAction(xbmcgui.Action(infowindow._ACTION_UP))
+    assert select.getSelectedPosition() == 0
+
+
 def test_onaction_non_back_action_does_not_close(load_infowindow):
     ctx = load_infowindow()
     infowindow = ctx.infowindow

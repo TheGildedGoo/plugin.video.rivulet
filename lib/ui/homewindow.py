@@ -3,9 +3,9 @@
 
 """HomeWindow: RevRivulet's entry screen.
 
-A full-bleed fanart hero for the focused title. The focused row is
-pinned in the lower part of the screen; moving down scrolls the next
-row up into that band. The type chips
+A full-bleed fanart hero for the focused title. One row is visible,
+pinned to the bottom of the screen. Down moves to the next row and Up
+moves back; the hero follows the focused poster. The type chips
 (Movies, Series, Anime, Other) sit in a pill row under the top bar.
 Under that, horizontal rows: Continue (in progress), Library (the
 Stremio library), and one poster preview per installed type. Search,

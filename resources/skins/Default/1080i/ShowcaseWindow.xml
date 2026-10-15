@@ -19,15 +19,12 @@
             <!-- Design line 93 is filter:brightness(.55); colordiffuse
                  multiplies, so .55*255 = 0x8C. Was FF777777 (.47). -->
             <control type="image" id="30000"><width>1920</width><height>1080</height><texture colordiffuse="FF8C8C8C"></texture><aspectratio>scale</aspectratio></control>
-            <!-- Scrim over the fanart: fade_bottom.png/fade_edge.png bake
-                 pure black pixels, and colordiffuse multiplies, so a black
-                 source can only ever render black regardless of tint - that
-                 produced a full-width seam where the old ramp met a separate
-                 FF0A0C0E rect. fade_v.png is white RGB with the design's
-                 4-stop alpha ramp (.55/.72/.94/solid at 0/26/52/74% of
-                 frame height) baked into it, so one FF0A0C0E-tinted control
-                 reproduces the exact gradient continuously, with no seam. -->
-            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF0A0C0E">fade_v.png</texture></control>
+            <control type="image"><width>1280</width><height>1080</height><texture colordiffuse="E60A0C0E">fade_h.png</texture></control>
+            <!-- fade_v.png is opaque only from about 75% of its height.
+                 368 + 0.75*496 = 740, the top of the one visible row.
+                 The solid plate under it keeps the art off that row. -->
+            <control type="image"><left>0</left><top>368</top><width>1920</width><height>496</height><texture colordiffuse="FF0A0C0E">fade_v.png</texture></control>
+            <control type="image"><left>0</left><top>740</top><width>1920</width><height>340</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
             <control type="image" id="30001"><top>535</top><left>810</left><width>300</width><height>10</height><texture>white.png</texture>
                 <animation effect="zoom" pulse="true" center="auto" start="0,100" end="100,100" time="1000" condition="Control.IsVisible(30001)">Conditional</animation>
             </control>
@@ -94,49 +91,39 @@
                 <visible>!String.IsEmpty(ListItem.Property(meta_line))</visible>
             </control>
 
-            <!-- Three lines of font27 (27). The rest scrolls. The strip
-                 starts at y=360, so this box cannot run into a poster. -->
+            <!-- Three lines of font27 (27). The rest scrolls. The row
+                 starts at y=740, so this box cannot run into a poster. -->
             <control type="textbox"><left>96</left><top>256</top><width>1080</width><height>96</height><font>font27</font><textcolor>B8EEF3F6</textcolor>
                 <label>$INFO[ListItem.Property(plot)]</label>
                 <autoscroll time="3000" delay="3000" repeat="3000">true</autoscroll>
             </control>
 
+            <!-- One row of 220px cells (200px poster). The list is exactly
+                 that row tall, so a second row cannot show. Up and down
+                 are handled in Python: they move eight titles, one
+                 viewport, and the hero follows the focused item. -->
             <control type="fixedlist" id="30002">
-                <!-- 1676 = one focused slot (336: 308 ring + 28 gap) + five
-                     unfocused (5x268: 240 poster + 28 gap). -->
-                <top>360</top><left>96</left><width>1676</width><height>458</height>
+                <top>740</top><left>48</left><width>1840</width><height>340</height>
                 <viewtype>wrap</viewtype><orientation>horizontal</orientation>
                 <scrolltime tween="cubic" easing="out">300</scrolltime>
-                <!-- focusposition 0: the focused poster leads the strip,
-                     flush against the frame's left edge like the rest of
-                     this window's content. -->
                 <focusposition>0</focusposition>
-                <onup>30003</onup>
-                <itemlayout width="268" height="458">
+                <onup>30002</onup><ondown>30002</ondown>
+                <itemlayout width="220" height="340">
                     <control type="image">
-                        <top>98</top><left>14</left><width>240</width><height>360</height>
-                        <texture diffuse="mask_poster.png" colordiffuse="8CFFFFFF">$INFO[ListItem.Property(thumbnail)]</texture>
+                        <top>20</top><left>10</left><width>200</width><height>300</height>
+                        <texture diffuse="mask_poster.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                         <aspectratio align="center" aligny="center">keep</aspectratio>
                     </control>
                 </itemlayout>
-                <focusedlayout width="336" height="458">
-                    <!-- Focus ring. The poster is clipped with mask_poster.png, a 2:3 rounded rectangle, so the ring stays a frame around the artwork instead of showing through an oval. -->
-                    <control type="image"><top>0</top><left>0</left><width>308</width><height>458</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
+                <focusedlayout width="220" height="340">
                     <control type="image">
-                        <top>4</top><left>4</left><width>300</width><height>450</height>
-                        <texture diffuse="mask_poster.png">$INFO[ListItem.Property(thumbnail)]</texture>
+                        <top>20</top><left>10</left><width>200</width><height>300</height>
+                        <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                         <aspectratio align="center" aligny="center">keep</aspectratio>
                     </control>
+                    <control type="image"><top>20</top><left>10</left><width>200</width><height>300</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture></control>
                 </focusedlayout>
             </control>
-
-            <!-- No title under the strip: the hero block above already
-                 renders ListItem.Label at font60, so a second copy under
-                 the focused poster is the same string twice. The strip
-                 starts at the bottom of the hero zone (y=360). -->
-
-            <control type="image"><left>0</left><top>360</top><width>96</width><height>720</height><texture flipx="true" colordiffuse="FF0A0C0E">fade_out_h.png</texture></control>
-            <control type="image"><left>1780</left><top>360</top><width>140</width><height>720</height><texture colordiffuse="FF0A0C0E">fade_out_h.png</texture></control>
         </control>
     </controls>
 </window>

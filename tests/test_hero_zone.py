@@ -22,8 +22,9 @@ on the way down, and those are the same scroll when the heights match.
 A negative gap would pull the next heading into the band. The hubs are
 one fixedlist with focusposition 0 and a height of exactly one row.
 
-Showcase keeps the older top third. It is a single horizontal strip,
-not this row band.
+A catalog, decade, or search list is the same idea with one horizontal
+row of titles: Down and Up step a viewport of that row, and the hero
+is bound to the focused item.
 """
 import os
 import xml.etree.ElementTree as ET
@@ -227,8 +228,9 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
                 assert panel.find('onleft') is not None and panel.find('onright') is not None, name
 
 
-def test_showcase_hero_stays_in_the_top_third():
-    """Showcase is one horizontal strip. It does not use the row band."""
+def test_showcase_is_one_row_under_the_backdrop():
+    """A catalog list is one poster row on the bottom edge. The title,
+    metadata, and description stay above it and follow the focused item."""
     for name, spec in _SHOWCASE.items():
         root = _root(name)
         title = _showcase_title(root)
@@ -236,7 +238,20 @@ def test_showcase_hero_stays_in_the_top_third():
         plot = _showcase_plot(root)
         rows = _by_id(root, spec['rows'])
         plot_bottom, _title_top, _title_h = _assert_text_stack(name, title, meta, plot, spec)
-        row_top = _px(rows, 'top')
+        row_top, row_h = _px(rows, 'top'), _px(rows, 'height')
         assert plot_bottom <= _ZONE_BOTTOM, name
-        assert row_top >= _ZONE_BOTTOM, name
+        assert row_top == 740 and row_h == 340, name
+        assert row_top + row_h == _SCREEN, name
         assert row_top >= plot_bottom, name
+        assert (rows.findtext('orientation') or '').strip() == 'horizontal', name
+        assert (rows.findtext('focusposition') or '').strip() == '0', name
+        item_h = int(rows.find('itemlayout').get('height'))
+        focused_h = int(rows.find('focusedlayout').get('height'))
+        assert item_h == focused_h == row_h, name
+        fades = [
+            el for el in root.iter('control')
+            if el.get('type') == 'image' and _texture_name(el) == 'fade_v.png'
+        ]
+        assert len(fades) == 1, name
+        opaque_at = _px(fades[0], 'top') + int(0.75 * _px(fades[0], 'height'))
+        assert opaque_at <= row_top, name

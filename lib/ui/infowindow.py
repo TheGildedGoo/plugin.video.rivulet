@@ -9,8 +9,10 @@ a caller opens it via `open_showcase()` (below) with one already-fetched
 catalog page - `catalogpicker.CatalogPickerWindow._open_catalog()`,
 `searchwindow.SearchWindow._run_search()`,
 and this module's own
-`open_credits_picker()` - the user scrolls a horizontal poster
-coverflow (the fanart background updates to match the focused item).
+`open_credits_picker()` - the user moves through one poster row. Left
+and right change the title. Down moves to the next row of titles and
+Up moves back. The fanart, title, metadata, and description follow
+the focused item.
 Picking a movie poster jumps straight to
 `lib.ui.streamswindow.open_streams()` (a movie has nothing
 else to pick, same shortcut `lib.ui.detailwindow.open_detail()` takes -
@@ -62,6 +64,14 @@ _ENRICH_MAX_INFLIGHT = 2
 # Back/Nav-Back, PreviousMenu/Esc, Backspace - any of these closes the
 # overlay without a selection, same as the reference InfoWindow.
 _BACK_ACTIONS = frozenset({9, 10, 92})
+
+# ACTION_MOVE_UP / ACTION_MOVE_DOWN. The catalog strip is one horizontal
+# row. These step a viewport of titles, so Down is the next row and Up
+# is the previous one. Eight is that row: the 1840px strip holds eight
+# 220px cells.
+_ACTION_UP = 3
+_ACTION_DOWN = 4
+_ROW_PAGE = 8
 
 # ACTION_SHOW_INFO ("info" button) has nothing to show beyond what the
 # focused poster's own focusedlayout already renders (title/genre/plot)
@@ -428,12 +438,38 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         if items:
             self._enrich_focused(items[0], settle=False)
 
+    def _page_row(self, direction):
+        """Move one viewport of titles. Down is +1, Up is -1.
+
+        The skin keeps the list on this control, so the key does not
+        leave the row. Clamped at both ends: the first row stays put
+        on Up, and the last title stays put on a Down past the end.
+        """
+        control = self.getControl(SELECT)
+        count = control.size()
+        if count <= 0:
+            return
+        pos = control.getSelectedPosition()
+        if pos < 0:
+            pos = 0
+        nxt = pos + direction * _ROW_PAGE
+        if nxt < 0:
+            nxt = 0
+        elif nxt >= count:
+            nxt = count - 1
+        if nxt != pos:
+            control.selectItem(nxt)
+
     @gated_input
     def onAction(self, action):
         # Before reading focus: a queued page appends items, and doing it
         # first means the strip is whole by the time anything below asks
-        # what is focused.
+        # what is focused. Up/Down then steps a row, so the fanart read
+        # below sees the title that key landed on.
         self._apply_pending_pages()
+        action_id = action.getId()
+        if action_id in (_ACTION_UP, _ACTION_DOWN) and self.getFocusId() == SELECT:
+            self._page_row(1 if action_id == _ACTION_DOWN else -1)
         if self.getFocusId() == SELECT:
             focused = self.getControl(SELECT).getSelectedItem()
             if focused is not None:
@@ -452,7 +488,6 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
                 # since the last action, then arm a fetch for this item.
                 self._apply_enriched()
                 self._enrich_focused(focused)
-        action_id = action.getId()
         if action_id == _INFO_ACTION:
             return
         if action_id == _CONTEXT_MENU_ACTION:
