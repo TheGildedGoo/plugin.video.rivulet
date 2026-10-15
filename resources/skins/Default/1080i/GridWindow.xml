@@ -95,11 +95,14 @@
             </animation>
             <!-- No WindowClose animation on purpose: Kodi drops every action while the topmost modal plays one (test_skin_xml.py rule 9). -->
 
-            <!-- Full-screen fanart. The left fade keeps the title readable.
-                 The row band below is a solid plate, so the art stops there. -->
+            <!-- Full-screen fanart, shown whole (keep letterboxes on the
+                 black plate; scale would crop it). The fade covers the
+                 right quarter. The row band below is a solid plate. -->
             <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
-            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio>scale</aspectratio></control>
-            <control type="image"><width>1280</width><height>1080</height><texture colordiffuse="E60A0C0E">fade_h.png</texture></control>
+            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
+            <!-- fade_h.png is clear on the left and black on the right,
+                 so this is the right quarter (x=1440) with no flip. -->
+            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><texture colordiffuse="E60A0C0E">fade_h.png</texture></control>
             <!-- fade_v.png is opaque only from about 75% of its height.
                  312 + 0.75*496 = 684, the top of the one visible row.
                  The solid plate under it keeps the art off that row. -->
@@ -112,20 +115,27 @@
                 <label></label>
             </control>
 
-            <!-- Hero, upper left, over the full-screen fanart. Title max
-                 height is 64. The caption sits under it. The description
-                 is two lines and scrolls. It ends at y=348, above the row
-                 band, so the overview cannot run into a header. -->
-            <control type="label" id="30020"><left>96</left><top>172</top><width>1400</width><height>64</height><font>font37</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
+            <!-- Hero. Title on the left, description directly under it
+                 (two lines of font13). The caption (percent watched, or
+                 the next episode) sits under the description. Ratings
+                 are the textbox in the right quarter. A fact the meta
+                 does not carry is omitted, so the panel is blank when
+                 the library row has none. -->
+            <control type="label" id="30020"><left>96</left><top>172</top><width>1200</width><height>64</height><font>font37</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
                 <wrapmultiline>false</wrapmultiline>
                 <label>$INFO[ListItem.Label]</label>
             </control>
-            <control type="label" id="30021"><left>96</left><top>244</top><width>1400</width><height>32</height><font>font12</font><textcolor>80EEF3F6</textcolor><aligny>center</aligny>
-                <label>$INFO[ListItem.Property(caption)]</label>
-            </control>
-            <control type="textbox" id="30024"><left>96</left><top>284</top><width>1100</width><height>64</height><font>font13</font><textcolor>B3EEF3F6</textcolor>
+            <control type="textbox" id="30024"><left>96</left><top>244</top><width>1200</width><height>64</height><font>font13</font><textcolor>F2EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor>
                 <autoscroll delay="2000" time="4000" repeat="6000">true</autoscroll>
                 <label>$INFO[ListItem.Property(plot)]</label>
+            </control>
+            <control type="label" id="30025"><left>96</left><top>316</top><width>1200</width><height>32</height><font>font12</font><textcolor>B3EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
+                <label>$INFO[ListItem.Property(caption)]</label>
+                <visible>!String.IsEmpty(ListItem.Property(caption))</visible>
+            </control>
+            <control type="textbox" id="30021"><left>1480</left><top>172</top><width>380</width><height>224</height><font>font12</font><textcolor>FFFFFFFF</textcolor><align>right</align>
+                <label>$INFO[ListItem.Property(hero_meta)]</label>
+                <visible>!String.IsEmpty(ListItem.Property(hero_meta))</visible>
             </control>
 
             <control type="grouplist" id="30001">

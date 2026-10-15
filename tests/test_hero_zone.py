@@ -6,9 +6,10 @@ Kodi scales 1920x1080 skin space onto whatever display the box is
 plugged into, so these numbers are the layout. On Home, the hubs, and
 Library the fanart fills the screen from the top. A vertical fade is
 opaque by the row band, and a solid plate covers that band, so the art
-never runs behind the rows. The title (or the clearlogo), the metadata
-line, and the description sit in the upper left, in that order, and
-end above the band.
+never runs behind the rows. The title (or the clearlogo) sits on the left, and the description
+sits directly under it. Ratings sit in the right quarter, over a
+fade. The picture is shown whole (`keep`), letterboxed on the black
+plate, and the text ends above the band.
 
 The focused row is the only row on screen, pinned to the bottom edge.
 Home's row is 388px (a 32px heading plus the 356px poster panel), the
@@ -110,9 +111,10 @@ def _showcase_meta(root):
 
 
 def _showcase_plot(root):
-    box = root.find(".//control[@type='textbox']")
-    assert box is not None
-    return box
+    for box in root.iter('control'):
+        if box.get('type') == 'textbox' and 'plot' in (box.findtext('label') or ''):
+            return box
+    raise AssertionError('showcase has no plot')
 
 
 def _texture_name(control):
@@ -123,18 +125,45 @@ def _texture_name(control):
 
 
 def _assert_text_stack(name, title, meta, plot, spec):
+    """Title on the left, description directly under it, ratings in the right quarter."""
     title_top, title_h = _px(title, 'top'), _px(title, 'height')
-    meta_top, meta_h = _px(meta, 'top'), _px(meta, 'height')
     plot_top, plot_h = _px(plot, 'top'), _px(plot, 'height')
+    meta_left, meta_w = _px(meta, 'left'), _px(meta, 'width')
     assert title_h == spec['title_h'], name
-    assert meta_top >= title_top + title_h, name
-    assert plot_top >= meta_top + meta_h, name
+    assert plot_top >= title_top + title_h, name
+    assert plot_top <= title_top + title_h + 16, name
     # Two (or three) lines of the face it uses. The next line does not fit.
     assert spec['font'] * spec['lines'] <= plot_h < spec['font'] * (spec['lines'] + 1), name
     scroll = plot.find('autoscroll')
     assert scroll is not None and (scroll.text or '').strip() == 'true', name
     assert (title.findtext('wrapmultiline') or '').strip() == 'false', name
+    assert _px(title, 'left') + _px(title, 'width') <= 1440, name
+    assert _px(plot, 'left') + _px(plot, 'width') <= 1440, name
+    assert meta_left >= 1440, name
+    assert meta_left + meta_w <= 1920, name
+    assert _px(meta, 'top') <= title_top + 8, name
+    assert _px(meta, 'height') >= 160, name
     return plot_top + plot_h, title_top, title_h
+
+
+def _assert_full_backdrop(name, root):
+    fanart = _by_id(root, '30000')
+    assert _px(fanart, 'width') == 1920 and _px(fanart, 'height') == _SCREEN, name
+    assert (fanart.findtext('left') or '0').strip() in ('', '0'), name
+    assert (fanart.findtext('top') or '0').strip() in ('', '0'), name
+    aspect = (fanart.findtext('aspectratio') or '').strip()
+    assert aspect == 'keep', name
+    diffuse = (fanart.find('texture').get('colordiffuse') or '')
+    assert diffuse == 'FFFFFFFF', name
+    side = [
+        el for el in root.iter('control')
+        if el.get('type') == 'image' and _texture_name(el) == 'fade_h.png'
+    ]
+    assert len(side) == 1, name
+    fade = side[0]
+    assert _px(fade, 'left') == 1440, name
+    assert _px(fade, 'width') == 480, name
+    assert _px(fade, 'height') == _SCREEN, name
 
 
 def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
@@ -143,10 +172,7 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
     for name, spec in _ROWS.items():
         band_top, band_height = spec['band']
         root = _root(name)
-        fanart = _by_id(root, '30000')
-        assert _px(fanart, 'width') == 1920 and _px(fanart, 'height') == _SCREEN, name
-        assert (fanart.findtext('left') or '0').strip() in ('', '0'), name
-        assert (fanart.findtext('top') or '0').strip() in ('', '0'), name
+        _assert_full_backdrop(name, root)
 
         fades = [
             el for el in root.iter('control')
@@ -170,12 +196,6 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
         assert diffuse.startswith('FF') and len(diffuse) == 8, name
         assert _px(plate, 'width') == 1920, name
         assert _px(plate, 'top') + _px(plate, 'height') == _SCREEN, name
-
-        side = [
-            el for el in root.iter('control')
-            if el.get('type') == 'image' and _texture_name(el) == 'fade_h.png'
-        ]
-        assert side and _px(side[0], 'width') >= 960, name
 
         title = _by_id(root, spec['title'])
         meta = _by_id(root, spec['meta'])
@@ -233,6 +253,7 @@ def test_showcase_is_one_row_under_the_backdrop():
     metadata, and description stay above it and follow the focused item."""
     for name, spec in _SHOWCASE.items():
         root = _root(name)
+        _assert_full_backdrop(name, root)
         title = _showcase_title(root)
         meta = _showcase_meta(root)
         plot = _showcase_plot(root)

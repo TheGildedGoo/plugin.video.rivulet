@@ -473,6 +473,17 @@ def _enrich(items):
         item['name'] = item.get('name') or meta.get('name')
         item['poster'] = item.get('poster') or meta.get('poster')
         item['background'] = item.get('background') or meta.get('background')
+        # The hero's right-quarter panel reads these. Copy only what this
+        # fetch already returned; a library row with none of them stays
+        # blank rather than triggering another request.
+        for key in (
+            'year', 'releaseInfo', 'released', 'runtime', 'imdbRating',
+            'genres', 'rottenTomatoes', 'rtRating', 'tomatoMeter',
+            'metascore', 'metacritic', 'ratings',
+        ):
+            if item.get(key) or meta.get(key) in (None, '', []):
+                continue
+            item[key] = meta[key]
         # Kept for resolve_next_up(): the grid never draws `videos`, but
         # re-fetching the same meta later just to answer "which episode
         # is next" would double this screen's addon traffic.

@@ -180,7 +180,7 @@ def _episode_descriptor(store, types):
     for index, episode in enumerate(episodes[:SHELF_CAP]):
         # `name` is what `_poster_item` writes into `hero_title`. For
         # this row that has to be the episode (`S1E3 · Title`), not the
-        # series. The series name moves to `hero_meta`, under the title.
+        # series. The series name moves to `hero_meta`, the right-quarter panel.
         # No logo: HubWindow.xml hides the title while HeroLogo is set,
         # and the series clearlogo would put the show's name back.
         item = _poster_item({

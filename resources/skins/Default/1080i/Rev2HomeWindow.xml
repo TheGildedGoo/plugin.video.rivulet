@@ -15,8 +15,13 @@
             </animation>
             <!-- No WindowClose animation on purpose: Kodi drops every action while the topmost modal plays one (test_skin_xml.py rule 9). -->
             <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF0A0D12">white.png</texture></control>
-            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio>scale</aspectratio></control>
-            <control type="image"><width>1280</width><height>1080</height><texture colordiffuse="E60A0D12">fade_h.png</texture></control>
+            <!-- keep, not scale: scale fills the frame and crops the
+                 picture. The plate behind this image is already black, so
+                 a backdrop that is not 16:9 letterboxes instead. -->
+            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
+            <!-- fade_h.png is clear on the left and black on the right,
+                 so this is the right quarter (x=1440) with no flip. -->
+            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><texture colordiffuse="E60A0D12">fade_h.png</texture></control>
             <!-- fade_v.png is opaque only from about 75% of its height.
                  320 + 0.75*496 = 692, the top of the one visible row.
                  The solid plate under it keeps the art off that row. -->
@@ -63,13 +68,16 @@
                 </focusedlayout>
             </control>
 
-            <!-- Hero, upper left, over the full-screen fanart. The title
-                 and the clearlogo share one 64px band. font37 is 37, so
-                 that band is the max height. The metadata line is next.
-                 The description is two lines of font13 (30) and scrolls
-                 inside the box. It ends at y=348, above the row band.
-                 background=true: Kodi otherwise paints a grey box while
-                 the clearlogo loads, and again when the file is missing. -->
+            <!-- Hero. The title and the clearlogo share one 64px band on
+                 the left (font37 is 37, so 64 is the max height). The
+                 description is the next control, directly under the title:
+                 two lines of font13 (30). Ratings are a textbox in the
+                 right quarter, over the fade, filled from Python. A fact
+                 the meta does not carry is omitted. background=true: Kodi
+                 otherwise paints a grey box while the clearlogo loads,
+                 and again when the file is missing. The shadow keeps the
+                 title readable on a bright backdrop now that the left
+                 side of the picture is no longer covered. -->
             <control type="image" id="30023">
                 <left>64</left><top>172</top><width>780</width><height>64</height>
                 <aspectratio align="left" aligny="center">keep</aspectratio>
@@ -77,21 +85,21 @@
                 <visible>!String.IsEmpty(Window.Property(HeroLogo))</visible>
             </control>
             <control type="label" id="30020">
-                <left>64</left><top>172</top><width>900</width><height>64</height>
-                <font>font37</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
+                <left>64</left><top>172</top><width>1200</width><height>64</height>
+                <font>font37</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
                 <wrapmultiline>false</wrapmultiline>
                 <label></label>
                 <visible>String.IsEmpty(Window.Property(HeroLogo))</visible>
             </control>
-            <control type="label" id="30021">
-                <left>64</left><top>244</top><width>980</width><height>32</height>
-                <font>font12</font><textcolor>C8EEF3F6</textcolor><aligny>center</aligny>
+            <control type="textbox" id="30022">
+                <left>64</left><top>244</top><width>1200</width><height>64</height>
+                <font>font13</font><textcolor>F2EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor>
+                <autoscroll delay="2000" time="4000" repeat="6000">true</autoscroll>
                 <label></label>
             </control>
-            <control type="textbox" id="30022">
-                <left>64</left><top>284</top><width>820</width><height>64</height>
-                <font>font13</font><textcolor>B3EEF3F6</textcolor>
-                <autoscroll delay="2000" time="4000" repeat="6000">true</autoscroll>
+            <control type="textbox" id="30021">
+                <left>1480</left><top>172</top><width>380</width><height>224</height>
+                <font>font12</font><textcolor>FFFFFFFF</textcolor><align>right</align>
                 <label></label>
             </control>
 

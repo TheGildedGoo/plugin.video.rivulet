@@ -173,6 +173,7 @@ def test_make_list_item_sets_every_property_the_skin_draws(ctx):
     assert list_item.getProperty('progress_width') == str(ctx.gridwindow.PROGRESS_TRACK_WIDTH // 2)
     assert list_item.getProperty('caption') == '50% watched'
     assert list_item.getProperty('plot') == ''
+    assert list_item.getProperty('hero_meta') == ''
     assert list_item.getProperty('watched') == ''
 
 

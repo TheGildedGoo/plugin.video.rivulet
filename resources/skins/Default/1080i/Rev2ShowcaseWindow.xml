@@ -19,10 +19,13 @@
                  the opening frame dark instead of flashing skin-default
                  white. -->
             <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="E60A0C0E">white.png</texture></control>
-            <!-- Design line 93 is filter:brightness(.55); colordiffuse
-                 multiplies, so .55*255 = 0x8C. Was FF777777 (.47). -->
-            <control type="image" id="30000"><width>1920</width><height>1080</height><texture colordiffuse="FF8C8C8C"></texture><aspectratio>scale</aspectratio></control>
-            <control type="image"><width>1280</width><height>1080</height><texture colordiffuse="E60A0D12">fade_h.png</texture></control>
+            <!-- Shown whole. scale cropped it, and the old FF8C8C8C
+                 multiply dimmed it to 55%. The plate behind is already
+                 dark, so a non-16:9 backdrop letterboxes. -->
+            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
+            <!-- fade_h.png is clear on the left and black on the right,
+                 so this is the right quarter (x=1440) with no flip. -->
+            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><texture colordiffuse="E60A0D12">fade_h.png</texture></control>
             <!-- fade_v.png is opaque only from about 75% of its height.
                  368 + 0.75*496 = 740, the top of the one visible row.
                  The solid plate under it keeps the art off that row. -->
@@ -53,52 +56,32 @@
                 <ondown>30002</ondown>
             </control>
 
-            <!-- Title. -->
-            <!-- Title band. font60 is 60, and its line box is taller than
-                 the point size, so the control is 92. It ends above the
-                 metadata. The whole hero stays inside the top third. -->
-            <control type="label"><left>96</left><top>112</top><width>1180</width><height>92</height><font>font60</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
+            <!-- Title on the left. font60 is 60, and its line box is
+                 taller than the point size, so the control is 92. The
+                 description is the next control, directly under it. -->
+            <control type="label"><left>96</left><top>112</top><width>1180</width><height>92</height><font>font60</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
                 <wrapmultiline>false</wrapmultiline>
                 <label>[B]$INFO[ListItem.Label][/B]</label>
             </control>
 
-            <!-- Metadata line: year, IMDb rating, runtime and genre as
-                 one flowing label, composed in Python by infowindow.py's
-                 `_meta_line()` (which joins with ' · ' and skips what
-                 the meta lacks, so a sparse item never shows a dangling
-                 separator).
-
-                 This was three 110px-wide bordered chips, each with its
-                 own 1px border rects, plus a reflow matrix that placed
-                 every chip and the trailing genre in each slot the ones
-                 ahead of it could leave open - ~30 controls in all.
-                 Kodi sizes a control from the XML at load time and
-                 cannot fit a box to its text, so those fixed widths
-                 were wrong in both directions on real data: a series
-                 range needs ~140px at Mono26 and rendered clipped
-                 ("2010-2017" -> "2010..."), while a "120 min" runtime
-                 came within a pixel of both borders. A single label has
-                 no width to overflow and no slots to enumerate, and it
-                 matches how DetailWindow/StreamsWindow already print
-                 the same metadata.
-
-                 font12 (NotoSans), not the chips' Mono26: the line is
-                 prose now rather than tabular figures, and the rating
-                 reads "IMDb 9.0" - NotoMono has no U+2605 to draw a
-                 star with (tests/test_glyph_coverage.py), and the
-                 spelled-out name says which scale the number is on,
-                 which neither a star nor the old accent-coloured box
-                 ever did. -->
-            <control type="label"><left>96</left><top>212</top><width>1180</width><height>36</height><font>font12</font><textcolor>C7EEF3F6</textcolor><aligny>center</aligny>
-                <label>$INFO[ListItem.Property(meta_line)]</label>
-                <visible>!String.IsEmpty(ListItem.Property(meta_line))</visible>
-            </control>
-
-            <!-- Three lines of font27 (27). The rest scrolls. The row
-                 starts at y=740, so this box cannot run into a poster. -->
-            <control type="textbox"><left>96</left><top>256</top><width>1080</width><height>96</height><font>font27</font><textcolor>B8EEF3F6</textcolor>
+            <!-- Three lines of font27 (27). The rest scrolls. It starts
+                 under the title, not under the ratings, and ends above
+                 the row at y=740. -->
+            <control type="textbox"><left>96</left><top>212</top><width>1180</width><height>96</height><font>font27</font><textcolor>F2EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor>
                 <label>$INFO[ListItem.Property(plot)]</label>
                 <autoscroll time="3000" delay="3000" repeat="3000">true</autoscroll>
+            </control>
+
+            <!-- Ratings in the right quarter. One textbox, because the
+                 old chips were fixed 110px boxes and a series range
+                 rendered as "2010...". infowindow builds meta_line with
+                 one fact per line and skips whatever the meta lacks, so
+                 a missing Rotten Tomatoes score is absent rather than
+                 blank. font12 (NotoSans): the panel names IMDb, and
+                 NotoMono has no star glyph. -->
+            <control type="textbox"><left>1480</left><top>112</top><width>380</width><height>220</height><font>font12</font><textcolor>FFFFFFFF</textcolor><align>right</align>
+                <label>$INFO[ListItem.Property(meta_line)]</label>
+                <visible>!String.IsEmpty(ListItem.Property(meta_line))</visible>
             </control>
 
             <!-- One row of 220px cells (200px poster). The list is exactly

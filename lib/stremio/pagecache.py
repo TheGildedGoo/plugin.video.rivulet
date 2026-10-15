@@ -5,8 +5,9 @@
 
 This is not ``metacache.py``. That file refuses catalog bodies on
 purpose; a shelf page lives here, in its own JSON file, with its own
-byte budget. Only the fields a poster row and a decade sort need are
-kept. Cast, trailers, links and awards are dropped before the write.
+byte budget. Only the fields a poster row, the hero panel and a decade sort
+need are kept. Cast, trailers, links and awards are dropped before
+the write.
 
 Fresh for ``cacheMaxAge`` when the envelope sent one, otherwise 15
 minutes. After that the page is still served, and the caller
@@ -37,8 +38,47 @@ _DESCRIPTION_LIMIT = 280
 
 _SLIM_FIELDS = (
     'id', 'type', 'name', 'poster', 'background', 'logo',
-    'year', 'releaseInfo', 'imdbRating', 'popularity',
+    'year', 'releaseInfo', 'released', 'runtime', 'imdbRating', 'popularity',
+    'genres',
+    'rottenTomatoes', 'rtRating', 'tomatoMeter', 'tomatoes',
+    'metascore', 'metacritic', 'metaScore',
 )
+
+#: Words that identify a score the hero panel can print. Anything else
+#: in a `ratings` blob (Trakt, awards) is dropped with the rest of the
+#: meta. "rt" is matched whole so it does not keep "runtime".
+_RATING_NEEDLES = ('imdb', 'internet movie', 'rotten', 'tomato', 'metacritic', 'metascore')
+
+
+def _keep_rating(source):
+    low = str(source or '').lower().strip()
+    if low == 'rt':
+        return True
+    return any(needle in low for needle in _RATING_NEEDLES)
+
+
+def _slim_ratings(ratings):
+    """The scores the hero panel prints, or None when there are none."""
+    if isinstance(ratings, dict):
+        kept = {}
+        for key, value in ratings.items():
+            if _keep_rating(key):
+                kept[key] = value
+        return kept or None
+    if isinstance(ratings, list):
+        kept = []
+        for entry in ratings:
+            if not isinstance(entry, dict):
+                continue
+            source = entry.get('source') or entry.get('name') or ''
+            if not _keep_rating(source):
+                continue
+            value = entry.get('value') if 'value' in entry else entry.get('rating')
+            kept.append({'source': source, 'value': value})
+            if len(kept) == 6:
+                break
+        return kept or None
+    return None
 
 
 def slim_meta(meta):
@@ -50,6 +90,9 @@ def slim_meta(meta):
         value = meta.get(field)
         if value is not None:
             slim[field] = value
+    ratings = _slim_ratings(meta.get('ratings'))
+    if ratings is not None:
+        slim['ratings'] = ratings
     description = meta.get('description')
     if isinstance(description, str) and description:
         slim['description'] = description[:_DESCRIPTION_LIMIT]

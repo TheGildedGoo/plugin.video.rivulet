@@ -265,6 +265,149 @@ def year_range(value, now_word):
     return '%s%s%s' % (stripped, text[len(stripped):].strip(), now_word)
 
 
+#: Brand names on the right-quarter hero panel. Left untranslated, the
+#: same way the hero already prints "IMDb": they name a scale, and a
+#: translation would make the number harder to recognise.
+_IMDB_LABEL = 'IMDb'
+_ROTTEN_LABEL = 'Rotten Tomatoes'
+_METASCORE_LABEL = 'Metascore'
+
+#: Direct meta keys, then the words that identify the same score inside
+#: a `ratings` dict or a list of `{source, value}`. Short needles match
+#: the whole source only, so "rt" does not hit "runtime".
+_PANEL_RATINGS = (
+    (_ROTTEN_LABEL,
+     ('rottenTomatoes', 'rtRating', 'tomatoMeter', 'tomatoes'),
+     ('rotten', 'tomato', 'rt')),
+    (_METASCORE_LABEL,
+     ('metascore', 'metacritic', 'metaScore'),
+     ('metacritic', 'metascore')),
+    (_IMDB_LABEL,
+     ('imdbRating',),
+     ('imdb', 'internet movie')),
+)
+
+_EMPTY_FACTS = frozenset(('n/a', 'na', 'none', 'null'))
+
+
+def _matches_source(source, needles):
+    low = str(source or '').lower().strip()
+    for needle in needles:
+        if len(needle) <= 3:
+            if low == needle:
+                return True
+        elif needle in low:
+            return True
+    return False
+
+
+def _fact(value, nested=True):
+    """One displayable fact, or '' when the meta has nothing usable.
+
+    A one-level dict (`{'value': '91%'}`) is unwrapped. Booleans are
+    not numbers. 'n/a' is treated as missing so the panel never prints
+    a label with nothing after it.
+    """
+    if isinstance(value, dict):
+        if not nested:
+            return ''
+        inner = value.get('value') if 'value' in value else value.get('rating')
+        return _fact(inner, nested=False)
+    if value is None or isinstance(value, bool):
+        return ''
+    if isinstance(value, float):
+        text = '%s' % value
+    elif isinstance(value, int):
+        text = '%s' % value
+    elif isinstance(value, str):
+        text = value.strip()
+    else:
+        return ''
+    if text.lower() in _EMPTY_FACTS:
+        return ''
+    return text
+
+
+def _rating_value(meta, keys, needles):
+    for key in keys:
+        text = _fact(meta.get(key))
+        if text:
+            return text
+    ratings = meta.get('ratings')
+    if isinstance(ratings, dict):
+        pairs = ratings.items()
+    elif isinstance(ratings, list):
+        pairs = []
+        for entry in ratings:
+            if isinstance(entry, dict):
+                source = entry.get('source') or entry.get('name') or ''
+                value = entry.get('value') if 'value' in entry else entry.get('rating')
+                pairs.append((source, value))
+    else:
+        return ''
+    for source, value in pairs:
+        if _matches_source(source, needles):
+            text = _fact(value)
+            if text:
+                return text
+    return ''
+
+
+def _panel_year(meta, now_word):
+    """`releaseInfo`, else the date part of `released`, else `year`."""
+    release = meta.get('releaseInfo')
+    if release not in (None, ''):
+        source = release
+    else:
+        released = meta.get('released')
+        if isinstance(released, str) and released:
+            source = released.split('T', 1)[0]
+        else:
+            source = meta.get('year') or ''
+    return year_range(source, now_word or '')
+
+
+def hero_panel_text(meta, runtime_text='', now_word=''):
+    """The right-quarter hero: one fact per line, missing ones omitted.
+
+    Order is the one the panel is read in: Rotten Tomatoes, Metascore,
+    IMDb, year, runtime, then up to three genres. A catalog that only
+    has a year still gets that year, and a catalog with none of these
+    gets an empty string rather than a row of blank labels.
+
+    `runtime_text` is the already-localized runtime (`"98 min"`). When
+    it is empty the raw `runtime` field is used, which is how a string
+    like `"155 min"` arrives. `now_word` closes an open series range
+    (`"2022–now"`). Both are passed in so this module stays free of
+    xbmc.
+    """
+    if not isinstance(meta, dict):
+        return ''
+    lines = []
+    for label, keys, needles in _PANEL_RATINGS:
+        value = _rating_value(meta, keys, needles)
+        if value:
+            lines.append('%s %s' % (label, value))
+    year = _panel_year(meta, now_word)
+    if year:
+        lines.append(year)
+    runtime = _fact(runtime_text) or _fact(meta.get('runtime'))
+    if runtime:
+        lines.append(runtime)
+    genres = meta.get('genres')
+    names = []
+    if isinstance(genres, list):
+        for genre in genres:
+            name = _fact(genre)
+            if name:
+                names.append(name)
+            if len(names) == 3:
+                break
+    if names:
+        lines.append(', '.join(names))
+    return '\n'.join(lines)
+
+
 def parse_rating(value):
     """Best-effort float rating out of a Stremio `imdbRating` value
     (e.g. '7.8'), or None for an unparseable value like 'n/a' - never

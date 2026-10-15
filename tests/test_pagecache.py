@@ -34,15 +34,25 @@ def _meta(index):
 
 
 def test_slim_meta_keeps_the_poster_fields_and_drops_the_rest():
-    slim = slim_meta(_meta(1))
+    meta = _meta(1)
+    meta['genres'] = ['Drama', 'Thriller']
+    meta['rottenTomatoes'] = '91%'
+    meta['ratings'] = [
+        {'source': 'Metacritic', 'value': '80'},
+        {'source': 'Trakt', 'value': '90'},
+    ]
+    slim = slim_meta(meta)
     assert slim['poster'].endswith('/1.jpg')
     assert slim['description'] == 'x' * 280
     assert slim['popularities'] == {'moviedb': 12.5}
+    assert slim['genres'] == ['Drama', 'Thriller']
+    assert slim['rottenTomatoes'] == '91%'
+    assert slim['ratings'] == [{'source': 'Metacritic', 'value': '80'}]
     assert 'cast' not in slim
     assert 'trailers' not in slim
     assert 'links' not in slim
     assert 'awards' not in slim
-    assert 'trakt' not in json.dumps(slim)
+    assert 'trakt' not in json.dumps(slim).lower()
     assert slim_meta('nope') is None
 
 

@@ -1094,7 +1094,7 @@ def test_onaction_paints_the_hero_from_the_focused_poster(load_homewindow, monke
 
     assert win.closed is False
     assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Dune'
-    assert win.getControl(ctx.homewindow.HERO_META).label == '2021'
+    assert win.getControl(ctx.homewindow.HERO_META).text == '2021'
     assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'A boy and a desert.'
     assert win.getControl(ctx.homewindow.BACKGROUND).image == 'https://img/dune.jpg'
 
@@ -1184,11 +1184,11 @@ def test_focus_ring_sits_on_the_art_and_the_hero_does_not_overlap():
     meta = root.find(".//control[@id='30021']")
     plot = root.find(".//control[@id='30022']")
     title_bottom = int(title.findtext('top')) + int(title.findtext('height'))
-    meta_top = int(meta.findtext('top'))
-    meta_bottom = meta_top + int(meta.findtext('height'))
     plot_top = int(plot.findtext('top'))
-    assert meta_top >= title_bottom
-    assert plot_top >= meta_bottom
+    assert plot_top >= title_bottom
+    assert plot_top <= title_bottom + 16
+    assert int(meta.findtext('left')) >= 1440
+    assert meta.get('type') == 'textbox'
 
 
 def test_home_lists_declare_a_visible_focus_and_navigation():

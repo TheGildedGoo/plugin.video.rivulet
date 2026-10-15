@@ -33,7 +33,8 @@ Control ids:
     BACKGROUND = 30000  fanart of the focused item
     ROWS       = 30001  the vertical grouplist holding every band row
     HEADING    = 30006  "REVRIVULET / CONTINUE" breadcrumb
-    30020/30021/30024  focused title, caption, and description
+    30020/30024/30025  focused title, description, and the caption under it
+    30021              ratings in the right quarter (hero_meta)
     300x2/301x7        per-band list and header label (see `BAND_ROWS`)
 
 Like every other Rivulet screen, the actual rendering is
@@ -193,6 +194,7 @@ def make_list_item(item):
     """Project one merged `lib.ui.mystuff` item onto a `ListItem` for the
     grid. Pure apart from `L()`, so tests can assert every property
     without a window."""
+    from lib.ui.homewindow import _hero_meta_text
     from lib.ui.mystuff import BAND_RECENT
 
     list_item = xbmcgui.ListItem(label=escape_label(item.get('name') or ''))
@@ -201,6 +203,7 @@ def make_list_item(item):
         'badge': _badge(item),
         'progress_width': _progress_width(item),
         'caption': _caption(item),
+        'hero_meta': escape_label(_hero_meta_text(item)),
         'plot': escape_label(item.get('description') or ''),
         # Finished titles are dimmed by the skin so the eye skips past
         # them, the way a watched episode greys out in most apps. A

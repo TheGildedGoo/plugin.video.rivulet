@@ -3,7 +3,9 @@
 
 """HomeWindow: RevRivulet's entry screen.
 
-A full-bleed fanart hero for the focused title. One row is visible,
+A full-bleed fanart hero for the focused title, drawn whole rather
+than cropped. Ratings sit in the right quarter; the title and the
+description stay on the left. One row is visible,
 pinned to the bottom of the screen. Down moves to the next row and Up
 moves back; the hero follows the focused poster. The type chips
 (Movies, Series, Anime, Other) sit in a pill row under the top bar.
@@ -43,7 +45,7 @@ STATUS_LABEL = 30005
 BROWSE_LIST = 30010  # type chips (Movies, Series, Anime, Other)
 TOOLS_LIST = 30011  # right-aligned grouplist: Sign in, Search, Add-ons, Settings
 HERO_TITLE = 30020
-HERO_META = 30021
+HERO_META = 30021  # textbox in the right quarter; setText(), not setLabel()
 HERO_PLOT = 30022  # textbox; setText(), not setLabel()
 HERO_LOGO = 30023
 CONTINUE_SHELF = 30040
@@ -215,23 +217,15 @@ def _runtime_text(meta):
 
 
 def _hero_meta_text(meta):
-    """Year, rating, runtime, genres. The middle dot is in NotoSans."""
-    bits = []
-    year = meta.get('year') or meta.get('releaseInfo') or ''
-    if year:
-        bits.append(str(year))
-    rating = meta.get('imdbRating') or ''
-    if rating:
-        bits.append(str(rating))
-    runtime = _runtime_text(meta)
-    if runtime:
-        bits.append(runtime)
-    genres = meta.get('genres') or []
-    if isinstance(genres, list):
-        names = [str(genre) for genre in genres if genre][:3]
-        if names:
-            bits.append(', '.join(names))
-    return ' \u00b7 '.join(bits)
+    """Ratings, year, runtime and genres, one per line.
+
+    The skin draws this in the right quarter. Whatever the meta does
+    not carry is left out, so a sparse title never shows a bare label.
+    """
+    from lib.ui.compat import L
+    from lib.ui.playbackmeta import hero_panel_text
+
+    return hero_panel_text(meta, runtime_text=_runtime_text(meta), now_word=L(30234))
 
 
 def _poster_item(meta, action=''):
@@ -857,7 +851,7 @@ def paint_hero(window):
         window.setProperty('HeroLogo', logo)
         window.getControl(HERO_LOGO).setImage(logo)
         window.getControl(HERO_TITLE).setLabel(_fit_hero_title(title or label))
-        window.getControl(HERO_META).setLabel(meta)
+        window.getControl(HERO_META).setText(meta)
         window.getControl(HERO_PLOT).setText(plot)
         window.getControl(BACKGROUND).setImage(fanart or addon_fanart())
     except Exception:
