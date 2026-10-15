@@ -1,6 +1,6 @@
 # UI map
 
-This fork is **RevRivulet** (`plugin.video.revrivulet`), version **0.30.1.rev2**. It installs beside official Rivulet. Upstream of the Home redesign was **0.30.1**.
+This fork is **RevRivulet** (`plugin.video.revrivulet`), version **0.30.1.rev3**. It installs beside official Rivulet. Upstream of the Home redesign was **0.30.1**.
 
 The addon draws its own 1920×1080 skin (`resources/skins/Default/1080i/`). Kodi calls `default.py`. A bare launch (`action` missing or `home`) ends the directory handle and opens `HomeWindow`. Any other action goes to `lib/ui/router.py`. If `HomeWindow` itself raises, `default.py` falls back to `lib/ui/views.py:home()`, a recovery directory with a notice and Settings only.
 
@@ -15,36 +15,38 @@ Later UI work should stay in the files named for that screen. Shared helpers are
 | Row icons | `resources/media/<action>.png` |
 | Entry | `default.py` when `action` is `home` |
 
-The backdrop (`30000`) and the hero labels (`30020` title, `30021` meta, `30022` plot) follow whichever card or poster has focus.
+The backdrop (`30000`), the optional clearlogo (`30023`), and the hero labels (`30020` title, `30021` meta, `30022` plot) follow the focused poster. Moving onto the top bar keeps the last title on screen.
 
-Three menu lists, because a Kodi list has one item size. Poster rows under them are separate panels, hidden with `Window.Property(shelf_*)` when empty so the remote never stops on a blank row.
+There is no large card row. Continue and Library are poster rows. Search, Add-ons and Settings are buttons in a right-aligned grouplist (`30011`), so they sit on the right edge at any resolution and Settings stays last. Sign in (`30073`) is the leftmost of those buttons and only while this profile has no login (`Window.Property(HomeSignedOut)`).
 
-| List | Control | Rows |
+| Control | What it is |
+|---|---|
+| `30011` | Top bar grouplist, `align=right`. Buttons `30073` Sign in, `30070` Search, `30071` Add-ons, `30072` Settings. |
+| `30010` | Movies, Series, Anime, Other chips. Hidden when none apply (`HomeBrowse`). |
+| `30040` | Continue. In-progress titles only. Hidden when the setting is off or the row is empty. |
+| `30041` | Library. Stremio library posters. Signed out, one Sign in cell. |
+| `30042`–`30045` | First page of the first installed catalog of that type, then More. |
+
+A poster click calls `open_detail`. It does not open the merged grid. More and the type chips open the catalog hub.
+
+| Control | Opens | Closes Home when playback starts |
 |---|---|---|
-| Watch | `30002` | Continue (`mystuff`), Watch Later (`watchlater`). Large cards. Up from Browse lands here. |
-| Browse | `30010` | Movies, Series, Anime, Other. A chip is hidden when its setting is off or no enabled addon publishes that type. |
-| Menu | `30011` | Search, Add-ons, Settings, and Sign in (`signin`) when this profile has no login. |
-
-If no type chip is visible, Search / Add-ons / Settings / Sign in move onto the Browse list so Down from Watch still reaches them. `Window.Property(HomeTools)` is set only when the top menu is separate.
-
-| Shelf | Control | Contents |
-|---|---|---|
-| Continue | `30040` | Played titles that already have a name or poster. Hidden when they do not; the Continue card still opens the grid. |
-| Watch Later | `30041` | A Sign in card when this profile is logged out. Signed in, a More card that opens the library band. The account fetch stays on that grid. |
-| Movies, Series, Anime, Other | `30042`–`30045` | First page of the first installed catalog of that type, then More. Loaded once per visit, behind the cancellable "Loading…" spinner. |
-
-A poster click calls `open_detail`. More opens the same picker the chip does. Home reads that first page through `iter_catalog_pages()` and stops; it does not change the fetcher.
-
-| Row | Opens | Closes Home when playback starts |
-|---|---|---|
-| Continue | `lib/ui/mystuff.py:open_my_stuff()` | yes |
-| Watch Later | `open_my_stuff(bands=(BAND_LIBRARY,))` | yes |
-| Movies, Series, Anime, Other | `lib/ui/catalogpicker.py:open_catalog_picker()` | yes |
+| Continue / Library poster | `lib/ui/detailwindow.py:open_detail()` | yes |
+| Movies, Series, Anime, Other | `lib/ui/hubwindow.py:open_hub()` | yes |
 | Search | `lib/ui/searchwindow.py:open_search()` | yes |
 | Add-ons | `lib/ui/addonswindow.py:open_addons()` | no |
 | Settings | `lib/ui/compat.py` `ADDON.openSettings()` (Kodi's dialog) | no |
 
-Back on Home still closes the window (`BaseWindow` / `BACK_ACTIONS`). That path is unchanged.
+Down from the top bar enters the first visible row. Up from that group returns to the bar. Left and right stay inside the focused row. Back on Home still closes the window (`BaseWindow` / `BACK_ACTIONS`). That path is unchanged.
+
+## Catalog hub
+
+| Piece | Path |
+|---|---|
+| Skin | `resources/skins/Default/1080i/HubWindow.xml` |
+| Window | `lib/ui/hubwindow.py` (`HubWindow`, `open_hub`) |
+
+Same hero and the same right-aligned top bar as Home. Up to eight poster rows (`31010`–`31017`), one per reachable catalog of the type that was opened. Search-only catalogs are skipped. A genre-required catalog uses its first declared genre. Series may pin New Episodes first, by calling `catalogpicker._new_episode_items` and `_mark_episode_seen` without changing them. Catalogs past the eight slots are logged and left off.
 
 ## Continue and the library
 
@@ -83,7 +85,8 @@ There is no settings window in the skin. Both Home and the recovery directory ca
 
 | Screen | Python | Skin |
 |---|---|---|
-| Catalog picker (Movies / Series / Anime / Other) | `lib/ui/catalogpicker.py` | `CatalogPickerWindow.xml` |
+| Catalog hub (Movies / Series / Anime / Other) | `lib/ui/hubwindow.py` | `HubWindow.xml` |
+| Catalog picker (still in the tree; Home no longer opens it) | `lib/ui/catalogpicker.py` | `CatalogPickerWindow.xml` |
 | Coverflow | `lib/ui/infowindow.py` (`ShowcaseWindow`) | `ShowcaseWindow.xml` |
 | Search | `lib/ui/searchwindow.py` | `SearchWindow.xml` |
 | Add-ons | `lib/ui/addonswindow.py` | `AddonsWindow.xml` |
@@ -103,13 +106,13 @@ Used by more than one screen. A change here is not local to Home.
 | `lib/ui/compat.py` | `L()`, `log()`, settings reads, addon paths. The only place that papers over Kodi 19 vs 20+. | yes |
 | `lib/ui/dependencies.py` | `get_store()`, `get_client()`, `get_api()` | yes |
 | `lib/ui/dialogs.py` | Busy, progress, confirm, option list | indirectly, via the screens Home opens |
-| `lib/ui/mystuff.py` | Continue, and Watch Later via the optional `bands` argument | yes |
+| `lib/ui/mystuff.py` | Continue/library merge. Home calls `merge_entries`, `library_metas`, `_fetch_library_entries` and `_enrich`. It does not change them. | yes |
 | `lib/ui/playbackmeta.py` | Episode codes and art. No `xbmc` import. | no |
 | `lib/ui/urlutil.py` | Plugin URLs. No `xbmc` import. | no |
 | `lib/ui/views.py` | Catalog and meta fan-out, login, the recovery directory. Home calls `iter_catalog_pages()` and `login()` and does not change them. | yes |
 | `lib/ui/metacache.py` | Meta cache used by the grid and the coverflow | no |
 
-`open_my_stuff(bands=None)` is the one shared helper this Home pass changes. `bands=None` is still Continue. Watch Later passes `(BAND_LIBRARY,)`, which filters the list already merged from local progress and `libraryItem`. It does not add a fetch.
+Home calls those helpers and does not edit them. `open_my_stuff(bands=None)` still means every band, including the library. Home no longer opens that screen from Continue.
 
 ## Leave these alone on a UI pass
 
@@ -121,12 +124,12 @@ Playback, resume, next episode, the streaming server, subtitles, and the Stremio
 - `lib/stremio/` (protocol and HTTP)
 - `lib/library.py`, `lib/store.py` (wire format and persistence; read them, do not change them for a skin pass)
 
-## Watch Later
+## Library
 
-Stremio's library record (`lib/library.py`) is a `libraryItem`. A real saved title has `removed` false and `temp` false. A title that was only played, never added, is stored with both flags true and is dropped by `library_metas()`. There is no watch-later field and no second datastore collection. Local progress (`store.get_progress_entries()`) is resume data, not a list the user curates.
+The Home row labelled Library (`#30422`) is the Stremio `libraryItem` list: `library_metas()` keeps records whose `removed` flag is false. There is no separate watch-later collection.
 
-So Watch Later on Home is the library band Continue already shows at the bottom: saved titles with no started playback on this device. Started titles stay on Continue. The empty states are string `#30424` (signed out) and `#30426` (signed in, nothing unstarted).
+Continue is the other row. It is local playback progress in the resume, next-up and recently-finished bands, plus library records whose own `state.timeOffset` is still inside the resume window (including the implicit `temp` and `removed` watch record). It does not include the library band. The old Continue card called `open_my_stuff()` with no band filter, and that screen's last band is the library, which is why the card showed saved titles.
 
-RevRivulet reads that login from its own `addon_data/plugin.video.revrivulet/auth.json`. Official Rivulet and the Stremio app do not share the file, so a fresh install says it is not logged in until the viewer signs in once on Home (string `#30427` / `#30428`) or under Settings > Account. That dialog is `views.login()`.
+RevRivulet reads login from its own `addon_data/plugin.video.revrivulet/auth.json`. Official Rivulet and the Stremio app do not share the file, so a fresh install says it is not logged in until the viewer signs in once on Home (string `#30427` / `#30428`) or under Settings > Account. That dialog is `views.login()`.
 
-A separate Watch Later list would need a new addon-data file in `lib/store.py`, or a new Stremio collection plus read/write support in `lib/stremio/api.py` and `lib/library.py`. Neither exists today, and both are outside a UI-only pass.
+Adding or removing a library title already exists on the detail screen's context menu. It uses `StremioAPI.get_library_item` / `put_library_item` (`datastoreGet` / `datastorePut` on `libraryItem`) and `lib/library.py`'s `library_add_payload` / `library_remove_payload` (`removed` false to add, `removed` true to tombstone). Home does not offer that menu.

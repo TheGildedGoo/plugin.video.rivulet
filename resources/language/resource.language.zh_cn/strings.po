@@ -1011,24 +1011,24 @@ msgid "Browse"
 msgstr "浏览"
 
 msgctxt "#30422"
-msgid "Watch Later"
-msgstr "稍后观看"
+msgid "Library"
+msgstr "媒体库"
 
 msgctxt "#30423"
-msgid "Saved library titles not started on this device"
-msgstr "已保存在资料库中、尚未在此设备上开始的标题"
+msgid "Titles saved in your Stremio library"
+msgstr "已保存在 Stremio 媒体库中的条目"
 
 msgctxt "#30424"
-msgid "Sign in to see library titles you have not started."
-msgstr "登录后可查看尚未在此设备上开始的资料库标题。"
+msgid "Sign in to see your library."
+msgstr "登录后查看媒体库。"
 
 msgctxt "#30425"
 msgid "More"
 msgstr "更多"
 
 msgctxt "#30426"
-msgid "No unstarted library titles. Add one from its page."
-msgstr "没有尚未开始的资料库标题。请在标题页面添加。"
+msgid "Your library is empty. Add a title from its page."
+msgstr "媒体库是空的。请在条目页面添加。"
 
 
 msgctxt "#30427"
@@ -1038,3 +1038,7 @@ msgstr "登录"
 msgctxt "#30428"
 msgid "Sign in once here. RevRivulet keeps its own Stremio login."
 msgstr "请在此登录一次。RevRivulet使用自己的 Stremio 登录。"
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d 分钟"

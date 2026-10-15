@@ -1011,24 +1011,24 @@ msgid "Browse"
 msgstr "探す"
 
 msgctxt "#30422"
-msgid "Watch Later"
-msgstr "後で見る"
+msgid "Library"
+msgstr "ライブラリ"
 
 msgctxt "#30423"
-msgid "Saved library titles not started on this device"
-msgstr "この端末でまだ再生していないライブラリのタイトル"
+msgid "Titles saved in your Stremio library"
+msgstr "Stremioライブラリに保存した作品"
 
 msgctxt "#30424"
-msgid "Sign in to see library titles you have not started."
-msgstr "まだ再生していないライブラリのタイトルを見るにはログインしてください。"
+msgid "Sign in to see your library."
+msgstr "ライブラリを見るにはログインしてください。"
 
 msgctxt "#30425"
 msgid "More"
 msgstr "その他"
 
 msgctxt "#30426"
-msgid "No unstarted library titles. Add one from its page."
-msgstr "未再生のライブラリタイトルはありません。作品ページから追加してください。"
+msgid "Your library is empty. Add a title from its page."
+msgstr "ライブラリは空です。作品のページから追加してください。"
 
 
 msgctxt "#30427"
@@ -1038,3 +1038,7 @@ msgstr "ログイン"
 msgctxt "#30428"
 msgid "Sign in once here. RevRivulet keeps its own Stremio login."
 msgstr "ここで一度ログインしてください。RevRivuletは独自のStremioログインを使います。"
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d分"

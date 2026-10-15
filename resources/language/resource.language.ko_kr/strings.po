@@ -1011,24 +1011,24 @@ msgid "Browse"
 msgstr "둘러보기"
 
 msgctxt "#30422"
-msgid "Watch Later"
-msgstr "나중에 보기"
+msgid "Library"
+msgstr "라이브러리"
 
 msgctxt "#30423"
-msgid "Saved library titles not started on this device"
-msgstr "이 기기에서 아직 시작하지 않은 라이브러리 제목"
+msgid "Titles saved in your Stremio library"
+msgstr "Stremio 라이브러리에 저장된 제목"
 
 msgctxt "#30424"
-msgid "Sign in to see library titles you have not started."
-msgstr "아직 시작하지 않은 라이브러리 제목을 보려면 로그인하세요."
+msgid "Sign in to see your library."
+msgstr "라이브러리를 보려면 로그인하세요."
 
 msgctxt "#30425"
 msgid "More"
 msgstr "더보기"
 
 msgctxt "#30426"
-msgid "No unstarted library titles. Add one from its page."
-msgstr "시작하지 않은 라이브러리 제목이 없습니다. 제목 화면에서 추가하세요."
+msgid "Your library is empty. Add a title from its page."
+msgstr "라이브러리가 비어 있습니다. 제목 페이지에서 추가하세요."
 
 
 msgctxt "#30427"
@@ -1038,3 +1038,7 @@ msgstr "로그인"
 msgctxt "#30428"
 msgid "Sign in once here. RevRivulet keeps its own Stremio login."
 msgstr "여기에서 한 번 로그인하세요. RevRivulet은 자체 Stremio 로그인을 사용합니다."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d분"
