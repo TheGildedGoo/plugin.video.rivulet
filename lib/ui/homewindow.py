@@ -13,6 +13,22 @@ playback path of its own, so Home always stays open behind it (see
 `_open_addons`). Settings opens Kodi's own native settings dialog,
 which is not worth replacing.
 
+The rows are three focus targets, not one list. A Kodi list has a
+single row height, and a screen read from across a room needs the
+Watch rows taller than the catalog rows while still fitting on
+1080px. `LIST` (30002) is Continue and Watch Later, `BROWSE_LIST`
+(30010) is the type rows, `TOOLS_LIST` (30011) is Search, Add-ons
+and Settings. When no type row is installed, the tool rows move
+onto the browse list: an empty browse list would swallow Down from
+Watch before it ever reached Settings.
+
+Watch Later is not a new collection. The Stremio datastore this
+addon speaks has no watch-later record, and nothing under addon
+data is a user-curated list either. The row opens the library band
+`lib.ui.mystuff` already computes: permanent library items that
+have not been started on this device. Adding or removing a title
+stays on the detail screen's existing library action.
+
 The "New Episodes" row that used to live here moved to
 `lib.ui.catalogpicker`'s Series screen as a pinned entry: it is
 series-specific, so it belongs where shows live rather than as a
@@ -25,8 +41,10 @@ from lib.ui.dependencies import get_store
 from lib.ui.uicommon import BaseWindow, UiHeartbeat, gated_input, open_window
 
 BACKGROUND = 30000
-LIST = 30002
+LIST = 30002  # Watch group: Continue, Watch Later. Taller rows.
 STATUS_LABEL = 30005  # plain text label; set at runtime via setLabel(), not a skin <label>
+BROWSE_LIST = 30010  # type rows (Movies, Series, Anime, Other)
+TOOLS_LIST = 30011  # Search, Add-ons, Settings, one horizontal row
 
 #: The content-type rows that replaced the single "Discover" entry, in
 #: menu order: (action, {Stremio base catalog types} or None, setting id).
@@ -84,6 +102,7 @@ def _remainder_types(available):
 #: library alongside the resumable titles.
 _MENU = (
     (30241, 'mystuff'),
+    (30422, 'watchlater'),
     (30213, 'movies'),
     (30214, 'series'),
     (30215, 'anime'),
@@ -99,6 +118,7 @@ _MENU = (
 #: Kodi's language setting the same as every other row's main label.
 _SUBTITLES = {
     'mystuff': 30232,
+    'watchlater': 30423,
     'movies': 30216,
     'series': 30217,
     'anime': 30218,
@@ -106,6 +126,21 @@ _SUBTITLES = {
     'search': 30149,
     'addons': 30151,
     'settings': 30152,
+}
+
+#: action -> which of the three Home lists draws it. Watch Later sits
+#: with Continue because both are "your titles", not a catalog. The
+#: tool rows are not type rows, so they are not gated by `_TYPE_ROWS`.
+_GROUP = {
+    'mystuff': 'watch',
+    'watchlater': 'watch',
+    'movies': 'browse',
+    'series': 'browse',
+    'anime': 'browse',
+    'other': 'browse',
+    'search': 'tools',
+    'addons': 'tools',
+    'settings': 'tools',
 }
 
 
@@ -160,6 +195,23 @@ def _menu_items(show_mystuff, addons=None):
     return items
 
 
+def _place_menu(items):
+    """Split `_menu_items()` across the three Home lists.
+
+    Returns `(watch, browse, tools, show_tools)`. `show_tools` is false
+    when browse would be empty: the tool rows are moved onto the browse
+    list so Down from Watch still reaches Search, Add-ons and Settings.
+    The skin hides the separate More strip unless `show_tools` is true
+    (`Window.Property(HomeTools)`).
+    """
+    grouped = {'watch': [], 'browse': [], 'tools': []}
+    for item in items:
+        grouped[_GROUP[item.getProperty('action')]].append(item)
+    if grouped['browse']:
+        return grouped['watch'], grouped['browse'], grouped['tools'], True
+    return grouped['watch'], grouped['tools'], [], False
+
+
 def _status_text(auth):
     """Render HomeWindow's top status line from the same `get_auth()`
     result onInit() already fetched for `show_library`: uses the shared
@@ -192,24 +244,31 @@ class HomeWindow(BaseWindow):
         # in, without restarting the addon.
         show_mystuff = setting_bool('home_show_mystuff', True) and has_content(store)
         self.getControl(BACKGROUND).setImage(addon_fanart())
-        control = self.getControl(LIST)
         # reset() before addItems(): onInit() runs again when
         # uicommon.ModalStackWindow reopens a screen force-closed for
         # playback, and re-adding onto a retained list would double every
         # item. Rebuilding also re-reads the type rows' settings and the
         # installed catalogs, so toggling a row in Settings (or installing
         # an addon that publishes a new type) is reflected on the way back
-        # here without restarting the addon.
-        control.reset()
-        control.addItems(_menu_items(show_mystuff, store.get_enabled_addons()))
+        # here without restarting the addon. All three lists are rebuilt
+        # together: a type row appearing must move Search back down onto
+        # the More strip, and the other way around when the last type
+        # row disappears.
+        watch, browse, tools, show_tools = _place_menu(
+            _menu_items(show_mystuff, store.get_enabled_addons()))
+        for control_id, rows in ((LIST, watch), (BROWSE_LIST, browse), (TOOLS_LIST, tools)):
+            control = self.getControl(control_id)
+            control.reset()
+            control.addItems(rows)
+        self.setProperty('HomeTools', '1' if show_tools else '')
         self.getControl(STATUS_LABEL).setLabel(_status_text(auth))
         self.setFocusId(LIST)
 
     @gated_input
     def onClick(self, control_id):
-        if control_id != LIST:
+        if control_id not in (LIST, BROWSE_LIST, TOOLS_LIST):
             return
-        focused = self.getControl(LIST).getSelectedItem()
+        focused = self.getControl(control_id).getSelectedItem()
         if focused is None:
             return
         handler = _ACTIONS.get(focused.getProperty('action'))
@@ -220,6 +279,18 @@ class HomeWindow(BaseWindow):
 def _open_mystuff(window):
     from lib.ui.mystuff import open_my_stuff
     if open_my_stuff():
+        window.close()
+
+
+def _open_watchlater(window):
+    """Open only the saved, never-started library band.
+
+    `open_my_stuff()` with no argument is Continue (every band). Passing
+    `BAND_LIBRARY` does not fetch a different collection - see that
+    function. Playback still closes Home, the same as Continue.
+    """
+    from lib.ui.mystuff import BAND_LIBRARY, open_my_stuff
+    if open_my_stuff(bands=(BAND_LIBRARY,)):
         window.close()
 
 
@@ -259,6 +330,7 @@ L_FOR_ACTION = {action: string_id for string_id, action in _MENU}
 
 _ACTIONS = {
     'mystuff': _open_mystuff,
+    'watchlater': _open_watchlater,
     'movies': lambda window: _open_type_row(window, 'movies'),
     'series': lambda window: _open_type_row(window, 'series'),
     'anime': lambda window: _open_type_row(window, 'anime'),

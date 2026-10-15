@@ -1,10 +1,10 @@
 # Kodi Media Center language file
-# Addon Name: Rivulet
-# Addon id: plugin.video.rivulet
+# Addon Name: RevRivulet
+# Addon id: plugin.video.revrivulet
 # Addon Provider: M0Rf30
 msgid ""
 msgstr ""
-"Project-Id-Version: plugin.video.rivulet\n"
+"Project-Id-Version: plugin.video.revrivulet\n"
 "Report-Msgid-Bugs-To: https://github.com/M0Rf30/plugin.video.rivulet/issues\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -465,7 +465,7 @@ msgid "Manage installed Stremio addons"
 msgstr ""
 
 msgctxt "#30152"
-msgid "Configure Rivulet"
+msgid "Configure RevRivulet"
 msgstr ""
 
 msgctxt "#30170"
@@ -685,7 +685,7 @@ msgid "Show Other"
 msgstr ""
 
 msgctxt "#30230"
-msgid "Open Rivulet automatically on Kodi startup"
+msgid "Open RevRivulet automatically on Kodi startup"
 msgstr ""
 
 msgctxt "#30232"
@@ -1001,3 +1001,32 @@ msgstr ""
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr ""
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr ""
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr ""
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr ""
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr ""
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr ""
+
+msgctxt "#30425"
+msgid "More"
+msgstr ""
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr ""
+

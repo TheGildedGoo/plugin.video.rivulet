@@ -1,10 +1,10 @@
 # Kodi Media Center language file
-# Addon Name: Rivulet
-# Addon id: plugin.video.rivulet
+# Addon Name: RevRivulet
+# Addon id: plugin.video.revrivulet
 # Addon Provider: M0Rf30
 msgid ""
 msgstr ""
-"Project-Id-Version: plugin.video.rivulet\n"
+"Project-Id-Version: plugin.video.revrivulet\n"
 "Report-Msgid-Bugs-To: https://github.com/M0Rf30/plugin.video.rivulet/issues\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -465,8 +465,8 @@ msgid "Manage installed Stremio addons"
 msgstr "إدارة إضافات Stremio المثبتة"
 
 msgctxt "#30152"
-msgid "Configure Rivulet"
-msgstr "تكوين Rivulet"
+msgid "Configure RevRivulet"
+msgstr "تكوين RevRivulet"
 
 msgctxt "#30170"
 msgid "Sync playback progress to your Stremio account"
@@ -685,8 +685,8 @@ msgid "Show Other"
 msgstr "إظهار أخرى"
 
 msgctxt "#30230"
-msgid "Open Rivulet automatically on Kodi startup"
-msgstr "فتح Rivulet تلقائيًا عند بدء تشغيل Kodi"
+msgid "Open RevRivulet automatically on Kodi startup"
+msgstr "فتح RevRivulet تلقائيًا عند بدء تشغيل Kodi"
 
 msgctxt "#30232"
 msgid "Resume, next up, and your library"
@@ -1001,3 +1001,32 @@ msgstr "جارٍ مزامنة الإضافات…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "يعرض الكتالوج أول %d صفحات فقط؛ لن يتم تحميل المزيد من العناصر"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "مشاهدة"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "تصفح"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "شاهد لاحقا"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "عناوين محفوظة في المكتبة لم تبدأ على هذا الجهاز"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "سجل الدخول لرؤية عناوين المكتبة التي لم تبدأها."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "المزيد"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "لا توجد عناوين مكتبة لم تبدأ. أضف عنوانا من صفحته."
+

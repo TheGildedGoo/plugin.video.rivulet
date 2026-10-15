@@ -1,10 +1,10 @@
 # Kodi Media Center language file
-# Addon Name: Rivulet
-# Addon id: plugin.video.rivulet
+# Addon Name: RevRivulet
+# Addon id: plugin.video.revrivulet
 # Addon Provider: M0Rf30
 msgid ""
 msgstr ""
-"Project-Id-Version: plugin.video.rivulet\n"
+"Project-Id-Version: plugin.video.revrivulet\n"
 "Report-Msgid-Bugs-To: https://github.com/M0Rf30/plugin.video.rivulet/issues\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -465,8 +465,8 @@ msgid "Manage installed Stremio addons"
 msgstr "Gerenciar os complementos do Stremio instalados"
 
 msgctxt "#30152"
-msgid "Configure Rivulet"
-msgstr "Configurar Rivulet"
+msgid "Configure RevRivulet"
+msgstr "Configurar RevRivulet"
 
 msgctxt "#30170"
 msgid "Sync playback progress to your Stremio account"
@@ -685,8 +685,8 @@ msgid "Show Other"
 msgstr "Mostrar Outros"
 
 msgctxt "#30230"
-msgid "Open Rivulet automatically on Kodi startup"
-msgstr "Abrir o Rivulet automaticamente ao iniciar o Kodi"
+msgid "Open RevRivulet automatically on Kodi startup"
+msgstr "Abrir o RevRivulet automaticamente ao iniciar o Kodi"
 
 msgctxt "#30232"
 msgid "Resume, next up, and your library"
@@ -1001,3 +1001,32 @@ msgstr "Sincronizando addons…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "O catálogo mostra apenas as primeiras %d páginas; mais itens não são carregados"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "Assistir"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "Explorar"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "Assistir depois"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "Títulos salvos na biblioteca que ainda não foram iniciados neste aparelho"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "Entre na conta para ver títulos da biblioteca que você ainda não iniciou."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Mais"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "Nenhum título da biblioteca sem início. Adicione um na página dele."
+

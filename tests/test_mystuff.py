@@ -498,3 +498,30 @@ def test_fetch_library_entries_returns_empty_on_api_error(mystuff):
     store = type('S', (), {'get_auth': staticmethod(lambda: {'authKey': 'k'})})()
 
     assert mystuff._fetch_library_entries(store) == []
+
+
+def test_restrict_bands_none_returns_the_same_list(mystuff):
+    """Continue passes no band filter. The merge result must come back
+    unchanged, including its identity, so a later in-place enrich still
+    sees the same dicts."""
+    items = [{'band': mystuff.BAND_RESUME, 'id': 'a'}, {'band': mystuff.BAND_LIBRARY, 'id': 'b'}]
+
+    assert mystuff._restrict_bands(items, None) is items
+
+
+def test_restrict_bands_keeps_only_the_named_band(mystuff):
+    items = [
+        {'band': mystuff.BAND_RESUME, 'id': 'a'},
+        {'band': mystuff.BAND_LIBRARY, 'id': 'b'},
+        {'band': mystuff.BAND_RECENT, 'id': 'c'},
+    ]
+
+    kept = mystuff._restrict_bands(items, (mystuff.BAND_LIBRARY,))
+
+    assert [item['id'] for item in kept] == ['b']
+
+
+def test_empty_notice_for_watch_later_depends_on_sign_in(mystuff):
+    assert mystuff._empty_notice(None, False) == 'STR30030'
+    assert mystuff._empty_notice((mystuff.BAND_LIBRARY,), False) == 'STR30424'
+    assert mystuff._empty_notice((mystuff.BAND_LIBRARY,), True) == 'STR30426'

@@ -742,7 +742,7 @@ def test_play_direct_failed_resolution_returns_false_without_starting_player(kod
 
     assert result is False
     assert env.player_play_calls == []
-    assert env.notifications == [('Rivulet', 'STR30030', 'info', 4000)]
+    assert env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
 
 
 # --- item_meta: OSD title/art/info forwarding (Defect A: "Not available" +

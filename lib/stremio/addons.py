@@ -21,6 +21,8 @@ AddonClient actually needs it.
 import json
 from urllib.parse import quote, urlsplit, urlunsplit
 
+from lib.addonid import ADDON_ID
+
 #: `requests` costs ~35ms and ~200 transitive modules to import - resolved
 #: lazily on first `AddonClient.__init__()` call via `_ensure_requests()`
 #: rather than at module import time, so this module's pure helpers
@@ -62,9 +64,10 @@ MANIFEST_SUFFIX = '/manifest.json'
 #: challenge page on both /manifest.json and /stream/ while serving the
 #: very same request fine under any other UA. The 403 was only logged as
 #: a per-addon failure, so the user just saw "no streams found" beside a
-#: working Cinemeta catalog (issue #57). Same value `lib.serverbin` sends,
-#: duplicated rather than imported to keep this module's import cheap.
-USER_AGENT = 'plugin.video.rivulet'
+#: working Cinemeta catalog (issue #57). The string is the addon id from
+#: lib.addonid (no xbmc import) so this fork does not send the official
+#: addon's name. Same value `lib.serverbin` sends.
+USER_AGENT = ADDON_ID
 
 #: Cap on any single addon-protocol HTTP response body. `_get_json()`
 #: streams the response via `iter_content()` instead of buffering

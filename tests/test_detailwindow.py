@@ -885,7 +885,7 @@ def test_context_menu_add_to_library_logged_out_notifies_and_performs_no_write(l
 
     assert api.get_calls == []  # logged out: no lookup either
     assert api.put_calls == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30190', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30190', 'info', 4000)]
 
 
 def test_context_menu_mark_watched_logged_out_notifies_and_performs_no_write(load_detailwindow, monkeypatch):
@@ -897,7 +897,7 @@ def test_context_menu_mark_watched_logged_out_notifies_and_performs_no_write(loa
 
     win._open_context_menu()
 
-    assert ctx.env.notifications == [('Rivulet', 'STR30190', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30190', 'info', 4000)]
 
 
 def test_context_menu_add_to_library_pushes_explicit_payload_and_notifies_success(load_detailwindow, monkeypatch):
@@ -915,7 +915,7 @@ def test_context_menu_add_to_library_pushes_explicit_payload_and_notifies_succes
     assert payload['_id'] == 'tt1'
     assert payload['removed'] is False
     assert payload['temp'] is False
-    assert ctx.env.notifications == [('Rivulet', 'STR30297', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30297', 'info', 4000)]
 
 
 def test_context_menu_remove_from_library_pushes_tombstone_and_notifies_success(load_detailwindow, monkeypatch):
@@ -933,7 +933,7 @@ def test_context_menu_remove_from_library_pushes_tombstone_and_notifies_success(
     assert auth_key == 'tok-123'
     assert payload['removed'] is True
     assert payload['state'] == item['state']  # unrelated fields preserved
-    assert ctx.env.notifications == [('Rivulet', 'STR30298', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30298', 'info', 4000)]
 
 
 def test_context_menu_mark_watched_with_no_prior_record_builds_fresh_item(load_detailwindow, monkeypatch):
@@ -950,7 +950,7 @@ def test_context_menu_mark_watched_with_no_prior_record_builds_fresh_item(load_d
     assert payload['_id'] == 'tt1'
     assert payload['state']['flaggedWatched'] == 1
     assert payload['state']['timesWatched'] == 1
-    assert ctx.env.notifications == [('Rivulet', 'STR30299', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30299', 'info', 4000)]
 
 
 def test_context_menu_mark_unwatched_clears_flag_on_existing_record(load_detailwindow, monkeypatch):
@@ -966,7 +966,7 @@ def test_context_menu_mark_unwatched_clears_flag_on_existing_record(load_detailw
     _auth_key, payload = api.put_calls[0]
     assert payload['state']['flaggedWatched'] == 0
     assert payload['state']['timesWatched'] == 3  # history untouched by un-marking
-    assert ctx.env.notifications == [('Rivulet', 'STR30300', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30300', 'info', 4000)]
 
 
 def test_context_menu_failed_write_notifies_failure_not_success(load_detailwindow, monkeypatch):
@@ -980,7 +980,7 @@ def test_context_menu_failed_write_notifies_failure_not_success(load_detailwindo
 
     win._open_context_menu()
 
-    assert ctx.env.notifications == [('Rivulet', 'STR30301', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30301', 'info', 4000)]
 
 
 def test_context_menu_lookup_failure_still_offers_default_wording_without_crashing(load_detailwindow, monkeypatch):
@@ -1017,7 +1017,7 @@ def test_context_menu_add_after_lookup_failure_notifies_and_performs_no_write(lo
     win._open_context_menu()
 
     assert api.put_calls == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30302', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30302', 'info', 4000)]
 
 
 def test_context_menu_mark_watched_after_lookup_failure_notifies_and_performs_no_write(load_detailwindow, monkeypatch):
@@ -1034,7 +1034,7 @@ def test_context_menu_mark_watched_after_lookup_failure_notifies_and_performs_no
     win._open_context_menu()
 
     assert api.put_calls == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30302', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30302', 'info', 4000)]
 
 
 def test_context_menu_cast_and_crew_still_works_after_lookup_failure(load_detailwindow, monkeypatch):
@@ -1500,7 +1500,7 @@ def test_open_detail_not_found_notifies_and_returns_false_without_building_a_win
     result = ctx.detailwindow.open_detail('movie', 'tt404')
 
     assert result is False
-    assert ctx.env.notifications == [('Rivulet', 'STR30030', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
 
 
 def test_open_detail_movie_skips_detailwindow_and_opens_streams_directly(
@@ -1592,7 +1592,7 @@ def test_open_detail_series_window_is_closed_exactly_once_when_start_raises(
     win = captured['window']
     assert win.close_calls == 1
     assert win.closed is True
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
 
 
 def _record_busy_calls(monkeypatch, dialogs_mod):

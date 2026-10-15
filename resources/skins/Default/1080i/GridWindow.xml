@@ -115,7 +115,7 @@
                  chopped, so the crop reads as deliberate. -->
             <control type="image"><left>0</left><top>880</top><width>1920</width><height>200</height><texture colordiffuse="FF0A0C0E">fade_v.png</texture></control>
 
-            <!-- Set at runtime by GridWindow: "RIVULET / CONTINUE". -->
+            <!-- Set at runtime by GridWindow: "REVRIVULET / CONTINUE". -->
             <control type="image"><left>96</left><top>60</top><width>34</width><height>34</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
             <control type="label" id="30006"><left>150</left><top>60</top><width>900</width><height>34</height><font>font10</font><textcolor>4DEEF3F6</textcolor>
                 <label></label>

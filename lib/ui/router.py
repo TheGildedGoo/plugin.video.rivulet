@@ -13,6 +13,8 @@ ADDON_HANDLE/BASE_URL dispatch state and the querystring parser.
 import sys
 from urllib.parse import parse_qs
 
+from lib.addonid import ADDON_ID
+
 ADDON_HANDLE = -1
 BASE_URL = ''
 
@@ -43,7 +45,7 @@ def run():
 
     from lib.ui.compat import log
 
-    BASE_URL = sys.argv[0] if len(sys.argv) > 0 else 'plugin://plugin.video.rivulet/'
+    BASE_URL = sys.argv[0] if len(sys.argv) > 0 else 'plugin://%s/' % ADDON_ID
     try:
         ADDON_HANDLE = int(sys.argv[1])
     except (IndexError, ValueError):

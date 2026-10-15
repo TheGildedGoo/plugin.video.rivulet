@@ -1,10 +1,10 @@
 # Kodi Media Center language file
-# Addon Name: Rivulet
-# Addon id: plugin.video.rivulet
+# Addon Name: RevRivulet
+# Addon id: plugin.video.revrivulet
 # Addon Provider: M0Rf30
 msgid ""
 msgstr ""
-"Project-Id-Version: plugin.video.rivulet\n"
+"Project-Id-Version: plugin.video.revrivulet\n"
 "Report-Msgid-Bugs-To: https://github.com/M0Rf30/plugin.video.rivulet/issues\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -465,8 +465,8 @@ msgid "Manage installed Stremio addons"
 msgstr "管理已安装的 Stremio 插件"
 
 msgctxt "#30152"
-msgid "Configure Rivulet"
-msgstr "配置 Rivulet"
+msgid "Configure RevRivulet"
+msgstr "配置 RevRivulet"
 
 msgctxt "#30170"
 msgid "Sync playback progress to your Stremio account"
@@ -685,8 +685,8 @@ msgid "Show Other"
 msgstr "显示其他"
 
 msgctxt "#30230"
-msgid "Open Rivulet automatically on Kodi startup"
-msgstr "Kodi 启动时自动打开 Rivulet"
+msgid "Open RevRivulet automatically on Kodi startup"
+msgstr "Kodi 启动时自动打开 RevRivulet"
 
 msgctxt "#30232"
 msgid "Resume, next up, and your library"
@@ -1001,3 +1001,32 @@ msgstr "正在同步插件…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "目录仅显示前 %d 页;更多项目不会加载"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "观看"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "浏览"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "稍后观看"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "已保存在资料库中、尚未在此设备上开始的标题"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "登录后可查看尚未在此设备上开始的资料库标题。"
+
+msgctxt "#30425"
+msgid "More"
+msgstr "更多"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "没有尚未开始的资料库标题。请在标题页面添加。"
+

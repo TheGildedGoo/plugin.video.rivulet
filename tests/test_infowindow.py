@@ -306,15 +306,15 @@ def test_item_properties_none_meta_is_treated_as_empty(load_infowindow):
 
 def test_header_label_with_no_title_is_bare_rivulet(load_infowindow):
     ctx = load_infowindow()
-    assert ctx.infowindow._header_label() == '[COLOR 57EEF3F6]RIVULET[/COLOR]'
-    assert ctx.infowindow._header_label(None) == '[COLOR 57EEF3F6]RIVULET[/COLOR]'
-    assert ctx.infowindow._header_label('') == '[COLOR 57EEF3F6]RIVULET[/COLOR]'
+    assert ctx.infowindow._header_label() == '[COLOR 57EEF3F6]REVRIVULET[/COLOR]'
+    assert ctx.infowindow._header_label(None) == '[COLOR 57EEF3F6]REVRIVULET[/COLOR]'
+    assert ctx.infowindow._header_label('') == '[COLOR 57EEF3F6]REVRIVULET[/COLOR]'
 
 
 def test_header_label_with_a_title_renders_uppercased_breadcrumb(load_infowindow):
     ctx = load_infowindow()
     assert ctx.infowindow._header_label('Cinemeta \u00b7 Popular Movies') == (
-        '[COLOR 57EEF3F6]RIVULET[/COLOR] [COLOR 2EEEF3F6]/[/COLOR] '
+        '[COLOR 57EEF3F6]REVRIVULET[/COLOR] [COLOR 2EEEF3F6]/[/COLOR] '
         '[COLOR 9EEEF3F6]CINEMETA \u00b7 POPULAR MOVIES[/COLOR]'
     )
 
@@ -344,7 +344,7 @@ def test_oninit_builds_items_sets_background_hides_loading_and_focuses_select(lo
     assert win.getControl(infowindow.BACKGROUND).image == 'https://x/bg1.jpg'
     assert win.getControl(infowindow.LOADING).visible is False
     assert win.getFocusId() == infowindow.SELECT
-    assert win.getControl(infowindow.HEADER).label == '[COLOR 57EEF3F6]RIVULET[/COLOR]'
+    assert win.getControl(infowindow.HEADER).label == '[COLOR 57EEF3F6]REVRIVULET[/COLOR]'
 
 
 def test_oninit_sets_breadcrumb_header_when_catalog_title_is_set(load_infowindow):
@@ -357,7 +357,7 @@ def test_oninit_sets_breadcrumb_header_when_catalog_title_is_set(load_infowindow
     win.onInit()
 
     assert win.getControl(infowindow.HEADER).label == (
-        '[COLOR 57EEF3F6]RIVULET[/COLOR] [COLOR 2EEEF3F6]/[/COLOR] '
+        '[COLOR 57EEF3F6]REVRIVULET[/COLOR] [COLOR 2EEEF3F6]/[/COLOR] '
         '[COLOR 9EEEF3F6]CINEMETA \u00b7 POPULAR MOVIES[/COLOR]'
     )
 
@@ -675,7 +675,7 @@ def test_start_resets_selected_and_metas_on_each_call(load_infowindow):
 
 
 def test_open_showcase_resolves_addon_path_and_delegates_to_start(load_infowindow, monkeypatch):
-    ctx = load_infowindow(addon_info={'path': 'special://home/addons/plugin.video.rivulet'})
+    ctx = load_infowindow(addon_info={'path': 'special://home/addons/plugin.video.revrivulet'})
     infowindow = ctx.infowindow
     metas = [_make_meta('tt1', 'One')]
     captured = {}
@@ -695,7 +695,7 @@ def test_open_showcase_resolves_addon_path_and_delegates_to_start(load_infowindo
     result = infowindow.open_showcase(metas)
 
     assert captured['init_args'] == (
-        'ShowcaseWindow.xml', 'special://home/addons/plugin.video.rivulet', 'Default', '1080i'
+        'ShowcaseWindow.xml', 'special://home/addons/plugin.video.revrivulet', 'Default', '1080i'
     )
     assert captured['start_metas'] == metas
     assert captured['start_catalog_title'] is None
@@ -1448,7 +1448,7 @@ def test_context_menu_person_entry_with_no_results_notifies(load_infowindow, mon
     _fire_context_menu(win, ctx)
 
     assert opened == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30030', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
 
 
 def test_context_menu_genre_entry_with_installed_transport_fetches_catalog_and_opens_results(
@@ -1509,7 +1509,7 @@ def test_context_menu_genre_entry_never_fetches_an_adult_catalog_by_default(
 
     assert fetch_calls == []
     assert opened == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30030', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
 
 
 def test_context_menu_genre_entry_fetches_an_adult_catalog_when_setting_is_off(
@@ -1635,7 +1635,7 @@ def test_context_menu_with_no_usable_links_notifies_and_shows_no_picker(load_inf
     _fire_context_menu(win, ctx)
 
     assert captured == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30197', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30197', 'info', 4000)]
 
 
 def test_context_menu_cancelled_select_does_nothing(load_infowindow, monkeypatch):

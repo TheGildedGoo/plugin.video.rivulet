@@ -156,21 +156,21 @@ def test_parse_params(load_router, raw_qs, expected):
 
 
 def test_url_for_builds_plugin_url_with_action_and_params():
-    url = urlutil.url_for('plugin://plugin.video.rivulet/', 'meta', type='movie', id='tt123')
+    url = urlutil.url_for('plugin://plugin.video.revrivulet/', 'meta', type='movie', id='tt123')
 
-    assert url.startswith('plugin://plugin.video.rivulet/?')
+    assert url.startswith('plugin://plugin.video.revrivulet/?')
     assert parse_qsl(urlparse(url).query) == [('action', 'meta'), ('type', 'movie'), ('id', 'tt123')]
 
 
 def test_url_for_drops_none_and_empty_string_params():
-    url = urlutil.url_for('plugin://plugin.video.rivulet/', 'search', q=None, extra='')
+    url = urlutil.url_for('plugin://plugin.video.revrivulet/', 'search', q=None, extra='')
 
     assert parse_qsl(urlparse(url).query) == [('action', 'search')]
 
 
 def test_url_for_preserves_kwarg_call_order_after_action():
     url = urlutil.url_for(
-        'plugin://plugin.video.rivulet/', 'catalog',
+        'plugin://plugin.video.revrivulet/', 'catalog',
         extra='skip=2', id='tt1', type='movie', transport='http://x/m.json',
     )
 
@@ -187,7 +187,7 @@ def test_url_for_round_trips_special_characters_through_parse_params(load_router
     ctx = load_router()
     tricky_id = 'Bad & Ugly: 2024 \u00dcn\u00efcode?/#'
 
-    url = urlutil.url_for('plugin://plugin.video.rivulet/', 'meta', type='movie', id=tricky_id)
+    url = urlutil.url_for('plugin://plugin.video.revrivulet/', 'meta', type='movie', id=tricky_id)
     query_string = urlparse(url).query
 
     assert ctx.router._parse_params(query_string) == {'action': 'meta', 'type': 'movie', 'id': tricky_id}
@@ -325,7 +325,7 @@ DISPATCH_CASES = [
 @pytest.mark.parametrize('query_params, expected_call', DISPATCH_CASES)
 def test_run_dispatches_to_matching_view(load_router, monkeypatch, query_params, expected_call):
     ctx = load_router()
-    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '7', '?' + urlencode(query_params)])
+    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.revrivulet/', '7', '?' + urlencode(query_params)])
 
     ctx.router.run()
 
@@ -335,7 +335,7 @@ def test_run_dispatches_to_matching_view(load_router, monkeypatch, query_params,
 
 def test_run_missing_action_defaults_to_home(load_router, monkeypatch):
     ctx = load_router()
-    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '7', ''])
+    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.revrivulet/', '7', ''])
 
     ctx.router.run()
 
@@ -344,7 +344,7 @@ def test_run_missing_action_defaults_to_home(load_router, monkeypatch):
 
 def test_run_unknown_action_falls_back_to_home(load_router, monkeypatch):
     ctx = load_router()
-    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '7', '?action=some_future_action_v2'])
+    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.revrivulet/', '7', '?action=some_future_action_v2'])
 
     ctx.router.run()
 
@@ -359,7 +359,7 @@ def test_run_removed_action_falls_back_to_home_rather_than_raising(load_router, 
     ctx = load_router()
     monkeypatch.setattr(
         sys, 'argv',
-        ['plugin://plugin.video.rivulet/', '7', '?' + urlencode({'action': 'catalog', 'type': 'movie', 'id': 'tt1'})],
+        ['plugin://plugin.video.revrivulet/', '7', '?' + urlencode({'action': 'catalog', 'type': 'movie', 'id': 'tt1'})],
     )
 
     ctx.router.run()
@@ -369,11 +369,11 @@ def test_run_removed_action_falls_back_to_home_rather_than_raising(load_router, 
 
 def test_run_sets_base_url_and_handle_from_argv(load_router, monkeypatch):
     ctx = load_router()
-    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '42', '?action=home'])
+    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.revrivulet/', '42', '?action=home'])
 
     ctx.router.run()
 
-    assert ctx.router.BASE_URL == 'plugin://plugin.video.rivulet/'
+    assert ctx.router.BASE_URL == 'plugin://plugin.video.revrivulet/'
     assert ctx.router.ADDON_HANDLE == 42
 
 
@@ -383,7 +383,7 @@ def test_run_with_empty_argv_falls_back_to_defaults(load_router, monkeypatch):
 
     ctx.router.run()
 
-    assert ctx.router.BASE_URL == 'plugin://plugin.video.rivulet/'
+    assert ctx.router.BASE_URL == 'plugin://plugin.video.revrivulet/'
     assert ctx.router.ADDON_HANDLE == -1
     assert ctx.views.calls == [('home', (), {})]
 
@@ -413,7 +413,7 @@ def test_run_play_decodes_stream_and_calls_player(load_router, monkeypatch):
     }
     token = urlutil.encode_stream(stream)
     query = urlencode({'action': 'play', 'stream': token, 'type': 'movie', 'id': 'tt1'})
-    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '9', '?' + query])
+    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.revrivulet/', '9', '?' + query])
 
     ctx.router.run()
 
@@ -424,7 +424,7 @@ def test_run_play_decodes_stream_and_calls_player(load_router, monkeypatch):
 def test_run_play_without_stream_param_decodes_to_empty_dict(load_router, monkeypatch):
     ctx = load_router()
     query = urlencode({'action': 'play', 'type': 'movie', 'id': 'tt1'})
-    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '9', '?' + query])
+    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.revrivulet/', '9', '?' + query])
 
     ctx.router.run()
 
@@ -569,7 +569,7 @@ def test_server_download_success_notifies_with_path_and_closes_dialog(load_route
     assert progress.created == [('STR30061', '')]
     assert progress.updated == [(0, 'STR30061'), (100, 'STR30061')]
     assert progress.closed == 1
-    assert ctx.env.notifications == [('Rivulet', 'installed to %s' % expected_path, 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'installed to %s' % expected_path, 'info', 4000)]
 
 
 def test_server_download_no_asset_error_notifies_platform_and_logs_warning(load_router, monkeypatch):
@@ -695,10 +695,10 @@ def test_advancedsettings_install_success_notifies_restart_message(load_router, 
     ctx.router.run()
 
     assert calls == [(
-        '/fake-kodi-home/home/addons/plugin.video.rivulet/resources/advancedsettings.xml',
+        '/fake-kodi-home/home/addons/plugin.video.revrivulet/resources/advancedsettings.xml',
         '/fake-kodi-home/masterprofile/advancedsettings.xml',
     )]
-    assert ctx.env.notifications == [('Rivulet', 'restart Kodi to apply', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'restart Kodi to apply', 'info', 4000)]
     assert ctx.env.end_of_directory == []
     assert ctx.env.resolved == []
     assert ctx.views.calls == []
@@ -708,7 +708,7 @@ def test_advancedsettings_install_success_notifies_restart_message(load_router, 
 def test_advancedsettings_install_resolves_source_path_from_addon_id_not_hardcoded(load_router, monkeypatch):
     """Regression guard: the source path must be built from the addon's own
     ADDON_ID (so a fork/rename keeps working), never a literal
-    'plugin.video.rivulet' string."""
+    'plugin.video.revrivulet' string."""
     ctx = load_router(addon_info={'id': 'plugin.video.otherfork'})
     monkeypatch.setattr(sys, 'argv', ['plugin://x/', '7', '?action=advancedsettings_install'])
 
@@ -736,7 +736,7 @@ def test_advancedsettings_install_exists_notifies_merge_manually_message(load_ro
 
     ctx.router.run()
 
-    assert ctx.env.notifications == [('Rivulet', 'already exists - merge manually', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'already exists - merge manually', 'info', 4000)]
     assert ctx.env.end_of_directory == []
     assert ctx.env.resolved == []
 
@@ -753,7 +753,7 @@ def test_advancedsettings_install_error_notifies_failure_and_logs_error(load_rou
 
     ctx.router.run()
 
-    assert ctx.env.notifications == [('Rivulet', 'Failed to install advancedsettings.xml', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'Failed to install advancedsettings.xml', 'info', 4000)]
     assert any(
         level == xbmc_mod.LOGERROR and 'router: advancedsettings_install failed:' in msg
         for msg, level in ctx.env.log_calls
@@ -834,7 +834,7 @@ def test_run_dispatching_views_action_never_imports_player(load_router, monkeypa
     sys.modules.pop('lib.ui.player', None)
     if hasattr(ui_pkg, 'player'):
         del ui_pkg.player
-    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '7', '?action=home'])
+    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.revrivulet/', '7', '?action=home'])
 
     ctx.router.run()
 

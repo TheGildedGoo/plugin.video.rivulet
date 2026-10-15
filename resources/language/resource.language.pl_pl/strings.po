@@ -1,10 +1,10 @@
 # Kodi Media Center language file
-# Addon Name: Rivulet
-# Addon id: plugin.video.rivulet
+# Addon Name: RevRivulet
+# Addon id: plugin.video.revrivulet
 # Addon Provider: M0Rf30
 msgid ""
 msgstr ""
-"Project-Id-Version: plugin.video.rivulet\n"
+"Project-Id-Version: plugin.video.revrivulet\n"
 "Report-Msgid-Bugs-To: https://github.com/M0Rf30/plugin.video.rivulet/issues\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -465,8 +465,8 @@ msgid "Manage installed Stremio addons"
 msgstr "Zarządzaj zainstalowanymi dodatkami Stremio"
 
 msgctxt "#30152"
-msgid "Configure Rivulet"
-msgstr "Skonfiguruj Rivulet"
+msgid "Configure RevRivulet"
+msgstr "Skonfiguruj RevRivulet"
 
 msgctxt "#30170"
 msgid "Sync playback progress to your Stremio account"
@@ -685,8 +685,8 @@ msgid "Show Other"
 msgstr "Pokaż Inne"
 
 msgctxt "#30230"
-msgid "Open Rivulet automatically on Kodi startup"
-msgstr "Otwieraj Rivulet automatycznie przy starcie Kodi"
+msgid "Open RevRivulet automatically on Kodi startup"
+msgstr "Otwieraj RevRivulet automatycznie przy starcie Kodi"
 
 msgctxt "#30232"
 msgid "Resume, next up, and your library"
@@ -1001,3 +1001,32 @@ msgstr "Synchronizowanie dodatków…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Katalog pokazuje tylko pierwsze %d stron; kolejne pozycje nie są ładowane"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "Oglądaj"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "Przeglądaj"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "Obejrzyj później"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "Zapisane pozycje biblioteki, których nie rozpoczęto na tym urządzeniu"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "Zaloguj się, aby zobaczyć pozycje biblioteki, których jeszcze nie rozpoczęto."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Więcej"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "Brak nierozpoczętych pozycji biblioteki. Dodaj jedną na jej stronie."
+

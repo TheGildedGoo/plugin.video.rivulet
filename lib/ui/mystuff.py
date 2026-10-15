@@ -402,10 +402,47 @@ def _label_next_episodes(items):
         item['next_label'] = episode_code(season, episode)
 
 
-def open_my_stuff():
+def _restrict_bands(items, bands):
+    """Keep entries whose `band` is in `bands`.
+
+    `None` is Continue: every band, unchanged. Home's Watch Later row
+    passes `(BAND_LIBRARY,)` so the grid shows saved titles that have
+    not been started on this device and nothing else. This filters the
+    list `merge_entries()` already built. It does not read another
+    datastore collection, and it does not ask the catalog addons for
+    anything the unfiltered screen would not have asked for.
+    """
+    if bands is None:
+        return items
+    wanted = frozenset(bands)
+    return [item for item in items if item.get('band') in wanted]
+
+
+def _empty_notice(bands, signed_in):
+    """The notification when the grid would open empty.
+
+    Continue keeps its existing "nothing here" string. Watch Later says
+    why: signed out there is no library to read, and signed in the
+    library may exist but every saved title was already started (those
+    live on Continue).
+    """
+    from lib.ui.compat import L
+
+    if bands is None:
+        return L(30030)
+    if not signed_in:
+        return L(30424)
+    return L(30426)
+
+
+def open_my_stuff(bands=None):
     """Fetch both sources, merge them, and show the result in the grid.
-    Returns True if the caller (HomeWindow) should also close (playback
-    started somewhere down the open_detail() chain)."""
+
+    `bands` limits which bands are drawn (see `_restrict_bands`). The
+    default, `None`, is the Continue screen and must stay that way:
+    Home calls this with no argument. Returns True if the caller
+    (HomeWindow) should also close (playback started somewhere down
+    the open_detail() chain)."""
     import xbmc
 
     from lib.ui.compat import L, log, notify
@@ -414,7 +451,11 @@ def open_my_stuff():
     store = get_store()
 
     def _load():
+        # Restrict before `_enrich`: a Watch Later open must not fan out
+        # a meta fetch for every in-progress title just to throw those
+        # rows away. Library entries already carry name and poster.
         merged = merge_entries(store.get_progress_entries(), _fetch_library_entries(store))
+        merged = _restrict_bands(merged, bands)
         items = _enrich(merged)
         _label_next_episodes(items)
         return items
@@ -424,13 +465,18 @@ def open_my_stuff():
         return False
 
     if not items:
-        notify(L(30030))
+        notify(_empty_notice(bands, bool(store.get_auth())))
         return False
+
+    if bands is None:
+        heading = L(30241)
+    else:
+        heading = L(30422)
 
     log('mystuff: opening grid (%d items)' % len(items), xbmc.LOGINFO)
     try:
         from lib.ui.gridwindow import open_grid
-        selected = open_grid(group_by_band(items), heading=L(30241))
+        selected = open_grid(group_by_band(items), heading=heading)
     except Exception as exc:  # a skin/UI failure must surface, not vanish
         log('mystuff: grid failed to open: %r' % (exc,), xbmc.LOGERROR)
         notify(L(30032))

@@ -625,7 +625,7 @@ def test_run_search_records_query_even_when_every_addon_fails(load_searchwindow,
     win._run_search('nomatch')
 
     assert store.search_queries == ['nomatch']
-    assert ctx.env.notifications == [('Rivulet', 'STR30382', 'info', 6000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30382', 'info', 6000)]
 
 
 def test_run_search_no_results_notifies_and_does_not_open_the_coverflow(load_searchwindow, monkeypatch):
@@ -641,7 +641,7 @@ def test_run_search_no_results_notifies_and_does_not_open_the_coverflow(load_sea
     win._run_search('nomatch')
 
     assert opened == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30381', 'info', 6000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30381', 'info', 6000)]
     assert win.closed is False
 
 
@@ -665,7 +665,7 @@ def test_run_search_all_adult_results_filtered_out_hits_the_same_no_results_path
     win._run_search('batman')
 
     assert opened == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30380', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30380', 'info', 4000)]
     assert win.closed is False
 
 
@@ -814,7 +814,7 @@ def test_run_search_coverflow_open_failure_is_logged_notified_and_does_not_close
 
     assert win.should_close_caller is False
     assert win.closed is False
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
 
 
 # ---------------------------------------------------------------------------
@@ -1223,7 +1223,7 @@ def test_run_query_without_a_report_notifies_a_total_outage_itself(load_searchwi
     )
 
     assert result == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30382', 'info', 6000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30382', 'info', 6000)]
 
 
 def test_run_query_without_a_report_notifies_a_partial_failure_itself(load_searchwindow):
@@ -1235,7 +1235,7 @@ def test_run_query_without_a_report_notifies_a_partial_failure_itself(load_searc
     )
 
     assert [m['id'] for m in result] == ['tt1']
-    assert ctx.env.notifications == [('Rivulet', 'Search incomplete, no answer from: A', 'info', 6000)]
+    assert ctx.env.notifications == [('RevRivulet', 'Search incomplete, no answer from: A', 'info', 6000)]
 
 
 def test_run_query_with_a_report_leaves_the_notification_to_the_caller(load_searchwindow):
@@ -1272,7 +1272,7 @@ def test_run_search_nothing_enabled_can_search_hints_at_enabling_an_addon(load_s
 
     win._run_search('batman')
 
-    assert ctx.env.notifications == [('Rivulet', 'STR30381', 'info', 6000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30381', 'info', 6000)]
 
 
 def test_new_search_with_nothing_able_to_search_hints_before_the_keyboard_opens(load_searchwindow, monkeypatch):
@@ -1289,7 +1289,7 @@ def test_new_search_with_nothing_able_to_search_hints_before_the_keyboard_opens(
     assert ctx.env.dialog_input_prompts == []
     assert calls == []
     assert store.search_queries == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30381', 'info', 6000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30381', 'info', 6000)]
 
 
 def test_run_search_genuinely_empty_search_says_no_results_found(load_searchwindow, monkeypatch):
@@ -1305,7 +1305,7 @@ def test_run_search_genuinely_empty_search_says_no_results_found(load_searchwind
     win._run_search('nomatch')
 
     assert opened == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30380', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30380', 'info', 4000)]
 
 
 def test_run_search_some_failed_and_nothing_found_reports_the_failure_not_no_results(load_searchwindow, monkeypatch):
@@ -1318,7 +1318,7 @@ def test_run_search_some_failed_and_nothing_found_reports_the_failure_not_no_res
 
     win._run_search('nomatch')
 
-    assert ctx.env.notifications == [('Rivulet', 'Search incomplete, no answer from: A', 'info', 6000)]
+    assert ctx.env.notifications == [('RevRivulet', 'Search incomplete, no answer from: A', 'info', 6000)]
 
 
 def test_run_search_partial_failure_is_announced_before_the_coverflow_opens(load_searchwindow, monkeypatch):
@@ -1341,7 +1341,7 @@ def test_run_search_partial_failure_is_announced_before_the_coverflow_opens(load
     win._run_search('batman')
 
     assert seen['metas'] == metas
-    assert seen['notified_before'] == [('Rivulet', 'Search incomplete, no answer from: A', 'info', 6000)]
+    assert seen['notified_before'] == [('RevRivulet', 'Search incomplete, no answer from: A', 'info', 6000)]
 
 
 def test_run_search_names_at_most_three_failing_addons_and_escapes_their_names(load_searchwindow, monkeypatch):
@@ -1359,7 +1359,7 @@ def test_run_search_names_at_most_three_failing_addons_and_escapes_their_names(l
 
     evil = ctx.uicommon.escape_label('[B]Evil[/B]')
     assert ctx.env.notifications == [
-        ('Rivulet', 'Search incomplete, no answer from: %s, B, C, +2' % evil, 'info', 6000),
+        ('RevRivulet', 'Search incomplete, no answer from: %s, B, C, +2' % evil, 'info', 6000),
     ]
 
 
@@ -1387,7 +1387,7 @@ def test_run_search_an_addon_whose_catalogs_all_fail_is_named_once(load_searchwi
 
     win._run_search('x')
 
-    assert ctx.env.notifications == [('Rivulet', 'Search incomplete, no answer from: Multi', 'info', 6000)]
+    assert ctx.env.notifications == [('RevRivulet', 'Search incomplete, no answer from: Multi', 'info', 6000)]
 
 
 def test_run_search_cancelled_with_nothing_arrived_says_nothing_and_opens_nothing(load_searchwindow, monkeypatch):
@@ -1494,7 +1494,7 @@ def test_run_search_error_placeholders_are_a_failed_search_not_a_one_result_cove
     win._run_search('batman')
 
     assert opened == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30382', 'info', 6000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30382', 'info', 6000)]
     errors = [msg for msg, _level in ctx.env.log_calls if 'failed' in msg and 'aio.example' in msg]
     assert len(errors) == 3 and all('addon reported error (HTTP 404)' in m for m in errors)
 
@@ -1665,7 +1665,7 @@ def test_open_search_window_is_closed_exactly_once_when_start_raises(load_search
     win = captured['window']
     assert win.close_calls == 1
     assert win.closed is True
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
 
 
 # ---------------------------------------------------------------------------

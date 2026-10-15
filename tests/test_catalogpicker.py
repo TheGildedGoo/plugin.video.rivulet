@@ -216,7 +216,7 @@ def test_open_catalog_addon_error_is_logged_and_does_not_close(load_catalogpicke
     assert win.should_close_caller is False
     assert win.closed is False
     assert ctx.env.executed_builtins == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
 
 
 def test_open_catalog_addon_error_log_never_leaks_credentials_path_or_query(load_catalogpicker, monkeypatch):
@@ -251,7 +251,7 @@ def test_open_catalog_empty_results_does_not_close_or_fallback(load_catalogpicke
     assert win.should_close_caller is False
     assert win.closed is False
     assert ctx.env.executed_builtins == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30030', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
 
 
 def test_open_catalog_no_selection_does_not_fallback_or_close(load_catalogpicker, monkeypatch):
@@ -361,7 +361,7 @@ def test_fetch_and_show_hands_the_remaining_pages_to_the_coverflow(load_catalogp
 
 
 # ---------------------------------------------------------------------------
-# CatalogPickerWindow._fetch_and_show() - the "RIVULET / <TITLE>" breadcrumb
+# CatalogPickerWindow._fetch_and_show() - the "REVRIVULET / <TITLE>" breadcrumb
 # ---------------------------------------------------------------------------
 
 
@@ -572,7 +572,7 @@ def test_open_catalog_that_is_only_an_error_placeholder_fails_instead_of_opening
     )
 
     assert opened == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
     assert len(client.session.calls) == 1
     assert any('addon reported error (HTTP 404)' in msg for msg, _level in ctx.env.log_calls)
 
@@ -665,7 +665,7 @@ def test_open_catalog_picker_with_no_catalogs_notifies_and_returns_false(load_ca
     result = ctx.catalogpicker.open_catalog_picker()
 
     assert result is False
-    assert ctx.env.notifications == [('Rivulet', 'STR30030', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
 
 
 def test_open_catalog_picker_opens_window_with_discovered_catalogs(load_catalogpicker, monkeypatch):
@@ -853,7 +853,7 @@ def test_open_catalog_picker_window_is_closed_exactly_once_when_start_raises(
     win = captured['window']
     assert win.close_calls == 1
     assert win.closed is True
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
 
 
 # ---------------------------------------------------------------------------
@@ -912,8 +912,8 @@ def test_oninit_heading_names_the_row_the_user_came_in_through(load_catalogpicke
 
     win.onInit()
 
-    # The skin's header is "RIVULET / <SECTION>"; the section is the row.
-    assert win.getControl(picker.HEADING).label == 'RIVULET / MOVIES'
+    # The skin's header is "REVRIVULET / <SECTION>"; the section is the row.
+    assert win.getControl(picker.HEADING).label == 'REVRIVULET / MOVIES'
 
 
 def test_oninit_heading_falls_back_to_the_generic_title_when_unfiltered(load_catalogpicker):
@@ -924,8 +924,8 @@ def test_oninit_heading_falls_back_to_the_generic_title_when_unfiltered(load_cat
 
     win.onInit()
 
-    # No heading -> the label the skin used to hardcode, not "RIVULET / ".
-    assert win.getControl(picker.HEADING).label == 'RIVULET / STR30000'
+    # No heading -> the label the skin used to hardcode, not "REVRIVULET / ".
+    assert win.getControl(picker.HEADING).label == 'REVRIVULET / STR30000'
 
 
 def test_open_catalog_search_only_prompts_and_fetches_with_search_extra(load_catalogpicker, monkeypatch):
@@ -1092,7 +1092,7 @@ def test_onaction_context_menu_notifies_when_catalog_has_no_genre_options(load_c
 
     win.onAction(xbmcgui.Action(picker._CONTEXT_MENU_ACTION))
 
-    assert ctx.env.notifications == [('Rivulet', 'STR30030', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
 
 
 @pytest.mark.parametrize('action_id', [9, 10, 92], ids=['nav-back', 'previous-menu', 'backspace'])

@@ -23,9 +23,14 @@ venv/
 .idea/
 .DS_Store
 
-# Packaged addon zips
+# Packaged addon zips. Local builds stay out of git. The UI fork
+# commits one installable zip so it can be installed from zip
+# without cutting a release.
 /*.zip
-/dist/
+/dist/*
+!/dist/plugin.video.revrivulet-*.zip
+!/dist/repository.revrivulet.zip
+!/dist/repository.revrivulet-*.zip
 /build/
 
 # Generated GitHub Pages repository tree (.github/workflows/repo.yml)

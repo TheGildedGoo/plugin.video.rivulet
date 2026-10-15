@@ -758,7 +758,7 @@ def test_main_embedded_enabled_binary_missing_auto_downloads_then_starts(monkeyp
     setup_notifications = [n for n in ctx.env.notifications if n[1] == 'STR30069']
     assert len(setup_notifications) == 1
     heading, _message, icon, _time = setup_notifications[0]
-    assert heading == 'Rivulet'
+    assert heading == 'RevRivulet'
     assert icon is None  # informational notification, not the error icon
 
     # First iteration: download succeeds, so the loop rechecks almost
@@ -1716,7 +1716,7 @@ def test_main_autoloads_the_addon_ui_when_the_setting_is_on(monkeypatch, tmp_pat
         service_runner.main()
 
     assert ctx.env.executed_builtins == [service_runner.AUTOLOAD_BUILTIN]
-    assert service_runner.AUTOLOAD_BUILTIN == 'RunAddon(plugin.video.rivulet)'
+    assert service_runner.AUTOLOAD_BUILTIN == 'RunAddon(plugin.video.revrivulet)'
     assert any('startup autoload' in msg for msg, _level in ctx.env.log_calls)
 
 

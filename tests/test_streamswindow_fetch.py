@@ -238,7 +238,7 @@ def test_open_streams_window_is_closed_exactly_once_when_start_raises(load_strea
     win = captured['window']
     assert win.close_calls == 1
     assert win.closed is True
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
 
 
 def test_open_streams_addonerror_is_logged_and_skipped_not_fatal(load_streamswindow, monkeypatch):
@@ -287,7 +287,7 @@ def test_open_streams_addonerror_is_logged_and_skipped_not_fatal(load_streamswin
     assert not any('upstream down' in msg or 'manifest.json' in msg for msg in debug_msgs)
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
     assert len(warnings) == 1
-    assert warnings[0] == '[plugin.video.rivulet] streamswindow: 1 addon(s) failed: Failing (AddonError)'
+    assert warnings[0] == '[plugin.video.revrivulet] streamswindow: 1 addon(s) failed: Failing (AddonError)'
 
 
 def test_query_addon_streams_logs_addon_error_category_at_debug(load_streamswindow):
@@ -374,7 +374,7 @@ def test_open_streams_aggregate_warning_names_a_spoofed_category_addon_by_type_n
     assert secret not in all_messages
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
     assert warnings == [
-        '[plugin.video.rivulet] streamswindow: 1 addon(s) failed: Spoofed (_SpoofedCategoryError)',
+        '[plugin.video.revrivulet] streamswindow: 1 addon(s) failed: Spoofed (_SpoofedCategoryError)',
     ]
 
 
@@ -422,7 +422,7 @@ def test_open_streams_multiple_addon_failures_still_log_a_single_aggregate_warni
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
     assert len(warnings) == 1
     warning = warnings[0]
-    assert warning.startswith('[plugin.video.rivulet] streamswindow: 2 addon(s) failed: ')
+    assert warning.startswith('[plugin.video.revrivulet] streamswindow: 2 addon(s) failed: ')
     assert 'FailA (AddonError)' in warning
     assert 'FailB (AddonError)' in warning
     assert not [lvl for _msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGERROR]
@@ -478,7 +478,7 @@ def test_open_streams_survives_an_addon_whose_payload_breaks_parsing(
     assert any('Bad' in msg and 'bad.example' in msg and 'TypeError' in msg for msg in errors)
     assert not any('hostile payload' in msg or 'manifest.json' in msg for msg in errors)
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
-    assert len(warnings) == 1 and warnings[0] == '[plugin.video.rivulet] streamswindow: 1 addon(s) failed: Bad (TypeError)'
+    assert len(warnings) == 1 and warnings[0] == '[plugin.video.revrivulet] streamswindow: 1 addon(s) failed: Bad (TypeError)'
 
 
 def test_open_streams_addon_failure_log_never_leaks_credentials_path_or_query(load_streamswindow):
@@ -503,7 +503,7 @@ def test_open_streams_addon_failure_log_never_leaks_credentials_path_or_query(lo
     assert 'token=abc123' not in all_messages
     assert '/private/path' not in all_messages
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
-    assert warnings == ['[plugin.video.rivulet] streamswindow: 1 addon(s) failed: Failing (AddonError)']
+    assert warnings == ['[plugin.video.revrivulet] streamswindow: 1 addon(s) failed: Failing (AddonError)']
     debug_msgs = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGDEBUG]
     assert any('evil.example:8443' in msg for msg in debug_msgs)
     assert all('\n' not in msg and '\r' not in msg for msg in debug_msgs)
@@ -552,7 +552,7 @@ def test_open_streams_aggregate_warning_names_each_failing_addon_with_its_safe_c
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
     assert len(warnings) == 1
     warning = warnings[0]
-    assert warning.startswith('[plugin.video.rivulet] streamswindow: 3 addon(s) failed: ')
+    assert warning.startswith('[plugin.video.revrivulet] streamswindow: 3 addon(s) failed: ')
     assert 'TorBox (HTTP 401)' in warning
     assert 'Torrentio PM (HTTP 403)' in warning
     assert 'Local Files (ConnectionError)' in warning
@@ -604,7 +604,7 @@ def test_open_streams_aggregate_warning_caps_named_addons_when_more_fail_than_th
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
     assert len(warnings) == 1
     warning = warnings[0]
-    assert warning.startswith('[plugin.video.rivulet] streamswindow: %d addon(s) failed: ' % addon_count)
+    assert warning.startswith('[plugin.video.revrivulet] streamswindow: %d addon(s) failed: ' % addon_count)
     assert warning.endswith(', +2 more')
     assert warning.count('(HTTP 500)') == cap
 
@@ -628,7 +628,7 @@ def test_open_streams_no_results_notifies_and_returns_false_without_building_a_w
     result = sw.open_streams('movie', 'tt1')
 
     assert result is False
-    assert ctx.env.notifications == [('Rivulet', 'STR30030', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30030', 'info', 4000)]
 
 
 def test_open_streams_reads_stream_sort_setting_and_applies_it_to_final_order(load_streamswindow, monkeypatch):
@@ -926,7 +926,7 @@ def test_fetch_stream_pairs_aggregates_every_addon_and_logs_a_single_warning_on_
     assert [s for _info, s in pairs] == [ok_stream]
     assert sorted(call[0] for call in client.calls) == [failing_transport, ok_transport]
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
-    assert warnings == ['[plugin.video.rivulet] streamswindow: 1 addon(s) failed: Failing (AddonError)']
+    assert warnings == ['[plugin.video.revrivulet] streamswindow: 1 addon(s) failed: Failing (AddonError)']
 
 
 # ---------------------------------------------------------------------------

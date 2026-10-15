@@ -42,10 +42,16 @@ from urllib.parse import urlparse
 
 from lib import library, procflags, s4me, serverenv
 from lib import settings as _settings
+from lib.addonid import ADDON_ID, ADDON_NAME
 from lib.store import Store
 from lib.stremio.api import StremioAPI
 
-ADDON_ID = "plugin.video.rivulet"
+# Side-by-side with official Rivulet: both default to this URL.
+# probe_listening() attaches to a server that is already bound here, so
+# this addon reuses it instead of starting a second one. The binary and
+# APP_PATH stay in this addon's own profile because ADDON_ID is its own.
+# See docs/REVRIVULET.md. Do not change the probe-then-spawn order to
+# "fix" the shared port; that would be a server-behavior change.
 DEFAULT_SERVER_URL = "http://127.0.0.1:11470"
 DEFAULT_HTTP_PORT = 11470
 
@@ -152,7 +158,7 @@ UNSUPPORTED_PLATFORM_POLL_INTERVAL = 300.0
 # Kodi session, so a dedicated media box boots straight into the addon
 # instead of Kodi's home screen.
 #
-# `RunAddon(plugin.video.rivulet)` is the builtin to use, NOT
+# `RunAddon(plugin.video.revrivulet)` is the builtin to use, NOT
 # `ActivateWindow(Videos, plugin://...)`: a bare invocation of this addon
 # opens the custom HomeWindow (see default.py), which is a modal
 # WindowXMLDialog rather than a directory listing, and RunAddon is the
@@ -1563,7 +1569,7 @@ def main():
             )
 
     def _launch_addon_ui():
-        log(xbmc.LOGINFO, "startup autoload: opening Rivulet")
+        log(xbmc.LOGINFO, "startup autoload: opening %s" % ADDON_NAME)
         try:
             xbmc.executebuiltin(AUTOLOAD_BUILTIN)
         except Exception as exc:  # noqa: BLE001 - a failed launch must never crash the supervision loop

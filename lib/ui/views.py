@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""Shared data helpers and RunPlugin script actions for plugin.video.rivulet.
+"""Shared data helpers and RunPlugin script actions for plugin.video.revrivulet.
 
 The addon's real UI is the custom WindowXML dialog stack (HomeWindow,
 CatalogPickerWindow, infowindow.ShowcaseWindow, DetailWindow,

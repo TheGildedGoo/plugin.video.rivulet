@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-Rivulet (`plugin.video.rivulet`) is a Kodi video addon implementing a **Stremio addon-protocol client**: it browses catalogs published by community Stremio addons, resolves streams, and plays them through an embedded or remote `stremio-server-go` streaming server. It ships its own 1920x1080 skin rather than drawing through the user's Kodi skin.
+RevRivulet (`plugin.video.revrivulet`) is a Kodi video addon implementing a **Stremio addon-protocol client**: it browses catalogs published by community Stremio addons, resolves streams, and plays them through an embedded or remote `stremio-server-go` streaming server. It ships its own 1920x1080 skin rather than drawing through the user's Kodi skin. It installs beside official Rivulet and does not replace it.
 
-Two independently versioned artifacts live here: the addon (`addon.xml`, currently 0.24.2) and the Kodi repository addon that delivers it (`repository.rivulet/addon.xml`, currently 1.0.2).
+Two independently versioned artifacts live here: the addon (`addon.xml`) and the Kodi repository addon that delivers it (`repository.revrivulet/addon.xml`). `repository.rivulet/` is the upstream repository definition and is not what this fork publishes.
 
 ## Architecture & Data Flow
 

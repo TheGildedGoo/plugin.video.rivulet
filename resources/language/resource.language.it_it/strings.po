@@ -1,10 +1,10 @@
 # Kodi Media Center language file
-# Addon Name: Rivulet
-# Addon id: plugin.video.rivulet
+# Addon Name: RevRivulet
+# Addon id: plugin.video.revrivulet
 # Addon Provider: M0Rf30
 msgid ""
 msgstr ""
-"Project-Id-Version: plugin.video.rivulet\n"
+"Project-Id-Version: plugin.video.revrivulet\n"
 "Report-Msgid-Bugs-To: https://github.com/M0Rf30/plugin.video.rivulet/issues\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -465,8 +465,8 @@ msgid "Manage installed Stremio addons"
 msgstr "Gestisci gli add-on Stremio installati"
 
 msgctxt "#30152"
-msgid "Configure Rivulet"
-msgstr "Configura Rivulet"
+msgid "Configure RevRivulet"
+msgstr "Configura RevRivulet"
 
 msgctxt "#30170"
 msgid "Sync playback progress to your Stremio account"
@@ -685,8 +685,8 @@ msgid "Show Other"
 msgstr "Mostra Altro"
 
 msgctxt "#30230"
-msgid "Open Rivulet automatically on Kodi startup"
-msgstr "Apri Rivulet automaticamente all'avvio di Kodi"
+msgid "Open RevRivulet automatically on Kodi startup"
+msgstr "Apri RevRivulet automaticamente all'avvio di Kodi"
 
 msgctxt "#30232"
 msgid "Resume, next up, and your library"
@@ -1001,3 +1001,32 @@ msgstr "Sincronizzazione degli addon…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Il catalogo mostra solo le prime %d pagine; altri elementi non vengono caricati"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "Guarda"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "Sfoglia"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "Guarda dopo"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "Titoli salvati in libreria non ancora iniziati su questo dispositivo"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "Accedi per vedere i titoli in libreria che non hai ancora iniziato."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Altro"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "Nessun titolo in libreria non iniziato. Aggiungine uno dalla sua pagina."
+

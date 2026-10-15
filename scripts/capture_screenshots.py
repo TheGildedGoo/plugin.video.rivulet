@@ -221,7 +221,7 @@ def goto_home(rpc, delay=2.0):
         raise SystemExit(
             "could not get back to Kodi's home screen (stuck at window %s)"
             % current_window(rpc))
-    rpc.call("Addons.ExecuteAddon", {"addonid": "plugin.video.rivulet"})
+    rpc.call("Addons.ExecuteAddon", {"addonid": "plugin.video.revrivulet"})
     # Generous: a cold launch refreshes addon manifests over the network
     # before HomeWindow opens, and 12s was not always enough.
     for _ in range(60):

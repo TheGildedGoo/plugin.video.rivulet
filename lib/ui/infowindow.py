@@ -26,7 +26,7 @@ Control ids mirror the reference addon's InfoWindow 1:1 (see
     CLOSE      = 30003  close button
 HEADER = 30100 is a Rivulet-only addition (the reference addon has no
 breadcrumb) for the header wordmark label, so `onInit()` can set its
-`RIVULET [/ CATALOG]` text - see `_header_label()`.
+`REVRIVULET [/ CATALOG]` text - see `_header_label()`.
 
 The coverflow's visual rendering (ShowcaseWindow.xml's fixedlist/
 focusedlayout, the background crossfade) is Kodi-skin-engine-only and
@@ -37,6 +37,7 @@ import threading
 
 import xbmcgui
 
+from lib.addonid import WORDMARK
 from lib.ui.playbackmeta import resolve_art
 from lib.ui.uicommon import ModalStackWindow, escape_label, gated_input
 
@@ -95,7 +96,7 @@ _NOW_STRING_ID = 30234
 #: a `★`: the star is in `_SANS_ONLY` (NotoMono has no glyph and
 #: renders tofu - the exact bug tests/test_glyph_coverage.py exists to
 #: catch), and "IMDb" additionally names *which* 10-point scale this is,
-#: which the star alone never did. Left untranslated, like the RIVULET
+#: which the star alone never did. Left untranslated, like the REVRIVULET
 #: wordmark, because it is a brand name - tests/test_skin_xml.py's
 #: `_ALLOWED_LITERAL_WORDS` carries the matching entry for the XML side.
 _RATING_LABEL = 'IMDb'
@@ -217,18 +218,18 @@ _HEADER_TITLE_COLOR = '9EEEF3F6'
 
 def _header_label(catalog_title=None):
     """Build the inline-markup ShowcaseWindow.xml's header wordmark label
-    renders: bare `RIVULET` when `catalog_title` is falsy (every caller
+    renders: bare `REVRIVULET` when `catalog_title` is falsy (every caller
     that predates `open_showcase(metas, catalog_title=...)`), or
-    `RIVULET / <TITLE>` once a caller hands over its own catalog/section
+    `REVRIVULET / <TITLE>` once a caller hands over its own catalog/section
     title - see `open_showcase()`.
 
     Pure helper - no xbmc - so it is trivially unit-testable on its own.
     """
     if not catalog_title:
-        return '[COLOR 57EEF3F6]RIVULET[/COLOR]'
+        return '[COLOR 57EEF3F6]%s[/COLOR]' % WORDMARK
     return (
-        '[COLOR 57EEF3F6]RIVULET[/COLOR] [COLOR %s]/[/COLOR] [COLOR %s]%s[/COLOR]'
-        % (_HEADER_SEPARATOR_COLOR, _HEADER_TITLE_COLOR, catalog_title.upper())
+        '[COLOR 57EEF3F6]%s[/COLOR] [COLOR %s]/[/COLOR] [COLOR %s]%s[/COLOR]'
+        % (WORDMARK, _HEADER_SEPARATOR_COLOR, _HEADER_TITLE_COLOR, catalog_title.upper())
     )
 
 
@@ -241,7 +242,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self.metas = []
         self.selected = None
         #: catalog/section title for the header breadcrumb - None keeps
-        #: the header a bare "RIVULET", see `_header_label()`/`start()`.
+        #: the header a bare "REVRIVULET", see `_header_label()`/`start()`.
         self.catalog_title = None
         #: fanart last pushed to BACKGROUND - lets onAction() skip
         #: setImage() when a keypress doesn't actually change focus (e.g.
@@ -284,9 +285,9 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         window closed without a selection. An empty `metas` never opens
         the modal at all and returns None immediately.
 
-        `catalog_title`, if given, renders as a "RIVULET / <TITLE>"
+        `catalog_title`, if given, renders as a "REVRIVULET / <TITLE>"
         breadcrumb in the header - see `_header_label()`. Left as None,
-        the header stays the bare "RIVULET" it always was.
+        the header stays the bare "REVRIVULET" it always was.
 
         `more_pages`, if given, is an iterable of further meta pages
         (`lib.ui.views.iter_catalog_pages` past its first page). It is
@@ -733,7 +734,7 @@ def open_showcase(metas, catalog_title=None, more_pages=None):
     the window is closed first (it may not have had a chance to self-close,
     e.g. if onInit() or a mid-modal callback raised).
 
-    `catalog_title`, if given, becomes the header's "RIVULET / <TITLE>"
+    `catalog_title`, if given, becomes the header's "REVRIVULET / <TITLE>"
     breadcrumb - see `ShowcaseWindow.start()`. `more_pages` is the
     catalog's remaining pages, appended to the strip as they arrive -
     see `ShowcaseWindow.start()` for why they are not waited on."""

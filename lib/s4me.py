@@ -272,7 +272,7 @@ def run_script_command(addon_path, port):
     `s4me_channels` setting) would silently fragment into extra
     positional args. `resources/s4me_bridge/bridge.py` instead reads every
     other bridge setting itself via
-    `xbmcaddon.Addon('plugin.video.rivulet')`, sidestepping that limit
+    `xbmcaddon.Addon('plugin.video.revrivulet')`, sidestepping that limit
     entirely.
     """
     return "RunScript(%s,%s)" % (bridge_script_path(addon_path), port)

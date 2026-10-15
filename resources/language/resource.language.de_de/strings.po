@@ -1,10 +1,10 @@
 # Kodi Media Center language file
-# Addon Name: Rivulet
-# Addon id: plugin.video.rivulet
+# Addon Name: RevRivulet
+# Addon id: plugin.video.revrivulet
 # Addon Provider: M0Rf30
 msgid ""
 msgstr ""
-"Project-Id-Version: plugin.video.rivulet\n"
+"Project-Id-Version: plugin.video.revrivulet\n"
 "Report-Msgid-Bugs-To: https://github.com/M0Rf30/plugin.video.rivulet/issues\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -465,8 +465,8 @@ msgid "Manage installed Stremio addons"
 msgstr "Installierte Stremio-Addons verwalten"
 
 msgctxt "#30152"
-msgid "Configure Rivulet"
-msgstr "Rivulet konfigurieren"
+msgid "Configure RevRivulet"
+msgstr "RevRivulet konfigurieren"
 
 msgctxt "#30170"
 msgid "Sync playback progress to your Stremio account"
@@ -685,8 +685,8 @@ msgid "Show Other"
 msgstr "Sonstiges anzeigen"
 
 msgctxt "#30230"
-msgid "Open Rivulet automatically on Kodi startup"
-msgstr "Rivulet beim Start von Kodi automatisch öffnen"
+msgid "Open RevRivulet automatically on Kodi startup"
+msgstr "RevRivulet beim Start von Kodi automatisch öffnen"
 
 msgctxt "#30232"
 msgid "Resume, next up, and your library"
@@ -1001,3 +1001,32 @@ msgstr "Addons werden synchronisiert…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Der Katalog zeigt nur die ersten %d Seiten; weitere Einträge werden nicht geladen"
+
+msgctxt "#30420"
+msgid "Watch"
+msgstr "Ansehen"
+
+msgctxt "#30421"
+msgid "Browse"
+msgstr "Stöbern"
+
+msgctxt "#30422"
+msgid "Watch Later"
+msgstr "Später ansehen"
+
+msgctxt "#30423"
+msgid "Saved library titles not started on this device"
+msgstr "Gespeicherte Bibliothekstitel, die auf diesem Gerät noch nicht gestartet wurden"
+
+msgctxt "#30424"
+msgid "Sign in to see library titles you have not started."
+msgstr "Melde dich an, um Bibliothekstitel zu sehen, die du noch nicht gestartet hast."
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Mehr"
+
+msgctxt "#30426"
+msgid "No unstarted library titles. Add one from its page."
+msgstr "Keine ungestarteten Bibliothekstitel. Füge einen auf seiner Seite hinzu."
+

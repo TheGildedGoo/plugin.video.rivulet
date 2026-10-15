@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="repository.revrivulet" name="RevRivulet Repository" version="1.0.0" provider-name="TheGildedGoo">
+  <extension point="xbmc.addon.repository" name="RevRivulet Repository">
+    <dir>
+      <info compressed="false">https://thegildedgoo.github.io/plugin.video.rivulet/addons.xml</info>
+      <checksum>https://thegildedgoo.github.io/plugin.video.rivulet/addons.xml.md5</checksum>
+      <datadir zip="true">https://thegildedgoo.github.io/plugin.video.rivulet/</datadir>
+    </dir>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">RevRivulet Repository</summary>
+    <description lang="en_GB">Install this repository to receive RevRivulet and its updates. Official Rivulet (plugin.video.rivulet) is a different addon and stays installed.</description>
+    <news>v1.0.0:
+- New: repository for RevRivulet (plugin.video.revrivulet), published from this fork. It does not replace the official Rivulet repository.</news>
+    <platform>all</platform>
+    <license>MIT</license>
+    <website>https://github.com/TheGildedGoo/plugin.video.rivulet</website>
+    <source>https://github.com/TheGildedGoo/plugin.video.rivulet</source>
+    <assets>
+      <icon>icon.png</icon>
+      <fanart>fanart.jpg</fanart>
+    </assets>
+  </extension>
+</addon>
