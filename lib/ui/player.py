@@ -290,6 +290,24 @@ def _record_now_playing_and_maybe_resume(stype, sid, video_id, item_meta):
         content_id = meta.get('id') or sid
         resume_offset_ms = _maybe_resume_offset_ms(store, stype, content_id, video_id)
         art = (item_meta or {}).get('art') or {}
+        # Account-sync fields only. No network on the play path, and no
+        # layout change: another change owns the windows and the skin.
+        # `video_ids` is watched-bitfield order (not binge order);
+        # `next_video_id` is still binge.next_video, specials last.
+        video_ids = []
+        next_video_id = None
+        try:
+            from lib.stremio.watchedbitfield import sorted_video_ids
+            from lib.ui.binge import next_video
+            videos = meta.get('videos') or []
+            video_ids = sorted_video_ids(videos)
+            if video_id:
+                nxt = next_video({'videos': videos}, video_id)
+                if nxt:
+                    next_video_id = nxt.get('id')
+        except Exception:  # noqa: BLE001 - the context must still be recorded if the episode list is odd
+            video_ids = []
+            next_video_id = None
         store.set_now_playing({
             'type': stype,
             'id': content_id,
@@ -297,6 +315,8 @@ def _record_now_playing_and_maybe_resume(stype, sid, video_id, item_meta):
             'name': (item_meta or {}).get('label') or meta.get('name') or '',
             'poster': art.get('poster') or meta.get('poster'),
             'started_at': iso8601_utc(),
+            'video_ids': video_ids,
+            'next_video_id': next_video_id,
         })
         store.set_resume_offset_ms(resume_offset_ms)
     except Exception as exc:  # noqa: BLE001 - a broken store write must never block playback

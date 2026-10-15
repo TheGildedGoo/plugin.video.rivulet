@@ -462,3 +462,63 @@ def test_mark_watched_payload_does_not_mutate_input_item():
     library.mark_watched_payload(item, True, now=LATER)
     assert item == snapshot
     assert item["state"] == state_snapshot
+
+
+# --- finish_playback / advance_to_video -------------------------------------
+
+
+def test_finish_playback_marks_the_episode_and_points_at_the_next():
+    item = library.build_library_item(_meta(type="series"), now=NOW)
+    video_ids = ["tt1:1:1", "tt1:1:2"]
+    finished = library.finish_playback(
+        item, "tt1:1:1", video_ids, next_video_id="tt1:1:2", now=LATER,
+    )
+    assert finished["state"]["video_id"] == "tt1:1:2"
+    assert finished["state"]["timeOffset"] == 1
+    assert finished["state"]["duration"] == 0
+    assert finished["state"]["flaggedWatched"] == 0  # the NEXT episode is not flagged
+    assert finished["state"]["timesWatched"] == 1
+    from lib.stremio.watchedbitfield import watched_video_ids
+    assert watched_video_ids(finished["state"]["watched"], video_ids) == {"tt1:1:1"}
+
+
+def test_finish_playback_of_a_movie_clears_the_offset():
+    item = library.build_library_item(_meta(), now=NOW)
+    finished = library.finish_playback(item, "tt1", ["tt1"], now=LATER)
+    assert finished["state"]["timeOffset"] == 0
+    assert finished["state"]["flaggedWatched"] == 1
+    assert finished["state"]["timesWatched"] == 1
+
+
+def test_finish_playback_leaves_an_unparseable_bitfield_untouched():
+    item = library.build_library_item(_meta(type="series"), now=NOW)
+    item["state"]["watched"] = "not-a-bitfield"
+    finished = library.finish_playback(
+        item, "tt1:1:1", ["tt1:1:1", "tt1:1:2"], next_video_id="tt1:1:2", now=LATER,
+    )
+    assert finished["state"]["watched"] == "not-a-bitfield"
+    assert finished["state"]["video_id"] == "tt1:1:2"
+
+
+def test_finish_playback_does_not_increment_times_watched_twice():
+    item = library.build_library_item(_meta(), now=NOW)
+    item["state"]["flaggedWatched"] = 1
+    item["state"]["timesWatched"] = 1
+    item["state"]["video_id"] = "tt1"
+    finished = library.finish_playback(item, "tt1", ["tt1"], now=LATER)
+    assert finished["state"]["timesWatched"] == 1
+
+
+def test_apply_library_flags_keeps_an_explicit_library_add():
+    item = library.build_library_item(_meta(), now=NOW)
+    item["removed"] = False
+    item["temp"] = False
+    assert library.apply_library_flags(item)["removed"] is False
+    assert library.apply_library_flags(item)["temp"] is False
+
+
+def test_apply_library_flags_collapses_a_fresh_temp_record():
+    item = library.build_library_item(_meta(), now=NOW)
+    flagged = library.apply_library_flags(item)
+    assert flagged["removed"] is True
+    assert flagged["temp"] is True

@@ -66,6 +66,7 @@ class _FakeProgressStore:
         self._set_progress_error = set_progress_error
         self.progress_calls = []       # [(type, id, video_id, position_ms, duration_ms, now), ...]
         self.now_playing_sets = []     # every set_now_playing() call, in order (incl. None to clear)
+        self.pending = []
 
     def get_now_playing(self):
         return self._now_playing
@@ -73,6 +74,25 @@ class _FakeProgressStore:
     def set_now_playing(self, context):
         self.now_playing_sets.append(context)
         self._now_playing = context
+
+    def clear_now_playing_if(self, started_at):
+        """Same compare-and-swap the real store uses, on this fake's memory."""
+        current = self._now_playing
+        if not isinstance(current, dict) or current.get('started_at') != started_at:
+            return False
+        self.set_now_playing(None)
+        self.set_resume_offset_ms(None)
+        return True
+
+    def get_pending_sync(self):
+        return [dict(job) for job in self.pending]
+
+    def set_pending_sync(self, jobs):
+        self.pending = [dict(job) for job in (jobs or []) if isinstance(job, dict)]
+
+    def enqueue_pending_sync(self, job):
+        self.pending = [existing for existing in self.pending if existing.get('id') != job.get('id')]
+        self.pending.append(dict(job))
 
     def get_resume_offset_ms(self):
         return self._resume_offset_ms
@@ -131,7 +151,7 @@ def _progress_player_env(store, api, sync_enabled=True):
             logs.append((level, message))
 
         player = service_runner.build_progress_player(
-            xbmc_mod, store, api, log_fn, lambda: sync_enabled,
+            xbmc_mod, store, api, log_fn, lambda: sync_enabled, sync_dispatch=True,
         )
         yield ctx.env, player, logs
 
@@ -613,13 +633,24 @@ def test_push_merges_existing_remote_item_preserving_watched_bitfield():
     api = _FakeProgressAPI(datastore_get_result=[existing])
     with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
         player.onAVStarted()
+        # The opening push is the just-started pointer, not the later
+        # sample. Age the clock so the sample is allowed to push too.
+        player._last_pushed_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            seconds=service_runner.LIBRARY_PUSH_INTERVAL_SECONDS,
+        )
         env.player_is_playing = True
         env.player_get_time = 50.0
         env.player_get_total_time = 100.0
         player.sample_if_playing()
-    assert api.datastore_get_calls == [('tok', 'libraryItem', ['tt1'], False)]
-    assert len(api.datastore_put_calls) == 1
-    auth_key, collection, changes = api.datastore_put_calls[0]
+    assert api.datastore_get_calls == [
+        ('tok', 'libraryItem', ['tt1'], False),
+        ('tok', 'libraryItem', ['tt1'], False),
+    ]
+    assert len(api.datastore_put_calls) == 2
+    opening = api.datastore_put_calls[0][2][0]['state']
+    assert opening['watched'] == 'REAL-BITFIELD'
+    assert opening['timeOffset'] == 1  # no resume offset queued; not getTime()
+    auth_key, collection, changes = api.datastore_put_calls[1]
     assert (auth_key, collection) == ('tok', 'libraryItem')
     assert changes[0]['state']['watched'] == 'REAL-BITFIELD'  # carried over untouched
     assert changes[0]['state']['timeOffset'] == 50000
@@ -754,4 +785,191 @@ def test_terminate_resets_local_write_cadence_for_next_session():
     # A: 1 sample write + 1 final-flush write; B: 1 more write.
     assert len(store.progress_calls) == 3
     assert store.progress_calls[-1][:2] == ('movie', 'tt2')
+
+
+def _series_context(video_id, started_at=None):
+    return {
+        'type': 'series', 'id': 'tt1', 'video_id': video_id,
+        'name': 'A Show', 'poster': None,
+        'started_at': started_at or service_runner.library.iso8601_utc(),
+        'video_ids': ['tt1:1:1', 'tt1:1:2'],
+        'next_video_id': 'tt1:1:2' if video_id == 'tt1:1:1' else None,
+    }
+
+
+def test_onavstarted_pushes_resume_or_pointer_without_writing_local_progress():
+    """The opening push is remote-only. A synthetic 1ms pointer must not
+    become a local resume point, and a queued resume offset is the
+    position that goes up -- never getTime(), which the seek has not
+    reached yet."""
+    store = _FakeProgressStore(now_playing=_CONTEXT, auth={'authKey': 'tok'}, resume_offset_ms=45000)
+    api = _FakeProgressAPI()
+    with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
+        player.onAVStarted()
+    assert store.progress_calls == []
+    assert env.player_seek_calls == [45.0]
+    state = api.datastore_put_calls[0][2][0]['state']
+    assert state['timeOffset'] == 45000
+    assert state['video_id'] == 'tt1'
+
+
+def test_onavstarted_of_a_new_episode_pushes_inside_the_interval():
+    store = _FakeProgressStore(now_playing=_series_context('tt1:1:1'), auth={'authKey': 'tok'})
+    api = _FakeProgressAPI()
+    with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
+        player.onAVStarted()
+        nxt = _series_context('tt1:1:2')
+        store.set_now_playing(nxt)
+        player.onAVStarted()
+    assert len(api.datastore_put_calls) == 2
+    assert api.datastore_put_calls[1][2][0]['state']['video_id'] == 'tt1:1:2'
+
+
+def test_stop_during_put_does_not_wipe_the_next_episodes_context():
+    """The upload used to delete now_playing.json after a blocking put.
+    A binge handoff that writes the next episode during that put must
+    still be there when the put returns."""
+    opened = datetime.datetime.now(datetime.timezone.utc)
+    episode = _series_context('tt1:1:1', started_at=service_runner.library.iso8601_utc(opened))
+    store = _FakeProgressStore(now_playing=episode, auth={'authKey': 'tok'})
+    api = _FakeProgressAPI()
+    nxt = _series_context(
+        'tt1:1:2',
+        started_at=service_runner.library.iso8601_utc(opened + datetime.timedelta(seconds=1)),
+    )
+
+    def put_then_handoff(auth_key, changes, collection='libraryItem'):
+        api.datastore_put_calls.append((auth_key, collection, list(changes)))
+        store.set_now_playing(nxt)
+
+    api.datastore_put = put_then_handoff
+    with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
+        player.onAVStarted()
+        env.player_is_playing = True
+        env.player_get_time = 50.0
+        env.player_get_total_time = 100.0
+        player.sample_if_playing()
+        player._last_pushed_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            seconds=service_runner.LIBRARY_PUSH_INTERVAL_SECONDS,
+        )
+        player.onPlayBackStopped()
+    assert store.get_now_playing()['video_id'] == 'tt1:1:2'
+    assert store.get_now_playing()['started_at'] == nxt['started_at']
+
+
+def test_stop_leaves_a_context_that_was_already_replaced():
+    opened = datetime.datetime.now(datetime.timezone.utc)
+    episode = _series_context('tt1:1:1', started_at=service_runner.library.iso8601_utc(opened))
+    store = _FakeProgressStore(now_playing=episode, auth={'authKey': 'tok'})
+    api = _FakeProgressAPI()
+    with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
+        player.onAVStarted()
+        env.player_is_playing = True
+        env.player_get_time = 40.0
+        env.player_get_total_time = 100.0
+        player.sample_if_playing()
+        nxt = _series_context(
+            'tt1:1:2',
+            started_at=service_runner.library.iso8601_utc(opened + datetime.timedelta(seconds=1)),
+        )
+        store.set_now_playing(nxt)
+        player.onPlayBackStopped()
+    assert store.get_now_playing() == nxt
+    # The put is still the episode that actually stopped, not the one
+    # that has already taken the file.
+    stopped = api.datastore_put_calls[-1][2][0]
+    assert stopped['state']['video_id'] == 'tt1:1:1'
+    assert stopped['state']['timeOffset'] == 40000
+
+
+def test_second_terminal_callback_does_not_clear_a_newer_context():
+    opened = datetime.datetime.now(datetime.timezone.utc)
+    episode = _series_context('tt1:1:1', started_at=service_runner.library.iso8601_utc(opened))
+    store = _FakeProgressStore(now_playing=episode, auth={'authKey': 'tok'})
+    api = _FakeProgressAPI()
+    nxt = _series_context(
+        'tt1:1:2',
+        started_at=service_runner.library.iso8601_utc(opened + datetime.timedelta(seconds=1)),
+    )
+    with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
+        player.onAVStarted()
+        env.player_is_playing = True
+        env.player_get_time = 50.0
+        env.player_get_total_time = 100.0
+        player.sample_if_playing()
+        player.onPlayBackStopped()
+        store.set_now_playing(nxt)
+        player.onPlayBackEnded()
+    assert store.get_now_playing() == nxt
+
+
+def test_push_failure_queues_the_job_and_still_writes_local_progress():
+    store = _FakeProgressStore(now_playing=_CONTEXT, auth={'authKey': 'tok'})
+    api = _FakeProgressAPI(datastore_get_error=RuntimeError('offline'))
+    with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
+        player.onAVStarted()
+        env.player_is_playing = True
+        env.player_get_time = 50.0
+        env.player_get_total_time = 100.0
+        player.sample_if_playing()
+    assert store.progress_calls
+    assert store.pending
+    assert store.pending[0]['id'] == 'tt1'
+    assert any('library push failed' in msg for _level, msg in logs)
+
+
+def test_natural_end_marks_watched_and_advances_user_stop_does_not():
+    videos = ['tt1:1:1', 'tt1:1:2']
+    store = _FakeProgressStore(now_playing=_series_context('tt1:1:1'), auth={'authKey': 'tok'})
+    api = _FakeProgressAPI()
+    with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
+        player.onAVStarted()
+        env.player_is_playing = True
+        env.player_get_time = 50.0
+        env.player_get_total_time = 100.0
+        player.sample_if_playing()
+        player.onPlayBackStopped()
+        stopped = api.datastore_put_calls[-1][2][0]['state']
+        assert stopped['timeOffset'] == 50000
+        assert stopped['watched'] is None
+
+        store.set_now_playing(_series_context('tt1:1:1'))
+        player.onAVStarted()
+        env.player_is_playing = True
+        env.player_get_time = 99.0
+        env.player_get_total_time = 100.0
+        player.sample_if_playing()
+        player.onPlayBackEnded()
+    finished = api.datastore_put_calls[-1][2][0]['state']
+    assert finished['video_id'] == 'tt1:1:2'
+    assert finished['timeOffset'] == 1
+    assert finished['watched']
+    from lib.stremio.watchedbitfield import watched_video_ids
+    assert watched_video_ids(finished['watched'], videos) == {'tt1:1:1'}
+
+
+def test_unparseable_watched_string_is_left_untouched_on_finish():
+    existing = {
+        '_id': 'tt1', 'name': 'A Show', 'type': 'series', 'poster': None,
+        'posterShape': 'poster', 'removed': True, 'temp': True,
+        '_ctime': '2019-01-01T00:00:00Z', '_mtime': '2019-01-01T00:00:00Z',
+        'state': {
+            'lastWatched': '2019-01-01T00:00:00Z', 'timeWatched': 0, 'timeOffset': 0,
+            'overallTimeWatched': 0, 'timesWatched': 0, 'flaggedWatched': 0,
+            'duration': 0, 'video_id': 'tt1:1:1', 'watched': 'not-a-bitfield', 'noNotif': False,
+        },
+        'behaviorHints': {'defaultVideoId': None, 'featuredVideoId': None, 'hasScheduledVideos': False},
+    }
+    store = _FakeProgressStore(now_playing=_series_context('tt1:1:1'), auth={'authKey': 'tok'})
+    api = _FakeProgressAPI(datastore_get_result=[existing])
+    with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
+        player.onAVStarted()
+        env.player_is_playing = True
+        env.player_get_time = 99.0
+        env.player_get_total_time = 100.0
+        player.sample_if_playing()
+        player.onPlayBackEnded()
+    finished = api.datastore_put_calls[-1][2][0]['state']
+    assert finished['watched'] == 'not-a-bitfield'
+    assert finished['video_id'] == 'tt1:1:2'
 

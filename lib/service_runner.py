@@ -37,10 +37,11 @@ import datetime
 import os
 import shutil
 import subprocess
+import threading
 import time
 from urllib.parse import urlparse
 
-from lib import library, procflags, s4me, serverenv
+from lib import library, librarysync, procflags, s4me, serverenv
 from lib import settings as _settings
 from lib.addonid import ADDON_ID, ADDON_NAME
 from lib.store import Store
@@ -68,10 +69,13 @@ RESTART_BACKOFF = (5, 10, 30)
 DOWNLOAD_RETRY_BACKOFF = (30, 60, 300)
 
 #: Minimum interval between datastorePut pushes for one continuously-
-#: playing session -- matches stremio-core's own player model
-#: (`PUSH_TO_LIBRARY_EVERY`, src/models/player.rs:47), reused here
-#: rather than inventing a different cadence.
-LIBRARY_PUSH_INTERVAL_SECONDS = 90
+#: playing session. Upstream's player uses a longer cadence
+#: (`PUSH_TO_LIBRARY_EVERY`); 60s is this addon's own choice so a power
+#: loss or a disconnect keeps a position that is at most a minute
+#: stale. The clock resets on every `onAVStarted`, including the next
+#: binge episode, so that episode's opening push is not swallowed by
+#: the previous episode's interval.
+LIBRARY_PUSH_INTERVAL_SECONDS = 60
 #: Minimum interval between local `progress.json` writes for one
 #: continuously-playing session -- far shorter than
 #: `LIBRARY_PUSH_INTERVAL_SECONDS` (the remote push is rate-limited
@@ -733,7 +737,7 @@ def _context_key(context):
     return (context.get("type"), context.get("id"), context.get("video_id"), context.get("started_at"))
 
 
-def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # noqa: C901 - legacy; ratchet
+def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn, sync_dispatch=False):  # noqa: C901 - legacy; ratchet
     """Return an `xbmc.Player` subclass instance reporting playback
     progress for Rivulet-originated playback only, and performing the
     one-shot resume seek `lib.ui.player` queues via
@@ -763,6 +767,11 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # 
     bool`, `log_fn(level, message)`) rather than an `xbmcaddon.Addon`/
     `xbmc.log` reference directly, so this factory itself needs no
     xbmc-specific type beyond the `xbmc_module.Player` base class.
+
+    `sync_dispatch` False (production) runs each datastore put on a
+    daemon thread so `onAVStarted` and the stop callbacks return without
+    waiting on the network. Tests pass True and the put runs inline,
+    before the callback returns. The thread is never joined.
     """
 
     class _RivuletPlayer(xbmc_module.Player):
@@ -771,6 +780,21 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # 
             self._last_pushed_at = None
             self._last_local_write_at = None
             self._accepted_key = None
+            #: Snapshot of the context `onAVStarted` accepted. The stop
+            #: callback pushes THIS dict, not whatever `now_playing.json`
+            #: holds by then -- a binge handoff may already have replaced
+            #: the file with the next episode.
+            self._accepted_context = None
+            #: True after the first stop/end/error for the accepted
+            #: playback. Kodi can deliver a second terminal callback;
+            #: the second one must not clear a context the next episode
+            #: has written in between.
+            self._terminated = False
+            #: The last upload failed and is sitting in pending_sync.json.
+            #: Samples inside the push interval still refresh that job so
+            #: a power loss keeps the latest position, not the one that
+            #: failed. Cleared when a flush drains the queue.
+            self._retry_pending = False
             #: `(context_key, position_ms, duration_ms)` of the newest
             #: successful live read. Kodi's `xbmc.Player.getTime()` raises
             #: `RuntimeError("Kodi is not playing any media file")` once
@@ -786,26 +810,46 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # 
                 return
             now = datetime.datetime.now(datetime.timezone.utc)
             if is_context_stale(context.get("started_at"), now):
-                store.set_now_playing(None)
-                store.set_resume_offset_ms(None)
+                store.clear_now_playing_if(context.get("started_at"))
                 return
             self._accepted_key = _context_key(context)
+            self._accepted_context = dict(context)
             self._last_local_write_at = None
             self._last_sample = None
+            # A new episode, including the next binge title, gets its
+            # own push clock. Leaving the previous episode's timestamp
+            # in place would swallow this episode's opening push.
+            self._last_pushed_at = None
+            self._terminated = False
+            self._retry_pending = False
             offset_ms = store.get_resume_offset_ms()
-            if not offset_ms:
-                return
-            store.set_resume_offset_ms(None)
+            if offset_ms:
+                store.set_resume_offset_ms(None)
+                position_ms = int(offset_ms)
+                try:
+                    self.seekTime(offset_ms / library.MS_PER_SECOND)
+                except Exception as exc:  # noqa: BLE001 - a seek failure must never crash the service or interrupt playback
+                    log_fn(xbmc_module.LOGWARNING, "resume seek failed: %r" % (exc,))
+            else:
+                # No measured position yet. 1ms is Stremio's "just
+                # started" pointer (timeOffset > 0), not a seek target.
+                # getTime() is the wrong source here: the resume seek
+                # above is still in flight.
+                position_ms = 1
+            duration_ms = 0
             try:
-                self.seekTime(offset_ms / library.MS_PER_SECOND)
-            except Exception as exc:  # noqa: BLE001 - a seek failure must never crash the service or interrupt playback
-                log_fn(xbmc_module.LOGWARNING, "resume seek failed: %r" % (exc,))
+                duration_ms = max(0, int(self.getTotalTime() * library.MS_PER_SECOND))
+            except Exception:  # noqa: BLE001 - duration is optional on the opening push; position still goes up
+                duration_ms = 0
+            # Remote only. The synthetic 1ms pointer must not become a
+            # local resume point.
+            self._push_sample(context, position_ms, duration_ms, final=True, finished=False)
 
         def onPlayBackStopped(self):
-            self._terminate()
+            self._terminate(natural_end=False, playback_error=False)
 
         def onPlayBackEnded(self):
-            self._terminate()
+            self._terminate(natural_end=True, playback_error=False)
 
         def onPlayBackError(self):
             # Kodi calls this instead of (not necessarily followed by)
@@ -814,26 +858,40 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # 
             # drop mid-attempt). Without this, a failed attempt's
             # context/resume offset would stay persisted for the next
             # unrelated video the long-lived Player instance sees start.
-            self._terminate()
+            # An error records the position and does not mark watched.
+            self._terminate(natural_end=False, playback_error=True)
 
-        def _terminate(self):
-            # Shared terminal-callback cleanup: the final flush only
-            # happens for a context this SAME instance already accepted
-            # via onAVStarted (an error/stop firing before that point
-            # must never persist/push a sample of playback that never
-            # really started for Rivulet). Clearing BOTH the now-playing
-            # context and any queued resume offset stays unconditional.
-            context = store.get_now_playing()
-            if context is not None and _context_key(context) == self._accepted_key:
-                try:
-                    self._flush(context, final=True)
-                except Exception as exc:  # noqa: BLE001 - final flush is best-effort; cleanup below is unconditional
-                    log_fn(xbmc_module.LOGWARNING, "final flush failed: %r" % (exc,))
+        def _terminate(self, natural_end, playback_error):
+            # The first terminal callback owns cleanup. A second one
+            # (ended then stopped, or the reverse) must not delete a
+            # now-playing context the next episode wrote after the first
+            # callback released this one.
+            if self._terminated:
+                return
+            self._terminated = True
+            accepted = self._accepted_context
+            sample = self._last_sample
             self._accepted_key = None
+            self._accepted_context = None
             self._last_sample = None
             self._last_local_write_at = None
-            store.set_now_playing(None)
-            store.set_resume_offset_ms(None)
+            if accepted is not None:
+                # Compare-and-swap BEFORE the upload. The upload used to
+                # block on datastorePut and then unconditionally delete
+                # now_playing.json, which raced a binge handoff that
+                # wrote the next episode during that put.
+                store.clear_now_playing_if(accepted.get("started_at"))
+                try:
+                    self._flush_final(accepted, sample, natural_end, playback_error)
+                except Exception as exc:  # noqa: BLE001 - final flush is best-effort; the context is already released
+                    log_fn(xbmc_module.LOGWARNING, "final flush failed: %r" % (exc,))
+                return
+            # Never accepted (the stream died before AV start). Clear
+            # THAT context if it is still the one on disk, and its
+            # resume offset with it. A newer context is left alone.
+            current = store.get_now_playing()
+            if isinstance(current, dict):
+                store.clear_now_playing_if(current.get("started_at"))
 
         def sample_if_playing(self):
             """Call once per `main()` loop tick -- a no-op unless BOTH
@@ -861,84 +919,128 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # 
             if _context_key(context) != self._accepted_key:
                 now = datetime.datetime.now(datetime.timezone.utc)
                 if is_context_stale(context.get("started_at"), now):
-                    store.set_now_playing(None)
-                    store.set_resume_offset_ms(None)
+                    store.clear_now_playing_if(context.get("started_at"))
                 return
             self._flush(context, final=False)
 
         def _flush(self, context, final):
-            """Persist one playback sample for `context`. Both call
-            sites (`sample_if_playing`, `_terminate`) already read
-            `context` via `store.get_now_playing()` themselves -- to
-            check `_accepted_key` before ever calling here -- so this
-            takes it as a parameter instead of re-reading it from disk a
-            second time within the same tick/callback.
+            """Persist one live playback sample for `context`.
 
-            The final flush runs from Kodi's stop/end/error callbacks, which
-            fire only after the player has closed (see `_last_sample`), so
-            it must NEVER call `getTime()`/`getTotalTime()`: they raise
-            `RuntimeError`, and Kodi's Python layer logs every such raise as
-            `EXCEPTION: Kodi is not playing any media file` (kodi.log
-            01:08:00.137) even though this code catches it. It replays the
-            last periodic sample for the same context instead - that is the
-            expected path, not a failure, so a missing sample is only a debug
-            line. A periodic (non-final) read that fails mid-playback is
-            still a warning."""
+            Only `sample_if_playing` calls this, and only while Kodi
+            still reports a playing video, so `getTime()`/`getTotalTime()`
+            are safe here. The stop/end/error callbacks must not: they
+            fire after `CVideoPlayer::CloseFile()` and those getters
+            raise `RuntimeError` (logged by Kodi as `EXCEPTION: Kodi is
+            not playing any media file` even when caught). That path is
+            `_flush_final`, which replays `_last_sample` instead.
+            `final` is retained so a caller can bypass the local-write
+            throttle; the periodic tick passes False."""
             key = _context_key(context)
-            if final:
-                cached = self._last_sample if self._last_sample and self._last_sample[0] == key else None
-                if cached is None:
-                    log_fn(xbmc_module.LOGDEBUG, "no playback sample to flush at stop")
-                    return
-                _, position_ms, duration_ms = cached
-            else:
-                try:
-                    position_ms = int(self.getTime() * library.MS_PER_SECOND)
-                    duration_ms = int(self.getTotalTime() * library.MS_PER_SECOND)
-                except Exception as exc:  # noqa: BLE001 - getTime()/getTotalTime() must never crash the service
-                    log_fn(xbmc_module.LOGWARNING, "playback sample failed: %r" % (exc,))
-                    return
-                self._last_sample = (key, position_ms, duration_ms)
+            try:
+                position_ms = int(self.getTime() * library.MS_PER_SECOND)
+                duration_ms = int(self.getTotalTime() * library.MS_PER_SECOND)
+            except Exception as exc:  # noqa: BLE001 - getTime()/getTotalTime() must never crash the service
+                log_fn(xbmc_module.LOGWARNING, "playback sample failed: %r" % (exc,))
+                return
+            self._last_sample = (key, position_ms, duration_ms)
             if duration_ms <= 0:
                 return
             now = datetime.datetime.now(datetime.timezone.utc)
-            if should_push_now(self._last_local_write_at, now, final,
-                                interval=LOCAL_PROGRESS_WRITE_INTERVAL_SECONDS):
+            wrote_local = should_push_now(self._last_local_write_at, now, final,
+                                          interval=LOCAL_PROGRESS_WRITE_INTERVAL_SECONDS)
+            if wrote_local:
                 self._last_local_write_at = now
                 store.set_progress(
                     context["type"], context["id"], context.get("video_id"),
                     position_ms, duration_ms, library.iso8601_utc(),
                 )
+            self._push_sample(
+                context, position_ms, duration_ms, final=final, finished=False, wrote_local=wrote_local,
+            )
+
+        def _flush_final(self, context, sample, natural_end, playback_error):
+            """Replay the last live sample. Never calls getTime()."""
+            key = _context_key(context)
+            if not sample or sample[0] != key:
+                log_fn(xbmc_module.LOGDEBUG, "no playback sample to flush at stop")
+                return
+            _key, position_ms, duration_ms = sample
+            if duration_ms <= 0:
+                return
+            now = datetime.datetime.now(datetime.timezone.utc)
+            self._last_local_write_at = now
+            store.set_progress(
+                context["type"], context["id"], context.get("video_id"),
+                position_ms, duration_ms, library.iso8601_utc(),
+            )
+            finished = librarysync.should_mark_watched(
+                position_ms, duration_ms, natural_end, playback_error,
+            )
+            self._push_sample(context, position_ms, duration_ms, final=True, finished=finished)
+
+        def _push_sample(self, context, position_ms, duration_ms, final, finished, wrote_local=False):
+            now = datetime.datetime.now(datetime.timezone.utc)
+            job = librarysync.build_push_job(context, position_ms, duration_ms, finished)
             if not should_push_now(self._last_pushed_at, now, final):
+                # Offline: keep the queued job on the latest local sample
+                # without starting another upload. A finished job is left
+                # alone by enqueue_pending_sync.
+                if self._retry_pending and (wrote_local or final):
+                    self._remember_job(job)
                 return
             self._last_pushed_at = now
-            self._push(context, position_ms, duration_ms)
+            self._dispatch_push(job)
 
-        def _push(self, context, position_ms, duration_ms):
-            """Best-effort `datastorePut`: only when logged in AND the
-            'sync_progress' setting is on. A failure here is logged and
-            swallowed -- `_flush` above has already written the local
-            progress cache regardless, so a Stremio API hiccup never
-            costs the user their local resume position."""
+        def _remember_job(self, job):
             if not sync_enabled_fn():
                 return
             auth = store.get_auth()
             if not auth or not auth.get("authKey"):
                 return
             try:
-                existing = api.datastore_get(auth["authKey"], ids=[context["id"]], all=False)
-                base = existing[0] if existing else library.build_library_item({
-                    "id": context["id"],
-                    "type": context["type"],
-                    "name": context.get("name", ""),
-                    "poster": context.get("poster"),
-                })
-                merged = library.merge_playback(
-                    base, position_ms, duration_ms, video_id=context.get("video_id"),
-                )
-                api.datastore_put(auth["authKey"], [merged])
+                store.enqueue_pending_sync(job)
+            except Exception as exc:  # noqa: BLE001 - the queue is best-effort
+                log_fn(xbmc_module.LOGWARNING, "library push queue failed: %r" % (exc,))
+
+        def _dispatch_push(self, job):
+            """Best-effort `datastorePut`, off the callback thread unless
+            `sync_dispatch` is set.
+
+            The job is queued BEFORE the thread starts. A power loss
+            between the stop callback and a completed upload still
+            leaves the position in `pending_sync.json` for the next
+            launch. The thread replays that queue; a put that already
+            landed is skipped because its `lastWatched` matches the job.
+            """
+            if not sync_enabled_fn():
+                return
+            auth = store.get_auth()
+            if not auth or not auth.get("authKey"):
+                return
+            try:
+                store.enqueue_pending_sync(job)
+            except Exception as exc:  # noqa: BLE001 - a queue miss must not block the upload attempt
+                log_fn(xbmc_module.LOGWARNING, "library push queue failed: %r" % (exc,))
+            if sync_dispatch:
+                self._run_push(job)
+                return
+            threading.Thread(target=self._run_push, args=(job,), daemon=True).start()
+
+        def _run_push(self, job):
+            auth = store.get_auth()
+            if not auth or not auth.get("authKey") or not sync_enabled_fn():
+                return
+            try:
+                flushed = librarysync.flush_pending(store, api, auth["authKey"])
             except Exception as exc:  # noqa: BLE001 - a Stremio API hiccup must never interrupt playback or crash the service
+                self._retry_pending = True
                 log_fn(xbmc_module.LOGWARNING, "library push failed: %r" % (exc,))
+                return
+            self._retry_pending = not flushed
+            if not flushed:
+                # `job` is already on disk. The queue stops at the first
+                # failure so a later launch retries this one in order.
+                log_fn(xbmc_module.LOGWARNING, "library push failed: pending sync kept")
 
     return _RivuletPlayer()
 
@@ -1583,6 +1685,16 @@ def main():
     )
 
     store = Store(profile_dir)
+    if _settings.setting_bool(addon, "sync_progress", True):
+        auth = store.get_auth()
+        if auth and auth.get("authKey"):
+            # A stop that could not reach the account left a job here.
+            # Replay it before this process accepts new playback, so the
+            # position survives a launch that happens while offline-then-online.
+            try:
+                librarysync.flush_pending(store, StremioAPI(), auth["authKey"])
+            except Exception as exc:  # noqa: BLE001 - a queued push must not stop the service from starting
+                log(xbmc.LOGWARNING, "pending library sync flush failed: %r" % (exc,))
     progress_player = build_progress_player(
         xbmc, store, StremioAPI(), log, lambda: _settings.setting_bool(addon, "sync_progress", True),
     )

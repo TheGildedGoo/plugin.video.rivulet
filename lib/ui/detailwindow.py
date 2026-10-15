@@ -370,6 +370,10 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self.season_groups = []
         self.season_index = 0
         self.should_close_caller = False
+        # Set by open_detail() from the account library item, when there
+        # is one. Episode checkmarks read state.watched from it. Absent
+        # means "local progress only".
+        self._library_item = None
 
     def start(self, meta, stype):
         """doModal() showing `meta`'s episode list. Returns True if
@@ -429,22 +433,32 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             properties['row_id'] = video.get('id')
             progress = self._episode_progress(self.stype, sid, video.get('id'))
             percent = _watched_percent(progress)
+            # Local progress wins the bar. A bitfield checkmark is only
+            # the fallback for an episode this device has no sample for,
+            # and only when the account string actually parses.
+            if percent is None and _account_episode_watched(
+                getattr(self, '_library_item', None), self.meta.get('videos'), video.get('id'),
+            ):
+                percent = 100
             properties['watched_percent'] = L(_WATCHED_STRING_ID) % percent if percent is not None else ''
             # One setProperties() call instead of one setProperty() call
             # per key - each is a Python->C++ boundary crossing.
             item.setProperties(properties)
-            if percent is not None:
+            if percent is not None and progress:
                 # The same legacy setInfo('video', {resumetime,
                 # totaltime}) shape any Kodi video plugin uses to badge
-                # a "continue watching" row - independent of this
-                # addon's own `state.watched` bitfield (lib.library
-                # never touches that; see its module docstring).
+                # a "continue watching" row. The numbers are the local
+                # sample; the account bitfield only supplies the label
+                # below when this device has no sample of its own.
                 from lib.ui.compat import set_resume_point
                 set_resume_point(
                     item,
                     progress['position_ms'] / 1000.0,
                     progress['duration_ms'] / 1000.0,
                 )
+            elif percent == 100:
+                from lib.ui.compat import set_resume_point
+                set_resume_point(item, 1.0, 1.0)
             items.append(item)
         return items
 
@@ -780,6 +794,36 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             self.close()
 
 
+def _account_episode_watched(item, videos, video_id):
+    """Whether the account bitfield marks this episode watched.
+
+    A bad string paints nothing. This does not rewrite the string.
+    """
+    try:
+        from lib.librarysync import video_is_watched
+        return video_is_watched(item, videos, video_id)
+    except Exception:  # noqa: BLE001 - a checkmark must never break the episode list
+        return False
+
+
+def _pull_account_item(content_id):
+    """Best-effort account read for one title.
+
+    Seeds progress.json when the account position is newer, and returns
+    the library item so the episode list can read ``state.watched``.
+    Logged out, or any failure, leaves the screen on local data. Data
+    hook only -- the window layout is unchanged.
+    """
+    try:
+        from lib.librarysync import pull_title
+        from lib.ui.dependencies import get_api, get_store
+        return pull_title(get_store(), get_api(), content_id)
+    except Exception as exc:  # noqa: BLE001 - detail still opens from the local cache
+        from lib.ui.compat import log
+        log('detailwindow: account progress pull failed: %r' % (exc,))
+        return None
+
+
 def open_detail(stype, sid):
     """Fetch (stype, sid)'s full meta. A movie (no `videos`) has nothing
     to pick, so it opens StreamsWindow directly; a series opens this
@@ -801,6 +845,8 @@ def open_detail(stype, sid):
         notify(L(30430))
         return False
 
+    library_item = _pull_account_item(meta_obj.get('id') or sid)
+
     from lib.ui.streamswindow import open_streams
     if not meta_obj.get('videos'):
         return open_streams(
@@ -813,6 +859,7 @@ def open_detail(stype, sid):
     win = None
     try:
         win = open_window(DetailWindow, 'DetailWindow.xml')
+        win._library_item = library_item
         return win.start(meta_obj, stype)
     except Exception as exc:  # a skin/UI failure must surface, not vanish
         log('detailwindow: window failed to open: %r' % (exc,), xbmc.LOGERROR)
