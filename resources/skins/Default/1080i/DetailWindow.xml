@@ -117,6 +117,7 @@
                 <left>512</left><top>244</top><width>1294</width><height>660</height>
                 <onup>30007</onup>
                 <onleft>30002</onleft><onright>30002</onright>
+                <scrolltime tween="cubic" easing="out">200</scrolltime>
                 <pagecontrol>30006</pagecontrol>
                 <!-- Row geometry (132 tall), shared by both layouts below.
                      Kodi centres a label's text inside its own box, so two

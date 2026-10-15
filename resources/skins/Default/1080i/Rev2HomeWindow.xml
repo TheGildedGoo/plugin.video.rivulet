@@ -15,7 +15,7 @@
             </animation>
             <!-- No WindowClose animation on purpose: Kodi drops every action while the topmost modal plays one (test_skin_xml.py rule 9). -->
             <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF0A0D12">white.png</texture></control>
-            <control type="image" id="30000"><width>1920</width><height>1080</height><texture colordiffuse="FF8A8A8A"></texture><aspectratio>scale</aspectratio></control>
+            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FF8A8A8A"></texture><aspectratio>scale</aspectratio></control>
             <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="590A0D12">white.png</texture></control>
             <control type="image"><width>1280</width><height>1080</height><texture colordiffuse="F20A0D12">fade_h.png</texture></control>
             <control type="image"><left>0</left><top>300</top><width>1920</width><height>780</height><texture colordiffuse="FF0A0D12">fade_v.png</texture></control>
@@ -60,10 +60,13 @@
                 </focusedlayout>
             </control>
 
+            <!-- background=true: without it Kodi paints a grey box in this
+                 control while the clearlogo loads, and again when the file
+                 is missing. The title label shows when HeroLogo is empty. -->
             <control type="image" id="30023">
                 <left>64</left><top>188</top><width>640</width><height>100</height>
-                <aspectratio>keep</aspectratio>
-                <texture></texture>
+                <aspectratio align="left" aligny="center">keep</aspectratio>
+                <texture background="true"></texture>
                 <visible>!String.IsEmpty(Window.Property(HeroLogo))</visible>
             </control>
             <control type="label" id="30020">

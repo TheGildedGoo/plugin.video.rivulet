@@ -223,6 +223,14 @@ def new_episodes(series_items, metas, seen, now):
             released = _parse_release(video.get("released"))
             if released is None or released > now:
                 continue
+            # The row and the screen opened from it show this episode's
+            # still. A video with no thumbnail keeps the series poster
+            # and fanart, which is the only art the meta has.
+            thumb = video.get("thumbnail")
+            if not isinstance(thumb, str) or not thumb.strip():
+                thumb = ""
+            else:
+                thumb = thumb.strip()
             results.append({
                 "type": content_type,
                 "id": content_id,
@@ -231,8 +239,8 @@ def new_episodes(series_items, metas, seen, now):
                 "episode": video.get("episode"),
                 "released": video.get("released"),
                 "name": meta.get("name"),
-                "poster": meta.get("poster"),
-                "background": meta.get("background"),
+                "poster": thumb or meta.get("poster"),
+                "background": thumb or meta.get("background"),
             })
     return results
 

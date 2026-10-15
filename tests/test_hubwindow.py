@@ -144,6 +144,8 @@ def test_series_hub_pins_new_episodes_ahead_of_catalogs(load_hub, monkeypatch):
     assert episodes[0]['video_id'] == 'show:1:2'
     assert descs[0]['posters'][0].getProperty('episode_index') == '0'
     assert descs[0]['posters'][0].getProperty('sid') == 'show'
+    assert descs[0]['posters'][0].getProperty('thumbnail') == 'p'
+    assert descs[0]['posters'][0].getProperty('fanart') == 'p'
     assert len(descs) == 2
 
 
@@ -154,7 +156,7 @@ def test_clicking_the_first_new_episode_marks_it_seen(load_hub, monkeypatch):
     monkeypatch.setattr(ctx.catalogpicker, '_mark_episode_seen', lambda episode: marked.append(episode))
     monkeypatch.setattr(
         ctx.detailwindow, 'open_detail',
-        lambda ctype, sid: opened.append((ctype, sid)) or True,
+        lambda ctype, sid, video_id=None: opened.append((ctype, sid, video_id)) or True,
     )
     import xbmcgui
     win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
@@ -170,7 +172,7 @@ def test_clicking_the_first_new_episode_marks_it_seen(load_hub, monkeypatch):
     win.onClick(ctx.hubwindow.HUB_LIST)
 
     assert marked == [episode]
-    assert opened == [('series', 'show')]
+    assert opened == [('series', 'show', 'show:1:2')]
     assert win.should_close_caller is True
     assert win.closed is True
 

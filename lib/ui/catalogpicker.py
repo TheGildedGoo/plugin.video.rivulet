@@ -382,7 +382,7 @@ class CatalogPickerWindow(BaseWindow):
             return
         _mark_episode_seen(selected)
         from lib.ui.detailwindow import open_detail
-        if open_detail(selected.get('type'), selected.get('id')):
+        if open_detail(selected.get('type'), selected.get('id'), video_id=selected.get('video_id')):
             self.should_close_caller = True
             self.close()
 

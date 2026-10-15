@@ -1373,13 +1373,16 @@ def test_onclick_new_episodes_row_marks_seen_and_opens_detail(load_catalogpicker
 
     monkeypatch.setattr(ctx.gridwindow, 'open_grid', _fake_open_grid)
     detail_calls = []
-    monkeypatch.setattr(ctx.detailwindow, 'open_detail', lambda stype, sid: detail_calls.append((stype, sid)) or True)
+    monkeypatch.setattr(
+        ctx.detailwindow, 'open_detail',
+        lambda stype, sid, video_id=None: detail_calls.append((stype, sid, video_id)) or True,
+    )
 
     win.onClick(picker.LIST)
 
     assert win.closed is True
     assert win.should_close_caller is True
-    assert detail_calls == [('series', 'tt1')]
+    assert detail_calls == [('series', 'tt1', 's1e2')]
     assert grid_calls[0][0] == [(ctx.gridwindow.NEW_EPISODES_BAND, [episode])]
     # Acted on (selected), so it must be persisted seen - the row's own
     # "mark seen on action, not on render" rule.

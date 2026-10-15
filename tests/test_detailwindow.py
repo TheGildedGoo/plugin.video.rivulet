@@ -771,6 +771,73 @@ def test_onaction_season_nav_without_focus_on_the_bar_does_not_repopulate(load_d
     assert win.season_index == 0
 
 
+def test_right_and_left_walk_every_episode_of_the_season(load_detailwindow):
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    import xbmcgui
+    win = _make_window(picker)
+    videos = [
+        {'id': 'v%d' % index, 'season': 1, 'episode': index, 'title': 'Ep %d' % index}
+        for index in range(1, 8)
+    ]
+    win.start({'id': 'tt1', 'videos': videos}, 'series')
+    win.onInit()
+    win.setFocusId(picker.LIST)
+    control = win.getControl(picker.LIST)
+    assert control.size() == 7
+
+    for index in range(1, 7):
+        win.onAction(xbmcgui.Action(2))
+        assert control.selected_index == index
+    win.onAction(xbmcgui.Action(2))
+    assert control.selected_index == 6
+    win.onAction(xbmcgui.Action(1))
+    assert control.selected_index == 5
+
+
+def test_opening_a_new_episode_uses_its_still_and_selects_it(load_detailwindow):
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    win = _make_window(picker)
+    win.start({
+        'id': 'tt1',
+        'poster': 'series-poster.jpg',
+        'background': 'series-fanart.jpg',
+        'videos': [
+            {'id': 'v1', 'season': 1, 'episode': 1, 'title': 'One', 'thumbnail': 'one.jpg'},
+            {'id': 'v2', 'season': 1, 'episode': 2, 'title': 'Two'},
+            {'id': 'v3', 'season': 2, 'episode': 1, 'title': 'Three', 'thumbnail': 'three.jpg'},
+        ],
+    }, 'series', video_id='v3')
+    win.onInit()
+
+    assert win.getControl(picker.POSTER).image == 'three.jpg'
+    assert win.getControl(picker.BACKGROUND).image == 'three.jpg'
+    assert win.season_index == 1
+    items = win.getControl(picker.LIST).items
+    assert [item.getProperty('row_id') for item in items] == ['v3']
+    assert items[0].getProperty('thumb') == 'three.jpg'
+    assert win.getControl(picker.LIST).selected_index == 0
+
+
+def test_episode_row_thumb_falls_back_to_the_series_poster(load_detailwindow):
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    win = _make_window(picker)
+    win.start({
+        'id': 'tt1',
+        'poster': 'series-poster.jpg',
+        'videos': [
+            {'id': 'v1', 'season': 1, 'episode': 1, 'title': 'One'},
+            {'id': 'v2', 'season': 1, 'episode': 2, 'title': 'Two', 'thumbnail': 'two.jpg'},
+        ],
+    }, 'series')
+    win.onInit()
+
+    thumbs = [item.getProperty('thumb') for item in win.getControl(picker.LIST).items]
+    assert thumbs == ['series-poster.jpg', 'two.jpg']
+
+
 # ---------------------------------------------------------------------------
 # DetailWindow._open_context_menu() - ACTION_CONTEXT_MENU (117): one
 # dialogs.choose() actions menu combining the pre-existing 'Cast & Crew'

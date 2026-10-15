@@ -15,7 +15,7 @@
             </animation>
             <!-- No WindowClose animation on purpose: Kodi drops every action while the topmost modal plays one (test_skin_xml.py rule 9). -->
             <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF0A0D12">white.png</texture></control>
-            <control type="image" id="30000"><width>1920</width><height>1080</height><texture colordiffuse="FF8A8A8A"></texture><aspectratio>scale</aspectratio></control>
+            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FF8A8A8A"></texture><aspectratio>scale</aspectratio></control>
             <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="590A0D12">white.png</texture></control>
             <control type="image"><width>1280</width><height>1080</height><texture colordiffuse="F20A0D12">fade_h.png</texture></control>
             <control type="image"><left>0</left><top>300</top><width>1920</width><height>780</height><texture colordiffuse="FF0A0D12">fade_v.png</texture></control>
@@ -37,10 +37,11 @@
 <control type="button" id="30073"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF0A0D12</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30427]</label><ondown>31000</ondown><onup>30011</onup><visible>!String.IsEmpty(Window.Property(HomeSignedOut))</visible></control><control type="button" id="30070"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF0A0D12</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30001]</label><ondown>31000</ondown><onup>30011</onup></control><control type="button" id="30071"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF0A0D12</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30003]</label><ondown>31000</ondown><onup>30011</onup></control><control type="button" id="30072"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF0A0D12</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30004]</label><ondown>31000</ondown><onup>30011</onup></control>
             </control>
 
+            <!-- Same clearlogo rule as Home: no grey placeholder behind the logo. -->
             <control type="image" id="30023">
                 <left>64</left><top>120</top><width>640</width><height>100</height>
-                <aspectratio>keep</aspectratio>
-                <texture></texture>
+                <aspectratio align="left" aligny="center">keep</aspectratio>
+                <texture background="true"></texture>
                 <visible>!String.IsEmpty(Window.Property(HeroLogo))</visible>
             </control>
             <control type="label" id="30020">

@@ -467,9 +467,11 @@ def _open_episode(window, item, index):
         episode = window._episodes[int(index)]
     except (ValueError, IndexError):
         episode = None
+    video_id = None
     if episode is not None:
         _mark_episode_seen(episode)
-    if open_detail(item.getProperty('stype'), item.getProperty('sid')):
+        video_id = episode.get('video_id')
+    if open_detail(item.getProperty('stype'), item.getProperty('sid'), video_id=video_id):
         window.should_close_caller = True
         window.close()
 

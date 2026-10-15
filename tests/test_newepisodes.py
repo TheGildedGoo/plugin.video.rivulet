@@ -182,6 +182,16 @@ def test_new_episodes_covers_every_followed_series_independently():
     assert {(e['id'], e['video_id']) for e in result} == {('tt1', 'a2'), ('tt2', 'b2')}
 
 
+def test_new_episodes_prefers_the_episode_still_over_series_art():
+    meta = _meta(
+        poster='poster.jpg', background='bg.jpg',
+        videos=[_video('s1e1', 1, 1, PAST), _video('s1e2', 1, 2, PAST, thumbnail=' still.jpg ')],
+    )
+    result = new_episodes([_series(video_id='s1e1')], {'tt1': meta}, {}, NOW)
+    assert result[0]['poster'] == 'still.jpg'
+    assert result[0]['background'] == 'still.jpg'
+
+
 def test_new_episodes_result_carries_display_fields_from_the_series_meta():
     meta = _meta(name='A Show', poster='poster.jpg', background='bg.jpg',
                  videos=[_video('s1e1', 1, 1, PAST), _video('s1e2', 1, 2, PAST)])
