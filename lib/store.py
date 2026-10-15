@@ -20,9 +20,10 @@ JSON files live under ``data_dir``:
 * ``search_history.json`` -- list of past search query strings, most
   recent first, capped at :data:`MAX_SEARCH_HISTORY` entries.
 * ``now_playing.json`` -- the single active "now playing" context dict
-  (see the cross-slice Contract: ``{'type', 'id', 'video_id', 'name',
-  'poster', 'started_at'}``) while Rivulet-originated playback is
-  ongoing, or absent when nothing is playing.
+  (``{'type', 'id', 'video_id', 'name', 'poster', 'started_at'}``, plus
+  the optional account-sync fields ``video_ids`` and ``next_video_id``)
+  while Rivulet-originated playback is ongoing, or absent when nothing
+  is playing.
 * ``resume_offset.json`` -- a one-shot pending resume-seek offset
   (milliseconds) queued by ``lib.ui.player`` for the NEXT playback
   session's ``onAVStarted``, consumed and cleared exactly once by
@@ -37,6 +38,12 @@ JSON files live under ``data_dir``:
   ``lib.stremio.api.StremioAPI.datastore_get``/``datastore_put``'s job,
   driven by ``lib.service_runner`` only when logged in AND the
   "sync_progress" setting is on).
+* ``pending_sync.json`` -- library pushes that failed because the
+  account was unreachable. A short list of job dicts (see
+  :func:`lib.librarysync.build_push_job`), capped at
+  :data:`MAX_PENDING_SYNC`, newest last. :meth:`enqueue_pending_sync`
+  replaces any queued job with the same library id so a title keeps
+  one pending update, not a history of them.
 * ``seen_episodes.json`` -- the capped ``lib.newepisodes.mark_seen`` set of
   ``(type, id, video_id)`` composite keys naming which "new episode" Home
   row candidates the user has already acted on, so a dismissed episode
@@ -60,8 +67,12 @@ read-modify-write pattern (every write either replaces it wholesale or
 clears it), so it does not need this.
 
 ``now_playing.json``/``resume_offset.json`` follow the same wholesale-
-replace-or-clear pattern as ``auth.json`` above (no read-modify-write, so
-no compare-and-swap needed). ``progress.json`` is a plain read-modify-
+replace-or-clear pattern as ``auth.json`` above.
+:meth:`clear_now_playing_if` is the one exception: the service's stop
+callback must not delete a context a newer playback (the next binge
+episode, written by another process) has already replaced, so it
+re-reads the file and deletes only when ``started_at`` still matches.
+``progress.json`` is a plain read-modify-
 write like ``search_history.json`` -- a lost update under two concurrent
 writers (e.g. ``default.py`` and the background service both sampling
 around the same moment) at worst drops one sample, which the next
@@ -86,6 +97,13 @@ RESUME_OFFSET_FILENAME = "resume_offset.json"
 PROGRESS_FILENAME = "progress.json"
 LAST_VERSION_FILENAME = "last_version.json"
 SEEN_EPISODES_FILENAME = "seen_episodes.json"
+PENDING_SYNC_FILENAME = "pending_sync.json"
+
+#: How many failed library pushes to keep. One title holds one job
+#: (a newer sample replaces the older), so this bounds how many
+#: distinct titles can be waiting on the next launch, not how many
+#: samples one playback queued.
+MAX_PENDING_SYNC = 20
 
 #: Most-recent-first cap for the persisted search history list.
 MAX_SEARCH_HISTORY = 15
@@ -914,6 +932,7 @@ class Store:
         self._progress_path = os.path.join(self.data_dir, PROGRESS_FILENAME)
         self._last_version_path = os.path.join(self.data_dir, LAST_VERSION_FILENAME)
         self._seen_episodes_path = os.path.join(self.data_dir, SEEN_EPISODES_FILENAME)
+        self._pending_sync_path = os.path.join(self.data_dir, PENDING_SYNC_FILENAME)
         #: Per-instance memoisation for `_cached_read`: `path -> ((mtime_ns,
         #: size), parsed_value)`. A single process/screen-render often
         #: calls e.g. `get_addons()` many times; a fresh eMMC/SD `open()`
@@ -1413,6 +1432,72 @@ class Store:
             return
         _atomic_write(self._now_playing_path, dict(context), compact=True)
         self._invalidate_cache(self._now_playing_path)
+
+    def clear_now_playing_if(self, started_at):
+        """Delete the now-playing context only when it is still the one
+        ``started_at`` names.
+
+        Re-reads the file (not the memo). The service process and the
+        plugin process share this file, and a binge handoff writes the
+        next episode's context while the service is still inside the
+        playback that just ended. A plain :meth:`set_now_playing` of
+        ``None`` there deletes the next episode. Returns True when this
+        call deleted the context. The matching resume offset is cleared
+        in the same breath -- it belonged to the playback that ended.
+        A mismatch leaves both files alone, including when ``started_at``
+        is ``None`` and the on-disk context has since grown a real one.
+        """
+        current = _read_json(self._now_playing_path, None)
+        if not isinstance(current, dict) or current.get('started_at') != started_at:
+            return False
+        self.set_now_playing(None)
+        self.set_resume_offset_ms(None)
+        return True
+
+    def get_pending_sync(self):
+        """Queued library-push jobs, oldest first, or ``[]`` when the
+        file is missing or corrupt. Served from the read cache."""
+        jobs = self._cached_read(self._pending_sync_path, None)
+        if not isinstance(jobs, list):
+            return []
+        return [dict(job) for job in jobs if isinstance(job, dict)]
+
+    def set_pending_sync(self, jobs):
+        """Replace the queue. ``None`` or ``[]`` removes the file."""
+        jobs = [dict(job) for job in (jobs or []) if isinstance(job, dict)]
+        if not jobs:
+            try:
+                os.remove(self._pending_sync_path)
+            except OSError:
+                pass
+            self._invalidate_cache(self._pending_sync_path)
+            return
+        _atomic_write(self._pending_sync_path, jobs[:MAX_PENDING_SYNC], compact=True)
+        self._invalidate_cache(self._pending_sync_path)
+
+    def enqueue_pending_sync(self, job):
+        """Queue ``job``, replacing any job already stored for the same
+        library id, and drop the oldest jobs past :data:`MAX_PENDING_SYNC`.
+
+        Reads the file directly, like :meth:`set_progress`, so two
+        failures in a row cannot resurrect a job the memo still held.
+        """
+        if not isinstance(job, dict) or not job.get('id'):
+            return
+        jobs = _read_json(self._pending_sync_path, None)
+        if not isinstance(jobs, list):
+            jobs = []
+        # A queued completion (watched bit + next episode) must survive a
+        # later in-progress sample for the same show. Replacing it with
+        # a plain position update would drop the bit the stop push failed
+        # to land. A newer completion still replaces the old one.
+        if not job.get('finished'):
+            for existing in jobs:
+                if isinstance(existing, dict) and existing.get('id') == job.get('id') and existing.get('finished'):
+                    return
+        jobs = [existing for existing in jobs if not (isinstance(existing, dict) and existing.get('id') == job.get('id'))]
+        jobs.append(dict(job))
+        self.set_pending_sync(jobs[-MAX_PENDING_SYNC:])
 
     def get_resume_offset_ms(self):
         """Return the pending resume-seek offset (milliseconds) queued by

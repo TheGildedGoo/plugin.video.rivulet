@@ -621,6 +621,48 @@ def test_oninit_sets_watched_percent_and_resume_info_from_the_local_progress_cac
     assert store.calls == [('series', 'tt1', 'v1')]
 
 
+def test_oninit_bitfield_watched_episode_reads_as_fully_watched(load_detailwindow, monkeypatch):
+    """An episode the account bitfield marks watched, with no local
+    sample, uses the existing percent string at 100. A local sample
+    still wins when both exist."""
+    from lib.stremio.watchedbitfield import set_video_watched
+
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    store = _FakeProgressStore({'v2': {'position_ms': 21000, 'duration_ms': 50000}})
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+    videos = [
+        {'id': 'v1', 'season': 1, 'episode': 1, 'title': 'One'},
+        {'id': 'v2', 'season': 1, 'episode': 2, 'title': 'Two'},
+    ]
+    win = _make_window(picker)
+    win._library_item = {
+        '_id': 'tt1',
+        'state': {'watched': set_video_watched(None, ['v1', 'v2'], 'v1', True)},
+    }
+    win.start({'id': 'tt1', 'videos': videos}, 'series')
+
+    win.onInit()
+
+    items = win.getControl(picker.LIST).items
+    assert items[0].getProperty('watched_percent') == '100% WATCHED'
+    assert items[1].getProperty('watched_percent') == '42% WATCHED'
+
+
+def test_oninit_unparseable_bitfield_adds_no_checkmark(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    store = _FakeProgressStore({})
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+    win = _make_window(picker)
+    win._library_item = {'_id': 'tt1', 'state': {'watched': 'not-a-bitfield'}}
+    win.start({'id': 'tt1', 'videos': [{'id': 'v1', 'season': 1, 'episode': 1, 'title': 'Ep'}]}, 'series')
+
+    win.onInit()
+
+    assert win.getControl(picker.LIST).items[0].getProperty('watched_percent') == ''
+
+
 def test_oninit_watched_percent_empty_when_no_progress_recorded(load_detailwindow, monkeypatch):
     ctx = load_detailwindow()
     picker = ctx.detailwindow

@@ -97,7 +97,7 @@ def percent_watched(entry):
     return (position_ms / duration_ms) * 100.0
 
 
-def _band_for(percent, content_type):
+def _band_for(percent, content_type, entry=None):
     """Which band a single progress entry belongs to, or None when it is
     not worth surfacing at all.
 
@@ -108,6 +108,15 @@ def _band_for(percent, content_type):
     `BAND_NEXT_UP` (the next episode is the real target - see the module
     docstring), anything else to `BAND_RECENT`.
     """
+    # An account row with a positive offset but no measurable percent
+    # (the next-episode pointer: timeOffset 1, duration 0) is still
+    # Continue. A local sub-1% row stays dropped -- opening a stream
+    # and backing straight out is not something to resume.
+    if entry and entry.get('from_library'):
+        position_ms = entry.get('position_ms') or 0
+        if isinstance(position_ms, (int, float)) and not isinstance(position_ms, bool) and position_ms > 0:
+            if percent is None or percent < RESUME_MIN_PERCENT:
+                return BAND_RESUME
     if percent is None or percent < RESUME_MIN_PERCENT:
         return None
     if percent < RESUME_MAX_PERCENT:
@@ -129,7 +138,17 @@ def latest_by_title(entries):
     """
     best = {}
     for entry in entries or []:
-        if percent_watched(entry) is None:
+        # Local rows with no duration cannot land in a band. Account
+        # rows can: a next-episode pointer has timeOffset > 0 and
+        # duration 0, and Continue still wants the show.
+        position_ms = entry.get('position_ms') or 0
+        keep_pointer = (
+            entry.get('from_library')
+            and isinstance(position_ms, (int, float))
+            and not isinstance(position_ms, bool)
+            and position_ms > 0
+        )
+        if percent_watched(entry) is None and not keep_pointer:
             continue
         key = (entry.get('type'), entry.get('id'))
         if key[1] is None:
@@ -176,15 +195,22 @@ def merge_entries(progress_entries, library_entries):
     played bands, and a fresh install with an empty cache still yields
     the library. Pure function - the caller does all I/O.
     """
+    # Account rows fold in here, not in the Home window. Home, Continue
+    # and Library all call this function, so a phone-side watch shows up
+    # on those shelves without a layout change. The newer of local
+    # updated_at and account lastWatched wins per episode.
+    from lib.librarysync import merge_progress_sources
+
     library = library_metas(library_entries)
     by_key = {(meta.get('type'), meta.get('id')): meta for meta in library}
+    progress = merge_progress_sources(progress_entries, library_entries)
 
     banded = {band: [] for band in BAND_ORDER}
     played_keys = set()
-    for entry in latest_by_title(progress_entries)[:MAX_PLAYED_ITEMS]:
+    for entry in latest_by_title(progress)[:MAX_PLAYED_ITEMS]:
         content_type = entry.get('type')
         percent = percent_watched(entry)
-        band = _band_for(percent, content_type)
+        band = _band_for(percent, content_type, entry)
         if band is None:
             continue
         key = (content_type, entry.get('id'))
@@ -197,9 +223,9 @@ def merge_entries(progress_entries, library_entries):
             'percent': percent,
             'video_id': entry.get('video_id'),
             'updated_at': entry.get('updated_at'),
-            'name': known.get('name'),
-            'poster': known.get('poster'),
-            'background': known.get('background'),
+            'name': known.get('name') or entry.get('name'),
+            'poster': known.get('poster') or entry.get('poster'),
+            'background': known.get('background') or entry.get('background'),
         })
 
     merged = []
@@ -282,10 +308,19 @@ def _fetch_library_entries(store):
     if not auth:
         return []
     try:
-        return StremioAPI().datastore_get(auth.get('authKey'), collection='libraryItem', all=True) or []
+        entries = StremioAPI().datastore_get(auth.get('authKey'), collection='libraryItem', all=True) or []
     except ApiError as exc:
         log('mystuff: datastore_get failed, showing local bands only: %r' % (exc,), xbmc.LOGWARNING)
         return []
+    # Copy measured account positions into progress.json so the existing
+    # resume prompt (which only reads the local cache) works on this
+    # device. A seed failure must not hide the library itself.
+    try:
+        from lib.librarysync import seed_progress
+        seed_progress(store, entries)
+    except Exception as exc:  # noqa: BLE001 - Continue still renders from the rows just fetched
+        log('mystuff: account progress seed failed: %r' % (exc,), xbmc.LOGWARNING)
+    return entries
 
 
 def _enrich(items):

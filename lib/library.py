@@ -33,15 +33,19 @@ HEAD 7f69095a):
   caller can hand one straight to ``datastore_put`` unmodified.
 
 CRITICAL -- read this before touching ``state.watched`` anywhere:
-``state.watched`` is a ``stremio-watched-bitfield``-encoded (a packed
-per-episode bitfield; see the ``stremio-watched-bitfield`` Rust crate)
-value this addon does not decode or encode. :func:`merge_playback` NEVER
-computes or touches it -- it is carried over from the existing item
-byte-for-byte, or left ``None`` for a brand-new item. Synthesising or
-guessing this field would silently corrupt the user's REAL Stremio
-library the next moment any official Stremio client reads it back.
+``state.watched`` is a ``stremio-watched-bitfield`` string (see
+:mod:`lib.stremio.watchedbitfield`). :func:`merge_playback` and
+:func:`mark_watched_payload` NEVER compute or touch it -- a periodic
+sample and an explicit series-level flag are not an episode bitmap.
+:func:`finish_playback` is the only writer, and only when the existing
+string parses against the show's video ids. An unparseable string, or
+one whose anchor video is not in that list, is copied through
+byte-for-byte. Replacing it with a blank or a guess would wipe the
+user's real Stremio library the next time an official client read it.
 """
 import datetime
+
+from lib.stremio import watchedbitfield
 
 #: Default `posterShape` for a freshly-built item. stremio-core's own
 #: `PosterShape` enum defaults to `Poster` for anything else
@@ -352,3 +356,103 @@ def mark_watched_payload(item, watched, now=None):
     result['state'] = state
     result['_mtime'] = now_iso
     return result
+
+
+def apply_library_flags(item):
+    """Return a NEW LibraryItem with the player's ``removed``/``temp`` rules.
+
+    After every library write, stremio-core's player does two assignments
+    and nothing else to those flags: if the record is still ``temp`` and
+    ``timesWatched`` is still 0, force ``removed``; then if it is
+    ``removed``, force ``temp``. An explicit library add (both flags
+    false) stays in the library. A temp record that has already been
+    counted watched is not forced back to ``removed`` by the first
+    assignment, and a record that was already ``removed`` stays removed.
+    ``state`` is shallow-copied so the caller can keep mutating the
+    result; it is not otherwise changed.
+    """
+    result = dict(item)
+    state = result.get('state')
+    result['state'] = dict(state) if isinstance(state, dict) else state
+    times_watched = 0
+    if isinstance(result.get('state'), dict):
+        times_watched = int(result['state'].get('timesWatched') or 0)
+    if result.get('temp') and times_watched == 0:
+        result['removed'] = True
+    if result.get('removed'):
+        result['temp'] = True
+    return result
+
+
+def advance_to_video(item, next_video_id, now=None):
+    """Return a NEW LibraryItem pointing at ``next_video_id``.
+
+    Port of ``LibraryItem::update_state``'s ``LibraryItemState::advance``
+    path (library_item.rs, the ``next_video`` branch): fold this video's
+    ``timeWatched`` into ``overallTimeWatched``, clear ``timeWatched`` and
+    ``flaggedWatched``, set ``video_id`` to the next episode, and park
+    ``timeOffset`` at 1 with ``duration`` 0. Offset 1 is the "just
+    started" pointer -- ``timeOffset > 0`` is what puts the show back on
+    Continue -- and duration 0 keeps it from looking like a measured
+    resume position. ``state.watched`` is not modified here; the caller
+    sets the bit for the episode that just finished before advancing.
+    """
+    now_iso = iso8601_utc(now)
+    original_state = item.get('state')
+    state = dict(original_state) if isinstance(original_state, dict) else _default_state(now_iso)
+    state['overallTimeWatched'] = int(state.get('overallTimeWatched') or 0) + int(state.get('timeWatched') or 0)
+    state['timeWatched'] = 0
+    state['flaggedWatched'] = 0
+    state['video_id'] = next_video_id
+    state['timeOffset'] = 1
+    state['duration'] = 0
+    state['lastWatched'] = now_iso
+    result = dict(item)
+    result['state'] = state
+    result['_mtime'] = now_iso
+    return result
+
+
+def finish_playback(item, video_id, video_ids, next_video_id=None, now=None):
+    """Return a NEW LibraryItem for a playback that reached the end.
+
+    The episode (``video_id``) is marked in ``state.watched`` when that
+    string can be parsed against ``video_ids``. Otherwise the existing
+    string is left exactly as it was, including ``None``. ``flaggedWatched``
+    flips to 1 and ``timesWatched`` increments once, unless this video was
+    already flagged -- a periodic sample that crossed 90% must not be
+    counted a second time when the stop push lands.
+
+    A series with ``next_video_id`` (and a different id from the one that
+    just finished) then :func:`advance_to_video`. A movie, or the last
+    episode, keeps ``flaggedWatched`` at 1 and sets ``timeOffset`` to 0
+    so Continue drops it. ``apply_library_flags`` runs last so a brand-new
+    implicit record still follows the temp/removed rules after
+    ``timesWatched`` moves.
+    """
+    now_iso = iso8601_utc(now)
+    original_state = item.get('state')
+    state = dict(original_state) if isinstance(original_state, dict) else _default_state(now_iso)
+    resolved = video_id or state.get('video_id')
+    if resolved and state.get('video_id') != resolved:
+        state['overallTimeWatched'] = int(state.get('overallTimeWatched') or 0) + int(state.get('timeWatched') or 0)
+        state['timeWatched'] = 0
+        state['flaggedWatched'] = 0
+        state['video_id'] = resolved
+    if resolved:
+        updated = watchedbitfield.set_video_watched(state.get('watched'), video_ids or [], resolved, True)
+        if updated is not None:
+            state['watched'] = updated
+    if not state.get('flaggedWatched'):
+        state['flaggedWatched'] = 1
+        state['timesWatched'] = int(state.get('timesWatched') or 0) + 1
+    state['lastWatched'] = now_iso
+    result = dict(item)
+    result['state'] = state
+    result['_mtime'] = now_iso
+    if next_video_id and next_video_id != resolved:
+        result = advance_to_video(result, next_video_id, now)
+    else:
+        result['state'] = dict(result['state'])
+        result['state']['timeOffset'] = 0
+    return apply_library_flags(result)

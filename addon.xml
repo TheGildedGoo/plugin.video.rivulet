@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev5" provider-name="M0RF30">
+<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev6" provider-name="M0RF30">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.requests" version="2.22.0"/>
@@ -12,7 +12,9 @@
     <summary lang="en_GB">RevRivulet: watch Stremio-protocol catalogs, addons and streams in Kodi. Installs beside official Rivulet.</summary>
     <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote stremio-server-go streaming server, and optionally sync your addon collection with your Stremio account.</description>
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
-    <news>v0.30.1.rev5:
+    <news>v0.30.1.rev6:
+- New: watch progress syncs both ways with your Stremio account. Starting, watching, and stopping a title updates Continue and watched marks, including on your other devices. Titles you watched elsewhere show up here.
+v0.30.1.rev5:
 - Fix: when a source addon times out, RevRivulet tries it again while the spinner is up. A message appears only when nothing answered.
 - Fix: opening a title does the same, and an empty answer is no longer treated as the title.
 - Fix: pressing Stop during playback returns to the screen you started from, instead of Kodi's home menu.

@@ -224,6 +224,44 @@ def test_merge_entries_drops_barely_started_titles(mystuff):
     assert mystuff.merge_entries(progress, []) == []
 
 
+def test_merge_entries_keeps_a_remote_pointer_and_drops_a_local_one(mystuff):
+    """timeOffset 1 / duration 0 is how a finished episode points at the
+    next one. It belongs on Continue. A local row under 1% still does not."""
+    library = [{
+        '_id': 'tt-remote', 'type': 'series', 'name': 'Remote', 'removed': True, 'temp': True,
+        'state': {'timeOffset': 1, 'duration': 0, 'lastWatched': '2026-08-16T00:00:00Z', 'video_id': 'tt-remote:1:2'},
+    }]
+    local = [_progress('movie', 'tt-local', 0.4, '2026-08-16T00:00:00Z')]
+
+    merged = mystuff.merge_entries(local, library)
+
+    assert [(item['id'], item['band']) for item in merged] == [('tt-remote', mystuff.BAND_RESUME)]
+    assert merged[0]['name'] == 'Remote'
+    assert merged[0]['video_id'] == 'tt-remote:1:2'
+
+
+def test_merge_entries_prefers_the_newer_of_local_and_account(mystuff):
+    local = [_progress('movie', 'tt1', 20.0, '2026-08-16T00:00:00Z')]
+    newer_remote = [{
+        '_id': 'tt1', 'type': 'movie', 'name': 'From the phone', 'removed': False,
+        'state': {'timeOffset': 800, 'duration': 1000, 'lastWatched': '2026-08-17T00:00:00Z', 'video_id': None},
+    }]
+
+    merged = mystuff.merge_entries(local, newer_remote)
+
+    assert merged[0]['id'] == 'tt1'
+    assert merged[0]['band'] == mystuff.BAND_RESUME
+    assert merged[0]['percent'] == pytest.approx(80.0)
+    assert merged[0]['name'] == 'From the phone'
+
+    older_remote = [{
+        '_id': 'tt1', 'type': 'movie', 'name': 'Stale', 'removed': False,
+        'state': {'timeOffset': 800, 'duration': 1000, 'lastWatched': '2026-08-15T00:00:00Z', 'video_id': None},
+    }]
+    kept = mystuff.merge_entries(local, older_remote)
+    assert kept[0]['percent'] == pytest.approx(20.0)
+
+
 def test_merge_entries_works_logged_out_with_no_library(mystuff):
     """The played bands are a pure local-cache read, so a logged-out device
     (no auth, hence no library) still gets a full screen - the state the

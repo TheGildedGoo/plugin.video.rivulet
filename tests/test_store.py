@@ -1103,6 +1103,57 @@ def test_corrupt_now_playing_json_returns_none_without_raising(tmp_path):
     assert store.get_now_playing() is None  # must not raise
 
 
+def test_clear_now_playing_if_deletes_only_the_matching_generation(tmp_path):
+    """A write that lands between the stop callback's snapshot and its
+    delete is the next episode. The delete must notice and leave it."""
+    store = make_store(tmp_path)
+    first = {"type": "series", "id": "tt1", "video_id": "tt1:1:1",
+             "name": "Show", "poster": None, "started_at": "2026-01-01T00:00:00Z"}
+    second = dict(first, video_id="tt1:1:2", started_at="2026-01-01T00:01:00Z")
+    store.set_now_playing(first)
+    store.set_resume_offset_ms(15000)
+    store.set_now_playing(second)
+    store.set_resume_offset_ms(3000)
+    assert store.clear_now_playing_if(first["started_at"]) is False
+    assert store.get_now_playing()["video_id"] == "tt1:1:2"
+    assert store.get_resume_offset_ms() == 3000
+    assert store.clear_now_playing_if(second["started_at"]) is True
+    assert store.get_now_playing() is None
+    assert store.get_resume_offset_ms() is None
+
+
+def test_pending_sync_replaces_the_same_id_and_caps(tmp_path):
+    store = make_store(tmp_path)
+    store.enqueue_pending_sync({"id": "tt1", "position_ms": 1})
+    store.enqueue_pending_sync({"id": "tt1", "position_ms": 2})
+    assert store.get_pending_sync() == [{"id": "tt1", "position_ms": 2}]
+    for index in range(25):
+        store.enqueue_pending_sync({"id": "id-%d" % index, "position_ms": index})
+    jobs = store.get_pending_sync()
+    assert len(jobs) == 20
+    assert jobs[-1]["id"] == "id-24"
+    assert all(job["id"] != "tt1" for job in jobs)
+
+
+def test_pending_sync_keeps_a_finished_job_ahead_of_a_later_sample(tmp_path):
+    """A stop that failed to upload must not be replaced by the next
+    episode's opening sample: that sample does not carry the watched bit."""
+    store = make_store(tmp_path)
+    store.enqueue_pending_sync({
+        "id": "tt1", "finished": True, "position_ms": 0, "video_id": "tt1:1:2",
+    })
+    store.enqueue_pending_sync({
+        "id": "tt1", "finished": False, "position_ms": 1, "video_id": "tt1:1:2",
+    })
+    assert store.get_pending_sync() == [{
+        "id": "tt1", "finished": True, "position_ms": 0, "video_id": "tt1:1:2",
+    }]
+    store.enqueue_pending_sync({
+        "id": "tt1", "finished": True, "position_ms": 0, "video_id": "tt1:1:3",
+    })
+    assert store.get_pending_sync()[0]["video_id"] == "tt1:1:3"
+
+
 # --- resume offset (LibrarySync) --------------------------------------------
 
 
