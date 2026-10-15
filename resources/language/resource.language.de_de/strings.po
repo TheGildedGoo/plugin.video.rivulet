@@ -1030,3 +1030,11 @@ msgctxt "#30426"
 msgid "No unstarted library titles. Add one from its page."
 msgstr "Keine ungestarteten Bibliothekstitel. Füge einen auf seiner Seite hinzu."
 
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "Anmelden"
+
+msgctxt "#30428"
+msgid "Sign in once here. RevRivulet keeps its own Stremio login."
+msgstr "Hier einmal anmelden. RevRivulet hat eine eigene Stremio-Anmeldung."

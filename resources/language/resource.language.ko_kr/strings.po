@@ -1030,3 +1030,11 @@ msgctxt "#30426"
 msgid "No unstarted library titles. Add one from its page."
 msgstr "시작하지 않은 라이브러리 제목이 없습니다. 제목 화면에서 추가하세요."
 
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "로그인"
+
+msgctxt "#30428"
+msgid "Sign in once here. RevRivulet keeps its own Stremio login."
+msgstr "여기에서 한 번 로그인하세요. RevRivulet은 자체 Stremio 로그인을 사용합니다."

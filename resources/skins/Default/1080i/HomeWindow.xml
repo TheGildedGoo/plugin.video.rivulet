@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <window>
+    <defaultcontrol always="true">30002</defaultcontrol>
     <depth>0.52</depth>
     <coordinates><left>0</left><top>0</top></coordinates>
     <controls>
@@ -10,171 +11,291 @@
                 <effect type="fade" delay="0" end="100" time="200" />
             </animation>
             <!-- No WindowClose animation on purpose: Kodi drops every action while the topmost modal plays one (test_skin_xml.py rule 9). -->
-            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
-            <!-- Backdrop dim. The design (line 40) is filter:brightness(.5),
-                 and colordiffuse multiplies, so .5*255 = 0x80. This was
-                 FF3A3A3A (0.23) inherited from the pre-1a skin, sitting under
-                 a CC000000 80% black sheet that 1a does not have at all -
-                 together they rendered the fanart 2.1x darker than the
-                 reference. Kodi cannot do the design's saturate(.8); the
-                 multiply is the whole effect. -->
-            <control type="image" id="30000"><width>1920</width><height>1080</height><texture colordiffuse="FF808080"></texture><aspectratio>scale</aspectratio></control>
-            <!-- Left-to-right legibility scrim. Design line 41: solid to 44%
-                 of the width, .86 opacity at 62% (x=1190), .62 at the right
-                 edge. fade_h.png bakes exactly those stops (alpha 255 -> 219
-                 -> 158). A solid
-                 FF0A0C0E panel covers the menu column to x=845, then a single
-                 fade_h.png ramp carries the falloff across the remaining
-                 1075px. fade_h.png is white with a baked alpha ramp, so
-                 colordiffuse tints it to the panel's exact colour and the join
-                 is continuous. Neither white.png bands nor fade_edge.png work
-                 here: stacked bands leave visible steps at their edges (seams
-                 were measured at x=880 and x=975 on a real capture), and
-                 fade_edge.png's own pixels are pure black, so tinting can only
-                 scale its alpha, never reproduce FF0A0C0E. -->
-            <control type="image"><width>845</width><height>1080</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
-            <control type="image"><left>845</left><width>1075</width><height>1080</height><texture colordiffuse="FF0A0C0E">fade_h.png</texture></control>
-            <control type="image"><left>120</left><top>44</top><width>72</width><height>72</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
-            <control type="label"><left>208</left><top>44</top><width>520</width><height>72</height><font>font37</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny><label>[B]REVRIVULET[/B]</label></control>
-            <!-- Short accent under the wordmark. A list cannot draw a
-                 section rule of its own, and at ten feet the brand needs
-                 a colour anchor that is not another row. -->
-            <control type="image"><left>120</left><top>128</top><width>248</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
-            <!-- No plate behind the status line. 1AFFFFFF is the skin's
-                 hairline colour - every other use of it (BusyDialog,
-                 ConfirmDialog, OptionListDialog, CountdownDialog,
-                 ProgressDialog, ShowcaseWindow, StreamsWindow) is a 1px
-                 rule, and a 720x48 fill of it was the one place the skin
-                 used it as a plate. The status is carried by the label's
-                 own `[COLOR]`-tinted dot (see `_status_text()`): accent
-                 blue when logged in, dim when not. The backdrop here is
-                 the addon's own bundled fanart.jpg, never per-title art,
-                 so the text has a known dark field behind it and needs
-                 no plate of its own for legibility. font13 (30px) rather
-                 than font10: the line sits over fanart at the far side
-                 of a television. -->
+            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF07090B">white.png</texture></control>
+            <!-- Focused title's fanart. Python swaps this when the remote moves. -->
+            <control type="image" id="30000"><width>1920</width><height>1080</height><texture colordiffuse="FF9A9A9A"></texture><aspectratio>scale</aspectratio></control>
+            <!-- Readability scrims. The hero text sits on the left; the rows sit on the lower half. -->
+            <control type="image"><width>1100</width><height>1080</height><texture colordiffuse="F207090B">fade_h.png</texture></control>
+            <control type="image"><left>0</left><top>380</top><width>1920</width><height>700</height><texture colordiffuse="FF07090B">fade_v.png</texture></control>
+            <control type="image"><left>0</left><top>720</top><width>1920</width><height>360</height><texture colordiffuse="E607090B">white.png</texture></control>
+
+            <control type="image"><left>72</left><top>28</top><width>52</width><height>52</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
+            <control type="label"><left>140</left><top>28</top><width>520</width><height>52</height><font>font37</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny><label>[B]REVRIVULET[/B]</label></control>
             <control type="label" id="30005">
-                <left>980</left><top>56</top><width>820</width><height>48</height><font>font13</font><textcolor>C8EEF3F6</textcolor><align>right</align><aligny>center</aligny>
+                <left>72</left><top>88</top><width>760</width><height>36</height><font>font12</font><textcolor>C8EEF3F6</textcolor><aligny>center</aligny>
                 <label></label>
             </control>
-            <control type="label">
-                <left>120</left><top>156</top><width>400</width><height>36</height>
-                <font>font12</font><textcolor>8AEEF3F6</textcolor><aligny>center</aligny>
-                <label>$ADDON[plugin.video.revrivulet 30420]</label>
-            </control>
-            <!-- Watch rows are 108px and Browse rows are 72px. A Kodi list
-                 has one item height, so these are two lists: one row size
-                 cannot be both "readable from the sofa" for Continue and
-                 still fit Movies through Other on a 1080 screen. 2x108 =
-                 216. Down from the last Watch row moves to Browse (30010);
-                 the list itself still consumes Up/Down while it has another
-                 row, the same way DetailWindow's season bar does. -->
-            <control type="list" id="30002">
-                <left>120</left><top>200</top><width>900</width><height>216</height>
-                <onleft>30002</onleft><onright>30002</onright>
-                <ondown>30010</ondown>
-                <itemlayout height="108">
-                    <control type="image"><top>4</top><width>900</width><height>100</height><texture colordiffuse="14FFFFFF">white.png</texture></control>
-                    <control type="image"><left>32</left><top>26</top><width>56</width><height>56</height><texture colordiffuse="80FFFFFF">$INFO[ListItem.Icon]</texture><aspectratio>keep</aspectratio></control>
-                    <control type="label"><left>112</left><top>18</top><width>750</width><height>40</height><font>font32</font><textcolor>C7EEF3F6</textcolor><aligny>center</aligny>
-                        <label>$INFO[ListItem.Label]</label>
-                    </control>
-                    <control type="label"><left>112</left><top>58</top><width>750</width><height>32</height><font>font13</font><textcolor>73EEF3F6</textcolor><aligny>center</aligny>
-                        <label>$INFO[ListItem.Property(subtitle)]</label>
-                    </control>
-                </itemlayout>
-                <focusedlayout height="108">
-                    <control type="image"><top>4</top><width>900</width><height>100</height><texture colordiffuse="FF1B2126">white.png</texture></control>
-                    <control type="image"><top>4</top><width>8</width><height>100</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
-                    <control type="image"><left>32</left><top>26</top><width>56</width><height>56</height><texture>$INFO[ListItem.Icon]</texture><aspectratio>keep</aspectratio></control>
-                    <control type="label"><left>112</left><top>18</top><width>750</width><height>40</height><font>font32</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
-                        <label>[B]$INFO[ListItem.Label][/B]</label>
-                    </control>
-                    <control type="label"><left>112</left><top>58</top><width>750</width><height>32</height><font>font13</font><textcolor>C8EEF3F6</textcolor><aligny>center</aligny>
-                        <label>$INFO[ListItem.Property(subtitle)]</label>
-                    </control>
-                </focusedlayout>
-            </control>
-            <!-- "Browse" while type rows exist. When none do, Home moves
-                 Search/Addons/Settings onto this list (an empty 30010
-                 would eat Down from Watch) and this header says "More"
-                 instead. Window.Property(HomeTools) is set only in the
-                 split case. -->
-            <control type="label">
-                <left>120</left><top>436</top><width>400</width><height>36</height>
-                <font>font12</font><textcolor>8AEEF3F6</textcolor><aligny>center</aligny>
-                <label>$ADDON[plugin.video.revrivulet 30421]</label>
-                <visible>!String.IsEmpty(Window.Property(HomeTools))</visible>
-            </control>
-            <control type="label">
-                <left>120</left><top>436</top><width>400</width><height>36</height>
-                <font>font12</font><textcolor>8AEEF3F6</textcolor><aligny>center</aligny>
-                <label>$ADDON[plugin.video.revrivulet 30425]</label>
-                <visible>String.IsEmpty(Window.Property(HomeTools))</visible>
-            </control>
-            <!-- Four type rows at 72px = 288. Fewer rows leave empty list
-                 space; the More strip below stays put so Search/Addons/
-                 Settings do not jump when a catalog type appears. Titles
-                 only - the old grey subtitle under "Movies" was the line
-                 that failed at ten feet, and the section header already
-                 says what the group is. -->
-            <control type="list" id="30010">
-                <left>120</left><top>476</top><width>900</width><height>288</height>
-                <onleft>30010</onleft><onright>30010</onright>
-                <onup>30002</onup><ondown>30011</ondown>
-                <itemlayout height="72">
-                    <control type="image"><top>4</top><width>900</width><height>64</height><texture colordiffuse="0CFFFFFF">white.png</texture></control>
-                    <control type="image"><left>28</left><top>14</top><width>44</width><height>44</height><texture colordiffuse="80FFFFFF">$INFO[ListItem.Icon]</texture><aspectratio>keep</aspectratio></control>
-                    <control type="label"><left>96</left><top>0</top><width>760</width><height>72</height><font>font32</font><textcolor>C7EEF3F6</textcolor><aligny>center</aligny>
-                        <label>$INFO[ListItem.Label]</label>
-                    </control>
-                </itemlayout>
-                <focusedlayout height="72">
-                    <control type="image"><top>4</top><width>900</width><height>64</height><texture colordiffuse="FF1B2126">white.png</texture></control>
-                    <control type="image"><top>4</top><width>8</width><height>64</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
-                    <control type="image"><left>28</left><top>14</top><width>44</width><height>44</height><texture>$INFO[ListItem.Icon]</texture><aspectratio>keep</aspectratio></control>
-                    <control type="label"><left>96</left><top>0</top><width>760</width><height>72</height><font>font32</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
-                        <label>[B]$INFO[ListItem.Label][/B]</label>
-                    </control>
-                </focusedlayout>
-            </control>
-            <control type="image">
-                <left>120</left><top>784</top><width>900</width><height>1</height>
-                <texture colordiffuse="24FFFFFF">white.png</texture>
-                <visible>!String.IsEmpty(Window.Property(HomeTools))</visible>
-            </control>
-            <control type="label">
-                <left>120</left><top>792</top><width>400</width><height>32</height>
-                <font>font12</font><textcolor>8AEEF3F6</textcolor><aligny>center</aligny>
-                <label>$ADDON[plugin.video.revrivulet 30425]</label>
-                <visible>!String.IsEmpty(Window.Property(HomeTools))</visible>
-            </control>
-            <!-- One horizontal row, three tiles of 300px in a 900px list.
-                 itemgap stays 0: 16px of gap would push the third tile
-                 past the scrim. The 12px inset is inside each tile. -->
+
+            <!-- Search, Add-ons, Settings, and Sign in when this profile has no login. Hidden when those rows were moved onto Browse (no catalog types installed). -->
             <control type="list" id="30011">
-                <left>120</left><top>828</top><width>900</width><height>96</height>
+                <left>860</left><top>32</top><width>1000</width><height>72</height>
                 <orientation>horizontal</orientation>
                 <onleft>30011</onleft><onright>30011</onright>
-                <onup>30010</onup><ondown>30011</ondown>
+                <onup>30011</onup><ondown>30002</ondown>
+                <scrolltime tween="cubic" easing="out">180</scrolltime>
                 <visible>!String.IsEmpty(Window.Property(HomeTools))</visible>
-                <itemlayout width="300" height="96">
-                    <control type="image"><left>6</left><top>8</top><width>288</width><height>80</height><texture colordiffuse="14FFFFFF">white.png</texture></control>
-                    <control type="image"><left>26</left><top>26</top><width>44</width><height>44</height><texture colordiffuse="80FFFFFF">$INFO[ListItem.Icon]</texture><aspectratio>keep</aspectratio></control>
-                    <control type="label"><left>82</left><top>8</top><width>196</width><height>80</height><font>font13</font><textcolor>C7EEF3F6</textcolor><aligny>center</aligny>
+                <itemlayout width="250" height="72">
+                    <control type="image"><left>8</left><top>10</top><width>234</width><height>52</height><texture colordiffuse="14FFFFFF">white.png</texture></control>
+                    <control type="label"><left>8</left><top>10</top><width>234</width><height>52</height><font>font13</font><textcolor>99EEF3F6</textcolor><align>center</align><aligny>center</aligny>
                         <label>$INFO[ListItem.Label]</label>
                     </control>
                 </itemlayout>
-                <focusedlayout width="300" height="96">
-                    <control type="image"><left>6</left><top>8</top><width>288</width><height>80</height><texture colordiffuse="FF1B2126">white.png</texture></control>
-                    <control type="image"><left>6</left><top>8</top><width>288</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
-                    <control type="image"><left>26</left><top>26</top><width>44</width><height>44</height><texture>$INFO[ListItem.Icon]</texture><aspectratio>keep</aspectratio></control>
-                    <control type="label"><left>82</left><top>8</top><width>196</width><height>80</height><font>font13</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
+                <focusedlayout width="250" height="72">
+                    <control type="image"><left>8</left><top>10</top><width>234</width><height>52</height><texture colordiffuse="FF163044">white.png</texture></control>
+                    <control type="image"><left>8</left><top>10</top><width>234</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                    <control type="image"><left>8</left><top>58</top><width>234</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                    <control type="image"><left>8</left><top>10</top><width>4</width><height>52</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                    <control type="image"><left>238</left><top>10</top><width>4</width><height>52</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                    <control type="label"><left>8</left><top>10</top><width>234</width><height>52</height><font>font13</font><textcolor>FFFFFFFF</textcolor><align>center</align><aligny>center</aligny>
                         <label>[B]$INFO[ListItem.Label][/B]</label>
                     </control>
                 </focusedlayout>
             </control>
-            <control type="label"><left>120</left><top>1000</top><width>780</width><height>32</height><font>Mono26</font><textcolor>57EEF3F6</textcolor><aligny>center</aligny>
+
+            <control type="label" id="30020">
+                <left>72</left><top>140</top><width>980</width><height>72</height>
+                <font>font37</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
+                <label></label>
+            </control>
+            <control type="label" id="30021">
+                <left>72</left><top>214</top><width>980</width><height>36</height>
+                <font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
+                <label></label>
+            </control>
+            <control type="textbox" id="30022">
+                <left>72</left><top>258</top><width>860</width><height>110</height>
+                <font>font13</font><textcolor>C8EEF3F6</textcolor>
+                <label></label>
+            </control>
+
+            <control type="grouplist" id="30001">
+                <left>56</left><top>390</top><width>1840</width><height>670</height>
+                <orientation>vertical</orientation>
+                <itemgap>0</itemgap>
+                <onup>30011</onup><ondown>30001</ondown>
+                <onleft>30001</onleft><onright>30001</onright>
+                <usecontrolcoords>true</usecontrolcoords>
+                <scrolltime tween="cubic" easing="out">280</scrolltime>
+
+                <!-- Continue and Watch Later, as large cards. Up from Browse lands here. The focused card is a bright frame, not a near-black plate. -->
+                <control type="list" id="30002">
+                    <left>0</left><top>0</top><width>1760</width><height>168</height>
+                    <orientation>horizontal</orientation>
+                    <onleft>30002</onleft><onright>30002</onright>
+                    <scrolltime tween="cubic" easing="out">180</scrolltime>
+                    <itemlayout width="580" height="168">
+                        <control type="image"><left>16</left><top>12</top><width>548</width><height>144</height><texture colordiffuse="12FFFFFF">white.png</texture></control>
+                        <control type="image"><left>40</left><top>44</top><width>80</width><height>80</height><texture colordiffuse="80FFFFFF">$INFO[ListItem.Icon]</texture><aspectratio>keep</aspectratio></control>
+                        <control type="label"><left>140</left><top>28</top><width>400</width><height>52</height><font>font32</font><textcolor>B3EEF3F6</textcolor><aligny>center</aligny>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                        <control type="label"><left>140</left><top>84</top><width>400</width><height>40</height><font>font12</font><textcolor>73EEF3F6</textcolor><aligny>center</aligny>
+                            <label>$INFO[ListItem.Property(subtitle)]</label>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="580" height="168">
+                        <control type="group">
+                            <left>8</left><top>4</top><width>564</width><height>160</height>
+                            <animation effect="zoom" start="100" end="103" time="140" tween="quadratic" easing="out" center="auto">Focus</animation>
+                            <animation effect="zoom" start="103" end="100" time="100" tween="quadratic" easing="out" center="auto">UnFocus</animation>
+                            <control type="image"><left>8</left><top>8</top><width>548</width><height>144</height><texture colordiffuse="FF163044">white.png</texture></control>
+                            <control type="image"><left>8</left><top>8</top><width>548</width><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>8</left><top>146</top><width>548</width><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>8</left><top>8</top><width>6</width><height>144</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>550</left><top>8</top><width>6</width><height>144</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>32</left><top>36</top><width>80</width><height>80</height><texture>$INFO[ListItem.Icon]</texture><aspectratio>keep</aspectratio></control>
+                            <control type="label"><left>132</left><top>20</top><width>400</width><height>52</height><font>font32</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
+                                <label>[B]$INFO[ListItem.Label][/B]</label>
+                            </control>
+                            <control type="label"><left>132</left><top>76</top><width>400</width><height>40</height><font>font12</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny>
+                                <label>$INFO[ListItem.Property(subtitle)]</label>
+                            </control>
+                        </control>
+                    </focusedlayout>
+                </control>
+
+                <control type="list" id="30010">
+                    <left>0</left><top>0</top><width>1760</width><height>96</height>
+                    <orientation>horizontal</orientation>
+                    <onleft>30010</onleft><onright>30010</onright>
+                    <scrolltime tween="cubic" easing="out">180</scrolltime>
+                    <itemlayout width="280" height="96">
+                        <control type="image"><left>12</left><top>16</top><width>256</width><height>64</height><texture colordiffuse="10FFFFFF">white.png</texture></control>
+                        <control type="label"><left>12</left><top>16</top><width>256</width><height>64</height><font>font13</font><textcolor>99EEF3F6</textcolor><align>center</align><aligny>center</aligny>
+                            <label>$INFO[ListItem.Label]</label>
+                        </control>
+                    </itemlayout>
+                    <focusedlayout width="280" height="96">
+                        <control type="image"><left>12</left><top>16</top><width>256</width><height>64</height><texture colordiffuse="FF163044">white.png</texture></control>
+                        <control type="image"><left>12</left><top>16</top><width>256</width><height>5</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><left>12</left><top>75</top><width>256</width><height>5</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><left>12</left><top>16</top><width>5</width><height>64</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><left>263</left><top>16</top><width>5</width><height>64</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="label"><left>12</left><top>16</top><width>256</width><height>64</height><font>font13</font><textcolor>FFFFFFFF</textcolor><align>center</align><aligny>center</aligny>
+                            <label>[B]$INFO[ListItem.Label][/B]</label>
+                        </control>
+                    </focusedlayout>
+                </control>
+
+                <!-- Continue posters. Hidden until the row has something to draw. -->
+                <control type="label" id="30140"><left>16</left><top>8</top><width>800</width><height>36</height><font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
+                    <label></label>
+                    <visible>!String.IsEmpty(Window.Property(shelf_continue))</visible>
+                </control>
+                <control type="panel" id="30040">
+                    <left>0</left><top>0</top><width>1800</width><height>248</height>
+                    <orientation>horizontal</orientation>
+                    <onleft>30040</onleft><onright>30040</onright>
+                    <scrolltime tween="cubic" easing="out">220</scrolltime>
+                    <visible>!String.IsEmpty(Window.Property(shelf_continue))</visible>
+                    <itemlayout width="400" height="248">
+                        <control type="image"><left>16</left><top>8</top><width>368</width><height>208</height><texture colordiffuse="FF1B242C">white.png</texture></control>
+                        <control type="image"><left>16</left><top>8</top><width>368</width><height>208</height><texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>scale</aspectratio></control>
+                        <control type="label"><left>16</left><top>216</top><width>368</width><height>28</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control>
+                    </itemlayout>
+                    <focusedlayout width="400" height="248">
+                        <control type="group">
+                            <animation effect="zoom" start="100" end="103" time="140" tween="quadratic" easing="out" center="auto">Focus</animation>
+                            <animation effect="zoom" start="103" end="100" time="100" tween="quadratic" easing="out" center="auto">UnFocus</animation>
+                            <control type="image"><left>8</left><top>0</top><width>384</width><height>224</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>16</left><top>8</top><width>368</width><height>208</height><texture background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>scale</aspectratio></control>
+                            <control type="label"><left>16</left><top>216</top><width>368</width><height>28</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control>
+                        </control>
+                    </focusedlayout>
+                </control>
+
+                <control type="label" id="30141"><left>16</left><top>8</top><width>800</width><height>36</height><font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
+                    <label></label>
+                    <visible>!String.IsEmpty(Window.Property(shelf_watchlater))</visible>
+                </control>
+                <control type="panel" id="30041">
+                    <left>0</left><top>0</top><width>1800</width><height>372</height>
+                    <orientation>horizontal</orientation>
+                    <onleft>30041</onleft><onright>30041</onright>
+                    <scrolltime tween="cubic" easing="out">220</scrolltime>
+                    <visible>!String.IsEmpty(Window.Property(shelf_watchlater))</visible>
+                    <itemlayout width="248" height="372">
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="FF1B242C">white.png</texture></control>
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                        <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control>
+                    </itemlayout>
+                    <focusedlayout width="248" height="372">
+                        <control type="group">
+                            <animation effect="zoom" start="100" end="103" time="140" tween="quadratic" easing="out" center="auto">Focus</animation>
+                            <animation effect="zoom" start="103" end="100" time="100" tween="quadratic" easing="out" center="auto">UnFocus</animation>
+                            <control type="image"><left>8</left><top>0</top><width>224</width><height>328</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                            <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control>
+                        </control>
+                    </focusedlayout>
+                </control>
+
+                <control type="label" id="30142"><left>16</left><top>8</top><width>800</width><height>36</height><font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
+                    <label></label>
+                    <visible>!String.IsEmpty(Window.Property(shelf_movies))</visible>
+                </control>
+                <control type="panel" id="30042">
+                    <left>0</left><top>0</top><width>1800</width><height>372</height>
+                    <orientation>horizontal</orientation>
+                    <onleft>30042</onleft><onright>30042</onright>
+                    <scrolltime tween="cubic" easing="out">220</scrolltime>
+                    <visible>!String.IsEmpty(Window.Property(shelf_movies))</visible>
+                    <itemlayout width="248" height="372">
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="FF1B242C">white.png</texture></control>
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                        <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control>
+                    </itemlayout>
+                    <focusedlayout width="248" height="372">
+                        <control type="group">
+                            <animation effect="zoom" start="100" end="103" time="140" tween="quadratic" easing="out" center="auto">Focus</animation>
+                            <animation effect="zoom" start="103" end="100" time="100" tween="quadratic" easing="out" center="auto">UnFocus</animation>
+                            <control type="image"><left>8</left><top>0</top><width>224</width><height>328</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                            <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control>
+                        </control>
+                    </focusedlayout>
+                </control>
+
+                <control type="label" id="30143"><left>16</left><top>8</top><width>800</width><height>36</height><font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
+                    <label></label>
+                    <visible>!String.IsEmpty(Window.Property(shelf_series))</visible>
+                </control>
+                <control type="panel" id="30043">
+                    <left>0</left><top>0</top><width>1800</width><height>372</height>
+                    <orientation>horizontal</orientation>
+                    <onleft>30043</onleft><onright>30043</onright>
+                    <scrolltime tween="cubic" easing="out">220</scrolltime>
+                    <visible>!String.IsEmpty(Window.Property(shelf_series))</visible>
+                    <itemlayout width="248" height="372">
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="FF1B242C">white.png</texture></control>
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                        <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control>
+                    </itemlayout>
+                    <focusedlayout width="248" height="372">
+                        <control type="group">
+                            <animation effect="zoom" start="100" end="103" time="140" tween="quadratic" easing="out" center="auto">Focus</animation>
+                            <animation effect="zoom" start="103" end="100" time="100" tween="quadratic" easing="out" center="auto">UnFocus</animation>
+                            <control type="image"><left>8</left><top>0</top><width>224</width><height>328</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                            <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control>
+                        </control>
+                    </focusedlayout>
+                </control>
+
+                <control type="label" id="30144"><left>16</left><top>8</top><width>800</width><height>36</height><font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
+                    <label></label>
+                    <visible>!String.IsEmpty(Window.Property(shelf_anime))</visible>
+                </control>
+                <control type="panel" id="30044">
+                    <left>0</left><top>0</top><width>1800</width><height>372</height>
+                    <orientation>horizontal</orientation>
+                    <onleft>30044</onleft><onright>30044</onright>
+                    <scrolltime tween="cubic" easing="out">220</scrolltime>
+                    <visible>!String.IsEmpty(Window.Property(shelf_anime))</visible>
+                    <itemlayout width="248" height="372">
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="FF1B242C">white.png</texture></control>
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                        <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control>
+                    </itemlayout>
+                    <focusedlayout width="248" height="372">
+                        <control type="group">
+                            <animation effect="zoom" start="100" end="103" time="140" tween="quadratic" easing="out" center="auto">Focus</animation>
+                            <animation effect="zoom" start="103" end="100" time="100" tween="quadratic" easing="out" center="auto">UnFocus</animation>
+                            <control type="image"><left>8</left><top>0</top><width>224</width><height>328</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                            <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control>
+                        </control>
+                    </focusedlayout>
+                </control>
+
+                <control type="label" id="30145"><left>16</left><top>8</top><width>800</width><height>36</height><font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
+                    <label></label>
+                    <visible>!String.IsEmpty(Window.Property(shelf_other))</visible>
+                </control>
+                <control type="panel" id="30045">
+                    <left>0</left><top>0</top><width>1800</width><height>372</height>
+                    <orientation>horizontal</orientation>
+                    <onleft>30045</onleft><onright>30045</onright>
+                    <scrolltime tween="cubic" easing="out">220</scrolltime>
+                    <visible>!String.IsEmpty(Window.Property(shelf_other))</visible>
+                    <itemlayout width="248" height="372">
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="FF1B242C">white.png</texture></control>
+                        <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                        <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control>
+                    </itemlayout>
+                    <focusedlayout width="248" height="372">
+                        <control type="group">
+                            <animation effect="zoom" start="100" end="103" time="140" tween="quadratic" easing="out" center="auto">Focus</animation>
+                            <animation effect="zoom" start="103" end="100" time="100" tween="quadratic" easing="out" center="auto">UnFocus</animation>
+                            <control type="image"><left>8</left><top>0</top><width>224</width><height>328</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                            <control type="image"><left>16</left><top>8</top><width>208</width><height>312</height><texture background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control>
+                            <control type="label"><left>16</left><top>328</top><width>208</width><height>32</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control>
+                        </control>
+                    </focusedlayout>
+                </control>
+            </control>
+
+            <control type="label"><left>72</left><top>1040</top><width>900</width><height>28</height><font>Mono26</font><textcolor>57EEF3F6</textcolor><aligny>center</aligny>
                 <label>[COLOR FF38BDF8]OK[/COLOR] $ADDON[plugin.video.revrivulet 30209]     [COLOR FF38BDF8]BACK[/COLOR] $ADDON[plugin.video.revrivulet 30211]</label>
             </control>
         </control>

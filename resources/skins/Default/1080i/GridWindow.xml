@@ -26,13 +26,14 @@
      next is cut by the frame - the same "more below" cue, and the reason
      the stack is not squeezed to fit every band at once.
 
-     Focus is an accent underline under the poster, and nothing else. A 6%
-     zoom was tried first, following those apps, and removed: Kodi applies
-     the animation to the whole cell GROUP - poster and labels together -
-     so a focused card grew 2px into the neighbouring poster and ~11px up
-     into the hero caption above the first row. Sizing the cell around the
-     growth would cost real poster width on every card to animate one, and
-     the underline already says which card has focus.
+     Focus is a bright frame around the poster plus the accent underline.
+     The unfocused poster is dimmed, so the frame is the thing a remote
+     press has to show: a 4px line on its own was easy to miss from the
+     sofa, and the click sound still played. A zoom was tried and removed.
+     Kodi applies a layout animation to the whole cell GROUP - poster and
+     labels together - so a 6% zoom grew a focused card into the
+     neighbouring poster and up into the hero caption. The frame does not
+     move the cell, so it cannot do that.
 
      ROW OVERLAP. `itemgap` is NEGATIVE (-70), so consecutive rows overlap
      by that much. This is Estuary's own trick for stacked widget rows -
@@ -188,11 +189,14 @@
                     </itemlayout>
                     <focusedlayout width="320" height="506">
                         <control type="group">
+                        <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
+                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
                             <texture background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
+                        <control type="image"><top>0</top><left>16</left><width>288</width><height>8</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Accent underline under the focused poster. -->
                         <control type="image"><top>434</top><left>16</left><width>288</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
@@ -261,11 +265,14 @@
                     </itemlayout>
                     <focusedlayout width="320" height="506">
                         <control type="group">
+                        <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
+                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
                             <texture background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
+                        <control type="image"><top>0</top><left>16</left><width>288</width><height>8</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Accent underline under the focused poster. -->
                         <control type="image"><top>434</top><left>16</left><width>288</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
@@ -334,11 +341,14 @@
                     </itemlayout>
                     <focusedlayout width="320" height="506">
                         <control type="group">
+                        <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
+                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
                             <texture background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
+                        <control type="image"><top>0</top><left>16</left><width>288</width><height>8</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Accent underline under the focused poster. -->
                         <control type="image"><top>434</top><left>16</left><width>288</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
@@ -407,11 +417,14 @@
                     </itemlayout>
                     <focusedlayout width="320" height="506">
                         <control type="group">
+                        <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
+                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
                             <texture background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
+                        <control type="image"><top>0</top><left>16</left><width>288</width><height>8</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Accent underline under the focused poster. -->
                         <control type="image"><top>434</top><left>16</left><width>288</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At

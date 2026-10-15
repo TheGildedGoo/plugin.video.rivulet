@@ -1,10 +1,14 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""HomeWindow: Rivulet's custom entry-point screen. A vertical menu
-over the addon's fanart; picking a row opens the next screen as a
-nested modal (see `lib.ui.uicommon`'s module docstring for the
-navigation model this and every other custom screen shares).
+"""HomeWindow: RevRivulet's entry screen. A full-bleed fanart hero for
+the focused title, then horizontal rows: Continue and Watch Later as
+cards, the catalog types as chips, and poster rows filled from the
+first page of each installed catalog.
+
+Picking a card or a poster opens the next screen as a nested modal
+(see `lib.ui.uicommon`'s module docstring for the navigation model
+this and every other custom screen shares).
 
 Discover/Search/Library each draw a nested modal over Home and only
 close it once their own selection chain reaches playback (see
@@ -13,14 +17,28 @@ playback path of its own, so Home always stays open behind it (see
 `_open_addons`). Settings opens Kodi's own native settings dialog,
 which is not worth replacing.
 
-The rows are three focus targets, not one list. A Kodi list has a
-single row height, and a screen read from across a room needs the
-Watch rows taller than the catalog rows while still fitting on
-1080px. `LIST` (30002) is Continue and Watch Later, `BROWSE_LIST`
-(30010) is the type rows, `TOOLS_LIST` (30011) is Search, Add-ons
-and Settings. When no type row is installed, the tool rows move
-onto the browse list: an empty browse list would swallow Down from
-Watch before it ever reached Settings.
+The menu is still three lists, because a Kodi list has one item
+size. `LIST` (30002) is the Continue and Watch Later cards,
+`BROWSE_LIST` (30010) is the type chips, `TOOLS_LIST` (30011) is
+Search, Add-ons and Settings along the top. When no type chip is
+installed, the tool chips move onto the browse list: an empty list
+would swallow Down before it reached Settings. Poster rows under
+those chips are separate panels (`_SHELVES`); an empty one is
+hidden with a window property so the remote never lands on it.
+
+Every one of those lists draws a bright frame on the focused item.
+A near-black plate on the dark scrim read as "no highlight" from
+the sofa even though the navigation sound still played: Up from
+Movies lands on the Watch list, and if Continue is hidden that
+item is Watch Later.
+
+Login is this addon's own profile (`addon_data/<addon id>/auth.json`
+via `compat.addon_profile_dir()`), not the Stremio app's session
+and not official Rivulet's. A fresh install has no token, so Home
+says it is not logged in until the viewer signs in here once.
+`views.login()` is the existing dialog; this module only decides
+when to show it and refreshes the hero afterwards. The Stremio
+client is not involved in that decision.
 
 Watch Later is not a new collection. The Stremio datastore this
 addon speaks has no watch-later record, and nothing under addon
@@ -41,10 +59,35 @@ from lib.ui.dependencies import get_store
 from lib.ui.uicommon import BaseWindow, UiHeartbeat, gated_input, open_window
 
 BACKGROUND = 30000
-LIST = 30002  # Watch group: Continue, Watch Later. Taller rows.
+LIST = 30002  # Watch cards: Continue, Watch Later.
 STATUS_LABEL = 30005  # plain text label; set at runtime via setLabel(), not a skin <label>
-BROWSE_LIST = 30010  # type rows (Movies, Series, Anime, Other)
-TOOLS_LIST = 30011  # Search, Add-ons, Settings, one horizontal row
+BROWSE_LIST = 30010  # type chips (Movies, Series, Anime, Other)
+TOOLS_LIST = 30011  # Search, Add-ons, Settings, and Sign in when logged out
+HERO_TITLE = 30020
+HERO_META = 30021
+HERO_PLOT = 30022  # textbox; setText(), not setLabel()
+CONTINUE_SHELF = 30040
+WATCHLATER_SHELF = 30041
+
+#: How many posters a home row keeps from the first catalog page.
+#: `iter_catalog_pages()` is consumed once and then closed, so Home
+#: does not walk the rest of the catalog.
+SHELF_CAP = 12
+
+#: (action, panel id, header label id) for the poster rows under the
+#: chips. Must match HomeWindow.xml, including each row's
+#: `Window.Property(shelf_<action>)` visibility gate.
+_SHELVES = (
+    ('movies', 30042, 30142),
+    ('series', 30043, 30143),
+    ('anime', 30044, 30144),
+    ('other', 30045, 30145),
+)
+
+_CLICKABLE = frozenset(
+    (LIST, BROWSE_LIST, TOOLS_LIST, CONTINUE_SHELF, WATCHLATER_SHELF)
+    + tuple(list_id for _action, list_id, _label in _SHELVES)
+)
 
 #: The content-type rows that replaced the single "Discover" entry, in
 #: menu order: (action, {Stremio base catalog types} or None, setting id).
@@ -186,10 +229,17 @@ def _menu_items(show_mystuff, addons=None):
         if action in TYPE_ROW_TYPES and not _type_row_enabled(action, available):
             continue
         item = xbmcgui.ListItem(L(string_id))
-        # One setProperties() call instead of two setProperty() calls
-        # (action, subtitle) - setArt() stays separate, a distinct Kodi
-        # API that setProperties() cannot batch into.
-        item.setProperties({'action': action, 'subtitle': L(_SUBTITLES[action])})
+        # One setProperties() call instead of several setProperty() calls.
+        # setArt() stays separate, a distinct Kodi API that
+        # setProperties() cannot batch into. hero_* is what the backdrop
+        # reads when this card has focus, before any poster row is filled.
+        subtitle = L(_SUBTITLES[action])
+        item.setProperties({
+            'action': action,
+            'subtitle': subtitle,
+            'hero_title': L(string_id),
+            'hero_plot': subtitle,
+        })
         item.setArt({'icon': addon_media_path('%s.png' % action)})
         items.append(item)
     return items
@@ -210,6 +260,227 @@ def _place_menu(items):
     if grouped['browse']:
         return grouped['watch'], grouped['browse'], grouped['tools'], True
     return grouped['watch'], grouped['tools'], [], False
+
+
+def _signin_item():
+    """The top-menu chip shown only while this profile has no auth.json.
+
+    Official Rivulet and the Stremio app keep their own sessions. This
+    chip is the one-time prompt that writes RevRivulet's. The icon is
+    the settings glyph already shipped for the menu: a new file would
+    fail the unused-icon check unless the action joined `_MENU`, and
+    Sign in is not a permanent row.
+    """
+    from lib.ui.compat import L, addon_media_path
+
+    title = L(30427)
+    detail = L(30428)
+    item = xbmcgui.ListItem(title)
+    item.setProperties({
+        'action': 'signin',
+        'subtitle': detail,
+        'hero_title': title,
+        'hero_plot': detail,
+    })
+    item.setArt({'icon': addon_media_path('settings.png')})
+    return item
+
+
+def _apply_signed_out_copy(items, auth):
+    """Point the Watch Later card at the one-time sign-in explanation.
+
+    The card's label stays "Watch Later" (that is the row). The line
+    under it, and the hero plot, say why the library is empty.
+    """
+    if auth:
+        return
+    from lib.ui.compat import L
+
+    detail = L(30428)
+    for item in items:
+        if item.getProperty('action') != 'watchlater':
+            continue
+        item.setProperty('subtitle', detail)
+        item.setProperty('hero_plot', detail)
+
+
+def _truncate(text, limit):
+    text = (text or '').strip()
+    if len(text) <= limit:
+        return text
+    return text[:limit - 1].rstrip() + '\u2026'
+
+
+def _poster_item(meta, action=''):
+    """One shelf cell. `action` set means the click opens that menu
+    action (Sign in, More) instead of the title's page."""
+    from lib.ui.uicommon import escape_label
+
+    name = meta.get('name') or ''
+    bits = []
+    year = meta.get('year') or meta.get('releaseInfo') or ''
+    if year:
+        bits.append(str(year))
+    rating = meta.get('imdbRating') or ''
+    if rating:
+        bits.append(str(rating))
+    item = xbmcgui.ListItem(escape_label(name))
+    item.setProperties({
+        'thumbnail': meta.get('poster') or '',
+        'fanart': meta.get('background') or meta.get('poster') or '',
+        'hero_title': escape_label(name),
+        'hero_meta': escape_label(' \u00b7 '.join(bits)),
+        'hero_plot': escape_label(_truncate(meta.get('description') or '', 280)),
+        'action': action,
+        'stype': str(meta.get('type') or ''),
+        'sid': str(meta.get('id') or ''),
+    })
+    return item
+
+
+def _more_item(action):
+    from lib.ui.compat import L
+
+    item = xbmcgui.ListItem(L(30425))
+    item.setProperties({
+        'action': action,
+        'hero_title': L(L_FOR_ACTION[action]),
+        'hero_plot': L(_SUBTITLES[action]),
+    })
+    return item
+
+
+def _first_catalog_page(addons, types):
+    """The first page of the first installed catalog of `types`.
+
+    Uses `iter_catalogs()` and `iter_catalog_pages()` unchanged. The
+    generator is advanced once and then closed, so Home never pages
+    and never calls `fetch_catalog_pages()`. A failed addon yields an
+    empty row rather than taking Home down with it.
+    """
+    from lib.stremio.addons import _base_type, iter_catalogs
+    from lib.ui.views import iter_catalog_pages
+
+    for transport, manifest, catalog in iter_catalogs(addons):
+        if _base_type(catalog.get('type')) not in types:
+            continue
+        try:
+            page = next(iter_catalog_pages(
+                transport, catalog.get('type'), catalog.get('id'),
+                catalog=catalog, manifest=manifest,
+            ))
+        except Exception:
+            return []
+        metas = [meta for meta in (page or []) if isinstance(meta, dict)]
+        return metas[:SHELF_CAP]
+    return []
+
+
+def _set_shelf(window, list_id, label_id, prop, heading, items):
+    control = window.getControl(list_id)
+    control.reset()
+    if items:
+        control.addItems(items)
+    window.getControl(label_id).setLabel(heading if items else '')
+    window.setProperty(prop, '1' if items else '')
+
+
+def _continue_posters(store, library_entries):
+    """Played titles that already carry a name or poster.
+
+    `merge_entries()` is local and wants the datastore shape, which is
+    what `_fetch_library_entries()` returns. A miss leaves the row
+    hidden and the Continue card still opens the full grid.
+    """
+    from lib.ui.mystuff import BAND_LIBRARY, merge_entries
+
+    try:
+        merged = merge_entries(store.get_progress_entries(), library_entries)
+    except Exception:
+        return []
+    cards = []
+    for entry in merged:
+        if entry.get('band') == BAND_LIBRARY:
+            continue
+        if not (entry.get('name') or entry.get('poster')):
+            continue
+        cards.append(_poster_item(entry))
+        if len(cards) >= SHELF_CAP:
+            break
+    return cards
+
+
+def _watchlater_posters(auth, metas):
+    from lib.ui.compat import L
+
+    if not auth:
+        return [_poster_item({'name': L(30427), 'description': L(30428)}, action='signin')]
+    return [_poster_item(meta) for meta in metas[:SHELF_CAP]] + [_more_item('watchlater')]
+
+
+def _enabled_shelf_types(addons):
+    """`{action: type set}` for the poster rows that should exist.
+
+    Local: settings and the installed manifests. No HTTP.
+    """
+    available = _available_types(addons)
+    enabled = {}
+    for action, _list_id, _label_id in _SHELVES:
+        if not _type_row_enabled(action, available):
+            continue
+        types = TYPE_ROW_TYPES[action]
+        if types is None:
+            types = _remainder_types(available)
+        enabled[action] = types
+    return enabled
+
+
+def _catalog_pages(addons, enabled):
+    """First page per enabled shelf. `iter_catalog_pages()` once each."""
+    return {
+        action: _first_catalog_page(addons, types)
+        for action, types in enabled.items()
+    }
+
+
+def _fill_shelves(window, store, addons, auth):
+    """Poster rows under the chips.
+
+    Catalog rows use `iter_catalog_pages()` (first page only), under
+    the same cancellable spinner the rest of the addon uses, and the
+    pages stay on the window so backing out of Search does not fetch
+    them again. Continue and Watch Later do not call the account API
+    from here: that fetch already runs when the card opens the grid.
+    Signed out, the Watch Later row is the sign-in card. Signed in,
+    it is a More card that opens the library band.
+    """
+    from lib.ui.compat import L
+    from lib.ui.uicommon import CANCELLED, run_cancellable
+
+    _set_shelf(
+        window, CONTINUE_SHELF, 30140, 'shelf_continue',
+        L(30241).upper(), _continue_posters(store, []),
+    )
+    _set_shelf(
+        window, WATCHLATER_SHELF, 30141, 'shelf_watchlater',
+        L(30422).upper(), _watchlater_posters(auth, []),
+    )
+    enabled = _enabled_shelf_types(addons)
+    if getattr(window, '_catalog_pages', None) is None:
+        loaded = run_cancellable(lambda: _catalog_pages(addons, enabled), L(30033))
+        if loaded is CANCELLED or not isinstance(loaded, dict):
+            loaded = {}
+        window._catalog_pages = loaded
+    pages = window._catalog_pages
+    for action, list_id, label_id in _SHELVES:
+        items = []
+        if action in enabled:
+            items = [_poster_item(meta) for meta in pages.get(action, [])]
+            items.append(_more_item(action))
+        _set_shelf(
+            window, list_id, label_id, 'shelf_%s' % action,
+            L(L_FOR_ACTION[action]).upper(), items,
+        )
 
 
 def _status_text(auth):
@@ -233,47 +504,87 @@ class HomeWindow(BaseWindow):
     """See module docstring. Built/run via `open_home()`."""
 
     def onInit(self):
+        # Recomputed every onInit(): onInit() re-runs on every resume from
+        # a nested modal, so a sign-in or a newly installed catalog shows
+        # up on the way back here without restarting the addon. `_build`
+        # is the same path Settings and Sign in call when they return,
+        # because those dialogs do not resume the window by themselves.
+        self._build()
+
+    def _build(self):
         from lib.ui.compat import addon_fanart, setting_bool
         from lib.ui.mystuff import has_content
 
         store = get_store()
         auth = store.get_auth()
-        # Recomputed every onInit(): onInit() re-runs on every resume from
-        # a nested modal (see reset() below), so the row appears/
-        # disappears the moment the first title is played or the user logs
-        # in, without restarting the addon.
         show_mystuff = setting_bool('home_show_mystuff', True) and has_content(store)
         self.getControl(BACKGROUND).setImage(addon_fanart())
         # reset() before addItems(): onInit() runs again when
         # uicommon.ModalStackWindow reopens a screen force-closed for
         # playback, and re-adding onto a retained list would double every
-        # item. Rebuilding also re-reads the type rows' settings and the
-        # installed catalogs, so toggling a row in Settings (or installing
-        # an addon that publishes a new type) is reflected on the way back
-        # here without restarting the addon. All three lists are rebuilt
-        # together: a type row appearing must move Search back down onto
-        # the More strip, and the other way around when the last type
-        # row disappears.
-        watch, browse, tools, show_tools = _place_menu(
-            _menu_items(show_mystuff, store.get_enabled_addons()))
+        # item. All three menu lists are rebuilt together: a type chip
+        # appearing must move Search back onto the top strip, and the
+        # other way around when the last type chip disappears.
+        addons = store.get_enabled_addons()
+        watch, browse, tools, show_tools = _place_menu(_menu_items(show_mystuff, addons))
+        _apply_signed_out_copy(watch, auth)
+        if not auth:
+            (tools if show_tools else browse).append(_signin_item())
         for control_id, rows in ((LIST, watch), (BROWSE_LIST, browse), (TOOLS_LIST, tools)):
             control = self.getControl(control_id)
             control.reset()
             control.addItems(rows)
         self.setProperty('HomeTools', '1' if show_tools else '')
         self.getControl(STATUS_LABEL).setLabel(_status_text(auth))
+        _fill_shelves(self, store, addons, auth)
         self.setFocusId(LIST)
+        self._update_hero()
+
+    def _update_hero(self):
+        """Paint the backdrop from the focused card or poster.
+
+        A poster carries its own fanart. A menu card does not, and the
+        addon's fanart stays up so the hero never goes blank. Failures
+        here must not eat the key that moved the focus.
+        """
+        from lib.ui.compat import addon_fanart
+
+        item = None
+        try:
+            focus_id = self.getFocusId()
+            if focus_id:
+                item = self.getControl(focus_id).getSelectedItem()
+        except Exception:
+            item = None
+        title = meta = plot = fanart = ''
+        if item is not None:
+            title = item.getProperty('hero_title') or item.getLabel() or ''
+            meta = item.getProperty('hero_meta') or ''
+            plot = item.getProperty('hero_plot') or item.getProperty('subtitle') or ''
+            fanart = item.getProperty('fanart') or ''
+        try:
+            self.getControl(HERO_TITLE).setLabel(title)
+            self.getControl(HERO_META).setLabel(meta)
+            self.getControl(HERO_PLOT).setText(plot)
+            self.getControl(BACKGROUND).setImage(fanart or addon_fanart())
+        except Exception:
+            pass
+
+    @gated_input
+    def onAction(self, action):
+        from lib.ui.uicommon import BACK_ACTIONS
+
+        if action.getId() in BACK_ACTIONS:
+            self.close()
+            return
+        self._update_hero()
 
     @gated_input
     def onClick(self, control_id):
-        if control_id not in (LIST, BROWSE_LIST, TOOLS_LIST):
+        if control_id not in _CLICKABLE:
             return
         focused = self.getControl(control_id).getSelectedItem()
-        if focused is None:
-            return
-        handler = _ACTIONS.get(focused.getProperty('action'))
-        if handler:
-            handler(self)
+        _activate(self, focused)
 
 
 def _open_mystuff(window):
@@ -282,16 +593,55 @@ def _open_mystuff(window):
         window.close()
 
 
+def _open_signin(window):
+    """The existing email/password dialog, then a refresh of this window.
+
+    `views.login()` writes auth.json in this addon's profile and is
+    also what Settings > Account runs. Home calls it directly so the
+    status line and the Watch Later row update before the dialog's
+    RunPlugin directory finish returns.
+    """
+    from lib.ui.views import login
+    login()
+    window._build()
+
+
 def _open_watchlater(window):
     """Open only the saved, never-started library band.
 
     `open_my_stuff()` with no argument is Continue (every band). Passing
     `BAND_LIBRARY` does not fetch a different collection - see that
     function. Playback still closes Home, the same as Continue.
+
+    With no auth in this profile the library call would only notify
+    "not logged in". Ask for the one-time sign-in first, and open the
+    band only after it lands.
     """
+    if not get_store().get_auth():
+        _open_signin(window)
+        if not get_store().get_auth():
+            return
     from lib.ui.mystuff import BAND_LIBRARY, open_my_stuff
     if open_my_stuff(bands=(BAND_LIBRARY,)):
         window.close()
+
+
+def _activate(window, item):
+    """A shelf poster with an id opens its page. Anything else is a
+    menu action (including More, which carries the row's action and
+    no id)."""
+    if item is None:
+        return
+    action = item.getProperty('action')
+    sid = item.getProperty('sid')
+    if sid and not action:
+        from lib.ui.detailwindow import open_detail
+        if open_detail(item.getProperty('stype'), sid):
+            window.close()
+        return
+    handler = _ACTIONS.get(action)
+    if handler:
+        handler(window)
 
 
 def _open_type_row(window, action):
@@ -320,6 +670,12 @@ def _open_addons(window):
 def _open_settings(window):
     from lib.ui.compat import ADDON
     ADDON.openSettings()
+    # Account > Login returns here without re-running onInit. Rebuild
+    # so the status line leaves "Not logged in" in the same visit.
+    try:
+        window._build()
+    except Exception:
+        pass
 
 
 #: action -> the localized-string id its picker uses as a heading, so the
@@ -331,6 +687,7 @@ L_FOR_ACTION = {action: string_id for string_id, action in _MENU}
 _ACTIONS = {
     'mystuff': _open_mystuff,
     'watchlater': _open_watchlater,
+    'signin': _open_signin,
     'movies': lambda window: _open_type_row(window, 'movies'),
     'series': lambda window: _open_type_row(window, 'series'),
     'anime': lambda window: _open_type_row(window, 'anime'),
