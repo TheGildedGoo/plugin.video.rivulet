@@ -742,7 +742,12 @@ def home():
 
 
 def open_settings():
-    compat.ADDON.openSettings()
+    from lib.ui.rev2 import is_rev2
+    if is_rev2():
+        from lib.ui.rev2.settings import open_settings as open_rev2_settings
+        open_rev2_settings()
+    else:
+        compat.ADDON.openSettings()
     xbmcplugin.endOfDirectory(router.ADDON_HANDLE, succeeded=False, updateListing=False, cacheToDisc=False)
 
 

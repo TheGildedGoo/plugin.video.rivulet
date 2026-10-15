@@ -774,7 +774,15 @@ def _feed_index(store, client):
 
 def open_search():
     """Open the search history/new-query picker. Returns True if the
-    caller should also close (see `SearchWindow.start`)."""
+    caller should also close (see `SearchWindow.start`).
+
+    Rev2Rivulet opens its on-screen keyboard instead. The query still
+    runs through ``run_query`` in this module.
+    """
+    from lib.ui.rev2 import is_rev2
+    if is_rev2():
+        from lib.ui.rev2.search import open_search as open_rev2_search
+        return open_rev2_search()
     from lib.ui.compat import L, log, notify
 
     log('searchwindow: opening SearchWindow', xbmc.LOGINFO)

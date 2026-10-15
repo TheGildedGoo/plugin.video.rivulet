@@ -777,8 +777,13 @@ def _open_addons(window):
 
 
 def _open_settings(window):
-    from lib.ui.compat import ADDON
-    ADDON.openSettings()
+    from lib.ui.rev2 import is_rev2
+    if is_rev2():
+        from lib.ui.rev2.settings import open_settings as open_rev2_settings
+        open_rev2_settings()
+    else:
+        from lib.ui.compat import ADDON
+        ADDON.openSettings()
     # Account > Login returns here without re-running onInit. Drop the
     # row cache so a sign-in done in that dialog shows up on the Library
     # row in the same visit.

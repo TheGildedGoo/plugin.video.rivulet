@@ -1050,3 +1050,27 @@ msgstr "このタイトルを読み込めませんでした。"
 msgctxt "#30431"
 msgid "No source answered."
 msgstr "応答したソースがありません。"
+
+msgctxt "#30432"
+msgid "Rev2Rivulet"
+msgstr "Rev2Rivulet"
+
+msgctxt "#30433"
+msgid "Delete"
+msgstr "削除"
+
+msgctxt "#30434"
+msgid "Space"
+msgstr "スペース"
+
+msgctxt "#30435"
+msgid "All settings"
+msgstr "すべての設定"
+
+msgctxt "#30436"
+msgid "On"
+msgstr "オン"
+
+msgctxt "#30437"
+msgid "Off"
+msgstr "オフ"

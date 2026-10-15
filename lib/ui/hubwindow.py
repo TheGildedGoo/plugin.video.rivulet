@@ -414,6 +414,11 @@ def _button(window, action):
         open_addons()
         return
     if action == 'settings':
+        from lib.ui.rev2 import is_rev2
+        if is_rev2():
+            from lib.ui.rev2.settings import open_settings as open_rev2_settings
+            open_rev2_settings()
+            return
         from lib.ui.compat import ADDON
         ADDON.openSettings()
         return

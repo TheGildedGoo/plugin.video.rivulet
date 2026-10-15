@@ -1050,3 +1050,27 @@ msgstr ""
 msgctxt "#30431"
 msgid "No source answered."
 msgstr ""
+
+msgctxt "#30432"
+msgid "Rev2Rivulet"
+msgstr ""
+
+msgctxt "#30433"
+msgid "Delete"
+msgstr ""
+
+msgctxt "#30434"
+msgid "Space"
+msgstr ""
+
+msgctxt "#30435"
+msgid "All settings"
+msgstr ""
+
+msgctxt "#30436"
+msgid "On"
+msgstr ""
+
+msgctxt "#30437"
+msgid "Off"
+msgstr ""
