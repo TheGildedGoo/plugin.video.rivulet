@@ -1125,3 +1125,11 @@ msgstr "هل ما زلت تشاهد؟"
 msgctxt "#30450"
 msgid "%s is next"
 msgstr "التالي: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "جارٍ تحميل كل المصادر…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "جارٍ تحميل كل المصادر… %d/%d"

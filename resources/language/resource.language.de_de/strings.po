@@ -1125,3 +1125,11 @@ msgstr "Schaust du noch?"
 msgctxt "#30450"
 msgid "%s is next"
 msgstr "Als Nächstes: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "Alle Quellen werden geladen…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "Alle Quellen werden geladen… %d/%d"

@@ -1125,3 +1125,11 @@ msgstr "Stai ancora guardando?"
 msgctxt "#30450"
 msgid "%s is next"
 msgstr "In arrivo: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "Caricamento di tutte le fonti…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "Caricamento di tutte le fonti… %d/%d"

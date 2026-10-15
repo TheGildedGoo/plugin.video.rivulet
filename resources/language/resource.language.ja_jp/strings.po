@@ -1125,3 +1125,11 @@ msgstr "まだ見ていますか？"
 msgctxt "#30450"
 msgid "%s is next"
 msgstr "次は %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "すべてのソースを読み込み中…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "すべてのソースを読み込み中… %d/%d"

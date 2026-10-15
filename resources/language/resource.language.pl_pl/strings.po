@@ -1125,3 +1125,11 @@ msgstr "Nadal ogladasz?"
 msgctxt "#30450"
 msgid "%s is next"
 msgstr "Następny: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "Ładowanie wszystkich źródeł…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "Ładowanie wszystkich źródeł… %d/%d"

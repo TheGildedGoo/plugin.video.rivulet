@@ -63,6 +63,16 @@
                 <label>[B]$ADDON[plugin.video.revrivulet 30041][/B]</label>
             </control>
 
+            <!-- No <visible> tag on purpose: Python owns this label via
+                 setVisible(), same as BusyDialog.xml's 30322. A static
+                 false would outrank setVisible(True). The default text
+                 is what the column shows in the frame before onInit. -->
+            <control type="label" id="30110">
+                <left>928</left><top>150</top><width>896</width><height>52</height>
+                <font>font13</font><textcolor>FFEEF3F6</textcolor><align>right</align><aligny>center</aligny>
+                <label>$ADDON[plugin.video.revrivulet 30451]</label>
+            </control>
+
             <control type="list" id="30002">
                 <left>512</left><top>228</top><width>1312</width><height>708</height>
                 <onleft>30002</onleft><onright>30002</onright>

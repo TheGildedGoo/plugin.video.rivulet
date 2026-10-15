@@ -583,9 +583,16 @@ def test_open_streams_opens_on_the_first_addon_without_waiting_for_a_slower_one(
             captured.setdefault('loading_calls', []).append(loading)
             super().set_loading(loading)
 
+        def set_load_progress(self, answered, total):
+            captured.setdefault('progress', []).append((answered, total))
+            super().set_load_progress(answered, total)
+
         def start(self, pairs, stype, sid, poster=None, heading='', art=None, meta=None, video_id=None):
             captured['pairs'] = list(pairs)
             captured['slow_answered_before_open'] = slow_answered.is_set()
+            # Copy before releasing the slow addon: its answer appends
+            # another progress tick from the drain thread.
+            captured['progress_at_open'] = list(captured.get('progress', []))
             release_slow.set()  # only let the slow addon finish once the picker has already decided to open
             return False
 
@@ -597,6 +604,9 @@ def test_open_streams_opens_on_the_first_addon_without_waiting_for_a_slower_one(
     assert not captured['slow_answered_before_open']
     assert [s for _info, s in captured['pairs']] == [fast_stream]
     assert captured['loading_calls'] == [True]  # the slow addon was still outstanding when this window opened
+    # 1 of 2 addons had answered. The header uses this count; the slow
+    # addon must not be folded in yet or the fraction would already be 2/2.
+    assert captured['progress_at_open'] == [(1, 2)]
 
 
 # ---------------------------------------------------------------------------

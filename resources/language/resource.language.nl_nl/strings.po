@@ -1125,3 +1125,11 @@ msgstr "Kijk je nog?"
 msgctxt "#30450"
 msgid "%s is next"
 msgstr "Hierna: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "Alle bronnen laden…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "Alle bronnen laden… %d/%d"

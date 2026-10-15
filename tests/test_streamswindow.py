@@ -1145,6 +1145,154 @@ def test_streamswindow_add_pairs_after_close_is_a_silent_noop(load_streamswindow
 
     win.add_pairs([({'addon': 'B'}, {'url': 'https://b.example/b.mp4'})])
     win.set_loading(True)
+    win.set_load_progress(1, 3)
 
     assert win.pairs == [(info, stream)]  # nothing merged
     assert ctx.env.executed_builtins == []  # never even woke the GUI thread
+
+
+# ---------------------------------------------------------------------------
+# Loading header + initial focus. Kodi's list selects the last row when
+# items are added; the fake's addItems() selects 0, so these tests make
+# the control do what the device does before asserting we put it back.
+# ---------------------------------------------------------------------------
+
+
+def _kodi_selects_the_last_row_on_add(win, list_id):
+    """Patch this window's list so addItems() leaves the cursor on the
+    last row, which is what Kodi does and what the stock fake does not."""
+    real_get = win.getControl
+
+    def getControl(control_id):
+        control = real_get(control_id)
+        if control_id == list_id and not getattr(control, '_kodi_add', False):
+            original = control.addItems
+
+            def addItems(items):
+                original(items)
+                if control.items:
+                    control.selected_index = len(control.items) - 1
+
+            control.addItems = addItems
+            control._kodi_add = True
+        return control
+
+    win.getControl = getControl
+
+
+def test_oninit_focuses_the_first_stream_when_the_list_lands_on_the_last(
+    load_streamswindow,
+):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    win = _make_window(sw)
+    best = {'url': 'https://a.example/best.mp4'}
+    worst = {'url': 'https://a.example/worst.mp4'}
+    win.pairs = [
+        ({'resolution': '2160p', 'raw': 'Best'}, best),
+        ({'resolution': '1080p', 'raw': 'Mid'}, {'url': 'https://a.example/mid.mp4'}),
+        ({'resolution': '720p', 'raw': 'Worst'}, worst),
+    ]
+    _kodi_selects_the_last_row_on_add(win, sw.LIST)
+
+    win.onInit()
+
+    control = win.getControl(sw.LIST)
+    assert control.selected_index == 0
+    assert control.getSelectedItem().getProperty('position') == '0'
+    assert win.pairs[0][1] is best
+    # Nothing is still loading: the header must not stay up over a
+    # finished list. The skin's default text is visible until onInit.
+    status = win.getControl(sw.LOADING_STATUS)
+    assert status.visible is False
+    assert status.label == ''
+
+
+def test_loading_header_counts_addons_and_the_finished_list_starts_at_the_top(
+    load_streamswindow,
+):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    win = _make_window(sw)
+    best = {'url': 'https://a.example/best.mp4'}
+    win.pairs = [
+        ({'resolution': '2160p', 'raw': 'Best'}, best),
+        ({'resolution': '720p', 'raw': 'Other'}, {'url': 'https://a.example/other.mp4'}),
+    ]
+    win.set_loading(True)
+    win.set_load_progress(1, 4)
+    _kodi_selects_the_last_row_on_add(win, sw.LIST)
+
+    win.onInit()
+
+    status = win.getControl(sw.LOADING_STATUS)
+    control = win.getControl(sw.LIST)
+    assert status.visible is True
+    assert status.label == 'Loading all sources\u2026 1/4'
+    assert control.selected_index == 0
+    assert 'Loading more sources' not in (win.getControl(sw.INFO_PANEL).text or '')
+
+    # A later count tick must refresh the header without rebuilding the
+    # list. addItems() is what throws the cursor to the bottom, and a
+    # rebuild while the fan-out is still open would also snap back to
+    # row 0 — either one would move this index.
+    items = control.items
+    control.selected_index = len(items) - 1
+    bottom = control.selected_index
+    win.set_load_progress(3, 4)
+    win.onAction(_FakeBackAction(-1))
+    assert control.items is items
+    assert control.selected_index == bottom
+    assert status.label == 'Loading all sources\u2026 3/4'
+    assert status.visible is True
+
+    # The batch that ends the fan-out lands the cursor on the best
+    # stream, not on the last row Kodi had selected.
+    control.selected_index = len(control.items) - 1
+    win.set_loading(False)
+    win.set_load_progress(4, 4)
+    win.onAction(_FakeBackAction(-1))
+    assert status.visible is False
+    assert status.label == ''
+    assert control.selected_index == 0
+    assert win.pairs[int(control.getSelectedItem().getProperty('position'))][1] is best
+
+
+def test_a_count_tick_uses_the_heading_until_the_total_is_known(load_streamswindow):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    win = _make_window(sw)
+    win.pairs = [({'raw': 'A'}, {'url': 'https://a.example/a.mp4'})]
+    win.set_loading(True)
+
+    win.onInit()
+
+    status = win.getControl(sw.LOADING_STATUS)
+    assert status.visible is True
+    assert status.label == 'Loading all sources\u2026'
+
+
+def test_moving_the_cursor_while_sources_load_keeps_that_stream(load_streamswindow):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    win = _make_window(sw)
+    kept = {'url': 'https://a.example/kept.mp4'}
+    win.pairs = [
+        ({'resolution': '1080p', 'raw': 'First'}, {'url': 'https://a.example/first.mp4'}),
+        ({'resolution': '720p', 'raw': 'Kept'}, kept),
+    ]
+    win.set_loading(True)
+    win.set_load_progress(1, 3)
+    win.onInit()
+    # Down is a real cursor move. The drain runs first, so this key
+    # still starts from row 0; the flag is what later batches honour.
+    win.onAction(_FakeBackAction(4))
+    control = win.getControl(sw.LIST)
+    control.selected_index = 1
+
+    win.add_pairs([({'resolution': '2160p', 'raw': 'Better'}, {'url': 'https://a.example/better.mp4'})])
+    win.onAction(_FakeBackAction(-1))
+
+    focused = control.getSelectedItem()
+    assert win.pairs[int(focused.getProperty('position'))][1] is kept
+    assert control.selected_index != 0

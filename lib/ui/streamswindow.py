@@ -85,6 +85,17 @@ share. That live phase only ever feeds the FIRST window a picker opens;
 every reopen after a played pick (or a binge-watched one) works off
 whatever `StreamsWindow.pairs` had already accumulated by then, a
 static snapshot, never resumes listening for more addons.
+
+Opening on the first answer used to leave the list blank: the only
+status was a "Loading more sources..." line in the side panel, under
+the poster, and Kodi's list selects the LAST row when items are added
+(and again when the list takes focus). A title with many sources
+therefore opened scrolled to the bottom of a list that had not finished
+painting. The column header now shows "Loading all sources…" with how
+many addons have answered (`set_load_progress()`) until `set_loading(False)`.
+Until the user moves the cursor, every rebuild during that fan-out —
+including the one that clears the line — puts the cursor back on row 0,
+the best stream after `sort_streams()`.
 """
 import queue
 import threading
@@ -117,6 +128,13 @@ INFO_PANEL = 30008
 SOURCES_COUNT = 30100
 ADDONS_COUNT = 30101
 CACHED_COUNT = 30102
+#: Column-header status while the fan-out is still outstanding. Python
+#: owns its visibility (no static `<visible>` in the skin): a hardcoded
+#: false would outrank `setVisible(True)` on real Kodi, the same trap
+#: BusyDialog.xml's progress bar documents. Sits in the list column,
+#: not the side panel — the old INFO_PANEL line was under the poster
+#: and the list itself looked empty.
+LOADING_STATUS = 30110
 
 #: Cap on concurrent addon HTTP calls a streams fan-out below opens at
 #: once - mirrors `lib.ui.views._MAX_ADDON_WORKERS`'s bounded-pool
@@ -130,10 +148,25 @@ CACHED_COUNT = 30102
 #: 27.6s cost of the old serial loop this replaces.
 _MAX_STREAM_ADDON_WORKERS = 8
 
-#: strings.po id for the transient "more sources still loading" line
-#: `StreamsWindow._rebuild_list()` appends to INFO_PANEL while
-#: `open_streams()`'s fan-out still has an addon outstanding.
-_LOADING_STRING_ID = 30185
+#: strings.po ids for LOADING_STATUS. 30452 is the answered/total
+#: form. The numbers are a fraction, not an inflected noun — the
+#: catalogs have no plural machinery that would get "3 addons" right
+#: in Polish or Arabic. 30185 stays in the catalogs; it was the old
+#: side-panel line this header replaced.
+_LOADING_HEADING_STRING_ID = 30451
+_LOADING_PROGRESS_STRING_ID = 30452
+
+#: Action ids that mean the user moved the cursor. Kodi selects the
+#: last row on its own when items are added; treating that as a choice
+#: is how the finished list opened on the bottom. The noop wake the
+#: fan-out uses (`Action(noop)`) and Back are deliberately absent.
+_CURSOR_MOVE_ACTIONS = frozenset({
+    3, 4,  # up, down
+    5, 6,  # page up, page down
+    14, 15,  # next item, previous item
+    104, 105,  # mouse wheel
+    111, 112,  # scroll
+})
 
 #: strings.po ids for the left column's localized 'N SOURCE(S)' / 'N
 #: ADDON(S)' / 'N CACHED' summary counts (see _rebuild_list()) -
@@ -309,10 +342,23 @@ class StreamsWindow(BaseWindow):
         self._pending_lock = threading.Lock()
         self._pending_batches = []
         self._pending_loading = None
+        #: `(answered, total)` queued by `set_load_progress()`, or None
+        #: when the count has not changed. Same lock as the batches.
+        self._pending_progress = None
         #: True while `open_streams()`'s own fan-out still has an addon
-        #: outstanding - renders `_LOADING_STRING_ID`'s status line onto
-        #: INFO_PANEL until the last one answers (`set_loading(False)`).
+        #: outstanding. LOADING_STATUS stays visible until the last one
+        #: answers (`set_loading(False)`).
         self._loading = False
+        #: Addons answered so far, and how many were asked. Fed by
+        #: `set_load_progress()`; 0/0 means the count is not known yet
+        #: and the header falls back to the heading with no fraction.
+        self._load_answered = 0
+        self._load_total = 0
+        #: True once the user moves the cursor (see `_CURSOR_MOVE_ACTIONS`).
+        #: While this is false and a fan-out is in progress, a rebuild
+        #: puts the cursor on row 0 instead of keeping whichever row
+        #: Kodi selected — the last one, after `addItems()`.
+        self._user_moved_cursor = False
         #: The prefix of `self.pairs` (by OBJECT IDENTITY, oldest-first)
         #: LIST currently holds - set by `_rebuild_list()` every time it
         #: runs. `_append_prefix_length()` compares this against a fresh
@@ -382,7 +428,12 @@ class StreamsWindow(BaseWindow):
         # Any exit path must stop accepting further live updates before
         # the underlying window (and its controls) actually goes away -
         # see add_pairs()/set_loading()'s own no-op-after-close contract.
+        # A force-close for playback reopens THIS window. The fan-out
+        # drops updates while `_closed` is set, including the
+        # `set_loading(False)` that means it finished, so the reopened
+        # picker must not keep "Loading all sources…" up forever.
         self._closed = True
+        self._loading = False
         super().close()
 
     def add_pairs(self, pairs):
@@ -404,8 +455,8 @@ class StreamsWindow(BaseWindow):
         self._wake()
 
     def set_loading(self, loading):
-        """Thread-safe toggle for the transient "more sources still
-        loading" INFO_PANEL line (see `_rebuild_list()`) - `True` while
+        """Thread-safe toggle for the "Loading all sources…" header
+        (see `_refresh_loading_label()`) - `True` while
         `open_streams()`'s fan-out still has an addon outstanding,
         `False` once the last one has answered. Same worker->GUI
         handoff as `add_pairs()`; a silent no-op once this window has
@@ -414,6 +465,20 @@ class StreamsWindow(BaseWindow):
             if self._closed:
                 return
             self._pending_loading = bool(loading)
+        self._wake()
+
+    def set_load_progress(self, answered, total):
+        """Thread-safe answered/total count for the loading header.
+
+        `answered` is how many addons have returned (including an empty
+        list — that is still an answer) and `total` is how many were
+        asked. A count-only tick refreshes the label without rebuilding
+        LIST, so it cannot move the cursor. A silent no-op once this
+        window has closed."""
+        with self._pending_lock:
+            if self._closed:
+                return
+            self._pending_progress = (int(answered), int(total))
         self._wake()
 
     def _wake(self):
@@ -428,10 +493,12 @@ class StreamsWindow(BaseWindow):
         screen. Returns True if anything actually changed, so a caller
         only rebuilds the list when there is something new to show."""
         with self._pending_lock:
-            if not self._pending_batches and self._pending_loading is None:
+            if (not self._pending_batches and self._pending_loading is None
+                    and self._pending_progress is None):
                 return False
             batches, self._pending_batches = self._pending_batches, []
             loading, self._pending_loading = self._pending_loading, None
+            progress, self._pending_progress = self._pending_progress, None
         if batches:
             for batch in batches:
                 self.pairs.extend(batch)
@@ -440,7 +507,15 @@ class StreamsWindow(BaseWindow):
             self.pairs = streaminfo.sort_streams(self.pairs, key=sort_key)
         if loading is not None:
             self._loading = loading
-        return True
+        if progress is not None:
+            self._load_answered, self._load_total = progress
+        # A count tick on its own must not rebuild LIST. `addItems()` —
+        # even of nothing — is what moves Kodi's cursor, and the header
+        # is a label, not a row.
+        changed = bool(batches) or loading is not None
+        if progress is not None and not changed:
+            self._refresh_loading_label()
+        return changed
 
     def _apply_pending(self):
         """`onAction()`'s live-merge drain - GUI thread only. Rebuilds
@@ -466,7 +541,13 @@ class StreamsWindow(BaseWindow):
         since landing on whatever now occupies that slot keeps the
         cursor in a stable spot on screen, rather than jumping to some
         unrelated stream elsewhere in the list just because it happens
-        to share the old raw index."""
+        to share the old raw index.
+
+        That identity restore is skipped while a fan-out is in progress
+        (and on the rebuild that ends it) until the user moves the
+        cursor. Kodi selects the last row when items are added, and
+        keeping that row is how the finished list opened on the bottom
+        instead of the best stream."""
         control = self.getControl(LIST)
         focused = control.getSelectedItem()
         focus_index = control.getSelectedPosition()
@@ -479,6 +560,7 @@ class StreamsWindow(BaseWindow):
             if 0 <= pos < len(self.pairs):
                 focus_pair = self.pairs[pos]
 
+        loading_before = self._loading
         if not self._merge_pending():
             return
 
@@ -486,6 +568,13 @@ class StreamsWindow(BaseWindow):
         self._rebuild_list(0 if start is None else start)
         visible = self._rendered_visible_pairs
         if not visible:
+            return
+        # The fan-out, and the rebuild that ends it, have no user choice
+        # yet unless they already moved. Kodi selects the last row when
+        # items are added; keeping that identity opens the finished list
+        # on the bottom instead of the best stream.
+        if not self._user_moved_cursor and (loading_before or self._loading):
+            self._focus_first_stream()
             return
         if focus_pair is not None:
             for index, pair in enumerate(visible):
@@ -665,9 +754,8 @@ class StreamsWindow(BaseWindow):
             lines.append(L(_FILTERS_MATCHED_NOTHING_STRING_ID))
         elif hidden_count:
             lines.append(L(_HIDDEN_STRING_ID if hidden_count == 1 else _HIDDEN_PLURAL_STRING_ID) % hidden_count)
-        if self._loading:
-            lines.append(L(_LOADING_STRING_ID))
         self.getControl(INFO_PANEL).setText('\n'.join(lines))
+        self._refresh_loading_label()
 
         # Left column summary counts (design's stacked 'NN SOURCES' /
         # 'NN ADDONS' / 'NN CACHED' lines) - their own labels, not more
@@ -688,6 +776,42 @@ class StreamsWindow(BaseWindow):
             L(_ADDON_STRING_ID if addon_count == 1 else _ADDONS_STRING_ID) % addon_count
         )
         self.getControl(CACHED_COUNT).setLabel(L(_CACHED_STRING_ID) % cached_count)
+
+    def _refresh_loading_label(self):
+        """Show or hide LOADING_STATUS from `self._loading` and the
+        answered/total count. GUI thread only. A known total uses the
+        fraction; otherwise the heading alone, so the list column is
+        never blank while addons are still out."""
+        from lib.ui.compat import L
+
+        control = self.getControl(LOADING_STATUS)
+        if not self._loading:
+            control.setLabel('')
+            control.setVisible(False)
+            return
+        total = self._load_total
+        if total:
+            answered = self._load_answered
+            if answered < 0:
+                answered = 0
+            elif answered > total:
+                answered = total
+            control.setLabel(L(_LOADING_PROGRESS_STRING_ID) % (answered, total))
+        else:
+            control.setLabel(L(_LOADING_HEADING_STRING_ID))
+        control.setVisible(True)
+
+    def _focus_first_stream(self):
+        """Put the cursor on row 0.
+
+        That row is the best stream: `sort_streams()` ordered `self.pairs`
+        before this list was built. Kodi selects the last row when items
+        are added and again when the list takes focus, which is why a
+        caller has to do this AFTER `setFocusId()` and AFTER `addItems()`,
+        not before."""
+        control = self.getControl(LIST)
+        if control.size():
+            control.selectItem(0)
 
     def _row_render(self, info, include_addon):
         """Cache `info`'s own (line1, line2, properties) row material by
@@ -741,9 +865,15 @@ class StreamsWindow(BaseWindow):
         with self._pending_lock:
             self._closed = False
 
+        # A reopen (playback force-closed this same window) is a fresh
+        # list. The previous session's cursor move must not keep the
+        # next paint on the bottom.
+        self._user_moved_cursor = False
+
         # Pick up anything open_streams() queued via set_loading()/
-        # add_pairs() before doModal() actually opened this window, so
-        # the ONE initial build below already reflects it.
+        # set_load_progress()/add_pairs() before doModal() actually
+        # opened this window, so the ONE initial build below already
+        # reflects it.
         self._merge_pending()
 
         # resolve_art() folds the legacy `self.poster` kwarg into `art`'s
@@ -766,6 +896,9 @@ class StreamsWindow(BaseWindow):
 
         self._rebuild_list()
         self.setFocusId(LIST)
+        # After setFocusId: giving the list focus is the second place
+        # Kodi selects the last row. Row 0 is the best stream.
+        self._focus_first_stream()
 
     @gated_input
     def onAction(self, action):
@@ -773,6 +906,11 @@ class StreamsWindow(BaseWindow):
         # infowindow.ShowcaseWindow.onAction() calls _apply_enriched()
         # before its own per-focus work - see add_pairs()/set_loading().
         self._apply_pending()
+        # After the drain, so a Down that arrives together with a batch
+        # still starts from row 0 and THEN moves. Recording the move
+        # first would treat Kodi's own last-row selection as the user's.
+        if action.getId() in _CURSOR_MOVE_ACTIONS:
+            self._user_moved_cursor = True
         super().onAction(action)
 
     @gated_input
@@ -1909,6 +2047,8 @@ class _PickerFeed:
         self._window = None
         self._done = False
         self._stopped = False
+        self._answered = 0
+        self._total = 0
 
     def add(self, pairs):
         with self._lock:
@@ -1919,6 +2059,23 @@ class _PickerFeed:
                 return
             window = self._window
         window.add_pairs(pairs)
+
+    def set_counts(self, answered, total):
+        """Remember how many addons have answered, and tell the live
+        window when one is attached. Empty answers count: the header's
+        fraction must move even when an addon found nothing to add."""
+        with self._lock:
+            self._answered = int(answered)
+            self._total = int(total)
+            answered = self._answered
+            total = self._total
+            window = None if self._stopped else self._window
+        if window is not None:
+            window.set_load_progress(answered, total)
+
+    def counts(self):
+        with self._lock:
+            return self._answered, self._total
 
     def mark_done(self):
         """Every addon has now answered - flip the live window's status
@@ -2049,6 +2206,11 @@ def open_streams(
     pairs = streaminfo.sort_streams(pairs, key=sort_key)
 
     feed = _PickerFeed()
+    # The wait loop above already consumed at least one answer (the
+    # list is non-empty). The header needs that count before the
+    # window exists; later answers, including empty ones, go through
+    # set_counts() on the drain thread.
+    feed.set_counts(consume_next.consumed, total)
     stop_event = threading.Event()
 
     def drain_remaining():
@@ -2058,7 +2220,10 @@ def open_streams(
                 if result is None:
                     break
                 _addon_name, addon_pairs = result
-                if addon_pairs and not stop_event.is_set():
+                if stop_event.is_set():
+                    continue
+                feed.set_counts(consume_next.consumed, total)
+                if addon_pairs:
                     feed.add(addon_pairs)
         except Exception as exc:  # noqa: BLE001 - nothing else can catch a failure on this background thread; log it as loudly as open_streams()'s own window-construction failures below, rather than let it vanish silently.
             log('streamswindow: fan-out failed: %r' % (exc,), xbmc.LOGERROR)
@@ -2084,6 +2249,7 @@ def open_streams(
             win = open_window(StreamsWindow, 'StreamsWindow.xml')
             if live:
                 win.set_loading(feed.attach(win))
+                win.set_load_progress(*feed.counts())
             # Pass the offset only while it is set, and only as a
             # keyword. Test doubles of start() predate the argument and
             # do not accept it; the ordinary picker never sets it.

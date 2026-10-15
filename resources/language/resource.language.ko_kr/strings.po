@@ -1125,3 +1125,11 @@ msgstr "아직 시청 중인가요?"
 msgctxt "#30450"
 msgid "%s is next"
 msgstr "다음: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "모든 소스 불러오는 중…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "모든 소스 불러오는 중… %d/%d"

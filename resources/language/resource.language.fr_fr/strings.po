@@ -1125,3 +1125,11 @@ msgstr "Vous êtes toujours là ?"
 msgctxt "#30450"
 msgid "%s is next"
 msgstr "À suivre : %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "Chargement de toutes les sources…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "Chargement de toutes les sources… %d/%d"

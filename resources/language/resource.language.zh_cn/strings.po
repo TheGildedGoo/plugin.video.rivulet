@@ -1125,3 +1125,11 @@ msgstr "还在看吗？"
 msgctxt "#30450"
 msgid "%s is next"
 msgstr "接下来是 %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "正在加载全部来源…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "正在加载全部来源… %d/%d"
