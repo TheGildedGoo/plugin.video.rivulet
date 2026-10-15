@@ -13,7 +13,7 @@ name: Publish RevRivulet repository
 # protection refuses the commit push.
 on:
   push:
-    branches: [ main, cursor/home-screen-ui-2f19 ]
+    branches: [ main ]
   workflow_dispatch:
 
 # One publisher at a time. Two deploys racing on gh-pages lose the ref lock
