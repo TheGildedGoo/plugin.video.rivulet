@@ -1656,8 +1656,8 @@ def test_open_detail_series_builds_window_against_skin_path_and_starts_with_the_
             captured['init_args'] = args
             super().__init__(*args, **kwargs)
 
-        def start(self, meta_obj, stype):
-            captured['start_args'] = (meta_obj, stype)
+        def start(self, meta_obj, stype, video_id=None):
+            captured['start_args'] = (meta_obj, stype, video_id)
             return True
 
     monkeypatch.setattr(ctx.detailwindow, 'DetailWindow', RecordingWindow)
@@ -1666,7 +1666,7 @@ def test_open_detail_series_builds_window_against_skin_path_and_starts_with_the_
 
     assert result is True
     assert captured['init_args'] == ('DetailWindow.xml', '/addon/path', 'Default', '1080i')
-    assert captured['start_args'] == (meta, 'series')
+    assert captured['start_args'] == (meta, 'series', None)
 
 
 def test_open_detail_series_window_is_closed_exactly_once_when_start_raises(
@@ -1687,7 +1687,7 @@ def test_open_detail_series_window_is_closed_exactly_once_when_start_raises(
             self.close_calls += 1
             super().close()
 
-        def start(self, meta_obj, stype):
+        def start(self, meta_obj, stype, video_id=None):
             # Stands in for a crash inside onInit()/onAction() while the
             # modal loop is running - self.close() (the window's own,
             # normal-path close) never gets a chance to run.
@@ -1789,7 +1789,7 @@ def test_open_detail_series_closes_the_busy_dialog_before_building_the_window(
             captured['dialog_closed_count'] = busy.closed
             super().__init__(*args, **kwargs)
 
-        def start(self, meta_obj, stype):
+        def start(self, meta_obj, stype, video_id=None):
             return True
 
     monkeypatch.setattr(ctx.detailwindow, 'DetailWindow', RecordingWindow)
