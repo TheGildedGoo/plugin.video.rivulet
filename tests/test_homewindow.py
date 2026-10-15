@@ -879,6 +879,32 @@ def test_continue_row_is_in_progress_and_library_row_is_the_library(load_homewin
     assert library_ids == ['tt1', 'tt9']
 
 
+def test_library_row_keeps_every_title_past_twelve(load_homewindow, monkeypatch):
+    """The ring stopped on the twelfth poster because the row was cut
+    there. The panel already scrolls with the items; the account list
+    is the whole row."""
+    ctx = load_homewindow()
+    library = [
+        {
+            '_id': 'tt%d' % index, 'name': 'Title %d' % index,
+            'type': 'movie', 'poster': 'p%d' % index, 'removed': False,
+        }
+        for index in range(13)
+    ]
+    _patch_library(monkeypatch, ctx, library)
+    monkeypatch.setattr(
+        ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'k'}),
+    )
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+
+    win.onInit()
+
+    library_ids = [
+        item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items
+    ]
+    assert library_ids == ['tt%d' % index for index in range(13)]
+
+
 def test_continue_row_includes_in_progress_library_state(load_homewindow, monkeypatch):
     """A title watched in the Stremio app has no local progress.json row.
     Its libraryItem state is still in progress, so it belongs on Continue.

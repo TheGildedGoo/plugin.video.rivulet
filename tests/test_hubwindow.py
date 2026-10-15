@@ -274,9 +274,43 @@ def test_hub_bar_is_right_aligned_and_posters_have_a_focus_frame():
     blob = ET.tostring(rows.find('focusedlayout'), encoding='unicode')
     assert 'FFFFFFFF' in blob
     assert 'mask_poster.png' in blob
+    assert 'mask_land.png' in blob
     assert 'round_mask.png' not in blob
     assert 'focusleft' not in blob
-    assert blob.count('focus_stroke.png') == 8
+    # Eight poster strokes plus four landscape strokes for New Episodes.
+    assert blob.count('focus_stroke.png') == 12
+    focused = rows.find('focusedlayout')
+    strokes = [
+        el for el in focused.findall('control')
+        if (el.findtext('texture') or '').strip() == 'focus_stroke.png'
+    ]
+    land = []
+    posters = []
+    for el in strokes:
+        visible = [(node.text or '').strip() for node in el.findall('visible')]
+        if 'String.IsEqual(ListItem.Property(layout),land)' in visible:
+            land.append(el)
+        if '!String.IsEqual(ListItem.Property(layout),land)' in visible:
+            posters.append(el)
+    assert len(land) == 4
+    assert len(posters) == 8
+    for el in land:
+        assert (el.findtext('width') or '').strip() == '392'
+        assert (el.findtext('height') or '').strip() == '220'
+    for el in posters:
+        assert (el.findtext('width') or '').strip() == '200'
+        assert (el.findtext('height') or '').strip() == '300'
+    land_art = [
+        el for el in focused.findall('control')
+        if (el.find('texture').get('diffuse') if el.find('texture') is not None else '') == 'mask_land.png'
+    ]
+    assert len(land_art) == 4
+    for el in land_art:
+        assert (el.findtext('width') or '').strip() == '392'
+        assert (el.findtext('height') or '').strip() == '220'
+        assert (el.findtext('aspectratio') or '').strip() == 'scale'
+        visible = [(node.text or '').strip() for node in el.findall('visible')]
+        assert 'String.IsEqual(ListItem.Property(layout),land)' in visible
     assert 'pill_fill.png' in ET.tostring(bar, encoding='unicode')
 
 
@@ -332,9 +366,11 @@ def test_new_episodes_row_paints_the_cinemeta_still_the_skin_reads(load_hub, mon
     desc = ctx.hubwindow._episode_descriptor(_Store(), frozenset({'series', 'tv'}))
     assert desc is not None
     import xbmcgui
+    assert desc['layout'] == 'land'
     row_item = xbmcgui.ListItem('New Episodes')
-    ctx.hubwindow._apply_posters(row_item, desc['posters'], 0)
+    ctx.hubwindow._apply_posters(row_item, desc['posters'], 0, desc['layout'])
 
+    assert row_item.getProperty('layout') == 'land'
     assert row_item.getProperty('p0') == still
     assert meta['poster'] not in row_item.getProperty('p0')
     assert row_item.getProperty('hero_title') == 'S1E3 \u00b7 Lord Snow'
@@ -342,3 +378,25 @@ def test_new_episodes_row_paints_the_cinemeta_still_the_skin_reads(load_hub, mon
     assert row_item.getProperty('hero_plot').startswith('Jon impresses Tyrion')
     assert row_item.getProperty('hero_logo') == ''
     assert row_item.getProperty('fanart') == still
+
+
+def test_landscape_row_slides_inside_four_slots(load_hub):
+    """New Episodes draws four wide cards. The fifth title slides the
+    window so the ring stays on a landscape slot, and the portrait
+    properties stay empty."""
+    ctx = load_hub()
+    import xbmcgui
+    posters = []
+    for index in range(6):
+        poster = xbmcgui.ListItem('E%d' % index)
+        poster.setProperty('thumbnail', 'still-%d' % index)
+        posters.append(poster)
+    row = xbmcgui.ListItem('New Episodes')
+
+    ctx.hubwindow._apply_posters(row, posters, 4, 'land')
+
+    assert row.getProperty('layout') == 'land'
+    assert row.getProperty('focusslot') == '3'
+    assert row.getProperty('p0') == 'still-1'
+    assert row.getProperty('p3') == 'still-4'
+    assert row.getProperty('p4') == ''

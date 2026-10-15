@@ -22,11 +22,13 @@ genre so the row is not empty.
 Series, and only Series, may pin a New Episodes row. That calls
 `catalogpicker._new_episode_items` and `_mark_episode_seen`. The
 card image is the episode still those items carry (`poster`), copied
-onto `p0`..`p7`. HubWindow.xml paints `$INFO[ListItem.Property(pN)]`.
-It does not read `ListItem.Art`. The hero title is the episode label
-(`S1E3 · Title`) and the hero plot is the episode overview. The
-series clearlogo is left off that row: the skin hides the title
-whenever `HeroLogo` is set.
+onto `p0`..`p3` with `layout` `land`. HubWindow.xml paints
+`$INFO[ListItem.Property(pN)]` through `mask_land.png` for that row
+and through `mask_poster.png` for every other row (`p0`..`p7`).
+It does not read `ListItem.Art`. A 2:3 slot letterboxed the still.
+The hero title is the episode label (`S1E3 · Title`) and the hero
+plot is the episode overview. The series clearlogo is left off that
+row: the skin hides the title whenever `HeroLogo` is set.
 
 This module does not change playback, the player, or the Stremio client.
 """
@@ -48,12 +50,16 @@ from lib.ui.uicommon import BaseWindow, escape_label, gated_input, open_window
 #: The vertical list of catalog rows. One control, any number of rows.
 HUB_LIST = 31000
 
-#: Posters drawn inside one row. The rest slide in when the remote
-#: moves right. 8 * 220px fits the 1800px row. The focus stroke is one
-#: fixed control per slot (see HubWindow.xml): a `$INFO` left position
-#: is resolved against the window, so the ring sat a list-margin away
-#: from the poster it was meant to circle.
+#: Posters drawn inside one catalog row. The rest slide in when the
+#: remote moves right. 8 * 220px fits the 1800px row. The focus stroke
+#: is one fixed control per slot (see HubWindow.xml): a `$INFO` left
+#: position is resolved against the window, so the ring sat a
+#: list-margin away from the poster it was meant to circle.
 VISIBLE_SLOTS = 8
+
+#: New Episodes cards are the Continue landscape, 392x220. Four of
+#: those fill the same row. A 2:3 poster slot letterboxed the still.
+LAND_SLOTS = 4
 _STRIDE = 220
 
 #: How many non-empty rows to fill before the first paint. Two fit on
@@ -166,6 +172,9 @@ def _episode_descriptor(store, types):
     return {
         'heading': L(30313).upper(),
         'kind': 'episodes',
+        # Wide cards. HubWindow.xml draws mask_land.png for this and
+        # mask_poster.png for every other row.
+        'layout': 'land',
         'posters': posters,
         'col': 0,
         'episodes': kept,
@@ -244,19 +253,26 @@ def _ensure_loaded(descs, index):
     return index
 
 
-def _apply_posters(row_item, posters, col):
+def _apply_posters(row_item, posters, col, layout=''):
     """Copy the visible slice of `posters` onto the row, and the focused
-    poster's hero fields so `paint_hero` can read the list item."""
+    poster's hero fields so `paint_hero` can read the list item.
+
+    `layout` `land` is the New Episodes row: four 16:9 slots. Anything
+    else is eight posters. Properties past the slot count are cleared
+    so a wide row does not leave a portrait image in `p4`.
+    """
+    slots = LAND_SLOTS if layout == 'land' else VISIBLE_SLOTS
+    row_item.setProperty('layout', layout or '')
     count = len(posters)
     if not count:
         col = 0
         start = 0
     else:
         col = max(0, min(col, count - 1))
-        start = 0 if col < VISIBLE_SLOTS else col - VISIBLE_SLOTS + 1
+        start = 0 if col < slots else col - slots + 1
     for slot in range(VISIBLE_SLOTS):
         src = start + slot
-        if src < count:
+        if slot < slots and src < count:
             poster = posters[src]
             row_item.setProperty('p%d' % slot, poster.getProperty('thumbnail'))
             row_item.setProperty('n%d' % slot, poster.getLabel())
@@ -288,7 +304,7 @@ def _paint_list(window, select=None):
         item.setProperty('heading', desc.get('heading') or '')
         posters = desc.get('posters') or []
         if posters:
-            _apply_posters(item, posters, desc.get('col') or 0)
+            _apply_posters(item, posters, desc.get('col') or 0, desc.get('layout') or '')
         items.append(item)
     control = window.getControl(HUB_LIST)
     control.reset()
@@ -328,7 +344,7 @@ def _move_col(window, delta):
     desc['col'] = col
     item = window.getControl(HUB_LIST).getSelectedItem()
     if item is not None:
-        _apply_posters(item, posters, col)
+        _apply_posters(item, posters, col, desc.get('layout') or '')
 
 
 def _refresh_row(window, index):
@@ -344,7 +360,7 @@ def _refresh_row(window, index):
     item.setProperty('heading', desc.get('heading') or '')
     posters = desc.get('posters') or []
     if posters:
-        _apply_posters(item, posters, desc.get('col') or 0)
+        _apply_posters(item, posters, desc.get('col') or 0, desc.get('layout') or '')
 
 
 def _on_vertical(window):

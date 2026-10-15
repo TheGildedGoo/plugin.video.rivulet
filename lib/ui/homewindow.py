@@ -48,9 +48,11 @@ BTN_ADDONS = 30071
 BTN_SETTINGS = 30072
 BTN_SIGNIN = 30073
 
-#: How many Continue / Library posters a row keeps. Catalog rows are
-#: separate: they show `_ROW_INITIAL` from the first page and append
-#: the rest as the remote approaches the end (`_maybe_extend_focused_shelf`).
+#: How many Continue posters a row keeps. The Library row is the whole
+#: account library: cutting it here stopped the focus ring at item 12
+#: while the list itself went on. Catalog rows are separate: they show
+#: `_ROW_INITIAL` from the first page and append the rest as the remote
+#: approaches the end (`_maybe_extend_focused_shelf`).
 SHELF_CAP = 12
 
 #: First paint of a catalog row, and the most it will grow to. The first
@@ -485,7 +487,12 @@ def _played_posters(store, library_entries):
 
 def _library_posters(auth, library_entries):
     """Every non-removed libraryItem, as posters. Signed out, one Sign in
-    cell. Signed in and empty, the existing empty-library notice."""
+    cell. Signed in and empty, the existing empty-library notice.
+
+    Not sliced at `SHELF_CAP`. Continue is a short resume row, so that
+    cap belongs there. The library is the whole list: twelve was where
+    the focus ring stopped, on a panel that was ready to scroll further.
+    """
     from lib.ui.compat import L
     from lib.ui.mystuff import library_metas
 
@@ -497,7 +504,7 @@ def _library_posters(auth, library_entries):
         metas = library_metas(library_entries)
     except Exception:
         metas = []
-    posters = [_poster_item(meta) for meta in metas[:SHELF_CAP]]
+    posters = [_poster_item(meta) for meta in metas]
     if posters:
         return posters
     return [_poster_item({'name': L(30426), 'description': L(30423)})]
