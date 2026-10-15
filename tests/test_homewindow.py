@@ -1221,9 +1221,11 @@ def test_home_lists_declare_a_visible_focus_and_navigation():
         if (button.findtext('texturefocus') or '').strip() != 'pill_fill.png':
             missing.append('%s pill' % button.get('id'))
     rows = root.find(".//control[@id='30001']")
-    row_ids = [child.get('id') for child in list(rows) if child.tag == 'control']
-    assert row_ids[0] == '30140' and row_ids[1] == '30040'
-    assert '30010' not in row_ids
+    groups = [child for child in list(rows) if child.tag == 'control']
+    assert groups and all(child.get('type') == 'group' for child in groups)
+    first = [child.get('id') for child in list(groups[0]) if child.tag == 'control']
+    assert first[0] == '30140' and first[1] == '30040'
+    assert rows.find(".//control[@id='30010']") is None
     pills = root.find(".//control[@id='30010']")
     assert (pills.findtext('onup') or '').strip() == '30011'
     assert (pills.findtext('ondown') or '').strip() == '30001'
@@ -1244,6 +1246,10 @@ def test_home_lists_declare_a_visible_focus_and_navigation():
         for direction in ('onleft', 'onright'):
             if control.find(direction) is None:
                 missing.append('%s %s' % (control.get('id'), direction))
+        if control.get('type') == 'panel':
+            for direction in ('onup', 'ondown'):
+                if control.find(direction) is None:
+                    missing.append('%s %s' % (control.get('id'), direction))
     assert not missing, 'Home focus gaps: %s' % missing
 
 

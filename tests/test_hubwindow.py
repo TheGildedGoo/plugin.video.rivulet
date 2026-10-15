@@ -269,7 +269,8 @@ def test_hub_bar_is_right_aligned_and_posters_have_a_focus_frame():
     buttons = [child.get('id') for child in list(bar) if child.tag == 'control']
     assert buttons[-1] == '30072'
     rows = tree.find(".//control[@id='31000']")
-    assert rows is not None and rows.get('type') == 'list'
+    assert rows is not None and rows.get('type') == 'fixedlist'
+    assert (rows.findtext('focusposition') or '').strip() == '0'
     assert rows.find('onleft') is not None and rows.find('onright') is not None
     blob = ET.tostring(rows.find('focusedlayout'), encoding='unicode')
     assert 'FFFFFFFF' in blob

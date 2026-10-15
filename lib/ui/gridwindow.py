@@ -4,7 +4,8 @@
 """GridWindow: the merged "Continue" screen, opened via `open_grid()` -
 one labelled, horizontally-scrolling poster row per band of
 `lib.ui.mystuff`'s merge, stacked vertically in `GridWindow.xml`'s
-`grouplist` so several bands are on screen at once.
+`grouplist`. The focused band is pinned in the lower part of the
+screen and the next band peeks under it.
 
 This module fills those rows and returns the title picked. Each cell
 carries four runtime properties the skin draws (Kodi's skin engine can
@@ -23,8 +24,9 @@ neither compute nor format, so all four are prepared here):
                     dimmed so the eye skips past it
 
 Each band owns a (list, header-label) control-id pair - see `BAND_ROWS`.
-A band with no titles is not drawn at all: the skin hides both controls
-on the list's own `NumItems`, so an empty band leaves no stray heading
+A band with no titles is not drawn at all: the skin hides its group on
+a window property set from `onInit()` (not `Container.NumItems`, which
+is still 0 in that pass), so an empty band leaves no stray heading
 behind, and `usecontrolcoords` closes the gap it would have taken.
 
 Control ids:
@@ -75,16 +77,18 @@ NEW_EPISODES_BAND = 'library'
 LIST = BAND_ROWS['resume'][0]
 
 #: Width, in skin pixels, of a cell's progress track - must match the
-#: 288px bar in `GridWindow.xml`'s cell layouts, since `_progress_width()`
+#: 200px bar in `GridWindow.xml`'s cell layouts, since `_progress_width()`
 #: scales into it.
 #:
-#: 288 is the poster's REAL rendered width, not merely its layout box: the
-#: artwork is drawn `aspectratio=keep` into a 288x432 box, a true 2:3, so
+#: 200 is the poster's REAL rendered width, not merely its layout box: the
+#: artwork is drawn `aspectratio=keep` into a 200x300 box, a true 2:3, so
 #: a standard poster fills it edge to edge. The two must stay equal - at
 #: an earlier 240 track against a 216-wide rendered poster the bar
 #: overhung the artwork by 12px each side, plainly visible on a real
 #: device against the focused cell's outline. A test pins them together.
-PROGRESS_TRACK_WIDTH = 288
+#: The poster shrank from 288x432 so a whole band, title and badge
+#: included, fits in the lower row band with the next band peeking.
+PROGRESS_TRACK_WIDTH = 200
 
 #: Floor on a rendered progress bar, in skin pixels. A title watched 1-2%
 #: scales to a sub-pixel sliver that renders as nothing at all, which

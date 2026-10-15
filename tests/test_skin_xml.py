@@ -423,7 +423,9 @@ def _list_layout_rows(path):
             continue
         own_height_el = control.find('height')
         own_height = own_height_el.text.strip() if own_height_el is not None and own_height_el.text else None
-        rows.append((control.get('id'), own_height, item_height, focused_height))
+        focus = (control.findtext('focusposition') or '').strip()
+        orient = (control.findtext('orientation') or '').strip()
+        rows.append((control.get('id'), own_height, item_height, focused_height, focus, orient))
     return rows
 
 
@@ -435,7 +437,7 @@ def test_skin_list_focused_layout_matches_and_divides_row_height():
     offenders = []
     total = 0
     for path in _skin_files():
-        for control_id, own_height, item_height, focused_height in _list_layout_rows(path):
+        for control_id, own_height, item_height, focused_height, focus, orient in _list_layout_rows(path):
             total += 1
             if item_height != focused_height:
                 offenders.append('%s: control %s itemlayout height=%s != focusedlayout height=%s'
@@ -445,6 +447,12 @@ def test_skin_list_focused_layout_matches_and_divides_row_height():
                 continue
             row_height = int(item_height)
             if row_height and int(own_height) % row_height != 0:
+                extra = int(own_height) - row_height
+                # The hub row band pins the focused catalog (focusposition 0)
+                # and lets the next one peek. One partial row is the layout.
+                # Any other non-multiple is the DetailWindow clipped-row bug.
+                if orient == 'vertical' and focus == '0' and 0 < extra < row_height:
+                    continue
                 offenders.append('%s: control %s height=%s is not a whole multiple of its %spx row - the last row clips'
                                   % (path, control_id, own_height, row_height))
     assert total, 'no list/fixedlist with both itemlayout and focusedlayout found across %s - the check is not scanning anything' % _SKIN_DIR
@@ -464,7 +472,7 @@ def test_mismatched_focused_layout_height_is_rejected_regression(tmp_path):
         encoding='utf-8',
     )
     rows = _list_layout_rows(str(bad))
-    assert rows == [('1', '600', '100', '120')]
+    assert rows == [('1', '600', '100', '120', '', '')]
 
 
 def test_fractional_last_row_height_is_rejected_regression(tmp_path):
@@ -480,7 +488,7 @@ def test_fractional_last_row_height_is_rejected_regression(tmp_path):
         '</control></controls></window>',
         encoding='utf-8',
     )
-    ((_control_id, own_height, item_height, _focused_height),) = _list_layout_rows(str(bad))
+    ((_control_id, own_height, item_height, _focused_height, _focus, _orient),) = _list_layout_rows(str(bad))
     assert int(own_height) % int(item_height) != 0
 
 
