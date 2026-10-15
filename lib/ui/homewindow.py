@@ -48,9 +48,17 @@ BTN_ADDONS = 30071
 BTN_SETTINGS = 30072
 BTN_SIGNIN = 30073
 
-#: How many posters a row keeps. `iter_catalog_pages()` is consumed once
-#: and then closed, so Home does not walk the rest of the catalog.
+#: How many Continue / Library posters a row keeps. Catalog rows are
+#: separate: they show `_ROW_INITIAL` from the first page and append
+#: the rest as the remote approaches the end (`_maybe_extend_focused_shelf`).
 SHELF_CAP = 12
+
+#: First paint of a catalog row, and the most it will grow to. The first
+#: page is often longer than the screen; cutting it at 12 is what made
+#: the row stop, drop the hero, and ignore the remote once the visible
+#: window was past.
+_ROW_INITIAL = 24
+_ROW_LIMIT = 80
 
 #: Set when a hub poster changes the account library. Home has no handle
 #: on that window, and its row cache would otherwise keep the old
@@ -253,8 +261,12 @@ def _more_item(action):
 
 
 def _one_catalog_page(transport, manifest, catalog, extra=None):
-    """The first page of one catalog. The generator is advanced once and
-    closed, so a row never pages and never calls `fetch_catalog_pages()`.
+    """The first page of one catalog, uncut.
+
+    Callers keep `_ROW_INITIAL` for the first paint and hold the rest
+    back. The generator is not walked here: the following pages are
+    fetched only when the remote nears the end of what is on screen
+    (`_pull_more`), so opening Home does not pull a whole catalog.
     A failed addon yields an empty row rather than taking the screen down.
     """
     from lib.ui.views import iter_catalog_pages
@@ -268,19 +280,101 @@ def _one_catalog_page(transport, manifest, catalog, extra=None):
         return []
     except Exception:
         return []
-    metas = [meta for meta in (page or []) if isinstance(meta, dict)]
-    return metas[:SHELF_CAP]
+    return [meta for meta in (page or []) if isinstance(meta, dict)]
 
 
-def _first_catalog_page(addons, types):
-    """The first page of the first installed catalog of `types`."""
+def _shelf_page_gen(state):
+    """The catalog generator positioned on page 2.
+
+    Page 1 is already on the row (and in `state['pending']` when it did
+    not fit). Creating the generator fetches that page again and discards
+    it, which is the only way to resume `skip` without holding the first
+    generator open across the whole session.
+    """
+    if not state or not state.get('transport') or not state.get('catalog'):
+        return None
+    gen = state.get('gen')
+    if gen is not None:
+        return gen
+    from lib.ui.views import iter_catalog_pages
+
+    catalog = state['catalog']
+    try:
+        gen = iter_catalog_pages(
+            state['transport'], catalog.get('type'), catalog.get('id'),
+            extra=state.get('extra'), catalog=catalog, manifest=state.get('manifest'),
+        )
+        next(gen)
+    except StopIteration:
+        return None
+    except Exception as exc:
+        if isinstance(exc, AssertionError):
+            raise
+        from lib.ui.compat import log
+        log('home: catalog page resume failed: %r' % (exc,))
+        return None
+    state['gen'] = gen
+    return gen
+
+
+def _pull_more(state, room):
+    """Up to `room` more metas for a row that is about to run out.
+
+    Leftover metas from the page already fetched come first, so reaching
+    the end of the first screen does not hit the network. A later page
+    is fetched only once that leftover is on screen. An empty answer
+    marks the row finished; the hero stays on the last real poster.
+    """
+    if not state or room <= 0 or state.get('exhausted'):
+        return []
+    pending = list(state.get('pending') or [])
+    if pending:
+        state['pending'] = pending[room:]
+        return pending[:room]
+    gen = _shelf_page_gen(state)
+    if gen is None:
+        state['exhausted'] = True
+        return []
+    try:
+        page = next(gen)
+    except StopIteration:
+        state['exhausted'] = True
+        return []
+    except Exception as exc:
+        if isinstance(exc, AssertionError):
+            raise
+        from lib.ui.compat import log
+        log('home: next catalog page failed: %r' % (exc,))
+        state['exhausted'] = True
+        return []
+    batch = [meta for meta in (page or []) if isinstance(meta, dict)]
+    if not batch:
+        state['exhausted'] = True
+        return []
+    state['pending'] = batch
+    return _pull_more(state, room)
+
+
+def _open_shelf(addons, types):
+    """The first catalog of `types`, plus the leftover metas past the
+    first screen. None when nothing of that type is installed."""
     from lib.stremio.addons import _base_type, iter_catalogs
 
     for transport, manifest, catalog in iter_catalogs(addons):
         if _base_type(catalog.get('type')) not in types:
             continue
-        return _one_catalog_page(transport, manifest, catalog)
-    return []
+        metas = _one_catalog_page(transport, manifest, catalog)
+        return {
+            'metas': metas,
+            'transport': transport,
+            'manifest': manifest,
+            'catalog': catalog,
+            'extra': None,
+            'pending': metas[_ROW_INITIAL:],
+            'gen': None,
+            'exhausted': False,
+        }
+    return None
 
 
 def _set_shelf(window, list_id, label_id, prop, heading, items):
@@ -447,11 +541,22 @@ def _enabled_shelf_types(addons):
 
 
 def _catalog_pages(addons, enabled):
-    """First page per enabled shelf. `iter_catalog_pages()` once each."""
-    return {
-        action: _first_catalog_page(addons, types)
-        for action, types in enabled.items()
-    }
+    """First screen per enabled shelf, and the state that appends the rest.
+
+    `pages` is what the row draws now. `more` is what `_pull_more` walks
+    when the remote nears the end. One request per shelf at open.
+    """
+    pages = {}
+    more = {}
+    for action, types in enabled.items():
+        shelf = _open_shelf(addons, types)
+        if shelf is None:
+            pages[action] = []
+            more[action] = None
+            continue
+        pages[action] = shelf['metas'][:_ROW_INITIAL]
+        more[action] = shelf
+    return pages, more
 
 
 def _load_rows(window, store, addons, auth):
@@ -478,20 +583,23 @@ def _load_rows(window, store, addons, auth):
 
     def _load():
         library_entries = _fetch_library(store, auth)
+        pages, more = _catalog_pages(addons, enabled)
         return (
             _played_posters(store, library_entries),
             _library_posters(auth, library_entries),
-            _catalog_pages(addons, enabled),
+            pages,
+            more,
         )
 
     loaded = run_cancellable(_load, L(30033))
-    if loaded is CANCELLED or not isinstance(loaded, tuple) or len(loaded) != 3:
+    if loaded is CANCELLED or not isinstance(loaded, tuple) or len(loaded) != 4:
         return [], [], {}, enabled
-    continue_items, library_items, pages = loaded
+    continue_items, library_items, pages, more = loaded
     window._row_key = key
     window._continue_items = continue_items
     window._library_items = library_items
     window._catalog_pages = pages
+    window._shelf_more = more
     return continue_items, library_items, pages, enabled
 
 
@@ -622,6 +730,72 @@ def _status_text(auth):
     return '[COLOR FF38BDF8]\u25cf[/COLOR] %s' % text
 
 
+def _fit_hero_title(text):
+    """One line for the title band. The label does not wrap, and a long
+    name used to run through the metadata under it."""
+    text = text or ''
+    if len(text) <= 48:
+        return text
+    return text[:47].rstrip() + '\u2026'
+
+
+def _append_to_shelf(window, list_id, metas):
+    """Add `metas` to a shelf, keeping the poster the remote is on.
+
+    `addItems` sends the cursor back to the first cell. The saved
+    position is put back so a page landing under the thumb does not
+    jump the row, which is the same snap the coverflow already avoids.
+    The More cell, when the row has one, stays last.
+    """
+    if not metas:
+        return
+    control = window.getControl(list_id)
+    pos = control.getSelectedPosition()
+    if pos < 0:
+        pos = 0
+    items = [control.getListItem(index) for index in range(control.size())]
+    more = None
+    if items and items[-1].getProperty('action') and not items[-1].getProperty('sid'):
+        more = items.pop()
+    items.extend(_poster_item(meta) for meta in metas)
+    if more is not None:
+        items.append(more)
+    control.reset()
+    control.addItems(items)
+    if items:
+        control.selectItem(min(pos, len(items) - 1))
+
+
+def _maybe_extend_focused_shelf(window):
+    """Append the next posters when the remote is within four of the end.
+
+    The panel only had the first slice. Moving into the unloaded part
+    left the container on a blank item, paint_hero cleared the title,
+    and the row stopped taking left and right.
+    """
+    focus = window.getFocusId()
+    action = None
+    for name, list_id, _label in _SHELVES:
+        if list_id == focus:
+            action = name
+            break
+    if action is None:
+        return
+    state = (getattr(window, '_shelf_more', None) or {}).get(action)
+    if not state:
+        return
+    control = window.getControl(focus)
+    count = control.size()
+    pos = control.getSelectedPosition()
+    if count <= 0 or pos < max(0, count - 4):
+        return
+    shown = 0
+    for index in range(count):
+        if control.getListItem(index).getProperty('sid'):
+            shown += 1
+    _append_to_shelf(window, focus, _pull_more(state, _ROW_LIMIT - shown))
+
+
 def paint_hero(window):
     """Paint the backdrop from the focused poster.
 
@@ -629,6 +803,10 @@ def paint_hero(window):
     keeps the last title on screen while the remote is on the top bar,
     which is the reading order of this layout. A poster with no fanart
     falls back to the addon fanart so the hero never goes blank.
+
+    A container that has scrolled past the items it actually holds hands
+    back a blank list item. Writing that blank is what cleared the title
+    and the plot and left the row looking dead. Keep the previous hero.
     """
     from lib.ui.compat import addon_fanart
 
@@ -641,7 +819,10 @@ def paint_hero(window):
         item = None
     if item is None:
         return
-    title = item.getProperty('hero_title') or item.getLabel() or ''
+    title = item.getProperty('hero_title') or ''
+    label = item.getLabel() or ''
+    if not title and not label and not item.getProperty('sid') and not item.getProperty('hero_logo'):
+        return
     meta = item.getProperty('hero_meta') or ''
     plot = item.getProperty('hero_plot') or item.getProperty('subtitle') or ''
     fanart = item.getProperty('fanart') or ''
@@ -649,7 +830,7 @@ def paint_hero(window):
     try:
         window.setProperty('HeroLogo', logo)
         window.getControl(HERO_LOGO).setImage(logo)
-        window.getControl(HERO_TITLE).setLabel(title)
+        window.getControl(HERO_TITLE).setLabel(_fit_hero_title(title or label))
         window.getControl(HERO_META).setLabel(meta)
         window.getControl(HERO_PLOT).setText(plot)
         window.getControl(BACKGROUND).setImage(fanart or addon_fanart())
@@ -704,6 +885,11 @@ class HomeWindow(BaseWindow):
         if action_id == 4 and not self.getControl(BROWSE_LIST).size():
             if self.getFocusId() in _BUTTON_ACTIONS or self.getFocusId() == TOOLS_LIST:
                 _focus_first(self)
+        # Right is what walks a shelf. Load the next posters before the
+        # hero is painted, so the cell the remote just reached already
+        # has a title.
+        if action_id == 2:
+            _maybe_extend_focused_shelf(self)
         paint_hero(self)
 
     @gated_input

@@ -1072,6 +1072,98 @@ def test_onaction_paints_the_hero_from_the_focused_poster(load_homewindow, monke
     assert win.getControl(ctx.homewindow.BACKGROUND).image == 'https://img/dune.jpg'
 
 
+def test_a_blank_focused_item_does_not_clear_the_hero(load_homewindow, monkeypatch):
+    """Scrolling past the posters the row actually holds used to hand
+    paint_hero a blank item. That cleared the title and the plot, and
+    the row looked dead. A blank item keeps the hero that was there."""
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = xbmcgui.ListItem('Dune')
+    item.setProperties({
+        'hero_title': 'Dune',
+        'hero_meta': '2021',
+        'hero_plot': 'A boy and a desert.',
+        'fanart': 'https://img/dune.jpg',
+        'sid': 'tt1',
+    })
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([item])
+    win.setFocusId(ctx.homewindow.CONTINUE_SHELF)
+    win.onAction(xbmcgui.Action(1))
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Dune'
+
+    win.getControl(ctx.homewindow.BROWSE_LIST).addItems([xbmcgui.ListItem()])
+    win.setFocusId(ctx.homewindow.BROWSE_LIST)
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Dune'
+    assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'A boy and a desert.'
+
+
+def test_right_near_the_end_appends_the_rest_of_the_catalog_page(load_homewindow):
+    ctx = load_homewindow()
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    first = xbmcgui.ListItem('One')
+    first.setProperty('sid', 'tt1')
+    first.setProperty('hero_title', 'One')
+    second = xbmcgui.ListItem('Two')
+    second.setProperty('sid', 'tt2')
+    second.setProperty('hero_title', 'Two')
+    more = xbmcgui.ListItem('More')
+    more.setProperty('action', 'movies')
+    shelf = win.getControl(ctx.homewindow._SHELVES[0][1])
+    shelf.addItems([first, second, more])
+    shelf.selected_index = 1
+    win.setFocusId(ctx.homewindow._SHELVES[0][1])
+    win._shelf_more = {
+        'movies': {
+            'pending': [{'id': 'tt3', 'name': 'Three', 'type': 'movie', 'poster': 'p'}],
+            'exhausted': False,
+        },
+    }
+
+    win.onAction(xbmcgui.Action(2))
+
+    sids = [item.getProperty('sid') for item in shelf.items]
+    assert sids == ['tt1', 'tt2', 'tt3', '']
+    assert shelf.items[-1].getProperty('action') == 'movies'
+    assert shelf.selected_index == 1
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Two'
+
+
+def test_focus_ring_sits_on_the_art_and_the_hero_does_not_overlap():
+    """The ring used to be a larger plate inside a zoomed group, so it
+    sat off the poster. The title band used to share its box with the
+    year and the plot."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    path = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i', 'HomeWindow.xml')
+    root = ET.parse(path).getroot()
+    for cid, art_w, art_h in (('30040', 392, 220), ('30041', 200, 300)):
+        focused = root.find(".//control[@id='%s']/focusedlayout" % cid)
+        blob = ET.tostring(focused, encoding='unicode')
+        assert 'zoom' not in blob
+        images = [el for el in focused.findall('control') if el.get('type') == 'image']
+        art = next(el for el in images if '$INFO' in (el.findtext('texture') or ''))
+        stroke = next(el for el in images if (el.findtext('texture') or '').strip() == 'focus_stroke.png')
+        for tag in ('left', 'top', 'width', 'height'):
+            assert (art.findtext(tag) or '').strip() == (stroke.findtext(tag) or '').strip()
+        assert (art.findtext('width') or '').strip() == str(art_w)
+        assert (art.findtext('height') or '').strip() == str(art_h)
+    title = root.find(".//control[@id='30020']")
+    meta = root.find(".//control[@id='30021']")
+    plot = root.find(".//control[@id='30022']")
+    title_bottom = int(title.findtext('top')) + int(title.findtext('height'))
+    meta_top = int(meta.findtext('top'))
+    meta_bottom = meta_top + int(meta.findtext('height'))
+    plot_top = int(plot.findtext('top'))
+    assert meta_top >= title_bottom
+    assert plot_top >= meta_bottom
+
+
 def test_home_lists_declare_a_visible_focus_and_navigation():
     """Every remote move on Home has to land on a control whose focused
     state is visible, with a direction wired so the press is not a dead end.

@@ -43,11 +43,13 @@ from lib.ui.uicommon import BaseWindow, gated_input, open_window
 #: The vertical list of catalog rows. One control, any number of rows.
 HUB_LIST = 31000
 
-#: Posters drawn inside one row. The rest of `SHELF_CAP` slide in when
-#: the remote moves right. 8 * 220px fits the 1800px row.
+#: Posters drawn inside one row. The rest slide in when the remote
+#: moves right. 8 * 220px fits the 1800px row. The focus stroke is one
+#: fixed control per slot (see HubWindow.xml): a `$INFO` left position
+#: is resolved against the window, so the ring sat a list-margin away
+#: from the poster it was meant to circle.
 VISIBLE_SLOTS = 8
 _STRIDE = 220
-_FRAME_LEFT = 2
 
 #: How many non-empty rows to fill before the first paint. Two fit on
 #: screen; the third is ready for the next Down.
@@ -157,17 +159,45 @@ def _episode_descriptor(store, types):
 
 
 def _load_posters(desc):
-    """The row's posters. A catalog page is fetched at most once."""
+    """The row's first screen. The rest of that page waits on `pending`
+    and the pages after it are fetched when the remote nears the end
+    (`_extend_row`). A catalog page is not thrown away at 12."""
     if desc.get('posters') is not None:
         return desc['posters']
-    from lib.ui.homewindow import _one_catalog_page, _poster_item
+    from lib.ui.homewindow import _ROW_INITIAL, _one_catalog_page, _poster_item
 
     metas = _one_catalog_page(
         desc.get('transport'), desc.get('manifest'), desc.get('catalog'),
         extra=desc.get('extra'),
     )
-    desc['posters'] = [_poster_item(meta) for meta in (metas or [])[:SHELF_CAP]]
+    desc['pending'] = metas[_ROW_INITIAL:]
+    desc['gen'] = None
+    desc['exhausted'] = False
+    desc['posters'] = [_poster_item(meta) for meta in metas[:_ROW_INITIAL]]
     return desc['posters']
+
+
+def _extend_row(desc):
+    """Append posters once the cursor is near the ones already drawn.
+
+    Without this, right past the first screen had nowhere to go. The
+    list item under the cursor went blank, and the hero title with it.
+    """
+    posters = desc.get('posters') or []
+    if desc.get('exhausted'):
+        return posters
+    from lib.ui.homewindow import _ROW_LIMIT, _poster_item, _pull_more
+
+    room = _ROW_LIMIT - len(posters)
+    if room <= 0:
+        desc['exhausted'] = True
+        return posters
+    added = _pull_more(desc, room)
+    if not added:
+        return posters
+    posters.extend(_poster_item(meta) for meta in added)
+    desc['posters'] = posters
+    return posters
 
 
 def _fill_prefix(descs, limit):
@@ -219,7 +249,10 @@ def _apply_posters(row_item, posters, col):
         else:
             row_item.setProperty('p%d' % slot, '')
             row_item.setProperty('n%d' % slot, '')
-    row_item.setProperty('focusleft', str(_FRAME_LEFT + (col - start) * _STRIDE))
+    # Slot inside the visible window, not a pixel left. The skin has one
+    # stroke per slot at that poster's own rectangle; a computed left
+    # landed in window coordinates and the ring missed the card.
+    row_item.setProperty('focusslot', str(col - start))
     if count:
         poster = posters[col]
         row_item.setProperty('hero_title', poster.getProperty('hero_title'))
@@ -273,6 +306,10 @@ def _move_col(window, delta):
     posters = desc.get('posters') or []
     if not posters:
         return
+    # Load before clamping, so a right at the end of this screen moves
+    # onto the poster that just arrived instead of sticking.
+    if delta > 0 and (desc.get('col') or 0) >= len(posters) - 3:
+        posters = _extend_row(desc)
     col = max(0, min((desc.get('col') or 0) + delta, len(posters) - 1))
     desc['col'] = col
     item = window.getControl(HUB_LIST).getSelectedItem()

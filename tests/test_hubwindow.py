@@ -194,7 +194,50 @@ def test_right_moves_the_focus_to_the_next_poster(load_hub):
     win.onAction(xbmcgui.Action(2))
 
     assert win._descs[0]['col'] == 1
-    assert win.getControl(ctx.hubwindow.HUB_LIST).getSelectedItem().getProperty('sid') == 'id1'
+    item = win.getControl(ctx.hubwindow.HUB_LIST).getSelectedItem()
+    assert item.getProperty('sid') == 'id1'
+    # Slot 1 of the visible window, which is where the stroke for that poster is drawn.
+    assert item.getProperty('focusslot') == '1'
+
+
+def test_right_at_the_end_of_the_screen_appends_the_rest_and_keeps_the_hero(load_hub):
+    """The first screen is not the end of the row. Right near it must
+    bring the held-back posters in, move onto the next one, and leave
+    that title on the hero. A blank list item used to wipe the title
+    and the plot and then ignore the remote."""
+    ctx = load_hub()
+    import xbmcgui
+    posters = []
+    for index in range(3):
+        poster = xbmcgui.ListItem('T%d' % index)
+        poster.setProperty('hero_title', 'T%d' % index)
+        poster.setProperty('hero_plot', 'plot %d' % index)
+        poster.setProperty('sid', 'id%d' % index)
+        posters.append(poster)
+    win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
+    win._descs = [{
+        'heading': 'Top',
+        'posters': posters,
+        'col': 2,
+        'pending': [
+            {'id': 'id3', 'name': 'T3', 'type': 'movie', 'poster': 'p3', 'description': 'plot 3'},
+            {'id': 'id4', 'name': 'T4', 'type': 'movie', 'poster': 'p4', 'description': 'plot 4'},
+        ],
+    }]
+    ctx.hubwindow._paint_list(win, select=0)
+    win.setFocusId(ctx.hubwindow.HUB_LIST)
+
+    win.onAction(xbmcgui.Action(2))
+
+    assert win._descs[0]['col'] == 3
+    assert [item.getProperty('sid') for item in win._descs[0]['posters']] == [
+        'id0', 'id1', 'id2', 'id3', 'id4',
+    ]
+    selected = win.getControl(ctx.hubwindow.HUB_LIST).getSelectedItem()
+    assert selected.getProperty('hero_title') == 'T3'
+    assert selected.getProperty('focusslot') == '3'
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'T3'
+    assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'plot 3'
 
 
 def test_empty_hub_closes_and_notifies(load_hub, monkeypatch):
@@ -229,4 +272,6 @@ def test_hub_bar_is_right_aligned_and_posters_have_a_focus_frame():
     assert 'FFFFFFFF' in blob
     assert 'mask_poster.png' in blob
     assert 'round_mask.png' not in blob
+    assert 'focusleft' not in blob
+    assert blob.count('focus_stroke.png') == 8
     assert 'pill_fill.png' in ET.tostring(bar, encoding='unicode')
