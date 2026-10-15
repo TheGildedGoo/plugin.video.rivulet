@@ -240,7 +240,7 @@ def test_oninit_fills_each_band_row_and_labels_it(ctx):
     assert [i.getLabel() for i in win.getControl(recent_list).items] == ['W']
     assert win.getControl(resume_label).label == 'STR30245'
     assert win.getControl(recent_label).label == 'STR30246'
-    assert win.getControl(ctx.gridwindow.HEADING).label == 'REVRIVULET / CONTINUE'
+    assert win.getControl(ctx.gridwindow.HEADING).label == 'RevRivulet / CONTINUE'
 
 
 def test_oninit_leaves_an_absent_band_empty_and_unlabelled(ctx):
@@ -667,7 +667,7 @@ def test_focus_frame_is_wider_than_the_poster_on_every_band():
     xml = _grid_xml()
     frames = re.findall(
         r'<top>0</top><left>8</left><width>304</width><height>440</height>'
-        r'<texture colordiffuse="FF38BDF8">',
+        r'<texture[^>]*colordiffuse="FF38BDF8">',
         xml,
     )
     assert len(frames) == 4, 'expected one focus frame per band, found %d' % len(frames)

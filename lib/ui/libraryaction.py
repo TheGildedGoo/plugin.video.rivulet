@@ -1,0 +1,109 @@
+# SPDX-FileCopyrightText: 2026 M0Rf30
+# SPDX-License-Identifier: MIT
+
+"""Add to Library / Remove from Library for a poster.
+
+The title page already does this (`detailwindow._toggle_library`). A
+poster on Home or a hub has no detail window of its own, so this calls
+the same three pieces that menu uses: `get_library_item` to read the
+live `removed` flag, `library_add_payload` / `library_remove_payload` to
+build the record, and `put_library_item` to `datastore_put` it. Nothing
+here changes the API client or the payload builders.
+
+A failed lookup must not be treated as "no record": that used to
+overwrite a real server-side item. Signed out, the menu tells the
+viewer to sign in and writes nothing.
+"""
+
+
+def meta_from_item(item):
+    """The meta `library_add_payload` needs, or None for a chip, a More
+    card, or the empty-library notice (those have no title id)."""
+    if item is None:
+        return None
+    sid = item.getProperty('sid') or ''
+    if not sid or item.getProperty('action'):
+        return None
+    name = item.getProperty('hero_title') or item.getLabel() or ''
+    return {
+        'id': sid,
+        'type': item.getProperty('stype') or '',
+        'name': name,
+        'poster': item.getProperty('thumbnail') or '',
+    }
+
+
+def _lookup(auth, item_id):
+    """`(item, lookup_ok)`. `item` is None both when the account has no
+    record and when the call failed; `lookup_ok` is what tells those
+    apart. Back on the spinner returns `(CANCELLED, False)`."""
+    from lib.stremio.api import ApiError
+    from lib.ui.compat import L, log
+    from lib.ui.dependencies import get_api
+    from lib.ui.uicommon import CANCELLED, run_cancellable
+
+    try:
+        found = run_cancellable(
+            lambda: get_api().get_library_item(auth.get('authKey'), item_id), L(30033),
+        )
+    except ApiError as exc:
+        log('libraryaction: lookup failed: %r' % (exc,))
+        return None, False
+    if found is CANCELLED:
+        return found, False
+    return found, True
+
+
+def _push(auth, payload):
+    """True when `put_library_item` landed. Back or an `ApiError`
+    notifies nothing on cancel and `#30301` on failure."""
+    import xbmc
+
+    from lib.stremio.api import ApiError
+    from lib.ui.compat import L, log, notify
+    from lib.ui.dependencies import get_api
+    from lib.ui.uicommon import CANCELLED, run_cancellable
+
+    try:
+        if run_cancellable(
+            lambda: get_api().put_library_item(auth.get('authKey'), payload), L(30033),
+        ) is CANCELLED:
+            log('libraryaction: write cancelled while pending', xbmc.LOGINFO)
+            return False
+    except ApiError as exc:
+        log('libraryaction: write failed: %r' % (exc,), xbmc.LOGWARNING)
+        notify(L(30301))
+        return False
+    return True
+
+
+def offer(meta):
+    """One-row menu: Add when the title is not in the library, Remove
+    when it is. Returns `'added'`, `'removed'`, or None. The toast is
+    the same copy the title page uses (`#30297` / `#30298`)."""
+    from lib import library
+    from lib.ui import dialogs
+    from lib.ui.compat import L, notify
+    from lib.ui.dependencies import get_store
+    from lib.ui.uicommon import CANCELLED
+
+    auth = get_store().get_auth()
+    if not auth:
+        notify(L(30190))
+        return None
+    item, lookup_ok = _lookup(auth, meta.get('id'))
+    if item is CANCELLED:
+        return None
+    if not lookup_ok:
+        notify(L(30302))
+        return None
+    in_library = bool(item) and not item.get('removed')
+    label = L(30294) if in_library else L(30293)
+    picked = dialogs.choose(meta.get('name') or meta.get('id') or '', [label])
+    if picked != 0:
+        return None
+    payload = library.library_remove_payload(item) if in_library else library.library_add_payload(meta)
+    if not _push(auth, payload):
+        return None
+    notify(L(30298) if in_library else L(30297))
+    return 'removed' if in_library else 'added'

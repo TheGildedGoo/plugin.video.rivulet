@@ -3,16 +3,20 @@
 
 """HubWindow: one horizontal poster row per catalog of a type.
 
-Home's Movies / Series / Anime / Other chips open this instead of the
-vertical catalog list. The rows are the same poster cells Home uses
-(`homewindow._poster_item` / `_one_catalog_page`). The skin has a fixed
-number of row slots (`HUB_ROWS`); catalogs past that are logged and
-left off the screen. Kodi cannot create controls while the window is
-open, and this skin has no includes file to clone a row from.
+Home's Movies / Series / Anime / Other chips open this. Every reachable
+catalog of that type gets a row. Kodi cannot create controls while a
+window is open, so the skin has one vertical list and each row is a
+list item. Kodi only draws the rows on screen. Poster pages are fetched
+for the first screenful, then for the row the remote lands on and the
+one after it, so a long catalog list does not fan out on CoreELEC.
+
+The cells are the same posters Home uses (`homewindow._poster_item` /
+`_one_catalog_page`). A row wider than the screen slides its own
+posters when the remote moves left and right; the list itself scrolls
+vertically.
 
 Search-only catalogs are skipped. They cannot draw a poster until the
-viewer types a query, and that prompt still lives on the old picker.
-A genre-required catalog (Cinemeta's year lists) uses its first declared
+viewer types a query. A genre-required catalog uses its first declared
 genre so the row is not empty.
 
 Series, and only Series, may pin a New Episodes row. That calls
@@ -21,6 +25,8 @@ not change them.
 
 This module does not change playback, the player, or the Stremio client.
 """
+import xbmcgui
+
 from lib.ui.dependencies import get_store
 from lib.ui.homewindow import (
     BACKGROUND,
@@ -34,11 +40,24 @@ from lib.ui.homewindow import (
 )
 from lib.ui.uicommon import BaseWindow, gated_input, open_window
 
-#: Eight rows is the skin cap. Past that, a further catalog is dropped
-#: with a log line rather than inventing controls at runtime.
-HUB_ROWS = tuple(
-    (31010 + index, 31110 + index) for index in range(8)
-)
+#: The vertical list of catalog rows. One control, any number of rows.
+HUB_LIST = 31000
+
+#: Posters drawn inside one row. The rest of `SHELF_CAP` slide in when
+#: the remote moves right. 8 * 220px fits the 1800px row.
+VISIBLE_SLOTS = 8
+_STRIDE = 220
+_FRAME_LEFT = 2
+
+#: How many non-empty rows to fill before the first paint. Two fit on
+#: screen; the third is ready for the next Down.
+_INITIAL_ROWS = 3
+
+_ACTION_LEFT = 1
+_ACTION_RIGHT = 2
+_ACTION_UP = 3
+_ACTION_DOWN = 4
+_ACTION_CONTEXT = 117
 
 _BUTTON_ACTIONS = {
     BTN_SEARCH: 'search',
@@ -53,36 +72,15 @@ def _heading_for(catalog):
     return str(name)
 
 
-def _row_for_catalog(transport, manifest, catalog):
-    """One `(heading, items)` pair, or None when the catalog cannot be
-    a poster row. Search-only catalogs are the None case: opening them
-    needs a query, and this screen does not prompt."""
-    from lib.stremio.addons import catalog_extra_options
-    from lib.ui.catalogpicker import _classify_catalog
-    from lib.ui.homewindow import _one_catalog_page, _poster_item
+def _descriptors(addons, types):
+    """Every non-search catalog of `types`, in addon order. No HTTP.
 
-    kind = _classify_catalog(catalog)
-    if kind == 'search':
-        return None
-    extra = None
-    if kind == 'genre':
-        options = catalog_extra_options(catalog, 'genre')
-        if not options:
-            return None
-        extra = [('genre', options[0])]
-    metas = _one_catalog_page(transport, manifest, catalog, extra=extra)
-    if not metas:
-        return None
-    items = [_poster_item(meta) for meta in metas[:SHELF_CAP]]
-    return _heading_for(catalog), items
-
-
-def _catalog_rows(addons, types, limit):
-    """Reachable, non-search catalogs of `types`, in addon order, capped
-    at `limit` rows."""
+    `posters is None` means the page has not been fetched. An empty list
+    means it was fetched and had nothing to draw.
+    """
     import xbmc
 
-    from lib.stremio.addons import _base_type, iter_catalogs
+    from lib.stremio.addons import _base_type, catalog_extra_options, iter_catalogs
     from lib.ui.catalogpicker import _classify_catalog, _reachable_catalogs
     from lib.ui.compat import log
 
@@ -92,31 +90,37 @@ def _catalog_rows(addons, types, limit):
         if _base_type(entry[2].get('type')) in wanted
     ]
     catalogs = _reachable_catalogs(catalogs)
-    rows = []
+    descs = []
     skipped_search = 0
-    dropped = 0
     for transport, manifest, catalog in catalogs:
-        if _classify_catalog(catalog) == 'search':
+        kind = _classify_catalog(catalog)
+        if kind == 'search':
             skipped_search += 1
             continue
-        if len(rows) >= limit:
-            dropped += 1
-            continue
-        row = _row_for_catalog(transport, manifest, catalog)
-        if row is None:
-            continue
-        rows.append(row)
+        extra = None
+        if kind == 'genre':
+            options = catalog_extra_options(catalog, 'genre')
+            if not options:
+                continue
+            extra = [('genre', options[0])]
+        descs.append({
+            'heading': _heading_for(catalog),
+            'kind': 'catalog',
+            'transport': transport,
+            'manifest': manifest,
+            'catalog': catalog,
+            'extra': extra,
+            'posters': None,
+            'col': 0,
+        })
     if skipped_search:
         log('hub: skipped %d search-only catalogs' % skipped_search, xbmc.LOGINFO)
-    if dropped:
-        log('hub: %d catalogs past the %d row cap were not shown' % (dropped, limit), xbmc.LOGINFO)
-    return rows
+    return descs
 
 
-def _new_episode_row(store, types):
-    """The Series hub's first row, or None. Calls the picker's existing
-    helper; a failure there already returns [] and must not blank the hub.
-    """
+def _episode_descriptor(store, types):
+    """The Series hub's first row, or None. The posters are already
+    known: this does not fetch a catalog page."""
     from lib.ui.catalogpicker import _SERIES_SCREEN_TYPES, _new_episode_items
     from lib.ui.compat import L, setting_bool
     from lib.ui.homewindow import _poster_item
@@ -128,7 +132,7 @@ def _new_episode_row(store, types):
     episodes = _new_episode_items(store) or []
     if not episodes:
         return None
-    items = []
+    posters = []
     kept = []
     for index, episode in enumerate(episodes[:SHELF_CAP]):
         item = _poster_item({
@@ -139,41 +143,170 @@ def _new_episode_row(store, types):
             'background': episode.get('background'),
         })
         item.setProperty('episode_index', str(index))
-        items.append(item)
+        posters.append(item)
         kept.append(episode)
-    if not items:
+    if not posters:
         return None
-    return L(30313).upper(), items, kept
+    return {
+        'heading': L(30313).upper(),
+        'kind': 'episodes',
+        'posters': posters,
+        'col': 0,
+        'episodes': kept,
+    }
 
 
-def _build_rows(store, addons, types):
-    """New Episodes first on Series, then one row per catalog."""
-    rows = []
-    episodes = []
-    pinned = _new_episode_row(store, types)
-    if pinned is not None:
-        heading, items, episodes = pinned
-        rows.append((heading, items))
-    rows.extend(_catalog_rows(addons, types, len(HUB_ROWS) - len(rows)))
-    return rows, episodes
+def _load_posters(desc):
+    """The row's posters. A catalog page is fetched at most once."""
+    if desc.get('posters') is not None:
+        return desc['posters']
+    from lib.ui.homewindow import _one_catalog_page, _poster_item
+
+    metas = _one_catalog_page(
+        desc.get('transport'), desc.get('manifest'), desc.get('catalog'),
+        extra=desc.get('extra'),
+    )
+    desc['posters'] = [_poster_item(meta) for meta in (metas or [])[:SHELF_CAP]]
+    return desc['posters']
 
 
-def _paint_rows(window, rows):
-    from lib.ui.homewindow import _set_shelf
+def _fill_prefix(descs, limit):
+    """Fetch from the front until `limit` rows have posters, dropping
+    empty catalogs. Later rows stay unloaded."""
+    index = 0
+    filled = 0
+    while index < len(descs) and filled < limit:
+        if not _load_posters(descs[index]):
+            del descs[index]
+            continue
+        filled += 1
+        index += 1
+    return descs
 
-    for index, (list_id, label_id) in enumerate(HUB_ROWS):
-        if index < len(rows):
-            heading, items = rows[index]
-            _set_shelf(window, list_id, label_id, 'hub_%d' % index, heading.upper(), items)
+
+def _ensure_loaded(descs, index):
+    """Fetch the focused row and the next one. An empty focused row is
+    removed so Down does not land on a blank header."""
+    if index < 0:
+        return 0
+    if index < len(descs) and not _load_posters(descs[index]):
+        del descs[index]
+    nxt = index + 1
+    if nxt < len(descs) and descs[nxt].get('posters') is None:
+        if not _load_posters(descs[nxt]):
+            del descs[nxt]
+    if index >= len(descs):
+        return max(0, len(descs) - 1)
+    return index
+
+
+def _apply_posters(row_item, posters, col):
+    """Copy the visible slice of `posters` onto the row, and the focused
+    poster's hero fields so `paint_hero` can read the list item."""
+    count = len(posters)
+    if not count:
+        col = 0
+        start = 0
+    else:
+        col = max(0, min(col, count - 1))
+        start = 0 if col < VISIBLE_SLOTS else col - VISIBLE_SLOTS + 1
+    for slot in range(VISIBLE_SLOTS):
+        src = start + slot
+        if src < count:
+            poster = posters[src]
+            row_item.setProperty('p%d' % slot, poster.getProperty('thumbnail'))
+            row_item.setProperty('n%d' % slot, poster.getLabel())
         else:
-            _set_shelf(window, list_id, label_id, 'hub_%d' % index, '', [])
+            row_item.setProperty('p%d' % slot, '')
+            row_item.setProperty('n%d' % slot, '')
+    row_item.setProperty('focusleft', str(_FRAME_LEFT + (col - start) * _STRIDE))
+    if count:
+        poster = posters[col]
+        row_item.setProperty('hero_title', poster.getProperty('hero_title'))
+        row_item.setProperty('hero_meta', poster.getProperty('hero_meta'))
+        row_item.setProperty('hero_plot', poster.getProperty('hero_plot'))
+        row_item.setProperty('hero_logo', poster.getProperty('hero_logo'))
+        row_item.setProperty('fanart', poster.getProperty('fanart'))
+        row_item.setProperty('sid', poster.getProperty('sid'))
+        row_item.setProperty('stype', poster.getProperty('stype'))
+        row_item.setProperty('thumbnail', poster.getProperty('thumbnail'))
+        row_item.setProperty('episode_index', poster.getProperty('episode_index'))
+    row_item.setProperty('col', str(col))
 
 
-def _focus_first(window, rows):
-    if rows:
-        window.setFocusId(HUB_ROWS[0][0])
+def _paint_list(window, select=None):
+    items = []
+    for desc in window._descs:
+        item = xbmcgui.ListItem(desc.get('heading') or '')
+        item.setProperty('heading', desc.get('heading') or '')
+        posters = desc.get('posters') or []
+        if posters:
+            _apply_posters(item, posters, desc.get('col') or 0)
+        items.append(item)
+    control = window.getControl(HUB_LIST)
+    control.reset()
+    if not items:
         return
-    window.setFocusId(BTN_SETTINGS)
+    control.addItems(items)
+    if select is None:
+        select = 0
+    control.selectItem(max(0, min(select, len(items) - 1)))
+
+
+def _current_poster(window):
+    index = window.getControl(HUB_LIST).getSelectedPosition()
+    if index < 0 or index >= len(window._descs):
+        return None
+    desc = window._descs[index]
+    posters = desc.get('posters') or []
+    if not posters:
+        return None
+    col = min(desc.get('col') or 0, len(posters) - 1)
+    return posters[col]
+
+
+def _move_col(window, delta):
+    index = window.getControl(HUB_LIST).getSelectedPosition()
+    if index < 0 or index >= len(window._descs):
+        return
+    desc = window._descs[index]
+    posters = desc.get('posters') or []
+    if not posters:
+        return
+    col = max(0, min((desc.get('col') or 0) + delta, len(posters) - 1))
+    desc['col'] = col
+    item = window.getControl(HUB_LIST).getSelectedItem()
+    if item is not None:
+        _apply_posters(item, posters, col)
+
+
+def _refresh_row(window, index):
+    """Write one row's posters onto the list item already on screen.
+    Rebuilding the whole list would cancel Kodi's row scroll."""
+    if index < 0 or index >= len(window._descs):
+        return
+    control = window.getControl(HUB_LIST)
+    if index >= control.size():
+        return
+    desc = window._descs[index]
+    item = control.getListItem(index)
+    item.setProperty('heading', desc.get('heading') or '')
+    posters = desc.get('posters') or []
+    if posters:
+        _apply_posters(item, posters, desc.get('col') or 0)
+
+
+def _on_vertical(window):
+    index = window.getControl(HUB_LIST).getSelectedPosition()
+    before = len(window._descs)
+    index = _ensure_loaded(window._descs, index)
+    if len(window._descs) != before:
+        _paint_list(window, select=index)
+        if window._descs:
+            window.setFocusId(HUB_LIST)
+        return
+    _refresh_row(window, index)
+    _refresh_row(window, index + 1)
 
 
 class HubWindow(BaseWindow):
@@ -184,7 +317,7 @@ class HubWindow(BaseWindow):
         self.types = frozenset()
         self.heading = ''
         self.should_close_caller = False
-        self._rows = None
+        self._descs = None
         self._episodes = []
 
     def start(self, types, heading):
@@ -193,7 +326,7 @@ class HubWindow(BaseWindow):
         self.types = frozenset(types or [])
         self.heading = heading or ''
         self.should_close_caller = False
-        self._rows = None
+        self._descs = None
         self._episodes = []
         self.doModal()
         return self.should_close_caller
@@ -207,33 +340,43 @@ class HubWindow(BaseWindow):
         self.getControl(BACKGROUND).setImage(addon_fanart())
         self.getControl(STATUS_LABEL).setLabel((self.heading or '').upper())
         self.setProperty('HomeSignedOut', '' if auth else '1')
-        if self._rows is None:
+        if self._descs is None:
             loaded = run_cancellable(
-                lambda: _build_rows(store, store.get_enabled_addons(), self.types),
+                lambda: _build(store, store.get_enabled_addons(), self.types),
                 L(30033),
             )
             if loaded is CANCELLED or not isinstance(loaded, tuple):
-                self._rows = []
+                self._descs = []
                 self._episodes = []
                 self.close()
                 return
-            self._rows, self._episodes = loaded
-            if not self._rows:
+            self._descs, self._episodes = loaded
+            if not self._descs:
                 from lib.ui.compat import notify
                 notify(L(30030))
                 self.close()
                 return
-        _paint_rows(self, self._rows)
-        _focus_first(self, self._rows)
+        _paint_list(self, select=self.getControl(HUB_LIST).getSelectedPosition())
+        self.setFocusId(HUB_LIST)
         paint_hero(self)
 
     @gated_input
     def onAction(self, action):
         from lib.ui.uicommon import BACK_ACTIONS
 
-        if action.getId() in BACK_ACTIONS:
+        action_id = action.getId()
+        if action_id in BACK_ACTIONS:
             self.close()
             return
+        if action_id == _ACTION_CONTEXT:
+            _offer_library(self)
+            return
+        if action_id == _ACTION_LEFT:
+            _move_col(self, -1)
+        elif action_id == _ACTION_RIGHT:
+            _move_col(self, 1)
+        elif action_id in (_ACTION_UP, _ACTION_DOWN):
+            _on_vertical(self)
         paint_hero(self)
 
     @gated_input
@@ -241,11 +384,22 @@ class HubWindow(BaseWindow):
         if control_id in _BUTTON_ACTIONS:
             _button(self, _BUTTON_ACTIONS[control_id])
             return
-        list_ids = {list_id for list_id, _label in HUB_ROWS}
-        if control_id not in list_ids:
+        if control_id != HUB_LIST:
             return
-        item = self.getControl(control_id).getSelectedItem()
-        _activate(self, item)
+        _activate(self, _current_poster(self))
+
+
+def _build(store, addons, types):
+    """Descriptors plus the first screenful of posters, and the episode
+    list the New Episodes row indexes into."""
+    descs = _descriptors(addons, types)
+    episode = _episode_descriptor(store, types)
+    episodes = []
+    if episode is not None:
+        episodes = episode.pop('episodes')
+        descs.insert(0, episode)
+    _fill_prefix(descs, _INITIAL_ROWS)
+    return descs, episodes
 
 
 def _button(window, action):
@@ -266,8 +420,19 @@ def _button(window, action):
     if action == 'signin':
         from lib.ui.views import login
         login()
-        window._rows = None
+        window._descs = None
         window.onInit()
+
+
+def _offer_library(window):
+    from lib.ui.homewindow import refresh_library_row
+    from lib.ui.libraryaction import meta_from_item, offer
+
+    meta = meta_from_item(_current_poster(window))
+    if meta is None:
+        return
+    if offer(meta):
+        refresh_library_row(window)
 
 
 def _activate(window, item):

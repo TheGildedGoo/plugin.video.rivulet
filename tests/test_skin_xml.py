@@ -207,6 +207,11 @@ def _texture_refs(path):
         value = (el.text or '').strip()
         if value and not value.startswith('$'):
             refs.append((el.tag, value))
+        # A diffuse mask is a texture file too. A missing one draws the
+        # artwork square, which is the bug the mask exists to prevent.
+        diffuse = (el.get('diffuse') or '').strip()
+        if diffuse and not diffuse.startswith('$'):
+            refs.append((el.tag, diffuse))
     return refs
 
 
@@ -340,13 +345,13 @@ _SUBSTITUTION_RE = re.compile(r'\$(?:INFO|ADDON|LOCALIZE|VAR|ESCINFO)\[[^\]]*\]'
 _BBCODE_RE = re.compile(r'\[/?[A-Za-z][^\]]*\]')
 _WORD_RE = re.compile(r'[A-Za-z]+')
 
-#: Literal English words this skin may ship un-substituted. `REVRIVULET` is
+#: Literal English words this skin may ship un-substituted. `RevRivulet` is
 #: the brand wordmark, never translated in any locale. `OK`/`BACK` label
 #: the remote-control keys themselves (as in "[OK] select  [BACK] back"),
 #: not sentence content - the action verb beside each is already routed
 #: through `$ADDON[...]` (ids 30209/30210/30223/30224/30225/...); the key
 #: caption is left as-is the way a keyboard's own key legends are.
-_ALLOWED_LITERAL_WORDS = frozenset({'REVRIVULET', 'OK', 'BACK'})
+_ALLOWED_LITERAL_WORDS = frozenset({'RevRivulet', 'OK', 'BACK'})
 
 
 def _literal_words(label_text):

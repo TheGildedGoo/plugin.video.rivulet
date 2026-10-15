@@ -116,7 +116,7 @@
                  chopped, so the crop reads as deliberate. -->
             <control type="image"><left>0</left><top>880</top><width>1920</width><height>200</height><texture colordiffuse="FF0A0C0E">fade_v.png</texture></control>
 
-            <!-- Set at runtime by GridWindow: "REVRIVULET / CONTINUE". -->
+            <!-- Set at runtime by GridWindow: "RevRivulet / CONTINUE". -->
             <control type="image"><left>96</left><top>60</top><width>34</width><height>34</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
             <control type="label" id="30006"><left>150</left><top>60</top><width>900</width><height>34</height><font>font10</font><textcolor>4DEEF3F6</textcolor>
                 <label></label>
@@ -158,14 +158,14 @@
                     <itemlayout width="320" height="506">
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
                         <!-- A finished title is dimmed so the eye skips past it. -->
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>!String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
@@ -190,13 +190,12 @@
                     <focusedlayout width="320" height="506">
                         <control type="group">
                         <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
-                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
-                        <control type="image"><top>0</top><left>16</left><width>288</width><height>8</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Accent underline under the focused poster. -->
                         <control type="image"><top>434</top><left>16</left><width>288</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
@@ -234,14 +233,14 @@
                     <itemlayout width="320" height="506">
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
                         <!-- A finished title is dimmed so the eye skips past it. -->
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>!String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
@@ -266,13 +265,12 @@
                     <focusedlayout width="320" height="506">
                         <control type="group">
                         <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
-                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
-                        <control type="image"><top>0</top><left>16</left><width>288</width><height>8</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Accent underline under the focused poster. -->
                         <control type="image"><top>434</top><left>16</left><width>288</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
@@ -310,14 +308,14 @@
                     <itemlayout width="320" height="506">
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
                         <!-- A finished title is dimmed so the eye skips past it. -->
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>!String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
@@ -342,13 +340,12 @@
                     <focusedlayout width="320" height="506">
                         <control type="group">
                         <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
-                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
-                        <control type="image"><top>0</top><left>16</left><width>288</width><height>8</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Accent underline under the focused poster. -->
                         <control type="image"><top>434</top><left>16</left><width>288</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
@@ -386,14 +383,14 @@
                     <itemlayout width="320" height="506">
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
                         <!-- A finished title is dimmed so the eye skips past it. -->
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>!String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
@@ -418,13 +415,12 @@
                     <focusedlayout width="320" height="506">
                         <control type="group">
                         <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
-                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture border="16" diffuse="round_mask.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
-                        <control type="image"><top>0</top><left>16</left><width>288</width><height>8</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Accent underline under the focused poster. -->
                         <control type="image"><top>434</top><left>16</left><width>288</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At

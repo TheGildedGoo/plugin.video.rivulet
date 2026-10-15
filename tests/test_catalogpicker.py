@@ -361,7 +361,7 @@ def test_fetch_and_show_hands_the_remaining_pages_to_the_coverflow(load_catalogp
 
 
 # ---------------------------------------------------------------------------
-# CatalogPickerWindow._fetch_and_show() - the "REVRIVULET / <TITLE>" breadcrumb
+# CatalogPickerWindow._fetch_and_show() - the "RevRivulet / <TITLE>" breadcrumb
 # ---------------------------------------------------------------------------
 
 
@@ -912,8 +912,8 @@ def test_oninit_heading_names_the_row_the_user_came_in_through(load_catalogpicke
 
     win.onInit()
 
-    # The skin's header is "REVRIVULET / <SECTION>"; the section is the row.
-    assert win.getControl(picker.HEADING).label == 'REVRIVULET / MOVIES'
+    # The skin's header is "RevRivulet / <SECTION>"; the section is the row.
+    assert win.getControl(picker.HEADING).label == 'RevRivulet / MOVIES'
 
 
 def test_oninit_heading_falls_back_to_the_generic_title_when_unfiltered(load_catalogpicker):
@@ -924,8 +924,8 @@ def test_oninit_heading_falls_back_to_the_generic_title_when_unfiltered(load_cat
 
     win.onInit()
 
-    # No heading -> the label the skin used to hardcode, not "REVRIVULET / ".
-    assert win.getControl(picker.HEADING).label == 'REVRIVULET / STR30000'
+    # No heading -> the label the skin used to hardcode, not "RevRivulet / ".
+    assert win.getControl(picker.HEADING).label == 'RevRivulet / STR30000'
 
 
 def test_open_catalog_search_only_prompts_and_fetches_with_search_extra(load_catalogpicker, monkeypatch):

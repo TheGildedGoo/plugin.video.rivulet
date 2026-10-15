@@ -45,6 +45,7 @@ _RELOAD_MODULE_NAMES = (
     'lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.router', 'lib.ui.homewindow',
     'lib.ui.catalogpicker', 'lib.ui.searchwindow', 'lib.ui.mystuff', 'lib.ui.addonswindow',
     'lib.ui.gridwindow', 'lib.ui.detailwindow', 'lib.ui.hubwindow',
+    'lib.ui.dialogs', 'lib.ui.dependencies', 'lib.ui.libraryaction',
 )
 
 
@@ -1098,6 +1099,17 @@ def test_home_lists_declare_a_visible_focus_and_navigation():
             missing.append('%s contrast' % button.get('id'))
         if button.find('ondown') is None:
             missing.append('%s ondown' % button.get('id'))
+        if (button.findtext('texturefocus') or '').strip() != 'pill_fill.png':
+            missing.append('%s pill' % button.get('id'))
+    rows = root.find(".//control[@id='30001']")
+    row_ids = [child.get('id') for child in list(rows) if child.tag == 'control']
+    assert row_ids[0] == '30140' and row_ids[1] == '30040'
+    assert '30010' not in row_ids
+    pills = root.find(".//control[@id='30010']")
+    assert (pills.findtext('onup') or '').strip() == '30011'
+    assert (pills.findtext('ondown') or '').strip() == '30001'
+    assert (rows.findtext('onup') or '').strip() == '30010'
+    assert 'round_mask.png' in ET.tostring(root, encoding='unicode')
     focusable = [
         control for control in root.iter('control')
         if control.get('type') in ('list', 'panel') and control.get('id')
@@ -1112,3 +1124,55 @@ def test_home_lists_declare_a_visible_focus_and_navigation():
             if control.find(direction) is None:
                 missing.append('%s %s' % (control.get('id'), direction))
     assert not missing, 'Home focus gaps: %s' % missing
+
+
+class _LibraryApi:
+    def __init__(self, item=None):
+        self.item = item
+        self.put_calls = []
+
+    def get_library_item(self, auth_key, item_id):
+        return self.item
+
+    def put_library_item(self, auth_key, item):
+        self.put_calls.append((auth_key, item))
+
+
+def test_context_menu_adds_a_poster_and_refreshes_library(load_homewindow, monkeypatch):
+    """The menu button offers Add, pushes library_add_payload, and the
+    Library row picks up the new record."""
+    ctx = load_homewindow()
+    saved = []
+
+    def _fetch(store, _saved=saved):
+        return list(_saved)
+
+    monkeypatch.setattr(ctx.mystuff, '_fetch_library_entries', _fetch)
+    store = _FakeStore(auth={'authKey': 'k', 'user': {'email': 'a@b.c'}})
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: store)
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+    api = _LibraryApi(item=None)
+
+    def _put(auth_key, item, _saved=saved):
+        api.put_calls.append((auth_key, item))
+        _saved.append(item)
+
+    api.put_library_item = _put
+    monkeypatch.setattr(ctx.dependencies, 'get_api', lambda: api)
+    monkeypatch.setattr(ctx.dialogs, 'choose', lambda heading, rows: 0)
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    poster = xbmcgui.ListItem('Dune')
+    poster.setProperties({
+        'sid': 'tt1', 'stype': 'movie', 'hero_title': 'Dune', 'thumbnail': 'p',
+    })
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([poster])
+    win.setFocusId(ctx.homewindow.CONTINUE_SHELF)
+
+    win.onAction(xbmcgui.Action(117))
+
+    assert api.put_calls
+    assert api.put_calls[0][1]['removed'] is False
+    assert api.put_calls[0][1]['_id'] == 'tt1'
+    library = win.getControl(ctx.homewindow.LIBRARY_SHELF).items
+    assert [item.getProperty('sid') for item in library] == ['tt1']

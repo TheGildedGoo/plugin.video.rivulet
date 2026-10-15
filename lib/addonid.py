@@ -12,5 +12,6 @@ tests/test_revrivulet_identity.py fails if they drift.
 
 ADDON_ID = "plugin.video.revrivulet"
 ADDON_NAME = "RevRivulet"
-#: On-screen wordmark. ASCII, so it is safe in every skin font.
-WORDMARK = "REVRIVULET"
+#: On-screen wordmark. Mixed case on purpose: the corner label reads
+#: RevRivulet, and nothing in the skin uppercases it.
+WORDMARK = "RevRivulet"
