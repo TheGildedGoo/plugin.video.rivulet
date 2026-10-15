@@ -50,6 +50,10 @@ JSON files live under ``data_dir``:
   never reappears there. Written wholesale by :meth:`Store.set_seen_episodes`
   (the caller runs :func:`lib.newepisodes.mark_seen` first) -- never through
   :meth:`Store.update_addons`, which is addons.json's own compare-and-swap.
+* ``last_streams.json`` -- the last stream object that actually started
+  for a ``(type, id, video_id)`` key (see :meth:`Store.set_last_stream`).
+  Continue's Resume row replays it. Plain read-modify-write, capped,
+  same key as ``progress.json``. Not part of the account sync.
 
 Writes are atomic (write to a temp file, then ``os.replace``) so a crash or
 power loss never leaves a half-written JSON file behind. A corrupt file on
@@ -98,6 +102,13 @@ PROGRESS_FILENAME = "progress.json"
 LAST_VERSION_FILENAME = "last_version.json"
 SEEN_EPISODES_FILENAME = "seen_episodes.json"
 PENDING_SYNC_FILENAME = "pending_sync.json"
+LAST_STREAMS_FILENAME = "last_streams.json"
+
+#: How many last-chosen streams to keep. One entry per played episode,
+#: and a stream object is much larger than a progress sample, so this
+#: sits under :data:`MAX_PROGRESS_ENTRIES` on purpose. Evicting the
+#: oldest by ``saved_at`` still leaves a long watch history.
+MAX_LAST_STREAMS = 200
 
 #: How many failed library pushes to keep. One title holds one job
 #: (a newer sample replaces the older), so this bounds how many
@@ -933,6 +944,7 @@ class Store:
         self._last_version_path = os.path.join(self.data_dir, LAST_VERSION_FILENAME)
         self._seen_episodes_path = os.path.join(self.data_dir, SEEN_EPISODES_FILENAME)
         self._pending_sync_path = os.path.join(self.data_dir, PENDING_SYNC_FILENAME)
+        self._last_streams_path = os.path.join(self.data_dir, LAST_STREAMS_FILENAME)
         #: Per-instance memoisation for `_cached_read`: `path -> ((mtime_ns,
         #: size), parsed_value)`. A single process/screen-render often
         #: calls e.g. `get_addons()` many times; a fresh eMMC/SD `open()`
@@ -1688,3 +1700,85 @@ class Store:
                 "updated_at": value.get("updated_at"),
             })
         return entries
+
+    def get_last_stream(self, content_type, content_id, video_id=None):
+        """The stream object last started for this item, or ``None``.
+
+        Keyed like :meth:`get_progress` (a movie's ``video_id`` is
+        ``None``). The returned dict is a copy: callers replay it, and
+        must not be able to mutate the memo. Served from the
+        per-instance read cache -- see `_cached_read`. This file is one
+        more fixed path on that cache, not a caller-chosen key.
+        """
+        payload = self._cached_read(self._last_streams_path, None)
+        if not isinstance(payload, dict):
+            return None
+        entry = payload.get(self._progress_key(content_type, content_id, video_id))
+        if not isinstance(entry, dict):
+            return None
+        stream = entry.get("stream")
+        if not isinstance(stream, dict) or not stream:
+            return None
+        return copy.deepcopy(stream)
+
+    def set_last_stream(self, content_type, content_id, video_id, stream, now):
+        """Remember `stream` as the one that started for this item.
+
+        ``now`` is a caller-supplied timestamp string, same as
+        :meth:`set_progress` -- this module does not format time.
+        A value that is not a JSON object is ignored, so a bad stream
+        cannot wipe a good one. Plain read-modify-write: a lost update
+        under two writers at worst forgets one pick, and the next
+        successful play writes it again. The file is read directly, not
+        through the memo, so two picks in a row cannot resurrect a
+        stream the memo still held.
+        """
+        stored = _json_object(stream)
+        if stored is None:
+            return False
+        payload = _read_json(self._last_streams_path, None)
+        if not isinstance(payload, dict):
+            payload = {}
+        key = self._progress_key(content_type, content_id, video_id)
+        payload[key] = {"stream": stored, "saved_at": now}
+        if len(payload) > MAX_LAST_STREAMS:
+            payload = _prune_last_streams(payload, key)
+        _atomic_write(self._last_streams_path, payload, compact=True)
+        self._invalidate_cache(self._last_streams_path)
+        return True
+
+
+def _json_object(value):
+    """A deep copy of `value` restricted to what JSON can store, or None.
+
+    Stream objects are addon JSON. Anything that cannot round-trip
+    (a live socket, a set) is refused whole rather than saved in part
+    and then failing to resolve later.
+    """
+    if not isinstance(value, dict) or not value:
+        return None
+    try:
+        encoded = json.dumps(value, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return None
+    parsed = json.loads(encoded)
+    if not isinstance(parsed, dict) or not parsed:
+        return None
+    return parsed
+
+
+def _prune_last_streams(payload, keep_key):
+    """Keep :data:`MAX_LAST_STREAMS` entries, newest ``saved_at`` first.
+
+    `keep_key` stays even when its timestamp is the oldest: the write
+    in progress is the one the caller just played.
+    """
+    def sort_key(item):
+        key, value = item
+        saved = ""
+        if isinstance(value, dict) and isinstance(value.get("saved_at"), str):
+            saved = value["saved_at"]
+        return (key == keep_key, saved)
+
+    ordered = sorted(payload.items(), key=sort_key, reverse=True)[:MAX_LAST_STREAMS]
+    return dict(ordered)

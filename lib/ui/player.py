@@ -232,6 +232,26 @@ def _server_client():
 RESUME_MIN_PERCENT = 1.0
 RESUME_MAX_PERCENT = 95.0
 
+#: Default for the resume-offset argument: look up local progress and
+#: ask. An int means the caller already asked (Continue's Resume row)
+#: and playback must seek there without a second confirm.
+_RESUME_ASK = object()
+
+
+def _explicit_resume_offset(value):
+    """Milliseconds to seek when the caller already chose Resume.
+
+    Non-positive and non-numeric values seek nowhere. This does not
+    read `resume_ask` and does not open a dialog: that choice was the
+    dialog.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    offset = int(value)
+    if offset <= 0:
+        return None
+    return offset
+
 
 def _maybe_resume_offset_ms(store, stype, sid, video_id):
     """Return the cached position (milliseconds) to resume from if the
@@ -263,7 +283,9 @@ def _maybe_resume_offset_ms(store, stype, sid, video_id):
     return position_ms
 
 
-def _record_now_playing_and_maybe_resume(stype, sid, video_id, item_meta):
+def _record_now_playing_and_maybe_resume(
+    stype, sid, video_id, item_meta, resume_offset_ms=_RESUME_ASK,
+):
     """Best-effort: persist the "now playing" context
     (`lib.store.Store.set_now_playing`, consumed by
     `lib.service_runner`'s background progress tracker) and, when local
@@ -273,6 +295,11 @@ def _record_now_playing_and_maybe_resume(stype, sid, video_id, item_meta):
     'StartOffset')` is unreliable for the direct `xbmc.Player().play()`
     path this addon's custom windows use, hence an explicit post-start
     seek rather than a resume property (see `lib.service_runner`).
+
+    `resume_offset_ms` defaults to asking. An explicit number skips the
+    confirm and queues that offset: Continue already asked. The service
+    still consumes the one-shot file exactly once, so a later episode
+    does not inherit it.
 
     `content_id` is `item_meta['meta']['id']` when present, else `sid` -
     for a series this is the show's own library id (`sid` passed in is
@@ -288,7 +315,10 @@ def _record_now_playing_and_maybe_resume(stype, sid, video_id, item_meta):
         store = get_store()
         meta = (item_meta or {}).get('meta') or {}
         content_id = meta.get('id') or sid
-        resume_offset_ms = _maybe_resume_offset_ms(store, stype, content_id, video_id)
+        if resume_offset_ms is _RESUME_ASK:
+            resume_offset_ms = _maybe_resume_offset_ms(store, stype, content_id, video_id)
+        else:
+            resume_offset_ms = _explicit_resume_offset(resume_offset_ms)
         art = (item_meta or {}).get('art') or {}
         # Account-sync fields only. No network on the play path, and no
         # layout change: another change owns the windows and the skin.
@@ -1352,7 +1382,28 @@ def _apply_isa_properties(list_item, manifest_type, request_headers, drm=None):
         list_item.setProperty('inputstream.adaptive.license_key', '|%s|' % encoded)
 
 
-def _resolve_playable_item(stream, stype, sid, item_meta=None, video_id=None):
+def _remember_last_stream(stream, stype, sid, video_id, item_meta):
+    """Persist the stream that just resolved, keyed like progress.
+
+    `content_id` is the show (or movie) id, not the episode id the
+    picker passes as `sid`. A failed resolve never gets here, so a
+    dead pick does not replace a stream that previously started.
+    Never raises: remembering is bookkeeping, not playback.
+    """
+    try:
+        meta = (item_meta or {}).get('meta') or {}
+        content_id = meta.get('id') or sid
+        get_store().set_last_stream(stype, content_id, video_id, stream, iso8601_utc())
+    except Exception as exc:  # noqa: BLE001 - a store miss must never block playback
+        log(
+            'player: remembering the chosen stream failed for %s/%s: %r' % (stype, sid, exc),
+            xbmc.LOGWARNING,
+        )
+
+
+def _resolve_playable_item(
+    stream, stype, sid, item_meta=None, video_id=None, resume_offset_ms=_RESUME_ASK,
+):
     """Resolve `stream` (Stremio Stream object for content `stype`/`sid`)
     to a `(url, list_item)` pair ready to hand to Kodi's player, or
     `(None, None)` on failure - a notification has already been shown
@@ -1391,6 +1442,9 @@ def _resolve_playable_item(stream, stype, sid, item_meta=None, video_id=None):
     cache lookup/write key (see `_record_now_playing_and_maybe_resume`).
     `None` (a movie, or a caller with no episode id of its own) behaves
     exactly as before this parameter existed.
+
+    `resume_offset_ms` defaults to the confirm prompt. An explicit
+    offset skips that prompt and is queued for the service seek.
     """
     stream = stream or {}
     behavior_hints = stream.get('behaviorHints') or {}
@@ -1514,12 +1568,15 @@ def _resolve_playable_item(stream, stype, sid, item_meta=None, video_id=None):
     if subtitle_fetch is not None and subtitle_fetch.urls:
         list_item.setSubtitles(subtitle_fetch.urls)
 
-    _record_now_playing_and_maybe_resume(stype, sid, video_id, item_meta)
+    _record_now_playing_and_maybe_resume(
+        stype, sid, video_id, item_meta, resume_offset_ms=resume_offset_ms,
+    )
+    _remember_last_stream(stream, stype, sid, video_id, item_meta)
 
     return url, list_item
 
 
-def play(handle, stream, stype, sid, item_meta=None, video_id=None):
+def play(handle, stream, stype, sid, item_meta=None, video_id=None, resume_offset_ms=_RESUME_ASK):
     """Resolve `stream` and hand it to Kodi via `setResolvedUrl` - the
     classical GetDirectory play path (action=play).
 
@@ -1533,7 +1590,10 @@ def play(handle, stream, stype, sid, item_meta=None, video_id=None):
     `video_id` (optional) is forwarded to `_resolve_playable_item()`
     unchanged - see that function's docstring.
     """
-    _url, list_item = _resolve_playable_item(stream, stype, sid, item_meta=item_meta, video_id=video_id)
+    _url, list_item = _resolve_playable_item(
+        stream, stype, sid, item_meta=item_meta, video_id=video_id,
+        resume_offset_ms=resume_offset_ms,
+    )
     if list_item is None:
         xbmcplugin.setResolvedUrl(handle, False, xbmcgui.ListItem())
         return
@@ -1541,7 +1601,10 @@ def play(handle, stream, stype, sid, item_meta=None, video_id=None):
     _watch_playback_end()
 
 
-def play_direct(stream, stype, sid, item_meta=None, on_ready=None, video_id=None):
+def play_direct(
+    stream, stype, sid, item_meta=None, on_ready=None, video_id=None,
+    resume_offset_ms=_RESUME_ASK,
+):
     """Resolve `stream` and hand it DIRECTLY to `xbmc.Player()` - the
     custom-window path (`lib.ui.streamswindow`), where there is no
     `ADDON_HANDLE`/GetDirectory call to satisfy. Returns True if
@@ -1559,8 +1622,15 @@ def play_direct(stream, stype, sid, item_meta=None, on_ready=None, video_id=None
 
     `video_id` (optional) is forwarded to `_resolve_playable_item()`
     unchanged - see that function's docstring.
+
+    `resume_offset_ms` (optional) is forwarded the same way. Omit it
+    and the usual confirm still runs. Pass the offset Continue already
+    chose and the confirm is skipped; the service seek is unchanged.
     """
-    url, list_item = _resolve_playable_item(stream, stype, sid, item_meta=item_meta, video_id=video_id)
+    url, list_item = _resolve_playable_item(
+        stream, stype, sid, item_meta=item_meta, video_id=video_id,
+        resume_offset_ms=resume_offset_ms,
+    )
     if list_item is None:
         return False
     if on_ready is not None:

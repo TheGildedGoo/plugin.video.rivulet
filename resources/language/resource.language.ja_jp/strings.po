@@ -1074,3 +1074,19 @@ msgstr "オン"
 msgctxt "#30437"
 msgid "Off"
 msgstr "オフ"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s を %s から再開"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "%s から再開"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "エピソード一覧"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "詳細"

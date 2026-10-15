@@ -104,6 +104,38 @@ def _make_window(streamswindow_mod):
 # ---------------------------------------------------------------------------
 
 
+def test_open_streams_gives_the_resume_offset_to_the_first_picker_only(
+    load_streamswindow, monkeypatch,
+):
+    """After Stop the reopened picker must ask again. Binge is not this
+    path: a stopped episode does not auto-play the next one."""
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    addon = {
+        'transportUrl': 't-supported',
+        'manifest': {'name': 'Supported', 'resources': ['stream'], 'types': ['series']},
+    }
+    client = _FakeAddonClient({'t-supported': [{'url': 'https://a.example/a.mp4'}]})
+    _wire_data_layer(sw, _FakeStore(addons=[addon]), client)
+    seen = []
+
+    class RecordingWindow(sw.StreamsWindow):
+        def start(self, pairs, stype, sid, poster=None, heading='', art=None, meta=None,
+                  video_id=None, resume_offset_ms=None):
+            seen.append(resume_offset_ms)
+            return len(seen) == 1
+
+    monkeypatch.setattr(sw, 'StreamsWindow', RecordingWindow)
+    monkeypatch.setattr(sw, '_wait_for_playback_end', lambda *a, **k: (True, False))
+
+    result = sw.open_streams(
+        'series', 'tt1:1:3', video_id='tt1:1:3', resume_offset_ms=724000,
+    )
+
+    assert result is False
+    assert seen == [724000, None]
+
+
 def test_open_streams_filters_unsupported_addons_and_forwards_aggregate_to_the_window(
     load_streamswindow, monkeypatch,
 ):

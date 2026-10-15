@@ -1300,6 +1300,24 @@ def test_format_hms_clamps_negative_to_zero():
     assert playbackmeta.format_hms(-5) == "0:00:00"
 
 
+def test_format_resume_clock_drops_a_zero_hour():
+    assert playbackmeta.format_resume_clock(724) == "12:04"
+    assert playbackmeta.format_resume_clock(65) == "1:05"
+    assert playbackmeta.format_resume_clock(5410) == "1:30:10"
+    assert playbackmeta.format_resume_clock(0) == "0:00"
+    assert playbackmeta.format_resume_clock(-3) == "0:00"
+
+
+def test_episode_label_from_id_is_unpadded():
+    assert playbackmeta.episode_label_from_id("tt1234567:1:3") == "S1E3"
+    assert playbackmeta.episode_label_from_id("kitsu:99:12:4") == "S12E4"
+    assert playbackmeta.episode_label_from_id("tt1:0:7") == "S0E7"
+    assert playbackmeta.episode_label_from_id("tt1") == ""
+    assert playbackmeta.episode_label_from_id("tt1:1") == ""
+    assert playbackmeta.episode_label_from_id(None) == ""
+    assert playbackmeta.episode_label_from_id("tt1:1:special") == ""
+
+
 def test_human_size_formats_bytes_kb_mb_gb():
     assert playbackmeta.human_size(500) == "500.0 B"
     assert playbackmeta.human_size(1536) == "1.5 KB"

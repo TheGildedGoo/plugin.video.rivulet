@@ -13,7 +13,10 @@ The old Continue card opened `open_my_stuff()` with no band filter, and
 that screen's last band is the library, which is why the card showed
 saved titles.
 
-Picking a poster opens its page. The menu button (long-press on a
+Picking a poster opens its page, except a Continue poster that is
+actually mid-playback: that one asks Resume or Episode list (Details,
+for a movie). Resume replays the last stream that started for that
+item and seeks to the saved offset. The menu button (long-press on a
 remote) offers Add to Library or Remove from Library. Picking a type
 chip opens the catalog hub (`lib.ui.hubwindow`), one poster row per
 catalog of that type, loaded as the remote moves down.
@@ -418,7 +421,7 @@ def _library_continue_metas(entries):
     implicit watch record is both flags true, which is how Stremio
     stores "played, not added", and those do belong here.
     """
-    from lib.ui.mystuff import RESUME_MAX_PERCENT, RESUME_MIN_PERCENT
+    from lib.ui.mystuff import BAND_RESUME, RESUME_MAX_PERCENT, RESUME_MIN_PERCENT
 
     metas = []
     for entry in entries or []:
@@ -433,12 +436,17 @@ def _library_continue_metas(entries):
             continue
         if not (entry.get('name') or entry.get('poster')):
             continue
+        state = entry.get('state') if isinstance(entry.get('state'), dict) else {}
         metas.append({
             'id': entry.get('_id'),
             'name': entry.get('name'),
             'type': entry.get('type'),
             'poster': entry.get('poster'),
             'background': entry.get('background'),
+            'band': BAND_RESUME,
+            'video_id': state.get('video_id') or None,
+            'position_ms': state.get('timeOffset'),
+            'duration_ms': state.get('duration'),
         })
     return metas
 
@@ -471,7 +479,7 @@ def _played_posters(store, library_entries):
             continue
         key = (entry.get('type'), entry.get('id'))
         seen.add(key)
-        posters.append(_poster_item(entry))
+        posters.append(_continue_item(entry))
         if len(posters) >= SHELF_CAP:
             return posters
     for meta in _library_continue_metas(library_entries):
@@ -479,7 +487,7 @@ def _played_posters(store, library_entries):
         if key in seen:
             continue
         seen.add(key)
-        posters.append(_poster_item(meta))
+        posters.append(_continue_item(meta))
         if len(posters) >= SHELF_CAP:
             break
     return posters
@@ -909,7 +917,7 @@ class HomeWindow(BaseWindow):
         if control_id not in _CLICKABLE:
             return
         focused = self.getControl(control_id).getSelectedItem()
-        _activate(self, focused)
+        _activate(self, focused, control_id)
 
 
 def _open_signin(window):
@@ -928,15 +936,258 @@ def _open_signin(window):
     window._build()
 
 
-def _activate(window, item):
+def _continue_item(entry):
+    """A Continue poster. Carries the resume fields the dialog reads.
+
+    Catalog and Library posters stay on `_poster_item` alone: those
+    clicks still open the page, and the skin ignores unknown properties.
+    """
+    item = _poster_item(entry)
+    props = {}
+    band = entry.get('band')
+    if band:
+        props['band'] = str(band)
+    video_id = entry.get('video_id')
+    if video_id:
+        props['video_id'] = str(video_id)
+    for key in ('position_ms', 'duration_ms'):
+        value = entry.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            props[key] = str(int(value))
+    if props:
+        item.setProperties(props)
+    return item
+
+
+def _property_int(item, key):
+    raw = item.getProperty(key) or ''
+    if not raw:
+        return 0
+    try:
+        return int(raw)
+    except ValueError:
+        return 0
+
+
+def _continue_offset_ms(item):
+    """Milliseconds to offer Resume for, or 0 when this poster is not one.
+
+    Next-up and recently finished share the Continue row and have no
+    mid-title position. A duration-0 account pointer (timeOffset 1) is
+    how Stremio marks "play the next episode", not a place to seek.
+    The band check uses the same window the row was built with.
+    """
+    from lib.ui.mystuff import BAND_RESUME, RESUME_MAX_PERCENT, RESUME_MIN_PERCENT
+
+    if item.getProperty('band') != BAND_RESUME:
+        return 0
+    position = _property_int(item, 'position_ms')
+    duration = _property_int(item, 'duration_ms')
+    if position <= 0 or duration <= 0:
+        return 0
+    percent = (float(position) / float(duration)) * 100.0
+    if percent < RESUME_MIN_PERCENT or percent >= RESUME_MAX_PERCENT:
+        return 0
+    return position
+
+
+def _continue_art(item):
+    art = {}
+    poster = item.getProperty('thumbnail') or ''
+    fanart = item.getProperty('fanart') or ''
+    if poster:
+        art['poster'] = poster
+    if fanart:
+        art['fanart'] = fanart
+    return art or None
+
+
+def _continue_item_meta(item, show_id):
+    """OSD / now-playing context for a Continue resume.
+
+    `meta['id']` is the show (or movie) id. The play call's own sid is
+    the episode id when there is one, which is what the picker passes,
+    so subtitles and the progress key stay on the episode while sync
+    stays on the show.
+    """
+    label = item.getProperty('hero_title') or item.getLabel() or ''
+    item_meta = {}
+    if label:
+        item_meta['label'] = label
+    art = _continue_art(item)
+    if art:
+        item_meta['art'] = art
+    meta = {'id': show_id, 'type': item.getProperty('stype') or ''}
+    if label:
+        meta['name'] = label
+    poster = item.getProperty('thumbnail') or ''
+    if poster:
+        meta['poster'] = poster
+    item_meta['meta'] = meta
+    return item_meta
+
+
+def _continue_choice(item, offset_ms):
+    """0 resume, 1 the existing page, -1 Back. Back closes the dialog."""
+    from lib.ui.compat import L
+    from lib.ui.dialogs import choose
+    from lib.ui.playbackmeta import episode_label_from_id, format_resume_clock
+
+    clock = format_resume_clock(offset_ms / 1000.0)
+    code = episode_label_from_id(item.getProperty('video_id'))
+    if code:
+        resume = L(30438) % (code, clock)
+    else:
+        resume = L(30439) % (clock,)
+    second = L(30440) if item.getProperty('stype') == 'series' else L(30441)
+    heading = item.getProperty('hero_title') or item.getLabel() or ''
+    return choose(heading, [resume, second])
+
+
+def _hold_until_playback_ends():
+    """Block until the player has closed, then end the player phase.
+
+    `play_direct` returns as soon as Kodi accepts the item. Returning
+    from Home's click at that moment lets `doModal` reopen Home on top
+    of the picture, because Continue has no picker sitting in between
+    the way `open_streams` does. The phase stays `player` through the
+    same settle `open_streams` uses, so a Stop refresh is still ignored,
+    and ends immediately before this returns: Home is the screen coming
+    back, and its reopen does not itself end the phase. Input would
+    stay gated if the phase were left on `player`.
+    """
+    import xbmc
+
+    from lib.ui.streamswindow import _REOPEN_SETTLE_SECONDS, _wait_for_playback_end
+    from lib.ui.uicommon import end_player_phase
+
+    proceed, _ended = _wait_for_playback_end()
+    if not proceed:
+        end_player_phase()
+        return
+    if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):
+        end_player_phase()
+        return
+    end_player_phase()
+
+
+def _meta_for_resume(stype, show_id, item_meta):
+    """Fill `videos` before play, or report that the user cancelled.
+
+    Continue's poster does not carry the episode list. The stop push
+    still records a position without it. A finish does not: with no
+    list, `finish_playback` leaves the watched bits alone and, with no
+    next episode id, zeroes the offset instead of pointing Continue at
+    the next episode. This is the same meta fetch the episode list
+    already ran. Back on the spinner cancels the resume. A miss plays
+    anyway, because the position sync does not need the list.
+    """
+    import xbmc
+
+    from lib.ui.compat import L, log
+    from lib.ui.uicommon import CANCELLED, run_cancellable
+    from lib.ui.views import _fetch_meta
+
+    fetched = run_cancellable(lambda: _fetch_meta(stype, show_id), L(30033))
+    if fetched is CANCELLED:
+        log('home: resume cancelled while loading the title', xbmc.LOGINFO)
+        return item_meta, True
+    if isinstance(fetched, dict) and (fetched.get('id') or fetched.get('videos')):
+        meta = dict(fetched)
+        meta['id'] = fetched.get('id') or show_id
+        item_meta = dict(item_meta)
+        item_meta['meta'] = meta
+        if not item_meta.get('label') and meta.get('name'):
+            item_meta['label'] = meta.get('name')
+    return item_meta, False
+
+
+def _resume_continue(item, offset_ms):
+    """Replay the saved stream and seek. Missing or failed: the picker.
+
+    `on_ready` is `close_windows_for_playback`, the same handoff the
+    picker uses, so Home is marked for restore and is not left on top
+    of the player. The fallback picker gets this offset for its first
+    pick only; binge and a later pick keep the usual prompt.
+    """
+    import xbmc
+
+    from lib.ui.compat import log
+    from lib.ui.player import play_direct
+    from lib.ui.streamswindow import open_streams
+    from lib.ui.uicommon import close_windows_for_playback
+
+    stype = item.getProperty('stype')
+    show_id = item.getProperty('sid')
+    video_id = item.getProperty('video_id') or None
+    play_id = video_id or show_id
+    item_meta, cancelled = _meta_for_resume(stype, show_id, _continue_item_meta(item, show_id))
+    if cancelled:
+        return
+    stream = None
+    try:
+        stream = get_store().get_last_stream(stype, show_id, video_id)
+    except Exception as exc:  # noqa: BLE001 - a missing file must open the picker, not die
+        log('home: saved stream lookup failed for %s/%s: %r' % (stype, show_id, exc), xbmc.LOGWARNING)
+    started = False
+    if stream:
+        started = play_direct(
+            stream, stype, play_id, item_meta=item_meta,
+            on_ready=close_windows_for_playback,
+            video_id=video_id,
+            resume_offset_ms=offset_ms,
+        )
+    if started:
+        _hold_until_playback_ends()
+        return
+    open_streams(
+        stype, play_id,
+        poster=item.getProperty('thumbnail') or None,
+        heading=item.getProperty('hero_title') or item.getLabel() or '',
+        art=_continue_art(item),
+        meta=item_meta.get('meta'),
+        video_id=video_id,
+        resume_offset_ms=offset_ms,
+    )
+
+
+def _handle_continue(window, item):
+    """True when this click was a resumable Continue poster.
+
+    Back does nothing else. The second row is the page this click used
+    to open (episode list, or details for a movie).
+    """
+    offset_ms = _continue_offset_ms(item)
+    if not offset_ms:
+        return False
+    choice = _continue_choice(item, offset_ms)
+    if choice < 0:
+        return True
+    if choice == 0:
+        _resume_continue(item, offset_ms)
+        return True
+    from lib.ui.detailwindow import open_detail
+    if open_detail(item.getProperty('stype'), item.getProperty('sid')):
+        window.close()
+    return True
+
+
+def _activate(window, item, control_id=None):
     """A shelf poster with an id opens its page. Anything else is a
     menu action (including More, which carries the row's action and
-    no id)."""
+    no id).
+
+    Continue is the exception, and only for a poster that is actually
+    part-way through: that click asks first. Next-up, recently finished,
+    Library and the catalog rows still open the page directly.
+    """
     if item is None:
         return
     action = item.getProperty('action')
     sid = item.getProperty('sid')
     if sid and not action:
+        if control_id == CONTINUE_SHELF and _handle_continue(window, item):
+            return
         from lib.ui.detailwindow import open_detail
         if open_detail(item.getProperty('stype'), sid):
             window.close()

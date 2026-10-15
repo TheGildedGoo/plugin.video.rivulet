@@ -260,6 +260,57 @@ class _FakeStackWindow:
             self.order.append(self.name)
 
 
+def test_forced_resume_offset_is_sent_once_then_cleared(load_streamswindow, monkeypatch):
+    """Continue's fallback seek applies to the pick that replaces a dead
+    stream. The next pick in the same window asks the usual question."""
+    ctx = load_streamswindow()
+    win = _make_window(ctx.streamswindow)
+    stream = {'url': 'https://a.example/a.mp4'}
+    win.pairs = [({'raw': 'A'}, stream)]
+    win.stype = 'series'
+    win.sid = 'tt1:1:3'
+    win.video_id = 'tt1:1:3'
+    win._forced_resume_ms = 724000
+    win.onInit()
+    sent = []
+
+    def fake_play_direct(stream_obj, stype, sid, **kwargs):
+        sent.append(kwargs.get('resume_offset_ms', 'ABSENT'))
+        return True
+
+    monkeypatch.setattr(ctx.player, 'play_direct', fake_play_direct)
+
+    win._play_focused()
+    win.played = False
+    win._closed = False
+    win._play_focused()
+
+    assert sent == [724000, 'ABSENT']
+
+
+def test_forced_resume_offset_stays_when_the_pick_fails(load_streamswindow, monkeypatch):
+    ctx = load_streamswindow()
+    win = _make_window(ctx.streamswindow)
+    win.pairs = [({'raw': 'A'}, {'url': 'https://a.example/a.mp4'})]
+    win.stype = 'movie'
+    win.sid = 'tt1'
+    win._forced_resume_ms = 50000
+    win.onInit()
+    sent = []
+
+    def fake_play_direct(*_a, **kwargs):
+        sent.append(kwargs.get('resume_offset_ms'))
+        return False
+
+    monkeypatch.setattr(ctx.player, 'play_direct', fake_play_direct)
+
+    win._play_focused()
+    win._play_focused()
+
+    assert sent == [50000, 50000]
+    assert win.played is False
+
+
 def test_onclick_passes_item_meta_with_heading_art_and_meta_to_play_direct(load_streamswindow, monkeypatch):
     ctx = load_streamswindow()
     win = _make_window(ctx.streamswindow)

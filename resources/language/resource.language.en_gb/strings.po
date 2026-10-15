@@ -1074,3 +1074,19 @@ msgstr ""
 msgctxt "#30437"
 msgid "Off"
 msgstr ""
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr ""
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr ""
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr ""
+
+msgctxt "#30441"
+msgid "Details"
+msgstr ""

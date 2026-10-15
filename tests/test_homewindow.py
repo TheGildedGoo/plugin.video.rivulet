@@ -46,6 +46,7 @@ _RELOAD_MODULE_NAMES = (
     'lib.ui.catalogpicker', 'lib.ui.searchwindow', 'lib.ui.mystuff', 'lib.ui.addonswindow',
     'lib.ui.gridwindow', 'lib.ui.detailwindow', 'lib.ui.hubwindow',
     'lib.ui.dialogs', 'lib.ui.dependencies', 'lib.ui.libraryaction',
+    'lib.ui.player', 'lib.ui.streamswindow', 'lib.ui.views',
 )
 
 
@@ -1296,3 +1297,274 @@ def test_context_menu_adds_a_poster_and_refreshes_library(load_homewindow, monke
     assert api.put_calls[0][1]['_id'] == 'tt1'
     library = win.getControl(ctx.homewindow.LIBRARY_SHELF).items
     assert [item.getProperty('sid') for item in library] == ['tt1']
+
+
+def _resume_poster(label, **props):
+    import xbmcgui
+    item = xbmcgui.ListItem(label)
+    for key, value in props.items():
+        item.setProperty(key, str(value))
+    return item
+
+
+def _click_continue(ctx, choice=None, stream=None, started=True, store_error=False):
+    """Click one Continue poster. `choice` is what the dialog returns."""
+    captured = {'choose': None, 'play': None, 'streams': None, 'detail': [], 'order': []}
+
+    def fake_choose(heading, rows):
+        captured['choose'] = (heading, list(rows))
+        return -1 if choice is None else choice
+
+    def fake_play(stream_obj, stype, sid, **kwargs):
+        captured['order'].append('play')
+        captured['play'] = (stream_obj, stype, sid, kwargs)
+        return started
+
+    def fake_wait(*_a, **_k):
+        captured['order'].append('wait')
+        return True, False
+
+    def fake_end():
+        captured['order'].append('end')
+
+    def fake_streams(*args, **kwargs):
+        captured['streams'] = (args, kwargs)
+
+    def fake_detail(stype, sid):
+        captured['detail'].append((stype, sid))
+        return True
+
+    class _Store:
+        def get_last_stream(self, content_type, content_id, video_id=None):
+            if store_error:
+                raise OSError('unreadable')
+            captured['lookup'] = (content_type, content_id, video_id)
+            return stream
+
+    monkeypatch = captured  # placeholder so the name exists; caller patches
+    del monkeypatch
+    return captured, fake_choose, fake_play, fake_wait, fake_end, fake_streams, fake_detail, _Store
+
+
+def test_continue_series_back_closes_the_dialog_and_opens_nothing(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    captured = _arm_continue(ctx, monkeypatch, choice=None)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([_series_resume_item()])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    assert captured['choose'] == ('Show', ['Resume S1E3 from 12:04', 'Episode list'])
+    assert captured['detail'] == []
+    assert captured['play'] is None
+    assert captured['streams'] is None
+    assert win.closed is False
+
+
+def _arm_continue(ctx, monkeypatch, choice=0, stream=None, started=True, store_error=False):
+    captured, fake_choose, fake_play, fake_wait, fake_end, fake_streams, fake_detail, store_cls = (
+        _click_continue(ctx, choice=choice, stream=stream, started=started, store_error=store_error)
+    )
+    monkeypatch.setattr(ctx.dialogs, 'choose', fake_choose)
+    monkeypatch.setattr(ctx.player, 'play_direct', fake_play)
+    monkeypatch.setattr(ctx.streamswindow, '_wait_for_playback_end', fake_wait)
+    monkeypatch.setattr(ctx.uicommon, 'end_player_phase', fake_end)
+    monkeypatch.setattr(ctx.streamswindow, 'open_streams', fake_streams)
+    monkeypatch.setattr(ctx.detailwindow, 'open_detail', fake_detail)
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: store_cls())
+
+    def fake_fetch(stype, sid, **_kwargs):
+        captured['fetch'] = (stype, sid)
+        return {
+            'id': sid, 'name': 'Show', 'type': stype,
+            'videos': [
+                {'id': 'tt1:1:3', 'season': 1, 'episode': 3},
+                {'id': 'tt1:1:4', 'season': 1, 'episode': 4},
+            ],
+        }
+
+    monkeypatch.setattr(ctx.views, '_fetch_meta', fake_fetch)
+    return captured
+
+
+def _series_resume_item():
+    return _resume_poster(
+        'Show', sid='tt1', stype='series', band='resume', video_id='tt1:1:3',
+        position_ms='724000', duration_ms='3600000', hero_title='Show',
+        thumbnail='http://poster', fanart='http://fanart',
+    )
+
+
+def test_continue_series_episode_list_opens_detail_and_does_not_play(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    captured = _arm_continue(ctx, monkeypatch, choice=1)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([_series_resume_item()])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    assert captured['detail'] == [('series', 'tt1')]
+    assert captured['play'] is None
+    assert captured['streams'] is None
+    assert win.closed is True
+
+
+def test_continue_resume_replays_the_saved_stream_and_waits_out_playback(load_homewindow, monkeypatch):
+    """Resume seeks to the saved offset, closes Home for the player, and
+    does not return until playback has ended. That wait is what keeps
+    stop-return from reopening Home on top of the picture."""
+    ctx = load_homewindow()
+    saved = {'url': 'https://cdn.example/ep.mp4', 'behaviorHints': {'filename': 'ep.mkv'}}
+    captured = _arm_continue(ctx, monkeypatch, choice=0, stream=saved, started=True)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([_series_resume_item()])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    stream, stype, sid, kwargs = captured['play']
+    assert stream == saved
+    assert (stype, sid) == ('series', 'tt1:1:3')
+    assert kwargs['video_id'] == 'tt1:1:3'
+    assert kwargs['resume_offset_ms'] == 724000
+    assert kwargs['on_ready'] is ctx.uicommon.close_windows_for_playback
+    assert kwargs['item_meta']['meta']['id'] == 'tt1'
+    assert kwargs['item_meta']['meta']['videos'][1]['id'] == 'tt1:1:4'
+    assert kwargs['item_meta']['art']['poster'] == 'http://poster'
+    assert captured['fetch'] == ('series', 'tt1')
+    assert captured['lookup'] == ('series', 'tt1', 'tt1:1:3')
+    assert captured['order'] == ['play', 'wait', 'end']
+    assert captured['streams'] is None
+    assert captured['detail'] == []
+    assert win.closed is False
+
+
+def test_continue_resume_opens_the_picker_when_the_stream_is_gone(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    captured = _arm_continue(ctx, monkeypatch, choice=0, stream=None)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([_series_resume_item()])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    assert captured['play'] is None
+    args, kwargs = captured['streams']
+    assert args[:2] == ('series', 'tt1:1:3')
+    assert kwargs['video_id'] == 'tt1:1:3'
+    assert kwargs['resume_offset_ms'] == 724000
+    assert kwargs['meta']['id'] == 'tt1'
+    assert captured['detail'] == []
+    assert captured['order'] == []
+
+
+def test_continue_resume_opens_the_picker_when_the_stream_fails(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    saved = {'url': 'https://cdn.example/gone.mp4'}
+    captured = _arm_continue(ctx, monkeypatch, choice=0, stream=saved, started=False)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([_series_resume_item()])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    assert captured['order'] == ['play']
+    assert captured['streams'][1]['resume_offset_ms'] == 724000
+    assert captured['streams'][0][1] == 'tt1:1:3'
+
+
+def test_continue_resume_stops_when_the_title_fetch_is_cancelled(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    captured = _arm_continue(ctx, monkeypatch, choice=0, stream={'url': 'https://cdn.example/ep.mp4'})
+    monkeypatch.setattr(ctx.uicommon, 'run_cancellable', lambda *_a, **_k: ctx.uicommon.CANCELLED)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([_series_resume_item()])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    assert captured['play'] is None
+    assert captured['streams'] is None
+    assert captured['detail'] == []
+    assert win.closed is False
+
+
+def test_continue_resume_opens_the_picker_when_the_store_cannot_be_read(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    captured = _arm_continue(ctx, monkeypatch, choice=0, store_error=True)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([_series_resume_item()])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    assert captured['play'] is None
+    assert captured['streams'][1]['resume_offset_ms'] == 724000
+
+
+def test_continue_movie_offers_resume_or_details(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    captured = _arm_continue(ctx, monkeypatch, choice=1)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = _resume_poster(
+        'Dune', sid='tt1', stype='movie', band='resume',
+        position_ms='50000', duration_ms='100000', hero_title='Dune',
+    )
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([item])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    assert captured['choose'] == ('Dune', ['Resume from 0:50', 'Details'])
+    assert captured['detail'] == [('movie', 'tt1')]
+    assert captured['play'] is None
+
+
+def test_continue_next_up_still_opens_the_episode_list(load_homewindow, monkeypatch):
+    """Finished episodes sit on the same row. They are not a resume."""
+    ctx = load_homewindow()
+    captured = _arm_continue(ctx, monkeypatch, choice=0)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = _resume_poster(
+        'Show', sid='tt1', stype='series', band='next_up', video_id='tt1:1:3',
+        position_ms='3500000', duration_ms='3600000',
+    )
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([item])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    assert captured['choose'] is None
+    assert captured['detail'] == [('series', 'tt1')]
+    assert captured['play'] is None
+
+
+def test_library_poster_does_not_ask_to_resume(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    captured = _arm_continue(ctx, monkeypatch, choice=0)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = _resume_poster(
+        'Dune', sid='tt1', stype='movie', band='resume',
+        position_ms='50000', duration_ms='100000',
+    )
+    win.getControl(ctx.homewindow.LIBRARY_SHELF).addItems([item])
+
+    win.onClick(ctx.homewindow.LIBRARY_SHELF)
+
+    assert captured['choose'] is None
+    assert captured['detail'] == [('movie', 'tt1')]
+
+
+def test_continue_row_carries_the_episode_and_the_offset(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    progress = [{
+        'type': 'series', 'id': 'tt1', 'video_id': 'tt1:1:3', 'name': 'Show',
+        'poster': 'p', 'position_ms': 724000, 'duration_ms': 3600000,
+        'updated_at': '2020-01-02T00:00:00Z',
+    }]
+    monkeypatch.setattr(
+        ctx.homewindow, 'get_store', lambda: _FakeStore(progress_entries=progress),
+    )
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+
+    win.onInit()
+
+    item = win.getControl(ctx.homewindow.CONTINUE_SHELF).items[0]
+    assert item.getProperty('sid') == 'tt1'
+    assert item.getProperty('video_id') == 'tt1:1:3'
+    assert item.getProperty('band') == 'resume'
+    assert item.getProperty('position_ms') == '724000'
+    assert item.getProperty('duration_ms') == '3600000'

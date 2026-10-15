@@ -1074,3 +1074,19 @@ msgstr "Вкл."
 msgctxt "#30437"
 msgid "Off"
 msgstr "Выкл."
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "Продолжить %s с %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "Продолжить с %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Список серий"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Подробности"

@@ -1074,3 +1074,19 @@ msgstr "Activado"
 msgctxt "#30437"
 msgid "Off"
 msgstr "Desactivado"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "Reanudar %s desde %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "Reanudar desde %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Lista de episodios"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Detalles"

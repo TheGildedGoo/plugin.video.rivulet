@@ -1212,7 +1212,7 @@ def test_resolve_waits_for_late_subtitles_under_the_dialog_then_attaches_them(ko
     closed_before_play = []
     monkeypatch.setattr(
         kodi_stubs.player, '_record_now_playing_and_maybe_resume',
-        lambda *a: closed_before_play.append(env.dialog_closed_count),
+        lambda *a, **_k: closed_before_play.append(env.dialog_closed_count),
     )
 
     assert kodi_stubs.player.play_direct({'url': 'https://example.com/a.mp4'}, 'movie', 'tt93') is True
