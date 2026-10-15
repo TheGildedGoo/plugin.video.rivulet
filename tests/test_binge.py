@@ -5,7 +5,7 @@
 and no tests/kodistubs fakes needed - every case here is a plain dict in,
 plain dict/tuple out.
 """
-from lib.ui.binge import next_video, pick_binge_stream
+from lib.ui.binge import next_video, pick_binge_stream, pick_up_next_stream
 
 
 def _video(video_id, season=None, episode=None, released=None, **extra):
@@ -174,3 +174,52 @@ def test_pick_binge_stream_falls_back_to_the_first_pair_when_binge_group_is_empt
 
 def test_pick_binge_stream_returns_none_for_an_empty_pairs_list():
     assert pick_binge_stream([], 'rivulet|1080p') is None
+
+
+def test_pick_up_next_prefers_the_highest_cached_stream():
+    pairs = [
+        ({'resolution': '2160p', 'cached': False, 'binge_group': 'grp'}, 'four-k'),
+        ({'resolution': '1080p', 'cached': True}, 'cached-hd'),
+        ({'resolution': '720p', 'cached': True}, 'cached-sd'),
+    ]
+    assert pick_up_next_stream(pairs, 'grp')[1] == 'cached-hd'
+
+
+def test_pick_up_next_falls_back_to_the_best_when_nothing_is_cached():
+    pairs = [
+        ({'resolution': '720p', 'cached': False}, 'sd'),
+        ({'resolution': '1080p', 'cached': None}, 'hd'),
+    ]
+    assert pick_up_next_stream(pairs, None)[1] == 'hd'
+
+
+def test_pick_up_next_cached_only_returns_none_when_nothing_is_cached():
+    pairs = [({'resolution': '1080p', 'cached': False}, 'hd')]
+    assert pick_up_next_stream(pairs, None, cached_only=True) is None
+
+
+def test_pick_up_next_quality_cap_drops_a_known_height_above_it():
+    pairs = [
+        ({'resolution': '2160p', 'cached': True}, 'four-k'),
+        ({'resolution': '1080p', 'cached': True}, 'hd'),
+    ]
+    assert pick_up_next_stream(pairs, None, max_height=1080)[1] == 'hd'
+    assert pick_up_next_stream(pairs[:1], None, max_height=1080) is None
+
+
+def test_pick_up_next_binge_group_breaks_a_tie_and_does_not_beat_cache():
+    same = [
+        ({'resolution': '1080p', 'cached': True, 'binge_group': 'other'}, 'a'),
+        ({'resolution': '1080p', 'cached': True, 'binge_group': 'grp'}, 'b'),
+    ]
+    assert pick_up_next_stream(same, 'grp')[1] == 'b'
+    mixed = [
+        ({'resolution': '1080p', 'cached': False, 'binge_group': 'grp'}, 'match'),
+        ({'resolution': '720p', 'cached': True, 'binge_group': 'other'}, 'cached'),
+    ]
+    assert pick_up_next_stream(mixed, 'grp')[1] == 'cached'
+
+
+def test_pick_up_next_keeps_an_unparsed_resolution_under_a_cap():
+    pairs = [({'resolution': '', 'cached': True}, 'unknown')]
+    assert pick_up_next_stream(pairs, None, max_height=1080)[1] == 'unknown'

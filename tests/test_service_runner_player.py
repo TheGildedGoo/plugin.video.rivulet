@@ -108,6 +108,21 @@ class _FakeProgressStore:
             raise self._set_progress_error
         self.progress_calls.append((content_type, content_id, video_id, position_ms, duration_ms, now))
 
+    def set_autoplay_finish(self, started_at, video_id=None):
+        if not started_at:
+            self._autoplay_finish = None
+            return
+        self._autoplay_finish = {'started_at': started_at, 'video_id': video_id}
+
+    def take_autoplay_finish(self, started_at, video_id):
+        flag = getattr(self, '_autoplay_finish', None)
+        if not isinstance(flag, dict):
+            return False
+        if flag.get('started_at') != started_at or flag.get('video_id') != video_id:
+            return False
+        self._autoplay_finish = None
+        return True
+
 
 class _FakeProgressAPI:
     """Fake `lib.stremio.api.StremioAPI` surface the progress player's
@@ -916,6 +931,43 @@ def test_push_failure_queues_the_job_and_still_writes_local_progress():
     assert store.pending
     assert store.pending[0]['id'] == 'tt1'
     assert any('library push failed' in msg for _level, msg in logs)
+
+
+def test_autoplay_cut_marks_a_short_episode_watched_and_starts_the_next_fresh():
+    """40% is under the user-stop threshold. The cut marker is what
+    makes this stop count as watched and point Continue at the next
+    episode. A marker for a different episode does not."""
+    context = _series_context('tt1:1:1')
+    store = _FakeProgressStore(now_playing=context, auth={'authKey': 'tok'})
+    store.set_autoplay_finish('someone-else', 'tt1:1:1')
+    api = _FakeProgressAPI()
+    with _progress_player_env(store, api, sync_enabled=True) as (env, player, logs):
+        player.onAVStarted()
+        env.player_is_playing = True
+        env.player_get_time = 40.0
+        env.player_get_total_time = 100.0
+        player.sample_if_playing()
+        player.onPlayBackStopped()
+        early = api.datastore_put_calls[-1][2][0]['state']
+        assert early['timeOffset'] == 40000
+        assert early['watched'] is None
+        assert store._autoplay_finish is not None
+
+        store.set_now_playing(_series_context('tt1:1:1'))
+        store.set_autoplay_finish(store.get_now_playing()['started_at'], 'tt1:1:1')
+        player.onAVStarted()
+        env.player_is_playing = True
+        env.player_get_time = 40.0
+        env.player_get_total_time = 100.0
+        player.sample_if_playing()
+        player.onPlayBackStopped()
+    finished = api.datastore_put_calls[-1][2][0]['state']
+    assert finished['video_id'] == 'tt1:1:2'
+    assert finished['timeOffset'] == 1
+    assert finished['duration'] == 0
+    from lib.stremio.watchedbitfield import watched_video_ids
+    assert watched_video_ids(finished['watched'], ['tt1:1:1', 'tt1:1:2']) == {'tt1:1:1'}
+    assert store._autoplay_finish is None
 
 
 def test_natural_end_marks_watched_and_advances_user_stop_does_not():

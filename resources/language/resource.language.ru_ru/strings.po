@@ -1090,3 +1090,38 @@ msgstr "Список серий"
 msgctxt "#30441"
 msgid "Details"
 msgstr "Подробности"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "Секунды до конца"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "Качество автовоспроизведения"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "Наивысшее"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "Далее"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "Автовоспроизведение только из кэша"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "Серий до вопроса, смотрите ли вы ещё"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "Вы ещё смотрите?"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "Далее: %s"

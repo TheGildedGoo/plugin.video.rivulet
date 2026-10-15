@@ -1438,6 +1438,40 @@ def test_continue_resume_replays_the_saved_stream_and_waits_out_playback(load_ho
     assert win.closed is False
 
 
+def test_continue_resume_natural_end_rolls_into_up_next(load_homewindow, monkeypatch):
+    """A Continue resume that plays through does not go straight Home.
+    It joins the same Up next chain as a picker play. A user stop does
+    not, which is the test above."""
+    ctx = load_homewindow()
+    saved = {'url': 'https://cdn.example/ep.mp4', 'behaviorHints': {}}
+    captured = _arm_continue(ctx, monkeypatch, choice=0, stream=saved, started=True)
+
+    def fake_wait(*_args, **_kwargs):
+        captured['order'].append('wait')
+        return True, True
+
+    def fake_binge(*args, **kwargs):
+        captured['order'].append('binge')
+        captured['binge'] = (args, kwargs)
+        return None
+
+    monkeypatch.setattr(ctx.streamswindow, '_wait_for_playback_end', fake_wait)
+    monkeypatch.setattr(ctx.streamswindow, '_try_binge_watch', fake_binge)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([_series_resume_item()])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    # Home ends the phase when it comes back. The card's own phase
+    # change is inside streamswindow and is not this test's fake.
+    assert captured['order'] == ['play', 'wait', 'binge', 'end']
+    assert captured['binge'][0][0] == 'series'
+    assert captured['binge'][0][4] == 'tt1:1:3'
+    assert captured['binge'][0][1]['videos'][1]['id'] == 'tt1:1:4'
+    assert captured['streams'] is None
+    assert win.closed is False
+
+
 def test_continue_resume_opens_the_picker_when_the_stream_is_gone(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     captured = _arm_continue(ctx, monkeypatch, choice=0, stream=None)

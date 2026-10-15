@@ -1090,3 +1090,38 @@ msgstr "Liste des épisodes"
 msgctxt "#30441"
 msgid "Details"
 msgstr "Détails"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "Secondes avant la fin"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "Qualité de la lecture auto"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "La plus élevée"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "À suivre"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "Lecture auto des sources en cache seulement"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "Épisodes avant la question toujours là"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "Vous êtes toujours là ?"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "À suivre : %s"

@@ -1090,3 +1090,38 @@ msgstr "에피소드 목록"
 msgctxt "#30441"
 msgid "Details"
 msgstr "상세 정보"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "끝나기 전 초"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "자동 재생 화질"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "최고"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "다음 재생"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "캐시된 소스만 자동 재생"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "아직 시청 중인지 묻기까지의 회차"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "아직 시청 중인가요?"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "다음: %s"

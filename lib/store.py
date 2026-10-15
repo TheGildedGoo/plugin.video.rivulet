@@ -54,6 +54,13 @@ JSON files live under ``data_dir``:
   for a ``(type, id, video_id)`` key (see :meth:`Store.set_last_stream`).
   Continue's Resume row replays it. Plain read-modify-write, capped,
   same key as ``progress.json``. Not part of the account sync.
+* ``autoplay_finish.json`` -- a one-shot "this stop is an Up next cut"
+  marker (``started_at`` plus ``video_id``). Armed after the next
+  episode's stream resolves and before ``play()`` replaces the file,
+  because that replacement arrives as a user stop. The service's final
+  flush marks the episode watched only when both fields still match,
+  then deletes the file. A mismatch is left alone so the next episode's
+  own stop cannot consume it.
 
 Writes are atomic (write to a temp file, then ``os.replace``) so a crash or
 power loss never leaves a half-written JSON file behind. A corrupt file on
@@ -103,6 +110,7 @@ LAST_VERSION_FILENAME = "last_version.json"
 SEEN_EPISODES_FILENAME = "seen_episodes.json"
 PENDING_SYNC_FILENAME = "pending_sync.json"
 LAST_STREAMS_FILENAME = "last_streams.json"
+AUTOPLAY_FINISH_FILENAME = "autoplay_finish.json"
 
 #: How many last-chosen streams to keep. One entry per played episode,
 #: and a stream object is much larger than a progress sample, so this
@@ -945,6 +953,7 @@ class Store:
         self._seen_episodes_path = os.path.join(self.data_dir, SEEN_EPISODES_FILENAME)
         self._pending_sync_path = os.path.join(self.data_dir, PENDING_SYNC_FILENAME)
         self._last_streams_path = os.path.join(self.data_dir, LAST_STREAMS_FILENAME)
+        self._autoplay_finish_path = os.path.join(self.data_dir, AUTOPLAY_FINISH_FILENAME)
         #: Per-instance memoisation for `_cached_read`: `path -> ((mtime_ns,
         #: size), parsed_value)`. A single process/screen-render often
         #: calls e.g. `get_addons()` many times; a fresh eMMC/SD `open()`
@@ -1535,6 +1544,45 @@ class Store:
             return
         _atomic_write(self._resume_offset_path, {"offset_ms": int(offset_ms)}, compact=True)
         self._invalidate_cache(self._resume_offset_path)
+
+    def set_autoplay_finish(self, started_at, video_id=None):
+        """Arm or clear the Up next cut marker.
+
+        ``started_at`` empty clears the file. Otherwise the marker is
+        the context ``onAVStarted`` accepted, so the stop flush of that
+        episode can force ``finished`` even when the cut lands under
+        the 90% user-stop threshold. A fixed path, same as
+        ``resume_offset.json``: the read cache's key set stays closed.
+        """
+        if not started_at:
+            try:
+                os.remove(self._autoplay_finish_path)
+            except OSError:
+                pass
+            self._invalidate_cache(self._autoplay_finish_path)
+            return
+        _atomic_write(
+            self._autoplay_finish_path,
+            {"started_at": started_at, "video_id": video_id},
+            compact=True,
+        )
+        self._invalidate_cache(self._autoplay_finish_path)
+
+    def take_autoplay_finish(self, started_at, video_id):
+        """True when the marker matches this context, and only then clear it.
+
+        A mismatch is left on disk. The next episode's stop must not
+        consume a flag that belongs to the episode the cut just left,
+        and clearing on mismatch would let the new episode's callback
+        erase the flag before the old episode's flush reads it.
+        """
+        payload = self._cached_read(self._autoplay_finish_path, None)
+        if not isinstance(payload, dict):
+            return False
+        if payload.get("started_at") != started_at or payload.get("video_id") != video_id:
+            return False
+        self.set_autoplay_finish(None)
+        return True
 
     def get_last_seen_version(self):
         """Return the addon version last recorded by

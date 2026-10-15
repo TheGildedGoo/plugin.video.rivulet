@@ -199,7 +199,7 @@ def test_onclick_records_played_pair_when_play_direct_succeeds(load_streamswindo
     win.getControl(ctx.streamswindow.LIST).selected_index = 1
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: True,
     )
 
     win.onClick(ctx.streamswindow.LIST)
@@ -214,7 +214,7 @@ def test_onclick_leaves_played_pair_none_when_play_direct_returns_false(load_str
     win.onInit()
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: False,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: False,
     )
 
     win.onClick(ctx.streamswindow.LIST)
@@ -229,7 +229,7 @@ def test_onclick_stays_open_when_play_direct_returns_false(load_streamswindow, m
     win.onInit()
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: False,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: False,
     )
 
     win.onClick(ctx.streamswindow.LIST)
@@ -1093,7 +1093,7 @@ def test_open_streams_stopping_a_played_episode_does_not_auto_play_the_next_one(
     play_direct_calls = []
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: (
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: (
             play_direct_calls.append((stream, sid)) or True
         ),
     )
@@ -1128,7 +1128,7 @@ def test_open_streams_binge_watch_auto_plays_the_next_episode_then_reopens_the_o
     play_direct_calls = []
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: (
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: (
             play_direct_calls.append((stream, stype, sid, item_meta, on_ready, video_id)) or True
         ),
     )
@@ -1149,7 +1149,12 @@ def test_open_streams_binge_watch_auto_plays_the_next_episode_then_reopens_the_o
     auto_stream, auto_stype, auto_sid, auto_item_meta, auto_on_ready, auto_video_id = play_direct_calls[0]
     assert (auto_stream, auto_stype, auto_sid) == (next_stream, 'series', 's1e2')
     assert auto_item_meta['label'] == 'Show \u2013 S01E02 \u00b7 Two'
-    assert auto_on_ready is sw.close_windows_for_playback
+    # on_ready closes the stack, and arms the cut marker only for a
+    # credits cut. This post-end play does not arm it.
+    closed = []
+    monkeypatch.setattr(sw, 'close_windows_for_playback', lambda: closed.append(True))
+    auto_on_ready()
+    assert closed == [True]
     assert auto_video_id == 's1e2'  # the next episode's own id, not the just-played one
     assert [call[2] for call in client.calls] == ['s1e1', 's1e2']  # fetched the played sid, then the next one
 
@@ -1178,7 +1183,7 @@ def test_open_streams_binge_watch_prefers_the_stream_matching_the_played_binge_g
     play_direct_calls = []
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: play_direct_calls.append(stream) or True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: play_direct_calls.append(stream) or True,
     )
     ctx.env.player_is_playing = lambda n: n in (1, 3)
 
@@ -1207,7 +1212,7 @@ def test_open_streams_binge_watch_chain_continues_through_a_third_episode(
     play_direct_calls = []
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: play_direct_calls.append((sid, stream)) or True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: play_direct_calls.append((sid, stream)) or True,
     )
     # "playing" once at the START of EVERY _wait_for_playback_end() call
     # this makes (episode 1, then auto-played 2, then auto-played 3) -
@@ -1244,7 +1249,7 @@ def test_open_streams_binge_watch_stopping_the_auto_played_episode_ends_the_chai
     play_direct_calls = []
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: play_direct_calls.append((sid, stream)) or True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: play_direct_calls.append((sid, stream)) or True,
     )
 
     def is_playing(n):
@@ -1284,7 +1289,7 @@ def test_open_streams_binge_watch_cancelling_the_countdown_reopens_the_original_
     play_direct_calls = []
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: play_direct_calls.append(stream) or True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: play_direct_calls.append(stream) or True,
     )
     ctx.env.player_is_playing = lambda n: n == 1
     # RivuletBusy.iscanceled() (the played/next episode fetches) and
@@ -1329,7 +1334,7 @@ def test_open_streams_binge_watch_monitor_abort_during_the_countdown_returns_fal
     play_direct_calls = []
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: play_direct_calls.append(stream) or True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: play_direct_calls.append(stream) or True,
     )
     ctx.env.player_is_playing = lambda n: n == 1
     # Call #1 is the settle pause right after episode 1's own
@@ -1362,7 +1367,7 @@ def test_open_streams_binge_watch_no_next_episode_reopens_the_original_picker_wi
     )
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: True,
     )
     ctx.env.player_is_playing = lambda n: n == 1
 
@@ -1388,7 +1393,7 @@ def test_open_streams_binge_watch_disabled_setting_reopens_the_original_picker_w
     )
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: True,
     )
     ctx.env.player_is_playing = lambda n: n == 1
 
@@ -1413,7 +1418,7 @@ def test_open_streams_binge_watch_no_fetchable_stream_for_the_next_episode_reope
     )
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: True,
     )
     ctx.env.player_is_playing = lambda n: n == 1
 
@@ -1436,7 +1441,7 @@ def test_open_streams_binge_watch_a_movie_without_video_id_never_triggers_it(loa
     )
     monkeypatch.setattr(
         ctx.player, 'play_direct',
-        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None: True,
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: True,
     )
     ctx.env.player_is_playing = lambda n: n == 1
 
@@ -1447,6 +1452,219 @@ def test_open_streams_binge_watch_a_movie_without_video_id_never_triggers_it(loa
     assert result is False
     assert start_calls == ['tt-movie', 'tt-movie']
     assert [call[2] for call in client.calls] == ['tt-movie']  # no second fetch was ever attempted
+
+
+def _binge_window(sw, start_calls, played_pair):
+    return _OnceThenBackOutWindow.build(sw, played_pair, start_calls)
+
+
+def test_open_streams_up_next_crosses_the_season_boundary(load_streamswindow, monkeypatch):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    ctx.env.addon.settings['binge_countdown'] = 1
+    meta = {
+        'id': 'tt1', 'name': 'Show',
+        'videos': [
+            {'id': 's1e1', 'season': 1, 'episode': 8, 'title': 'Finale'},
+            {'id': 's2e1', 'season': 2, 'episode': 1, 'title': 'Premiere'},
+        ],
+    }
+    played = {'name': 'E1', 'behaviorHints': {}, 'url': 'https://a.example/e1.mp4'}
+    nxt = {'name': 'E2', 'behaviorHints': {}, 'url': 'https://a.example/e2.mp4'}
+    _wire_series_addon(sw, {'s1e1': [played], 's2e1': [nxt]})
+    start_calls = []
+    info = streaminfo.parse_stream(played, addon_name='Addon')
+    monkeypatch.setattr(sw, 'StreamsWindow', _binge_window(sw, start_calls, (info, played)))
+    played_next = []
+    monkeypatch.setattr(
+        ctx.player, 'play_direct',
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: (
+            played_next.append((sid, resume_offset_ms)) or True
+        ),
+    )
+    ctx.env.player_is_playing = lambda n: n % 2 == 1
+
+    assert sw.open_streams('series', 's1e1', meta=meta, video_id='s1e1') is False
+    assert played_next == [('s2e1', 0)]
+    assert start_calls == ['s1e1', 's1e1']
+
+
+def test_open_streams_up_next_stops_at_the_series_end(load_streamswindow, monkeypatch):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    ctx.env.addon.settings['binge_countdown'] = 1
+    meta = {'id': 'tt1', 'name': 'Show', 'videos': [{'id': 's1e1', 'season': 1, 'episode': 1}]}
+    played = {'name': 'E1', 'behaviorHints': {}, 'url': 'https://a.example/e1.mp4'}
+    client = _wire_series_addon(sw, {'s1e1': [played], 's1e2': [{'url': 'https://a.example/nope.mp4'}]})
+    start_calls = []
+    info = streaminfo.parse_stream(played, addon_name='Addon')
+    monkeypatch.setattr(sw, 'StreamsWindow', _binge_window(sw, start_calls, (info, played)))
+    calls = []
+    monkeypatch.setattr(
+        ctx.player, 'play_direct',
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: (
+            calls.append(sid) or True
+        ),
+    )
+    ctx.env.player_is_playing = lambda n: n == 1
+
+    assert sw.open_streams('series', 's1e1', meta=meta, video_id='s1e1') is False
+    assert calls == []
+    assert [call[2] for call in client.calls] == ['s1e1']
+    assert start_calls == ['s1e1', 's1e1']
+
+
+def test_open_streams_up_next_does_not_play_when_cached_only_finds_nothing(load_streamswindow, monkeypatch):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    ctx.env.addon.settings['binge_countdown'] = 1
+    ctx.env.addon.settings['binge_cached_only'] = 'true'
+    played = {'name': 'E1', 'behaviorHints': {}, 'url': 'https://a.example/e1.mp4'}
+    uncached = {'name': 'E2 1080p', 'behaviorHints': {}, 'url': 'https://a.example/e2.mp4'}
+    client = _wire_series_addon(sw, {'s1e1': [played], 's1e2': [uncached]})
+    start_calls = []
+    info = streaminfo.parse_stream(played, addon_name='Addon')
+    monkeypatch.setattr(sw, 'StreamsWindow', _binge_window(sw, start_calls, (info, played)))
+    calls = []
+    monkeypatch.setattr(
+        ctx.player, 'play_direct',
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: (
+            calls.append(sid) or True
+        ),
+    )
+    ctx.env.player_is_playing = lambda n: n == 1
+
+    assert sw.open_streams('series', 's1e1', meta=_TWO_EPISODE_SERIES_META, video_id='s1e1') is False
+    assert calls == []
+    assert [call[2] for call in client.calls] == ['s1e1', 's1e2']
+    assert start_calls == ['s1e1', 's1e1']
+
+
+def test_open_streams_up_next_resolve_failure_reopens_the_picker(load_streamswindow, monkeypatch):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    ctx.env.addon.settings['binge_countdown'] = 1
+    played = {'name': 'E1', 'behaviorHints': {}, 'url': 'https://a.example/e1.mp4'}
+    nxt = {'name': 'E2', 'behaviorHints': {}, 'url': 'https://a.example/e2.mp4'}
+    _wire_series_addon(sw, {'s1e1': [played], 's1e2': [nxt]})
+    start_calls = []
+    info = streaminfo.parse_stream(played, addon_name='Addon')
+    monkeypatch.setattr(sw, 'StreamsWindow', _binge_window(sw, start_calls, (info, played)))
+    calls = []
+    monkeypatch.setattr(
+        ctx.player, 'play_direct',
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: (
+            calls.append(sid) or False
+        ),
+    )
+    ctx.env.player_is_playing = lambda n: n == 1
+
+    assert sw.open_streams('series', 's1e1', meta=_TWO_EPISODE_SERIES_META, video_id='s1e1') is False
+    assert calls == ['s1e2']
+    assert start_calls == ['s1e1', 's1e1']
+
+
+def test_open_streams_up_next_card_during_the_credits_starts_the_next_episode(load_streamswindow, monkeypatch):
+    """Remaining time inside the lead shows the card while the file is
+    still playing. Accepting it starts the next episode with a fresh
+    offset and does not show a second card."""
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    ctx.env.addon.settings['binge_countdown'] = 1
+    ctx.env.addon.settings['binge_lead_seconds'] = 30
+    played = {'name': 'E1', 'behaviorHints': {}, 'url': 'https://a.example/e1.mp4'}
+    nxt = {'name': '[RD+] E2 1080p', 'behaviorHints': {}, 'url': 'https://a.example/e2.mp4'}
+    worse = {'name': 'E2 2160p', 'behaviorHints': {}, 'url': 'https://a.example/e2-big.mp4'}
+    _wire_series_addon(sw, {'s1e1': [played], 's1e2': [worse, nxt]})
+    start_calls = []
+    info = streaminfo.parse_stream(played, addon_name='Addon')
+    monkeypatch.setattr(sw, 'StreamsWindow', _binge_window(sw, start_calls, (info, played)))
+    calls = []
+
+    def play_direct(stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None):
+        calls.append((sid, stream, resume_offset_ms))
+        ctx.env.player_is_playing = False
+        return True
+
+    monkeypatch.setattr(ctx.player, 'play_direct', play_direct)
+    ctx.env.player_is_playing = True
+    ctx.env.player_get_time = 970.0
+    ctx.env.player_get_total_time = 1000.0
+
+    assert sw.open_streams('series', 's1e1', meta=_TWO_EPISODE_SERIES_META, video_id='s1e1') is False
+    assert len(calls) == 1
+    assert calls[0][0] == 's1e2'
+    assert calls[0][1]['url'] == nxt['url']
+    assert calls[0][2] == 0
+    assert start_calls == ['s1e1', 's1e1']
+
+
+def test_open_streams_up_next_back_on_the_card_does_not_play_the_next_episode(load_streamswindow, monkeypatch):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    ctx.env.addon.settings['binge_countdown'] = 5
+    ctx.env.addon.settings['binge_lead_seconds'] = 30
+    played = {'name': 'E1', 'behaviorHints': {}, 'url': 'https://a.example/e1.mp4'}
+    nxt = {'name': 'E2', 'behaviorHints': {}, 'url': 'https://a.example/e2.mp4'}
+    _wire_series_addon(sw, {'s1e1': [played], 's1e2': [nxt]})
+    start_calls = []
+    info = streaminfo.parse_stream(played, addon_name='Addon')
+    monkeypatch.setattr(sw, 'StreamsWindow', _binge_window(sw, start_calls, (info, played)))
+    calls = []
+    monkeypatch.setattr(
+        ctx.player, 'play_direct',
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: (
+            calls.append(sid) or True
+        ),
+    )
+    polls = {'n': 0}
+
+    def is_playing(_n):
+        polls['n'] += 1
+        return polls['n'] < 4
+
+    ctx.env.player_is_playing = is_playing
+    ctx.env.player_end_reason = 'stopped'
+    ctx.env.player_get_time = 970.0
+    ctx.env.player_get_total_time = 1000.0
+    real_open = ctx.dialogs.open_window
+
+    def cancel_countdown(window_cls, xml_name, *args, **kwargs):
+        window = real_open(window_cls, xml_name, *args, **kwargs)
+        if window_cls is ctx.dialogs._CountdownWindow:
+            window._canceled = True
+        return window
+
+    monkeypatch.setattr(ctx.dialogs, 'open_window', cancel_countdown)
+
+    assert sw.open_streams('series', 's1e1', meta=_TWO_EPISODE_SERIES_META, video_id='s1e1') is False
+    assert calls == []
+    assert start_calls == ['s1e1', 's1e1']
+
+
+def test_open_streams_still_watching_declines_when_the_timer_runs_out(load_streamswindow, monkeypatch):
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    ctx.env.addon.settings['binge_countdown'] = 1
+    ctx.env.addon.settings['binge_still_watching'] = 0
+    played = {'name': 'E1', 'behaviorHints': {}, 'url': 'https://a.example/e1.mp4'}
+    nxt = {'name': 'E2', 'behaviorHints': {}, 'url': 'https://a.example/e2.mp4'}
+    _wire_series_addon(sw, {'s1e1': [played], 's1e2': [nxt]})
+    start_calls = []
+    info = streaminfo.parse_stream(played, addon_name='Addon')
+    monkeypatch.setattr(sw, 'StreamsWindow', _binge_window(sw, start_calls, (info, played)))
+    calls = []
+    monkeypatch.setattr(
+        ctx.player, 'play_direct',
+        lambda stream, stype, sid, item_meta=None, on_ready=None, video_id=None, resume_offset_ms=None: (
+            calls.append(sid) or True
+        ),
+    )
+    ctx.env.player_is_playing = lambda n: n == 1
+
+    assert sw.open_streams('series', 's1e1', meta=_TWO_EPISODE_SERIES_META, video_id='s1e1') is False
+    assert calls == []
+    assert start_calls == ['s1e1', 's1e1']
 
 
 # ---------------------------------------------------------------------------

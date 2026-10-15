@@ -1090,3 +1090,38 @@ msgstr "エピソード一覧"
 msgctxt "#30441"
 msgid "Details"
 msgstr "詳細"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "終了前の秒数"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "自動再生の画質"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "最高"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "次に再生"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "キャッシュ済みのソースだけ自動再生"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "まだ見ているか確認するまでの話数"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "まだ見ていますか？"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "次は %s"

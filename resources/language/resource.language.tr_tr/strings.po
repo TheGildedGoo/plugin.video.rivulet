@@ -1090,3 +1090,38 @@ msgstr "Bölüm listesi"
 msgctxt "#30441"
 msgid "Details"
 msgstr "Ayrıntılar"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "Bitime kalan saniye"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "Otomatik oynatma kalitesi"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "En yüksek"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "Sıradaki"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "Yalnızca önbellekteki kaynakları otomatik oynat"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "Hâlâ izliyor musunuz sorusundan önceki bölüm sayısı"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "Hâlâ izliyor musunuz?"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "Sıradaki: %s"

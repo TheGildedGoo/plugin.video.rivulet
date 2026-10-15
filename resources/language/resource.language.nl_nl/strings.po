@@ -1090,3 +1090,38 @@ msgstr "Afleveringen"
 msgctxt "#30441"
 msgid "Details"
 msgstr "Details"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "Seconden voor het einde"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "Kwaliteit van automatisch afspelen"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "Hoogste"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "Hierna"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "Alleen gebufferde bronnen automatisch"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "Afleveringen voor de vraag of je nog kijkt"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "Kijk je nog?"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "Hierna: %s"

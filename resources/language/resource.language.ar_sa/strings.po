@@ -1090,3 +1090,38 @@ msgstr "قائمة الحلقات"
 msgctxt "#30441"
 msgid "Details"
 msgstr "التفاصيل"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "ثوان قبل النهاية"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "جودة التشغيل التلقائي"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "الأعلى"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "التالي"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "تشغيل المصادر المخزنة مؤقتا فقط تلقائيا"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "الحلقات قبل سؤال هل ما زلت تشاهد"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "هل ما زلت تشاهد؟"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "التالي: %s"

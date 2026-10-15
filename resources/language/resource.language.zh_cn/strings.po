@@ -1090,3 +1090,38 @@ msgstr "剧集列表"
 msgctxt "#30441"
 msgid "Details"
 msgstr "详情"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "结束前的秒数"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "自动播放画质"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "最高"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "即将播放"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "只自动播放已缓存的来源"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "询问是否还在观看之前的集数"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "还在看吗？"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "接下来是 %s"

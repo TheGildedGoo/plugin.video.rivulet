@@ -1044,30 +1044,23 @@ def _continue_choice(item, offset_ms):
     return choose(heading, [resume, second])
 
 
-def _hold_until_playback_ends():
-    """Block until the player has closed, then end the player phase.
+def _hold_until_playback_ends(stype, meta, poster, art, video_id, played_info):
+    """Block until playback and any Up next chain have finished, then
+    end the player phase.
 
     `play_direct` returns as soon as Kodi accepts the item. Returning
     from Home's click at that moment lets `doModal` reopen Home on top
     of the picture, because Continue has no picker sitting in between
-    the way `open_streams` does. The phase stays `player` through the
-    same settle `open_streams` uses, so a Stop refresh is still ignored,
-    and ends immediately before this returns: Home is the screen coming
-    back, and its reopen does not itself end the phase. Input would
-    stay gated if the phase were left on `player`.
+    the way `open_streams` does. A natural end, or an accepted Up next
+    card, rolls into the same chain the picker uses. A user Stop, Back
+    on the card, the series ending, or a failed resolve does not: Home
+    is the stop-return. The phase ends here either way, because Home's
+    reopen does not end it and input would stay gated.
     """
-    import xbmc
-
-    from lib.ui.streamswindow import _REOPEN_SETTLE_SECONDS, _wait_for_playback_end
+    from lib.ui.streamswindow import _after_playback
     from lib.ui.uicommon import end_player_phase
 
-    proceed, _ended = _wait_for_playback_end()
-    if not proceed:
-        end_player_phase()
-        return
-    if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):
-        end_player_phase()
-        return
+    _after_playback(stype, meta, poster, art, video_id, played_info)
     end_player_phase()
 
 
@@ -1138,7 +1131,18 @@ def _resume_continue(item, offset_ms):
             resume_offset_ms=offset_ms,
         )
     if started:
-        _hold_until_playback_ends()
+        played_info = None
+        try:
+            from lib.stremio.streaminfo import parse_stream
+            played_info = parse_stream(stream)
+        except Exception as exc:  # noqa: BLE001 - a tie-break miss must not block the chain
+            log('home: saved stream was not read for Up next: %r' % (exc,), xbmc.LOGDEBUG)
+        _hold_until_playback_ends(
+            stype, item_meta.get('meta'),
+            item.getProperty('thumbnail') or None,
+            _continue_art(item),
+            video_id, played_info,
+        )
         return
     open_streams(
         stype, play_id,
