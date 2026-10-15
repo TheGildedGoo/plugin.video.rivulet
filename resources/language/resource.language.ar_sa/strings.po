@@ -1074,3 +1074,19 @@ msgstr "تشغيل"
 msgctxt "#30437"
 msgid "Off"
 msgstr "إيقاف"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "استئناف %s من %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "استئناف من %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "قائمة الحلقات"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "التفاصيل"

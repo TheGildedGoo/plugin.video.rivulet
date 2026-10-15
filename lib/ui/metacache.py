@@ -149,6 +149,26 @@ def _atomic_write(path, data):
             pass
 
 
+def load_cached_record(data_dir, stype, sid):
+    """The cache entry for (stype, sid), or None on a miss.
+
+    The entry is ``{'ts', 'meta'}`` plus ``videos_checked`` when a
+    New Episodes fetch stored it. Callers that only want the meta
+    object use :func:`load_cached_meta`. Same lock-free read as that
+    function: ``os.replace()`` only ever exposes a complete file.
+    """
+    try:
+        entry = _read_entries(data_dir).get(_key(stype, sid))
+        if (
+            not isinstance(entry, dict)
+            or time.time() - entry.get('ts', 0) > TTL_SECONDS
+        ):
+            return None
+        return entry
+    except OSError:
+        return None
+
+
 def load_cached_meta(data_dir, stype, sid):
     """Return the cached meta object for (stype, sid), or None on a miss
     (absent, expired, or any I/O/parse failure).
@@ -159,19 +179,13 @@ def load_cached_meta(data_dir, stype, sid):
     a torn/partial one. Serialising reads against `store_cached_meta()`'s
     lock would buy nothing but contention.
     """
-    try:
-        entry = _read_entries(data_dir).get(_key(stype, sid))
-        if (
-            not isinstance(entry, dict)
-            or time.time() - entry.get('ts', 0) > TTL_SECONDS
-        ):
-            return None
-        return entry.get('meta')
-    except OSError:
+    record = load_cached_record(data_dir, stype, sid)
+    if record is None:
         return None
+    return record.get('meta')
 
 
-def store_cached_metas(data_dir, entries):
+def store_cached_metas(data_dir, entries, videos_checked=False):
     """Cache every *successful* (stype, sid, meta) triple in `entries` in
     one read-evict-write cycle, instead of one per meta.
 
@@ -190,6 +204,10 @@ def store_cached_metas(data_dir, entries):
     a failed or empty upstream answer is never cached as if it were real.
     A batch that ends up with nothing usable is a no-op: no lock taken,
     no file touched.
+
+    `videos_checked` marks every entry in this batch as the answer a
+    New Episodes fetch already accepted. The flag is per write, not per
+    triple: the only caller that passes True stores one meta.
     """
     usable = [(stype, sid, meta) for stype, sid, meta in entries if meta]
     if not usable:
@@ -199,19 +217,24 @@ def store_cached_metas(data_dir, entries):
             stored = _read_entries(data_dir)
             now = time.time()
             for stype, sid, meta in usable:
-                stored[_key(stype, sid)] = {'ts': now, 'meta': meta}
+                record = {'ts': now, 'meta': meta}
+                if videos_checked:
+                    record['videos_checked'] = True
+                stored[_key(stype, sid)] = record
             stored = _evict(stored)
             _atomic_write(_path(data_dir), stored)
     except OSError:
         pass
 
 
-def store_cached_meta(data_dir, stype, sid, meta):
+def store_cached_meta(data_dir, stype, sid, meta, videos_checked=False):
     """Cache a *successful* meta object for (stype, sid). `meta` must
     already be known-usable - callers must not pass None/empty results,
     so a failed or empty upstream answer is never cached as if it were
     a real one.
 
     Delegates to `store_cached_metas()` with a single-entry list - see
-    its docstring for the read-evict-write/lock contract this shares."""
-    store_cached_metas(data_dir, [(stype, sid, meta)])
+    its docstring for the read-evict-write/lock contract this shares.
+    `videos_checked` is forwarded so a New Episodes fetch can tell a
+    later read that this episode list was the best answer available."""
+    store_cached_metas(data_dir, [(stype, sid, meta)], videos_checked=videos_checked)

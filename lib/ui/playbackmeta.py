@@ -147,6 +147,35 @@ def format_hms(seconds):
     return '%d:%02d:%02d' % (hours, minutes, secs)
 
 
+def format_resume_clock(seconds):
+    """'m:ss', or 'h:mm:ss' once an hour is in (724 -> '12:04').
+
+    Continue's row says "from mm:ss". `format_hms()` always prints the
+    hour, so the same offset would read '0:12:04'.
+    """
+    seconds = max(0, int(seconds))
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return '%d:%02d:%02d' % (hours, minutes, secs)
+    return '%d:%02d' % (minutes, secs)
+
+
+def episode_label_from_id(video_id):
+    """'S1E3' when `video_id` ends in ':season:episode', else ''.
+
+    Stremio episode ids are ``tt1234567:1:3`` (the show id, then the two
+    numbers). Unpadded, matching the Continue label Dylan asked for.
+    `episode_code()` stays zero-padded for the episode list.
+    """
+    if not isinstance(video_id, str):
+        return ''
+    show, season, episode = (video_id.rsplit(':', 2) + ['', ''])[:3]
+    if not show or not season.isdigit() or not episode.isdigit():
+        return ''
+    return 'S%dE%d' % (int(season), int(episode))
+
+
 def human_size(num_bytes):
     """Format a byte count as e.g. '12.3 MB' (B/KB/MB/GB, 1 decimal)."""
     value = float(num_bytes or 0)

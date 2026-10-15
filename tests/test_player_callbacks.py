@@ -39,6 +39,17 @@ class _FakeProgressStore:
         self.now_playing = None
         self.resume_offset_ms = 'UNSET'  # distinguishes "never called" from "cleared to None"
         self.get_progress_calls = []
+        self.last_stream = None
+
+    def set_last_stream(self, content_type, content_id, video_id, stream, now):
+        self.last_stream = {
+            'type': content_type,
+            'id': content_id,
+            'video_id': video_id,
+            'stream': stream,
+            'now': now,
+        }
+        return True
 
     def get_progress(self, content_type, content_id, video_id=None):
         self.get_progress_calls.append((content_type, content_id, video_id))
@@ -247,6 +258,68 @@ def test_resume_prompt_declined_does_not_queue_offset(monkeypatch):
 
         assert len(ctx.env.dialog_yesno_prompts) == 1
         assert store.resume_offset_ms is None
+
+
+def test_explicit_resume_offset_skips_the_confirm_and_still_records_playback(kodi_stubs, monkeypatch):
+    """Continue already asked. The service still gets the one-shot seek,
+    and the stream that started is the one Resume will replay."""
+    store = _FakeProgressStore(progress={'position_ms': 50000, 'duration_ms': 100000})
+    _install_progress_store(monkeypatch, kodi_stubs.player, store)
+    _ServerScript(resolve_url='https://example.com/a.mp4').install(monkeypatch, kodi_stubs.player)
+    stream = {'url': 'https://example.com/a.mp4', 'title': 'The file'}
+
+    kodi_stubs.player.play_direct(
+        stream, 'series', 'tt1:1:3',
+        item_meta={'label': 'Show', 'meta': {
+            'id': 'tt1', 'name': 'Show',
+            'videos': [
+                {'id': 'tt1:1:3', 'season': 1, 'episode': 3},
+                {'id': 'tt1:1:4', 'season': 1, 'episode': 4},
+            ],
+        }},
+        video_id='tt1:1:3', resume_offset_ms=724000,
+    )
+
+    assert kodi_stubs.env.dialog_yesno_prompts == []
+    assert store.resume_offset_ms == 724000
+    assert store.now_playing['id'] == 'tt1'
+    assert store.now_playing['video_id'] == 'tt1:1:3'
+    assert store.now_playing['video_ids'] == ['tt1:1:3', 'tt1:1:4']
+    assert store.now_playing['next_video_id'] == 'tt1:1:4'
+    assert store.last_stream['id'] == 'tt1'
+    assert store.last_stream['video_id'] == 'tt1:1:3'
+    assert store.last_stream['type'] == 'series'
+    assert store.last_stream['stream']['url'] == 'https://example.com/a.mp4'
+
+
+def test_explicit_resume_offset_seeks_even_when_resume_ask_is_off(kodi_stubs, monkeypatch):
+    kodi_stubs.env.addon.settings['resume_ask'] = False
+    store = _FakeProgressStore(progress={'position_ms': 50000, 'duration_ms': 100000})
+    _install_progress_store(monkeypatch, kodi_stubs.player, store)
+    _ServerScript(resolve_url='https://example.com/a.mp4').install(monkeypatch, kodi_stubs.player)
+
+    kodi_stubs.player.play_direct(
+        {'url': 'https://example.com/a.mp4'}, 'movie', 'tt9', resume_offset_ms=50000,
+    )
+
+    assert kodi_stubs.env.dialog_yesno_prompts == []
+    assert store.resume_offset_ms == 50000
+    assert store.now_playing['id'] == 'tt9'
+
+
+def test_failed_resolve_does_not_remember_a_stream_or_queue_a_seek(kodi_stubs, monkeypatch):
+    store = _FakeProgressStore(progress={'position_ms': 50000, 'duration_ms': 100000})
+    _install_progress_store(monkeypatch, kodi_stubs.player, store)
+    _ServerScript(resolve_url=None).install(monkeypatch, kodi_stubs.player)
+
+    result = kodi_stubs.player.play_direct(
+        {'url': 'https://example.com/a.mp4'}, 'movie', 'tt9', resume_offset_ms=50000,
+    )
+
+    assert result is False
+    assert store.last_stream is None
+    assert store.now_playing is None
+    assert store.resume_offset_ms == 'UNSET'
 
 
 def test_resume_ask_setting_off_skips_prompt_entirely(kodi_stubs, monkeypatch):

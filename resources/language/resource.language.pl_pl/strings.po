@@ -1074,3 +1074,19 @@ msgstr "Wł."
 msgctxt "#30437"
 msgid "Off"
 msgstr "Wył."
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "Wznów %s od %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "Wznów od %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Lista odcinków"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Szczegóły"

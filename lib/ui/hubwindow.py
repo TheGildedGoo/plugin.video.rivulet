@@ -20,8 +20,15 @@ viewer types a query. A genre-required catalog uses its first declared
 genre so the row is not empty.
 
 Series, and only Series, may pin a New Episodes row. That calls
-`catalogpicker._new_episode_items` and `_mark_episode_seen` and does
-not change them.
+`catalogpicker._new_episode_items` and `_mark_episode_seen`. The
+card image is the episode still those items carry (`poster`), copied
+onto `p0`..`p3` with `layout` `land`. HubWindow.xml paints
+`$INFO[ListItem.Property(pN)]` through `mask_land.png` for that row
+and through `mask_poster.png` for every other row (`p0`..`p7`).
+It does not read `ListItem.Art`. A 2:3 slot letterboxed the still.
+The hero title is the episode label (`S1E3 · Title`) and the hero
+plot is the episode overview. The series clearlogo is left off that
+row: the skin hides the title whenever `HeroLogo` is set.
 
 This module does not change playback, the player, or the Stremio client.
 """
@@ -38,16 +45,22 @@ from lib.ui.homewindow import (
     STATUS_LABEL,
     paint_hero,
 )
-from lib.ui.uicommon import BaseWindow, gated_input, open_window
+from lib.ui.uicommon import BaseWindow, escape_label, gated_input, open_window
 
 #: The vertical list of catalog rows. One control, any number of rows.
 HUB_LIST = 31000
 
-#: Posters drawn inside one row. The rest of `SHELF_CAP` slide in when
-#: the remote moves right. 8 * 220px fits the 1800px row.
+#: Posters drawn inside one catalog row. The rest slide in when the
+#: remote moves right. 8 * 220px fits the 1800px row. The focus stroke
+#: is one fixed control per slot (see HubWindow.xml): a `$INFO` left
+#: position is resolved against the window, so the ring sat a
+#: list-margin away from the poster it was meant to circle.
 VISIBLE_SLOTS = 8
+
+#: New Episodes cards are the Continue landscape, 392x220. Four of
+#: those fill the same row. A 2:3 poster slot letterboxed the still.
+LAND_SLOTS = 4
 _STRIDE = 220
-_FRAME_LEFT = 2
 
 #: How many non-empty rows to fill before the first paint. Two fit on
 #: screen; the third is ready for the next Down.
@@ -135,13 +148,22 @@ def _episode_descriptor(store, types):
     posters = []
     kept = []
     for index, episode in enumerate(episodes[:SHELF_CAP]):
+        # `name` is what `_poster_item` writes into `hero_title`. For
+        # this row that has to be the episode (`S1E3 · Title`), not the
+        # series. The series name moves to `hero_meta`, under the title.
+        # No logo: HubWindow.xml hides the title while HeroLogo is set,
+        # and the series clearlogo would put the show's name back.
         item = _poster_item({
-            'name': episode.get('name'),
+            'name': episode.get('label') or episode.get('name'),
             'type': episode.get('type'),
             'id': episode.get('id'),
             'poster': episode.get('poster'),
-            'background': episode.get('background'),
+            'background': episode.get('background') or episode.get('poster'),
+            'description': episode.get('overview') or '',
         })
+        show = episode.get('name') or ''
+        if show and episode.get('label'):
+            item.setProperty('hero_meta', escape_label(show))
         item.setProperty('episode_index', str(index))
         posters.append(item)
         kept.append(episode)
@@ -150,6 +172,9 @@ def _episode_descriptor(store, types):
     return {
         'heading': L(30313).upper(),
         'kind': 'episodes',
+        # Wide cards. HubWindow.xml draws mask_land.png for this and
+        # mask_poster.png for every other row.
+        'layout': 'land',
         'posters': posters,
         'col': 0,
         'episodes': kept,
@@ -157,17 +182,45 @@ def _episode_descriptor(store, types):
 
 
 def _load_posters(desc):
-    """The row's posters. A catalog page is fetched at most once."""
+    """The row's first screen. The rest of that page waits on `pending`
+    and the pages after it are fetched when the remote nears the end
+    (`_extend_row`). A catalog page is not thrown away at 12."""
     if desc.get('posters') is not None:
         return desc['posters']
-    from lib.ui.homewindow import _one_catalog_page, _poster_item
+    from lib.ui.homewindow import _ROW_INITIAL, _one_catalog_page, _poster_item
 
     metas = _one_catalog_page(
         desc.get('transport'), desc.get('manifest'), desc.get('catalog'),
         extra=desc.get('extra'),
     )
-    desc['posters'] = [_poster_item(meta) for meta in (metas or [])[:SHELF_CAP]]
+    desc['pending'] = metas[_ROW_INITIAL:]
+    desc['gen'] = None
+    desc['exhausted'] = False
+    desc['posters'] = [_poster_item(meta) for meta in metas[:_ROW_INITIAL]]
     return desc['posters']
+
+
+def _extend_row(desc):
+    """Append posters once the cursor is near the ones already drawn.
+
+    Without this, right past the first screen had nowhere to go. The
+    list item under the cursor went blank, and the hero title with it.
+    """
+    posters = desc.get('posters') or []
+    if desc.get('exhausted'):
+        return posters
+    from lib.ui.homewindow import _ROW_LIMIT, _poster_item, _pull_more
+
+    room = _ROW_LIMIT - len(posters)
+    if room <= 0:
+        desc['exhausted'] = True
+        return posters
+    added = _pull_more(desc, room)
+    if not added:
+        return posters
+    posters.extend(_poster_item(meta) for meta in added)
+    desc['posters'] = posters
+    return posters
 
 
 def _fill_prefix(descs, limit):
@@ -200,26 +253,36 @@ def _ensure_loaded(descs, index):
     return index
 
 
-def _apply_posters(row_item, posters, col):
+def _apply_posters(row_item, posters, col, layout=''):
     """Copy the visible slice of `posters` onto the row, and the focused
-    poster's hero fields so `paint_hero` can read the list item."""
+    poster's hero fields so `paint_hero` can read the list item.
+
+    `layout` `land` is the New Episodes row: four 16:9 slots. Anything
+    else is eight posters. Properties past the slot count are cleared
+    so a wide row does not leave a portrait image in `p4`.
+    """
+    slots = LAND_SLOTS if layout == 'land' else VISIBLE_SLOTS
+    row_item.setProperty('layout', layout or '')
     count = len(posters)
     if not count:
         col = 0
         start = 0
     else:
         col = max(0, min(col, count - 1))
-        start = 0 if col < VISIBLE_SLOTS else col - VISIBLE_SLOTS + 1
+        start = 0 if col < slots else col - slots + 1
     for slot in range(VISIBLE_SLOTS):
         src = start + slot
-        if src < count:
+        if slot < slots and src < count:
             poster = posters[src]
             row_item.setProperty('p%d' % slot, poster.getProperty('thumbnail'))
             row_item.setProperty('n%d' % slot, poster.getLabel())
         else:
             row_item.setProperty('p%d' % slot, '')
             row_item.setProperty('n%d' % slot, '')
-    row_item.setProperty('focusleft', str(_FRAME_LEFT + (col - start) * _STRIDE))
+    # Slot inside the visible window, not a pixel left. The skin has one
+    # stroke per slot at that poster's own rectangle; a computed left
+    # landed in window coordinates and the ring missed the card.
+    row_item.setProperty('focusslot', str(col - start))
     if count:
         poster = posters[col]
         row_item.setProperty('hero_title', poster.getProperty('hero_title'))
@@ -241,7 +304,7 @@ def _paint_list(window, select=None):
         item.setProperty('heading', desc.get('heading') or '')
         posters = desc.get('posters') or []
         if posters:
-            _apply_posters(item, posters, desc.get('col') or 0)
+            _apply_posters(item, posters, desc.get('col') or 0, desc.get('layout') or '')
         items.append(item)
     control = window.getControl(HUB_LIST)
     control.reset()
@@ -273,11 +336,15 @@ def _move_col(window, delta):
     posters = desc.get('posters') or []
     if not posters:
         return
+    # Load before clamping, so a right at the end of this screen moves
+    # onto the poster that just arrived instead of sticking.
+    if delta > 0 and (desc.get('col') or 0) >= len(posters) - 3:
+        posters = _extend_row(desc)
     col = max(0, min((desc.get('col') or 0) + delta, len(posters) - 1))
     desc['col'] = col
     item = window.getControl(HUB_LIST).getSelectedItem()
     if item is not None:
-        _apply_posters(item, posters, col)
+        _apply_posters(item, posters, col, desc.get('layout') or '')
 
 
 def _refresh_row(window, index):
@@ -293,7 +360,7 @@ def _refresh_row(window, index):
     item.setProperty('heading', desc.get('heading') or '')
     posters = desc.get('posters') or []
     if posters:
-        _apply_posters(item, posters, desc.get('col') or 0)
+        _apply_posters(item, posters, desc.get('col') or 0, desc.get('layout') or '')
 
 
 def _on_vertical(window):

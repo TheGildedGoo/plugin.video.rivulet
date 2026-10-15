@@ -1544,3 +1544,62 @@ def test_cached_read_detects_same_size_rewrite_under_frozen_stat(tmp_path, monke
     other_store.set_seen_episodes(replacement)
 
     assert store.get_seen_episodes() == replacement
+
+
+# --- last chosen stream (Continue resume) --------------------------------
+
+
+def test_last_stream_round_trip_keeps_episode_and_movie_apart(tmp_path):
+    store = make_store(tmp_path)
+    episode = {"url": "https://cdn.example/ep.mp4", "title": "S1E3"}
+    movie = {"infoHash": "aabb", "fileIdx": 2}
+
+    assert store.set_last_stream("series", "tt1", "tt1:1:3", episode, "2020-01-01T00:00:00Z")
+    assert store.set_last_stream("movie", "tt1", None, movie, "2020-01-02T00:00:00Z")
+
+    assert store.get_last_stream("series", "tt1", "tt1:1:3") == episode
+    assert store.get_last_stream("movie", "tt1", None) == movie
+    assert store.get_last_stream("movie", "tt1", "") == movie
+    assert store.get_last_stream("series", "tt1", "tt1:1:4") is None
+
+
+def test_last_stream_persists_across_store_instances(tmp_path):
+    data_dir = tmp_path / "addon_data"
+    Store(str(data_dir)).set_last_stream(
+        "movie", "tt9", None, {"url": "https://cdn.example/a.mp4"}, "t",
+    )
+    assert Store(str(data_dir)).get_last_stream("movie", "tt9") == {"url": "https://cdn.example/a.mp4"}
+
+
+def test_last_stream_refuses_a_value_that_is_not_json(tmp_path):
+    store = make_store(tmp_path)
+    store.set_last_stream("movie", "tt1", None, {"url": "https://keep.example/a.mp4"}, "t1")
+
+    assert store.set_last_stream("movie", "tt1", None, {"url": {"not", "json"}}, "t2") is False
+
+    assert store.get_last_stream("movie", "tt1") == {"url": "https://keep.example/a.mp4"}
+
+
+def test_last_stream_returned_dict_is_a_copy(tmp_path):
+    store = make_store(tmp_path)
+    store.set_last_stream("movie", "tt1", None, {"url": "https://cdn.example/a.mp4"}, "t")
+
+    got = store.get_last_stream("movie", "tt1")
+    got["url"] = "changed"
+
+    assert store.get_last_stream("movie", "tt1")["url"] == "https://cdn.example/a.mp4"
+
+
+def test_last_stream_cap_keeps_the_newest_and_the_write_in_progress(tmp_path):
+    store = make_store(tmp_path)
+    for index in range(store_module.MAX_LAST_STREAMS):
+        store.set_last_stream(
+            "movie", "old-%d" % index, None,
+            {"url": "https://old/%d" % index}, "2021-%04d" % index,
+        )
+    store.set_last_stream("movie", "new", None, {"url": "https://new"}, "1999")
+
+    assert store.get_last_stream("movie", "new") == {"url": "https://new"}
+    assert store.get_last_stream("movie", "old-0") is None
+    payload = store_module._read_json(store._last_streams_path, None)
+    assert len(payload) == store_module.MAX_LAST_STREAMS

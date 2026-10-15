@@ -108,6 +108,58 @@ def _parse_release(value):
     return None
 
 
+def _text(value):
+    """A stripped string, or ``""`` for anything an addon stuffed into a
+    text field that is not one (``None``, a number, a dict)."""
+    if not isinstance(value, str):
+        return ""
+    return value.strip()
+
+
+def _is_imdb_id(value):
+    """Cinemeta episode stills are keyed by an imdb id (``tt`` plus
+    digits). Other id schemes have no metahub image to point at."""
+    if not isinstance(value, str) or not value.startswith("tt") or len(value) < 3:
+        return False
+    return value[2:].isdigit()
+
+
+def _episode_still(video, series_id):
+    """URL of this episode's picture.
+
+    ``thumbnail`` is what Cinemeta and the addon SDK put on a video.
+    ``thumb`` is the same thing from a less careful addon. When both
+    are empty and the series id is an imdb id, use the metahub still
+    Cinemeta itself writes into ``thumbnail`` -- the path is
+    ``https://episodes.metahub.space/{id}/{season}/{episode}/w780.jpg``.
+    Anything else returns ``""`` so the caller can fall back to the
+    series poster, which is the only art left.
+    """
+    for key in ("thumbnail", "thumb"):
+        url = _text(video.get(key))
+        if url:
+            return url
+    season = _int_or_zero(video.get("season"))
+    episode = _int_or_zero(video.get("episode"))
+    if _is_imdb_id(series_id) and season >= 1 and episode >= 1:
+        return "https://episodes.metahub.space/%s/%d/%d/w780.jpg" % (
+            series_id, season, episode,
+        )
+    return ""
+
+
+def _episode_label(season, episode, title):
+    """``S1E3 · Title`` for the hero. Unpadded on purpose: that is the
+    label the row is supposed to read. A video with no season and no
+    episode number contributes the title alone."""
+    season_n = _int_or_zero(season)
+    episode_n = _int_or_zero(episode)
+    if season_n or episode_n:
+        code = "S%dE%d" % (season_n, episode_n)
+        return "%s \u00b7 %s" % (code, title) if title else code
+    return title
+
+
 def _seen_key(content_type, content_id, video_id):
     """Composite key one (series, episode) pair is indexed by in the
     seen-set, or ``None`` when any part is missing/empty (nothing
@@ -223,14 +275,15 @@ def new_episodes(series_items, metas, seen, now):
             released = _parse_release(video.get("released"))
             if released is None or released > now:
                 continue
-            # The row and the screen opened from it show this episode's
-            # still. A video with no thumbnail keeps the series poster
-            # and fanart, which is the only art the meta has.
-            thumb = video.get("thumbnail")
-            if not isinstance(thumb, str) or not thumb.strip():
-                thumb = ""
-            else:
-                thumb = thumb.strip()
+            # The hub card reads this URL (copied onto ListItem property
+            # ``pN``, which HubWindow.xml paints). A missing still must
+            # not become the series poster: that is the box art Dylan
+            # kept seeing. Cinemeta's own episode images live at a URL
+            # built from the imdb id and the season/episode numbers
+            # (confirmed on v3-cinemeta's meta for tt0944947).
+            still = _episode_still(video, content_id)
+            title = _text(video.get("title")) or _text(video.get("name"))
+            overview = _text(video.get("overview")) or _text(video.get("description"))
             results.append({
                 "type": content_type,
                 "id": content_id,
@@ -239,8 +292,11 @@ def new_episodes(series_items, metas, seen, now):
                 "episode": video.get("episode"),
                 "released": video.get("released"),
                 "name": meta.get("name"),
-                "poster": thumb or meta.get("poster"),
-                "background": thumb or meta.get("background"),
+                "title": title,
+                "label": _episode_label(video.get("season"), video.get("episode"), title),
+                "overview": overview,
+                "poster": still or meta.get("poster"),
+                "background": still or meta.get("background"),
             })
     return results
 

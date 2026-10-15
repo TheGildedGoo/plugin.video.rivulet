@@ -1074,3 +1074,19 @@ msgstr "开"
 msgctxt "#30437"
 msgid "Off"
 msgstr "关"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s 从 %s 继续播放"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "从 %s 继续播放"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "剧集列表"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "详情"

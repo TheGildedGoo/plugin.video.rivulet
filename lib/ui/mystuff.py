@@ -183,7 +183,7 @@ def merge_entries(progress_entries, library_entries):
     banded, flat list of dicts:
 
         {'type', 'id', 'band', 'percent', 'video_id', 'updated_at',
-         'name', 'poster', 'background'}
+         'name', 'poster', 'background', 'position_ms', 'duration_ms'}
 
     Played titles come first, in `BAND_ORDER`, each band most-recently-
     touched first; library titles never played on this device follow, in
@@ -226,6 +226,8 @@ def merge_entries(progress_entries, library_entries):
             'name': known.get('name') or entry.get('name'),
             'poster': known.get('poster') or entry.get('poster'),
             'background': known.get('background') or entry.get('background'),
+            'position_ms': entry.get('position_ms'),
+            'duration_ms': entry.get('duration_ms'),
         })
 
     merged = []

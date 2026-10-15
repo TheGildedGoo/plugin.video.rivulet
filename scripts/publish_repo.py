@@ -31,18 +31,10 @@ from lib.addonid import ADDON_ID, ADDON_NAME  # noqa: E402
 from scripts.kodi_addon_version import ensure_newer  # noqa: E402
 
 REPO_ID = "repository.revrivulet"
-# Second addon published beside RevRivulet. Same repository, own id, so
-# Kodi installs it into its own addon_data profile and does not upgrade
-# RevRivulet or official Rivulet over it.
-REV2_ID = "plugin.video.rev2rivulet"
-REV2_NAME = "Rev2Rivulet"
-REV2_VERSION_FILE = ROOT / "rev2.version"
-REV2_ICON = ROOT / "artwork" / "rev2-icon.png"
 # GitHub Pages URL is the repository name, which stays plugin.video.rivulet.
-# The addon id inside that site is plugin.video.revrivulet, plus Rev2.
+# The addon published there is plugin.video.revrivulet only.
 PAGES_BASE = "https://thegildedgoo.github.io/plugin.video.rivulet/"
 VIDEO_MEMBERS = ("addon.xml", "default.py", "service.py", "resources", "lib", "LICENSE")
-_TEXT_SUFFIXES = {".py", ".xml", ".po", ".md", ".txt", ".json", ".js", ".css", ".html"}
 
 
 def addon_version(addon_xml):
@@ -66,7 +58,7 @@ def version_in_addons_xml(payload, addon_id):
 def published_version(ref, addon_id=None):
     """Version of `addon_id` on `ref`'s addons.xml, or None if absent.
 
-    Defaults to RevRivulet. Pass ``REV2_ID`` for the test variant.
+    Defaults to RevRivulet.
     """
     try:
         proc = subprocess.run(
@@ -80,20 +72,6 @@ def published_version(ref, addon_id=None):
     if proc.returncode != 0:
         return None
     return version_in_addons_xml(proc.stdout, addon_id or ADDON_ID)
-
-
-def rev2_version():
-    """The Rev2Rivulet version shipped from ``rev2.version``."""
-    return REV2_VERSION_FILE.read_text(encoding="utf-8").strip()
-
-
-def bump_rev2_version(published):
-    """Raise ``rev2.version`` when Kodi would not see the published zip as an update."""
-    current = rev2_version()
-    chosen = ensure_newer(current, published)
-    if chosen != current:
-        REV2_VERSION_FILE.write_text(chosen + "\n", encoding="utf-8")
-    return chosen
 
 
 def set_version(addon_xml, version):
@@ -199,79 +177,26 @@ def _publish_one(repo_dir, addon_id, zip_path, icon_arc, fanart_arc):
     return addon_el
 
 
-def _rewrite_variant_file(path):
-    """Point one staged file at Rev2Rivulet. Binary assets are left alone."""
-    if path.suffix.lower() not in _TEXT_SUFFIXES and path.name != "LICENSE":
-        return
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        return
-    # The longer id first. ``plugin.video.rev2rivulet`` does not contain
-    # ``plugin.video.revrivulet`` as a substring, so a second pass is stable.
-    updated = text.replace(ADDON_ID, REV2_ID).replace(ADDON_NAME, REV2_NAME)
-    if updated != text:
-        path.write_text(updated, encoding="utf-8")
+def _write_root_index(output):
+    """The pages root is what Kodi's file manager lists.
 
-
-def _stamp_rev2_addon_xml(addon_xml, version):
-    text = addon_xml.read_text(encoding="utf-8")
-    text, count = re.subn(
-        r'(<addon\b[^>]*\bversion=")[^"]+(")',
-        lambda match: match.group(1) + version + match.group(2),
-        text,
-        count=1,
+    Two plain links: the repository zip and the RevRivulet zip. A
+    designed page full of other links shows up as a pile of unrelated
+    files in that browser. This replaces whatever ``site/index.html``
+    was copied in.
+    """
+    (output / "index.html").write_text(
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
+        "<title>RevRivulet</title>\n</head>\n<body>\n"
+        "<p><a href=\"repository.revrivulet.zip\">repository.revrivulet.zip</a></p>\n"
+        "<p><a href=\"%s.zip\">%s.zip</a></p>\n"
+        "</body>\n</html>\n" % (ADDON_ID, ADDON_ID),
+        encoding="utf-8",
     )
-    if count != 1:
-        raise SystemExit("rev2 addon.xml has no version attribute")
-    news = (
-        "v%s:\n- Rev2Rivulet test UI. Installs beside RevRivulet. "
-        "Posters are rounded rectangles at the art size, with no grey plate.\n" % version
-    )
-    text, count = re.subn(r"<news>", "<news>" + news, text, count=1)
-    if count != 1:
-        raise SystemExit("rev2 addon.xml has no <news> element")
-    addon_xml.write_text(text, encoding="utf-8")
-
-
-def _stage_rev2(destination, version):
-    """Copy the addon tree and retarget it. The source tree is not modified."""
-    if destination.exists():
-        shutil.rmtree(str(destination))
-    destination.mkdir(parents=True)
-    for member in VIDEO_MEMBERS:
-        source = ROOT / member
-        target = destination / member
-        if source.is_dir():
-            shutil.copytree(
-                str(source), str(target),
-                ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
-            )
-        else:
-            shutil.copy2(str(source), str(target))
-    for dirpath, dirnames, filenames in os.walk(str(destination)):
-        dirnames[:] = [name for name in dirnames if name != "__pycache__"]
-        for filename in filenames:
-            _rewrite_variant_file(Path(dirpath) / filename)
-    if REV2_ICON.is_file():
-        shutil.copy2(str(REV2_ICON), str(destination / "resources" / "icon.png"))
-    _stamp_rev2_addon_xml(destination / "addon.xml", version)
-
-
-def _build_rev2_zip(staging, version):
-    """Zip the retargeted tree as ``plugin.video.rev2rivulet``."""
-    source = staging / "rev2src"
-    _stage_rev2(source, version)
-    destination = staging / ("%s.zip" % REV2_ID)
-    if destination.exists():
-        destination.unlink()
-    with zipfile.ZipFile(str(destination), "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        _add_path(zf, source, REV2_ID)
-    return destination
 
 
 def build_repo(output_dir):
-    """Write the gh-pages tree (addons.xml, md5, both zips, the site) to `output_dir`."""
+    """Write the gh-pages tree (addons.xml, md5, both zips, the index) to `output_dir`."""
     output = Path(output_dir)
     if output.exists():
         shutil.rmtree(str(output))
@@ -284,7 +209,6 @@ def build_repo(output_dir):
     staging.mkdir()
     video_zip = staging / ("%s.zip" % ADDON_ID)
     repo_zip = staging / ("%s.zip" % REPO_ID)
-    rev2_zip = _build_rev2_zip(staging, rev2_version())
     _zip_members(video_zip, ADDON_ID, VIDEO_MEMBERS)
     _zip_dir(repo_zip, ROOT / REPO_ID, REPO_ID)
 
@@ -292,14 +216,12 @@ def build_repo(output_dir):
     addons_root.append(
         _publish_one(output, ADDON_ID, video_zip, "resources/icon.png", "resources/fanart.jpg")
     )
-    addons_root.append(
-        _publish_one(output, REV2_ID, rev2_zip, "resources/icon.png", "resources/fanart.jpg")
-    )
     addons_root.append(_publish_one(output, REPO_ID, repo_zip, "icon.png", "fanart.jpg"))
     addons_xml = output / "addons.xml"
     ET.ElementTree(addons_root).write(str(addons_xml), encoding="UTF-8", xml_declaration=True)
     digest = hashlib.md5(addons_xml.read_bytes()).hexdigest()
     (output / "addons.xml.md5").write_text(digest, encoding="utf-8")
+    _write_root_index(output)
     shutil.rmtree(str(staging))
     return output
 
@@ -315,10 +237,7 @@ def main(argv):
     if args.cmd == "bump":
         published = published_version(args.published_ref)
         chosen = bump_addon_xml(published)
-        rev2_published = published_version(args.published_ref, REV2_ID)
-        rev2_chosen = bump_rev2_version(rev2_published)
         print("version %s (published %s)" % (chosen, published or "none"))
-        print("rev2 %s (published %s)" % (rev2_chosen, rev2_published or "none"))
         return 0
     build_repo(args.output)
     print("wrote %s" % args.output)

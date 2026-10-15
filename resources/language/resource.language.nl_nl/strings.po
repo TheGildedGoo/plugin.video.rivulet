@@ -1074,3 +1074,19 @@ msgstr "Aan"
 msgctxt "#30437"
 msgid "Off"
 msgstr "Uit"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "Hervat %s vanaf %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "Hervat vanaf %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Afleveringen"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Details"

@@ -3,6 +3,9 @@
 
 """HubWindow: one poster row per catalog, exercised against the kodistubs."""
 import contextlib
+import datetime
+import json
+import os
 
 import pytest
 
@@ -194,7 +197,50 @@ def test_right_moves_the_focus_to_the_next_poster(load_hub):
     win.onAction(xbmcgui.Action(2))
 
     assert win._descs[0]['col'] == 1
-    assert win.getControl(ctx.hubwindow.HUB_LIST).getSelectedItem().getProperty('sid') == 'id1'
+    item = win.getControl(ctx.hubwindow.HUB_LIST).getSelectedItem()
+    assert item.getProperty('sid') == 'id1'
+    # Slot 1 of the visible window, which is where the stroke for that poster is drawn.
+    assert item.getProperty('focusslot') == '1'
+
+
+def test_right_at_the_end_of_the_screen_appends_the_rest_and_keeps_the_hero(load_hub):
+    """The first screen is not the end of the row. Right near it must
+    bring the held-back posters in, move onto the next one, and leave
+    that title on the hero. A blank list item used to wipe the title
+    and the plot and then ignore the remote."""
+    ctx = load_hub()
+    import xbmcgui
+    posters = []
+    for index in range(3):
+        poster = xbmcgui.ListItem('T%d' % index)
+        poster.setProperty('hero_title', 'T%d' % index)
+        poster.setProperty('hero_plot', 'plot %d' % index)
+        poster.setProperty('sid', 'id%d' % index)
+        posters.append(poster)
+    win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
+    win._descs = [{
+        'heading': 'Top',
+        'posters': posters,
+        'col': 2,
+        'pending': [
+            {'id': 'id3', 'name': 'T3', 'type': 'movie', 'poster': 'p3', 'description': 'plot 3'},
+            {'id': 'id4', 'name': 'T4', 'type': 'movie', 'poster': 'p4', 'description': 'plot 4'},
+        ],
+    }]
+    ctx.hubwindow._paint_list(win, select=0)
+    win.setFocusId(ctx.hubwindow.HUB_LIST)
+
+    win.onAction(xbmcgui.Action(2))
+
+    assert win._descs[0]['col'] == 3
+    assert [item.getProperty('sid') for item in win._descs[0]['posters']] == [
+        'id0', 'id1', 'id2', 'id3', 'id4',
+    ]
+    selected = win.getControl(ctx.hubwindow.HUB_LIST).getSelectedItem()
+    assert selected.getProperty('hero_title') == 'T3'
+    assert selected.getProperty('focusslot') == '3'
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'T3'
+    assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'plot 3'
 
 
 def test_empty_hub_closes_and_notifies(load_hub, monkeypatch):
@@ -228,5 +274,129 @@ def test_hub_bar_is_right_aligned_and_posters_have_a_focus_frame():
     blob = ET.tostring(rows.find('focusedlayout'), encoding='unicode')
     assert 'FFFFFFFF' in blob
     assert 'mask_poster.png' in blob
+    assert 'mask_land.png' in blob
     assert 'round_mask.png' not in blob
+    assert 'focusleft' not in blob
+    # Eight poster strokes plus four landscape strokes for New Episodes.
+    assert blob.count('focus_stroke.png') == 12
+    focused = rows.find('focusedlayout')
+    strokes = [
+        el for el in focused.findall('control')
+        if (el.findtext('texture') or '').strip() == 'focus_stroke.png'
+    ]
+    land = []
+    posters = []
+    for el in strokes:
+        visible = [(node.text or '').strip() for node in el.findall('visible')]
+        if 'String.IsEqual(ListItem.Property(layout),land)' in visible:
+            land.append(el)
+        if '!String.IsEqual(ListItem.Property(layout),land)' in visible:
+            posters.append(el)
+    assert len(land) == 4
+    assert len(posters) == 8
+    for el in land:
+        assert (el.findtext('width') or '').strip() == '392'
+        assert (el.findtext('height') or '').strip() == '220'
+    for el in posters:
+        assert (el.findtext('width') or '').strip() == '200'
+        assert (el.findtext('height') or '').strip() == '300'
+    land_art = [
+        el for el in focused.findall('control')
+        if (el.find('texture').get('diffuse') if el.find('texture') is not None else '') == 'mask_land.png'
+    ]
+    assert len(land_art) == 4
+    for el in land_art:
+        assert (el.findtext('width') or '').strip() == '392'
+        assert (el.findtext('height') or '').strip() == '220'
+        assert (el.findtext('aspectratio') or '').strip() == 'scale'
+        visible = [(node.text or '').strip() for node in el.findall('visible')]
+        assert 'String.IsEqual(ListItem.Property(layout),land)' in visible
     assert 'pill_fill.png' in ET.tostring(bar, encoding='unicode')
+
+
+def test_new_episodes_row_paints_the_cinemeta_still_the_skin_reads(load_hub, monkeypatch):
+    """Game of Thrones S1E3, as Cinemeta actually returns it.
+
+    HubWindow.xml does not read ListItem.Art(thumb/poster/fanart). The
+    card texture is ``$INFO[ListItem.Property(p0)]``, and ``_apply_posters``
+    copies the focused poster's ``thumbnail`` property into ``p0``. That
+    property has to be the episode still, not the series poster. The
+    hero title is ``S1E3 · Lord Snow`` and the plot is the episode
+    overview. The series logo stays off, or the skin hides the title.
+    """
+    import xml.etree.ElementTree as ET
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    skin = ET.parse(os.path.join(
+        root, 'resources', 'skins', 'Default', '1080i', 'HubWindow.xml',
+    )).getroot()
+    row = skin.find(".//control[@id='31000']")
+    textures = [
+        node.text.strip()
+        for node in row.iter('texture')
+        if node.text and 'ListItem.Property(p0)' in node.text
+    ]
+    assert textures
+    assert all(text == '$INFO[ListItem.Property(p0)]' for text in textures)
+    blob = ET.tostring(row, encoding='unicode')
+    assert 'ListItem.Art(poster)' not in blob
+    assert 'ListItem.Art(thumb)' not in blob
+    assert 'ListItem.Art(fanart)' not in blob
+
+    with open(os.path.join(root, 'tests', 'fixtures', 'cinemeta_tt0944947.json')) as fh:
+        meta = json.load(fh)
+    from lib.newepisodes import new_episodes
+    episodes = new_episodes(
+        [{'type': 'series', 'id': meta['id'], 'video_id': 'tt0944947:1:2'}],
+        {meta['id']: meta},
+        {},
+        datetime.datetime(2026, 10, 15),
+    )
+    assert len(episodes) == 1
+    episode = episodes[0]
+    still = 'https://episodes.metahub.space/tt0944947/1/3/w780.jpg'
+    assert episode['poster'] == still
+    assert episode['poster'] != meta['poster']
+    assert episode['background'] == still
+    assert episode['label'] == 'S1E3 \u00b7 Lord Snow'
+    assert episode['overview'].startswith('Jon impresses Tyrion')
+
+    ctx = load_hub()
+    monkeypatch.setattr(ctx.catalogpicker, '_new_episode_items', lambda store: episodes)
+    desc = ctx.hubwindow._episode_descriptor(_Store(), frozenset({'series', 'tv'}))
+    assert desc is not None
+    import xbmcgui
+    assert desc['layout'] == 'land'
+    row_item = xbmcgui.ListItem('New Episodes')
+    ctx.hubwindow._apply_posters(row_item, desc['posters'], 0, desc['layout'])
+
+    assert row_item.getProperty('layout') == 'land'
+    assert row_item.getProperty('p0') == still
+    assert meta['poster'] not in row_item.getProperty('p0')
+    assert row_item.getProperty('hero_title') == 'S1E3 \u00b7 Lord Snow'
+    assert row_item.getProperty('hero_meta') == 'Game of Thrones'
+    assert row_item.getProperty('hero_plot').startswith('Jon impresses Tyrion')
+    assert row_item.getProperty('hero_logo') == ''
+    assert row_item.getProperty('fanart') == still
+
+
+def test_landscape_row_slides_inside_four_slots(load_hub):
+    """New Episodes draws four wide cards. The fifth title slides the
+    window so the ring stays on a landscape slot, and the portrait
+    properties stay empty."""
+    ctx = load_hub()
+    import xbmcgui
+    posters = []
+    for index in range(6):
+        poster = xbmcgui.ListItem('E%d' % index)
+        poster.setProperty('thumbnail', 'still-%d' % index)
+        posters.append(poster)
+    row = xbmcgui.ListItem('New Episodes')
+
+    ctx.hubwindow._apply_posters(row, posters, 4, 'land')
+
+    assert row.getProperty('layout') == 'land'
+    assert row.getProperty('focusslot') == '3'
+    assert row.getProperty('p0') == 'still-1'
+    assert row.getProperty('p3') == 'still-4'
+    assert row.getProperty('p4') == ''

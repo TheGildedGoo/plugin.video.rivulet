@@ -1074,3 +1074,19 @@ msgstr "Açık"
 msgctxt "#30437"
 msgid "Off"
 msgstr "Kapalı"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s, %s konumundan devam"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "%s konumundan devam"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Bölüm listesi"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Ayrıntılar"

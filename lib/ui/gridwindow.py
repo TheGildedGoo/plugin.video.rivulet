@@ -31,6 +31,7 @@ Control ids:
     BACKGROUND = 30000  fanart of the focused item
     ROWS       = 30001  the vertical grouplist holding every band row
     HEADING    = 30006  "REVRIVULET / CONTINUE" breadcrumb
+    30020/30021/30024  focused title, caption, and description
     300x2/301x7        per-band list and header label (see `BAND_ROWS`)
 
 Like every other Rivulet screen, the actual rendering is
@@ -196,6 +197,7 @@ def make_list_item(item):
         'badge': _badge(item),
         'progress_width': _progress_width(item),
         'caption': _caption(item),
+        'plot': escape_label(item.get('description') or ''),
         # Finished titles are dimmed by the skin so the eye skips past
         # them, the way a watched episode greys out in most apps. A
         # non-empty property is the skin's visibility condition, so the

@@ -243,6 +243,13 @@ def write_assets(mask_sizes):
     key.save(os.path.join(MEDIA, 'rv_key.png'), optimize=True)
     frame = _rrect(48, 48, CORNER_RADIUS, stroke=3)
     frame.save(os.path.join(MEDIA, 'rv_focus_frame.png'), optimize=True)
+    # Home and hub draw this on the poster rectangle with border=16.
+    # A filled plate behind the art, or a stroke on a larger box, sat
+    # off the card. Radius 16 matches the poster mask at display size.
+    # Inset by half the stroke so the line is inside the 9-slice border
+    # instead of clipped off the texture edge.
+    stroke = _rrect(64, 64, 16, stroke=3)
+    stroke.save(os.path.join(MEDIA, 'focus_stroke.png'), optimize=True)
     return written
 
 

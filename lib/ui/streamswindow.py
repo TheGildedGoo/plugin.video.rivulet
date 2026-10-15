@@ -271,6 +271,10 @@ class StreamsWindow(BaseWindow):
         self.video_id = None
         self.played = False
         self.played_pair = None
+        #: Set by start() when Continue already chose Resume. The first
+        #: successful pick seeks here and skips the confirm. Cleared on
+        #: success so a later pick in this same window asks as usual.
+        self._forced_resume_ms = None
         #: True once close() has run - add_pairs()/set_loading() become
         #: silent no-ops from then on, so a straggling addon answering
         #: after the user backed out (or after playback started) never
@@ -322,7 +326,10 @@ class StreamsWindow(BaseWindow):
         #: `line2`/`properties`) needs redoing when `include_addon` flips.
         self._row_cache = {}
 
-    def start(self, pairs, stype, sid, poster=None, heading='', art=None, meta=None, video_id=None):
+    def start(
+        self, pairs, stype, sid, poster=None, heading='', art=None, meta=None,
+        video_id=None, resume_offset_ms=None,
+    ):
         """doModal() showing `pairs` (a list of `(info, stream)` as
         `lib.stremio.streaminfo.parse_stream`/`sort_streams` produce).
         `heading`/`art`/`meta` are the optional caller-context kwargs
@@ -345,6 +352,7 @@ class StreamsWindow(BaseWindow):
         self.video_id = video_id
         self.played = False
         self.played_pair = None
+        self._forced_resume_ms = resume_offset_ms if resume_offset_ms else None
         self._closed = False
         self._pick_in_progress = False
         if not self.pairs:
@@ -808,11 +816,19 @@ class StreamsWindow(BaseWindow):
             item_meta['meta'] = self.meta
 
         from lib.ui.player import play_direct
-        if play_direct(
-            stream, self.stype, self.sid, item_meta=item_meta,
-            on_ready=lambda: _close_for_player_handoff(self),
-            video_id=self.video_id,
-        ):
+        # Only the Continue fallback passes an offset, and only as a
+        # keyword, so every existing play_direct stand-in keeps its
+        # signature. A successful pick clears it: the reopen after Stop
+        # is a new window, and a second pick in this one asks again.
+        play_kwargs = {
+            'item_meta': item_meta,
+            'on_ready': lambda: _close_for_player_handoff(self),
+            'video_id': self.video_id,
+        }
+        if self._forced_resume_ms:
+            play_kwargs['resume_offset_ms'] = self._forced_resume_ms
+        if play_direct(stream, self.stype, self.sid, **play_kwargs):
+            self._forced_resume_ms = None
             self.played = True
             self.played_pair = (info, stream)
             self.close()  # no-op: on_ready above already closed this window
@@ -1578,13 +1594,22 @@ class _PickerFeed:
             self._buffered = []
 
 
-def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video_id=None):
+def open_streams(
+    stype, sid, poster=None, heading='', art=None, meta=None, video_id=None,
+    resume_offset_ms=None,
+):
     """Fetch+sort every installed addon's streams for (stype, sid) and
     show them; a pick resolves+plays directly. `heading`/`art`/`meta` are
     forwarded to `StreamsWindow.start()` unchanged, and `video_id` (the
     id of the episode `pairs` is for, `None` for a movie or a
     context-free call) drives the binge-watching round trip below - see
     the module docstring for both.
+
+    `resume_offset_ms`, when set, is the offset Continue already chose.
+    It is given to the FIRST picker only. A pick that starts clears it
+    inside that window; the picker reopened after Stop does not receive
+    it, so a second source asks the usual resume question. Binge calls
+    `play_direct` itself and never sees this offset.
 
     Every installed addon is queried CONCURRENTLY, and the picker opens
     as soon as the FIRST one answers with anything - the rest stream in
@@ -1698,9 +1723,17 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
             win = open_window(StreamsWindow, 'StreamsWindow.xml')
             if live:
                 win.set_loading(feed.attach(win))
-            played = win.start(
-                pairs, stype, sid, poster=poster, heading=heading, art=art, meta=meta, video_id=video_id,
-            )
+            # Pass the offset only while it is set, and only as a
+            # keyword. Test doubles of start() predate the argument and
+            # do not accept it; the ordinary picker never sets it.
+            start_kwargs = {
+                'poster': poster, 'heading': heading, 'art': art, 'meta': meta,
+                'video_id': video_id,
+            }
+            if resume_offset_ms:
+                start_kwargs['resume_offset_ms'] = resume_offset_ms
+            played = win.start(pairs, stype, sid, **start_kwargs)
+            resume_offset_ms = None
         except Exception as exc:  # a skin/UI failure must surface, not vanish
             log('streamswindow: window failed to open: %r' % (exc,), xbmc.LOGERROR)
             notify(L(30032))

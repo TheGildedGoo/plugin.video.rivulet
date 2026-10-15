@@ -2,9 +2,7 @@
 
 Rev2Rivulet (`plugin.video.rev2rivulet`) is a test build of this addon. It installs beside RevRivulet (`plugin.video.revrivulet`) and official Rivulet. Kodi treats a different addon id as a different addon, so each one has its own `addon_data` profile and its own settings.
 
-The source tree stays RevRivulet. `scripts/publish_repo.py` copies that tree, rewrites the addon id, name and wordmark, stamps `rev2.version`, and adds `plugin.video.rev2rivulet-<version>.zip` to the same `addons.xml` on `gh-pages`. The RevRivulet zip is built from the unrewritten tree. Both show up in the RevRivulet repository at <https://thegildedgoo.github.io/plugin.video.rivulet/>.
-
-`rev2.version` starts at `0.1.0.r2.1`. The publish workflow bumps it with the same Kodi comparator it uses for RevRivulet, and only when the copy already on `gh-pages` is not strictly older.
+The source tree stays RevRivulet. gh-pages publishes that addon only: `addons.xml` lists `plugin.video.revrivulet` and `repository.revrivulet`, and the root index is those two zips as plain links. Rev2Rivulet is not built or published. `rev2.version` is unused by the publish workflow.
 
 ## Which UI loads
 

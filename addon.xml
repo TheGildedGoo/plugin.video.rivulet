@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev9" provider-name="M0RF30">
+<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev10" provider-name="M0RF30">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.requests" version="2.22.0"/>
@@ -12,7 +12,16 @@
     <summary lang="en_GB">RevRivulet: watch Stremio-protocol catalogs, addons and streams in Kodi. Installs beside official Rivulet.</summary>
     <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote stremio-server-go streaming server, and optionally sync your addon collection with your Stremio account.</description>
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
-    <news>v0.30.1.rev9:
+    <news>v0.30.1.rev10:
+- New: choosing a title in Continue asks whether to resume or open the episode list. A movie asks for details instead. Resume plays the last source and picks up where you left off.
+- Fix: the title, the details, and the description each keep their own place at the top. The rows start below them.
+- Fix: Library keeps scrolling past the twelfth title.
+- Fix: New Episodes uses a wide picture, the same shape as the episode.
+- Fix: New Episodes shows that episode's picture, its title, and what it is about.
+- Fix: the focus ring sits on the selected poster.
+- Fix: the title no longer covers the year, runtime, or description.
+- Fix: rows keep scrolling, and the title stays up.
+v0.30.1.rev9:
 - Fix: New Episodes shows that episode's picture. Opening it does too.
 - Fix: left and right move through every episode of the season.
 - Fix: the title logo on Home no longer sits on a grey box.

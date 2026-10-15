@@ -13,7 +13,10 @@ The old Continue card opened `open_my_stuff()` with no band filter, and
 that screen's last band is the library, which is why the card showed
 saved titles.
 
-Picking a poster opens its page. The menu button (long-press on a
+Picking a poster opens its page, except a Continue poster that is
+actually mid-playback: that one asks Resume or Episode list (Details,
+for a movie). Resume replays the last stream that started for that
+item and seeks to the saved offset. The menu button (long-press on a
 remote) offers Add to Library or Remove from Library. Picking a type
 chip opens the catalog hub (`lib.ui.hubwindow`), one poster row per
 catalog of that type, loaded as the remote moves down.
@@ -48,9 +51,19 @@ BTN_ADDONS = 30071
 BTN_SETTINGS = 30072
 BTN_SIGNIN = 30073
 
-#: How many posters a row keeps. `iter_catalog_pages()` is consumed once
-#: and then closed, so Home does not walk the rest of the catalog.
+#: How many Continue posters a row keeps. The Library row is the whole
+#: account library: cutting it here stopped the focus ring at item 12
+#: while the list itself went on. Catalog rows are separate: they show
+#: `_ROW_INITIAL` from the first page and append the rest as the remote
+#: approaches the end (`_maybe_extend_focused_shelf`).
 SHELF_CAP = 12
+
+#: First paint of a catalog row, and the most it will grow to. The first
+#: page is often longer than the screen; cutting it at 12 is what made
+#: the row stop, drop the hero, and ignore the remote once the visible
+#: window was past.
+_ROW_INITIAL = 24
+_ROW_LIMIT = 80
 
 #: Set when a hub poster changes the account library. Home has no handle
 #: on that window, and its row cache would otherwise keep the old
@@ -253,8 +266,12 @@ def _more_item(action):
 
 
 def _one_catalog_page(transport, manifest, catalog, extra=None):
-    """The first page of one catalog. The generator is advanced once and
-    closed, so a row never pages and never calls `fetch_catalog_pages()`.
+    """The first page of one catalog, uncut.
+
+    Callers keep `_ROW_INITIAL` for the first paint and hold the rest
+    back. The generator is not walked here: the following pages are
+    fetched only when the remote nears the end of what is on screen
+    (`_pull_more`), so opening Home does not pull a whole catalog.
     A failed addon yields an empty row rather than taking the screen down.
     """
     from lib.ui.views import iter_catalog_pages
@@ -268,19 +285,101 @@ def _one_catalog_page(transport, manifest, catalog, extra=None):
         return []
     except Exception:
         return []
-    metas = [meta for meta in (page or []) if isinstance(meta, dict)]
-    return metas[:SHELF_CAP]
+    return [meta for meta in (page or []) if isinstance(meta, dict)]
 
 
-def _first_catalog_page(addons, types):
-    """The first page of the first installed catalog of `types`."""
+def _shelf_page_gen(state):
+    """The catalog generator positioned on page 2.
+
+    Page 1 is already on the row (and in `state['pending']` when it did
+    not fit). Creating the generator fetches that page again and discards
+    it, which is the only way to resume `skip` without holding the first
+    generator open across the whole session.
+    """
+    if not state or not state.get('transport') or not state.get('catalog'):
+        return None
+    gen = state.get('gen')
+    if gen is not None:
+        return gen
+    from lib.ui.views import iter_catalog_pages
+
+    catalog = state['catalog']
+    try:
+        gen = iter_catalog_pages(
+            state['transport'], catalog.get('type'), catalog.get('id'),
+            extra=state.get('extra'), catalog=catalog, manifest=state.get('manifest'),
+        )
+        next(gen)
+    except StopIteration:
+        return None
+    except Exception as exc:
+        if isinstance(exc, AssertionError):
+            raise
+        from lib.ui.compat import log
+        log('home: catalog page resume failed: %r' % (exc,))
+        return None
+    state['gen'] = gen
+    return gen
+
+
+def _pull_more(state, room):
+    """Up to `room` more metas for a row that is about to run out.
+
+    Leftover metas from the page already fetched come first, so reaching
+    the end of the first screen does not hit the network. A later page
+    is fetched only once that leftover is on screen. An empty answer
+    marks the row finished; the hero stays on the last real poster.
+    """
+    if not state or room <= 0 or state.get('exhausted'):
+        return []
+    pending = list(state.get('pending') or [])
+    if pending:
+        state['pending'] = pending[room:]
+        return pending[:room]
+    gen = _shelf_page_gen(state)
+    if gen is None:
+        state['exhausted'] = True
+        return []
+    try:
+        page = next(gen)
+    except StopIteration:
+        state['exhausted'] = True
+        return []
+    except Exception as exc:
+        if isinstance(exc, AssertionError):
+            raise
+        from lib.ui.compat import log
+        log('home: next catalog page failed: %r' % (exc,))
+        state['exhausted'] = True
+        return []
+    batch = [meta for meta in (page or []) if isinstance(meta, dict)]
+    if not batch:
+        state['exhausted'] = True
+        return []
+    state['pending'] = batch
+    return _pull_more(state, room)
+
+
+def _open_shelf(addons, types):
+    """The first catalog of `types`, plus the leftover metas past the
+    first screen. None when nothing of that type is installed."""
     from lib.stremio.addons import _base_type, iter_catalogs
 
     for transport, manifest, catalog in iter_catalogs(addons):
         if _base_type(catalog.get('type')) not in types:
             continue
-        return _one_catalog_page(transport, manifest, catalog)
-    return []
+        metas = _one_catalog_page(transport, manifest, catalog)
+        return {
+            'metas': metas,
+            'transport': transport,
+            'manifest': manifest,
+            'catalog': catalog,
+            'extra': None,
+            'pending': metas[_ROW_INITIAL:],
+            'gen': None,
+            'exhausted': False,
+        }
+    return None
 
 
 def _set_shelf(window, list_id, label_id, prop, heading, items):
@@ -322,7 +421,7 @@ def _library_continue_metas(entries):
     implicit watch record is both flags true, which is how Stremio
     stores "played, not added", and those do belong here.
     """
-    from lib.ui.mystuff import RESUME_MAX_PERCENT, RESUME_MIN_PERCENT
+    from lib.ui.mystuff import BAND_RESUME, RESUME_MAX_PERCENT, RESUME_MIN_PERCENT
 
     metas = []
     for entry in entries or []:
@@ -337,12 +436,17 @@ def _library_continue_metas(entries):
             continue
         if not (entry.get('name') or entry.get('poster')):
             continue
+        state = entry.get('state') if isinstance(entry.get('state'), dict) else {}
         metas.append({
             'id': entry.get('_id'),
             'name': entry.get('name'),
             'type': entry.get('type'),
             'poster': entry.get('poster'),
             'background': entry.get('background'),
+            'band': BAND_RESUME,
+            'video_id': state.get('video_id') or None,
+            'position_ms': state.get('timeOffset'),
+            'duration_ms': state.get('duration'),
         })
     return metas
 
@@ -375,7 +479,7 @@ def _played_posters(store, library_entries):
             continue
         key = (entry.get('type'), entry.get('id'))
         seen.add(key)
-        posters.append(_poster_item(entry))
+        posters.append(_continue_item(entry))
         if len(posters) >= SHELF_CAP:
             return posters
     for meta in _library_continue_metas(library_entries):
@@ -383,7 +487,7 @@ def _played_posters(store, library_entries):
         if key in seen:
             continue
         seen.add(key)
-        posters.append(_poster_item(meta))
+        posters.append(_continue_item(meta))
         if len(posters) >= SHELF_CAP:
             break
     return posters
@@ -391,7 +495,12 @@ def _played_posters(store, library_entries):
 
 def _library_posters(auth, library_entries):
     """Every non-removed libraryItem, as posters. Signed out, one Sign in
-    cell. Signed in and empty, the existing empty-library notice."""
+    cell. Signed in and empty, the existing empty-library notice.
+
+    Not sliced at `SHELF_CAP`. Continue is a short resume row, so that
+    cap belongs there. The library is the whole list: twelve was where
+    the focus ring stopped, on a panel that was ready to scroll further.
+    """
     from lib.ui.compat import L
     from lib.ui.mystuff import library_metas
 
@@ -403,7 +512,7 @@ def _library_posters(auth, library_entries):
         metas = library_metas(library_entries)
     except Exception:
         metas = []
-    posters = [_poster_item(meta) for meta in metas[:SHELF_CAP]]
+    posters = [_poster_item(meta) for meta in metas]
     if posters:
         return posters
     return [_poster_item({'name': L(30426), 'description': L(30423)})]
@@ -447,11 +556,22 @@ def _enabled_shelf_types(addons):
 
 
 def _catalog_pages(addons, enabled):
-    """First page per enabled shelf. `iter_catalog_pages()` once each."""
-    return {
-        action: _first_catalog_page(addons, types)
-        for action, types in enabled.items()
-    }
+    """First screen per enabled shelf, and the state that appends the rest.
+
+    `pages` is what the row draws now. `more` is what `_pull_more` walks
+    when the remote nears the end. One request per shelf at open.
+    """
+    pages = {}
+    more = {}
+    for action, types in enabled.items():
+        shelf = _open_shelf(addons, types)
+        if shelf is None:
+            pages[action] = []
+            more[action] = None
+            continue
+        pages[action] = shelf['metas'][:_ROW_INITIAL]
+        more[action] = shelf
+    return pages, more
 
 
 def _load_rows(window, store, addons, auth):
@@ -478,20 +598,23 @@ def _load_rows(window, store, addons, auth):
 
     def _load():
         library_entries = _fetch_library(store, auth)
+        pages, more = _catalog_pages(addons, enabled)
         return (
             _played_posters(store, library_entries),
             _library_posters(auth, library_entries),
-            _catalog_pages(addons, enabled),
+            pages,
+            more,
         )
 
     loaded = run_cancellable(_load, L(30033))
-    if loaded is CANCELLED or not isinstance(loaded, tuple) or len(loaded) != 3:
+    if loaded is CANCELLED or not isinstance(loaded, tuple) or len(loaded) != 4:
         return [], [], {}, enabled
-    continue_items, library_items, pages = loaded
+    continue_items, library_items, pages, more = loaded
     window._row_key = key
     window._continue_items = continue_items
     window._library_items = library_items
     window._catalog_pages = pages
+    window._shelf_more = more
     return continue_items, library_items, pages, enabled
 
 
@@ -622,6 +745,72 @@ def _status_text(auth):
     return '[COLOR FF38BDF8]\u25cf[/COLOR] %s' % text
 
 
+def _fit_hero_title(text):
+    """One line for the title band. The label does not wrap, and a long
+    name used to run through the metadata under it."""
+    text = text or ''
+    if len(text) <= 48:
+        return text
+    return text[:47].rstrip() + '\u2026'
+
+
+def _append_to_shelf(window, list_id, metas):
+    """Add `metas` to a shelf, keeping the poster the remote is on.
+
+    `addItems` sends the cursor back to the first cell. The saved
+    position is put back so a page landing under the thumb does not
+    jump the row, which is the same snap the coverflow already avoids.
+    The More cell, when the row has one, stays last.
+    """
+    if not metas:
+        return
+    control = window.getControl(list_id)
+    pos = control.getSelectedPosition()
+    if pos < 0:
+        pos = 0
+    items = [control.getListItem(index) for index in range(control.size())]
+    more = None
+    if items and items[-1].getProperty('action') and not items[-1].getProperty('sid'):
+        more = items.pop()
+    items.extend(_poster_item(meta) for meta in metas)
+    if more is not None:
+        items.append(more)
+    control.reset()
+    control.addItems(items)
+    if items:
+        control.selectItem(min(pos, len(items) - 1))
+
+
+def _maybe_extend_focused_shelf(window):
+    """Append the next posters when the remote is within four of the end.
+
+    The panel only had the first slice. Moving into the unloaded part
+    left the container on a blank item, paint_hero cleared the title,
+    and the row stopped taking left and right.
+    """
+    focus = window.getFocusId()
+    action = None
+    for name, list_id, _label in _SHELVES:
+        if list_id == focus:
+            action = name
+            break
+    if action is None:
+        return
+    state = (getattr(window, '_shelf_more', None) or {}).get(action)
+    if not state:
+        return
+    control = window.getControl(focus)
+    count = control.size()
+    pos = control.getSelectedPosition()
+    if count <= 0 or pos < max(0, count - 4):
+        return
+    shown = 0
+    for index in range(count):
+        if control.getListItem(index).getProperty('sid'):
+            shown += 1
+    _append_to_shelf(window, focus, _pull_more(state, _ROW_LIMIT - shown))
+
+
 def paint_hero(window):
     """Paint the backdrop from the focused poster.
 
@@ -629,6 +818,10 @@ def paint_hero(window):
     keeps the last title on screen while the remote is on the top bar,
     which is the reading order of this layout. A poster with no fanart
     falls back to the addon fanart so the hero never goes blank.
+
+    A container that has scrolled past the items it actually holds hands
+    back a blank list item. Writing that blank is what cleared the title
+    and the plot and left the row looking dead. Keep the previous hero.
     """
     from lib.ui.compat import addon_fanart
 
@@ -641,7 +834,10 @@ def paint_hero(window):
         item = None
     if item is None:
         return
-    title = item.getProperty('hero_title') or item.getLabel() or ''
+    title = item.getProperty('hero_title') or ''
+    label = item.getLabel() or ''
+    if not title and not label and not item.getProperty('sid') and not item.getProperty('hero_logo'):
+        return
     meta = item.getProperty('hero_meta') or ''
     plot = item.getProperty('hero_plot') or item.getProperty('subtitle') or ''
     fanart = item.getProperty('fanart') or ''
@@ -649,7 +845,7 @@ def paint_hero(window):
     try:
         window.setProperty('HeroLogo', logo)
         window.getControl(HERO_LOGO).setImage(logo)
-        window.getControl(HERO_TITLE).setLabel(title)
+        window.getControl(HERO_TITLE).setLabel(_fit_hero_title(title or label))
         window.getControl(HERO_META).setLabel(meta)
         window.getControl(HERO_PLOT).setText(plot)
         window.getControl(BACKGROUND).setImage(fanart or addon_fanart())
@@ -704,6 +900,11 @@ class HomeWindow(BaseWindow):
         if action_id == 4 and not self.getControl(BROWSE_LIST).size():
             if self.getFocusId() in _BUTTON_ACTIONS or self.getFocusId() == TOOLS_LIST:
                 _focus_first(self)
+        # Right is what walks a shelf. Load the next posters before the
+        # hero is painted, so the cell the remote just reached already
+        # has a title.
+        if action_id == 2:
+            _maybe_extend_focused_shelf(self)
         paint_hero(self)
 
     @gated_input
@@ -716,7 +917,7 @@ class HomeWindow(BaseWindow):
         if control_id not in _CLICKABLE:
             return
         focused = self.getControl(control_id).getSelectedItem()
-        _activate(self, focused)
+        _activate(self, focused, control_id)
 
 
 def _open_signin(window):
@@ -735,15 +936,258 @@ def _open_signin(window):
     window._build()
 
 
-def _activate(window, item):
+def _continue_item(entry):
+    """A Continue poster. Carries the resume fields the dialog reads.
+
+    Catalog and Library posters stay on `_poster_item` alone: those
+    clicks still open the page, and the skin ignores unknown properties.
+    """
+    item = _poster_item(entry)
+    props = {}
+    band = entry.get('band')
+    if band:
+        props['band'] = str(band)
+    video_id = entry.get('video_id')
+    if video_id:
+        props['video_id'] = str(video_id)
+    for key in ('position_ms', 'duration_ms'):
+        value = entry.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            props[key] = str(int(value))
+    if props:
+        item.setProperties(props)
+    return item
+
+
+def _property_int(item, key):
+    raw = item.getProperty(key) or ''
+    if not raw:
+        return 0
+    try:
+        return int(raw)
+    except ValueError:
+        return 0
+
+
+def _continue_offset_ms(item):
+    """Milliseconds to offer Resume for, or 0 when this poster is not one.
+
+    Next-up and recently finished share the Continue row and have no
+    mid-title position. A duration-0 account pointer (timeOffset 1) is
+    how Stremio marks "play the next episode", not a place to seek.
+    The band check uses the same window the row was built with.
+    """
+    from lib.ui.mystuff import BAND_RESUME, RESUME_MAX_PERCENT, RESUME_MIN_PERCENT
+
+    if item.getProperty('band') != BAND_RESUME:
+        return 0
+    position = _property_int(item, 'position_ms')
+    duration = _property_int(item, 'duration_ms')
+    if position <= 0 or duration <= 0:
+        return 0
+    percent = (float(position) / float(duration)) * 100.0
+    if percent < RESUME_MIN_PERCENT or percent >= RESUME_MAX_PERCENT:
+        return 0
+    return position
+
+
+def _continue_art(item):
+    art = {}
+    poster = item.getProperty('thumbnail') or ''
+    fanart = item.getProperty('fanart') or ''
+    if poster:
+        art['poster'] = poster
+    if fanart:
+        art['fanart'] = fanart
+    return art or None
+
+
+def _continue_item_meta(item, show_id):
+    """OSD / now-playing context for a Continue resume.
+
+    `meta['id']` is the show (or movie) id. The play call's own sid is
+    the episode id when there is one, which is what the picker passes,
+    so subtitles and the progress key stay on the episode while sync
+    stays on the show.
+    """
+    label = item.getProperty('hero_title') or item.getLabel() or ''
+    item_meta = {}
+    if label:
+        item_meta['label'] = label
+    art = _continue_art(item)
+    if art:
+        item_meta['art'] = art
+    meta = {'id': show_id, 'type': item.getProperty('stype') or ''}
+    if label:
+        meta['name'] = label
+    poster = item.getProperty('thumbnail') or ''
+    if poster:
+        meta['poster'] = poster
+    item_meta['meta'] = meta
+    return item_meta
+
+
+def _continue_choice(item, offset_ms):
+    """0 resume, 1 the existing page, -1 Back. Back closes the dialog."""
+    from lib.ui.compat import L
+    from lib.ui.dialogs import choose
+    from lib.ui.playbackmeta import episode_label_from_id, format_resume_clock
+
+    clock = format_resume_clock(offset_ms / 1000.0)
+    code = episode_label_from_id(item.getProperty('video_id'))
+    if code:
+        resume = L(30438) % (code, clock)
+    else:
+        resume = L(30439) % (clock,)
+    second = L(30440) if item.getProperty('stype') == 'series' else L(30441)
+    heading = item.getProperty('hero_title') or item.getLabel() or ''
+    return choose(heading, [resume, second])
+
+
+def _hold_until_playback_ends():
+    """Block until the player has closed, then end the player phase.
+
+    `play_direct` returns as soon as Kodi accepts the item. Returning
+    from Home's click at that moment lets `doModal` reopen Home on top
+    of the picture, because Continue has no picker sitting in between
+    the way `open_streams` does. The phase stays `player` through the
+    same settle `open_streams` uses, so a Stop refresh is still ignored,
+    and ends immediately before this returns: Home is the screen coming
+    back, and its reopen does not itself end the phase. Input would
+    stay gated if the phase were left on `player`.
+    """
+    import xbmc
+
+    from lib.ui.streamswindow import _REOPEN_SETTLE_SECONDS, _wait_for_playback_end
+    from lib.ui.uicommon import end_player_phase
+
+    proceed, _ended = _wait_for_playback_end()
+    if not proceed:
+        end_player_phase()
+        return
+    if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):
+        end_player_phase()
+        return
+    end_player_phase()
+
+
+def _meta_for_resume(stype, show_id, item_meta):
+    """Fill `videos` before play, or report that the user cancelled.
+
+    Continue's poster does not carry the episode list. The stop push
+    still records a position without it. A finish does not: with no
+    list, `finish_playback` leaves the watched bits alone and, with no
+    next episode id, zeroes the offset instead of pointing Continue at
+    the next episode. This is the same meta fetch the episode list
+    already ran. Back on the spinner cancels the resume. A miss plays
+    anyway, because the position sync does not need the list.
+    """
+    import xbmc
+
+    from lib.ui.compat import L, log
+    from lib.ui.uicommon import CANCELLED, run_cancellable
+    from lib.ui.views import _fetch_meta
+
+    fetched = run_cancellable(lambda: _fetch_meta(stype, show_id), L(30033))
+    if fetched is CANCELLED:
+        log('home: resume cancelled while loading the title', xbmc.LOGINFO)
+        return item_meta, True
+    if isinstance(fetched, dict) and (fetched.get('id') or fetched.get('videos')):
+        meta = dict(fetched)
+        meta['id'] = fetched.get('id') or show_id
+        item_meta = dict(item_meta)
+        item_meta['meta'] = meta
+        if not item_meta.get('label') and meta.get('name'):
+            item_meta['label'] = meta.get('name')
+    return item_meta, False
+
+
+def _resume_continue(item, offset_ms):
+    """Replay the saved stream and seek. Missing or failed: the picker.
+
+    `on_ready` is `close_windows_for_playback`, the same handoff the
+    picker uses, so Home is marked for restore and is not left on top
+    of the player. The fallback picker gets this offset for its first
+    pick only; binge and a later pick keep the usual prompt.
+    """
+    import xbmc
+
+    from lib.ui.compat import log
+    from lib.ui.player import play_direct
+    from lib.ui.streamswindow import open_streams
+    from lib.ui.uicommon import close_windows_for_playback
+
+    stype = item.getProperty('stype')
+    show_id = item.getProperty('sid')
+    video_id = item.getProperty('video_id') or None
+    play_id = video_id or show_id
+    item_meta, cancelled = _meta_for_resume(stype, show_id, _continue_item_meta(item, show_id))
+    if cancelled:
+        return
+    stream = None
+    try:
+        stream = get_store().get_last_stream(stype, show_id, video_id)
+    except Exception as exc:  # noqa: BLE001 - a missing file must open the picker, not die
+        log('home: saved stream lookup failed for %s/%s: %r' % (stype, show_id, exc), xbmc.LOGWARNING)
+    started = False
+    if stream:
+        started = play_direct(
+            stream, stype, play_id, item_meta=item_meta,
+            on_ready=close_windows_for_playback,
+            video_id=video_id,
+            resume_offset_ms=offset_ms,
+        )
+    if started:
+        _hold_until_playback_ends()
+        return
+    open_streams(
+        stype, play_id,
+        poster=item.getProperty('thumbnail') or None,
+        heading=item.getProperty('hero_title') or item.getLabel() or '',
+        art=_continue_art(item),
+        meta=item_meta.get('meta'),
+        video_id=video_id,
+        resume_offset_ms=offset_ms,
+    )
+
+
+def _handle_continue(window, item):
+    """True when this click was a resumable Continue poster.
+
+    Back does nothing else. The second row is the page this click used
+    to open (episode list, or details for a movie).
+    """
+    offset_ms = _continue_offset_ms(item)
+    if not offset_ms:
+        return False
+    choice = _continue_choice(item, offset_ms)
+    if choice < 0:
+        return True
+    if choice == 0:
+        _resume_continue(item, offset_ms)
+        return True
+    from lib.ui.detailwindow import open_detail
+    if open_detail(item.getProperty('stype'), item.getProperty('sid')):
+        window.close()
+    return True
+
+
+def _activate(window, item, control_id=None):
     """A shelf poster with an id opens its page. Anything else is a
     menu action (including More, which carries the row's action and
-    no id)."""
+    no id).
+
+    Continue is the exception, and only for a poster that is actually
+    part-way through: that click asks first. Next-up, recently finished,
+    Library and the catalog rows still open the page directly.
+    """
     if item is None:
         return
     action = item.getProperty('action')
     sid = item.getProperty('sid')
     if sid and not action:
+        if control_id == CONTINUE_SHELF and _handle_continue(window, item):
+            return
         from lib.ui.detailwindow import open_detail
         if open_detail(item.getProperty('stype'), sid):
             window.close()

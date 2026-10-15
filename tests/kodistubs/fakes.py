@@ -71,6 +71,10 @@ _DEFAULT_LOCALIZED = {
     30022: 'Logged in as %s',
     30360: 'New episodes: %d',
     30429: '%d min',
+    30438: 'Resume %s from %s',
+    30439: 'Resume from %s',
+    30440: 'Episode list',
+    30441: 'Details',
     30383: 'Search incomplete, no answer from: %s',
 }
 

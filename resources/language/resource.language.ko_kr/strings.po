@@ -1074,3 +1074,19 @@ msgstr "켜기"
 msgctxt "#30437"
 msgid "Off"
 msgstr "끄기"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s %s부터 이어보기"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "%s부터 이어보기"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "에피소드 목록"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "상세 정보"
