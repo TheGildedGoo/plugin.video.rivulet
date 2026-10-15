@@ -1,10 +1,10 @@
 # Kodi Media Center language file
-# Addon Name: Rivulet
-# Addon id: plugin.video.rivulet
+# Addon Name: RevRivulet
+# Addon id: plugin.video.revrivulet
 # Addon Provider: M0Rf30
 msgid ""
 msgstr ""
-"Project-Id-Version: plugin.video.rivulet\n"
+"Project-Id-Version: plugin.video.revrivulet\n"
 "Report-Msgid-Bugs-To: https://github.com/M0Rf30/plugin.video.rivulet/issues\n"
 "POT-Creation-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -465,8 +465,8 @@ msgid "Manage installed Stremio addons"
 msgstr "설치된 Stremio 애드온 관리"
 
 msgctxt "#30152"
-msgid "Configure Rivulet"
-msgstr "Rivulet 설정"
+msgid "Configure RevRivulet"
+msgstr "RevRivulet 설정"
 
 msgctxt "#30170"
 msgid "Sync playback progress to your Stremio account"
@@ -685,8 +685,8 @@ msgid "Show Other"
 msgstr "기타 표시"
 
 msgctxt "#30230"
-msgid "Open Rivulet automatically on Kodi startup"
-msgstr "Kodi 시작 시 Rivulet 자동으로 열기"
+msgid "Open RevRivulet automatically on Kodi startup"
+msgstr "Kodi 시작 시 RevRivulet 자동으로 열기"
 
 msgctxt "#30232"
 msgid "Resume, next up, and your library"

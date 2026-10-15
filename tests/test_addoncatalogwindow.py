@@ -374,7 +374,7 @@ def test_oninit_source_fetch_failure_notifies_and_skips_that_source(load_addonca
     items = win.getControl(ctx.addoncatalogwindow.LIST).items
     entry_rows = [item for item in items if item.getProperty('position').isdigit()]
     assert len(entry_rows) == len(CATALOG_ENVELOPE['addons'])  # the healthy source's rows, unhidden
-    assert ctx.env.notifications == [('Rivulet', "Could not load Source Addon's addon catalog", 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', "Could not load Source Addon's addon catalog", 'info', 4000)]
     xbmc_mod = sys.modules['xbmc']  # installed by the fixture above, not importable at module scope
     warnings = [msg for msg, level in ctx.env.log_calls if level == xbmc_mod.LOGWARNING]
     assert len(warnings) == 1
@@ -533,7 +533,7 @@ def test_builtin_source_failure_does_not_break_the_installed_sources_list(load_a
     entry_rows = [item for item in win.getControl(ctx.addoncatalogwindow.LIST).items
                   if item.getProperty('position').isdigit()]
     assert len(entry_rows) == len(CATALOG_ENVELOPE['addons'])  # installed source's rows, unhidden
-    assert ctx.env.notifications == [('Rivulet', "Could not load builtin-catalog's addon catalog", 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', "Could not load builtin-catalog's addon catalog", 'info', 4000)]
 
 
 def test_home_hide_adult_on_drops_adult_flagged_builtin_entries(load_addoncatalogwindow, monkeypatch):
@@ -901,7 +901,7 @@ def test_onclick_installable_entry_confirmed_installs_the_catalog_manifest(load_
     assert store.installed == [
         ('https://new.example/manifest.json', CATALOG_ENVELOPE['addons'][0]['manifest']),
     ]
-    assert ('Rivulet', 'STR30012', 'info', 4000) in ctx.env.notifications
+    assert ('RevRivulet', 'STR30012', 'info', 4000) in ctx.env.notifications
 
 
 def test_onclick_installable_entry_declined_confirm_does_not_install(load_addoncatalogwindow, monkeypatch):
@@ -967,7 +967,7 @@ def test_onclick_needs_configuration_entry_pasted_url_installs_configured_manife
     win.onClick(ctx.addoncatalogwindow.LIST)
 
     assert store.installed == [('https://cfg.example/manifest.json?token=xyz', configured_manifest)]
-    assert ('Rivulet', 'STR30012', 'info', 4000) in ctx.env.notifications
+    assert ('RevRivulet', 'STR30012', 'info', 4000) in ctx.env.notifications
 
 
 def test_onclick_needs_configuration_entry_invalid_pasted_url_does_not_install(load_addoncatalogwindow):
@@ -984,7 +984,7 @@ def test_onclick_needs_configuration_entry_invalid_pasted_url_does_not_install(l
 
     assert store.installed == []
     assert client.manifest_calls == []
-    assert ('Rivulet', 'STR30014', 'info', 4000) in ctx.env.notifications
+    assert ('RevRivulet', 'STR30014', 'info', 4000) in ctx.env.notifications
 
 
 # ---------------------------------------------------------------------------
@@ -1008,7 +1008,7 @@ def test_onclick_already_installed_entry_is_not_offered_for_install(load_addonca
 
     assert store.installed == []
     assert confirm_calls == []
-    assert ('Rivulet', 'Already Installed is already installed', 'info', 4000) in ctx.env.notifications
+    assert ('RevRivulet', 'Already Installed is already installed', 'info', 4000) in ctx.env.notifications
 
 
 # ---------------------------------------------------------------------------

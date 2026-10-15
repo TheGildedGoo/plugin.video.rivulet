@@ -30,7 +30,7 @@ behind, and `usecontrolcoords` closes the gap it would have taken.
 Control ids:
     BACKGROUND = 30000  fanart of the focused item
     ROWS       = 30001  the vertical grouplist holding every band row
-    HEADING    = 30006  "RIVULET / CONTINUE" breadcrumb
+    HEADING    = 30006  "REVRIVULET / CONTINUE" breadcrumb
     300x2/301x7        per-band list and header label (see `BAND_ROWS`)
 
 Like every other Rivulet screen, the actual rendering is
@@ -242,11 +242,12 @@ class GridWindow(BaseWindow):
         """Fill one row per band, label it, and focus the first populated
         one. Re-runs whenever `uicommon.ModalStackWindow` reopens a screen
         force-closed for playback, so every row is reset first."""
+        from lib.addonid import WORDMARK
         from lib.ui.compat import L
         from lib.ui.mystuff import BAND_HEADINGS
 
         self.getControl(HEADING).setLabel(
-            'RIVULET / %s' % ((self.heading or L(30241)).upper(),))
+            '%s / %s' % (WORDMARK, (self.heading or L(30241)).upper()))
 
         # Every row is reset first, not just the ones being filled: onInit()
         # re-runs when uicommon.ModalStackWindow reopens a screen

@@ -197,12 +197,13 @@ class CatalogPickerWindow(BaseWindow):
         self.setFocusId(LIST)
 
     def _heading_text(self):
-        """The header line, in the skin's "RIVULET / <SECTION>" form.
+        """The header line, in the skin's "REVRIVULET / <SECTION>" form.
         Falls back to the generic catalog-picker title when the screen is
         not filtered to a type, which is what the skin used to hardcode."""
+        from lib.addonid import WORDMARK
         from lib.ui.compat import L
 
-        return 'RIVULET / %s' % ((self.heading or L(30000)).upper(),)
+        return '%s / %s' % (WORDMARK, (self.heading or L(30000)).upper())
 
     def _focused_catalog(self):
         """The `(transport_url, manifest, catalog)` tuple under the LIST's

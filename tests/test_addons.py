@@ -537,7 +537,7 @@ def test_addon_client_session_does_not_send_default_requests_user_agent():
     # must carry the addon's own UA, not requests' default.
     client = AddonClient()
     ua = client.session.headers["User-Agent"]
-    assert ua == "plugin.video.rivulet"
+    assert ua == "plugin.video.revrivulet"
     assert "python-requests" not in ua
 
 
@@ -738,7 +738,7 @@ def test_validate_transport_url_accepts(url, expected):
     'https://user:pass@example.com/manifest.json',
     'https://token@example.com/manifest.json',
     'file:///etc/passwd',
-    'plugin://plugin.video.rivulet/play',
+    'plugin://plugin.video.revrivulet/play',
     'https:///manifest.json',
     'https://example.com:notaport/manifest.json',
     'https://example.com/manifest.json#frag',

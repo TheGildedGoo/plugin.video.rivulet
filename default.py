@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""Plugin entry point for plugin.video.rivulet.
+"""Plugin entry point for plugin.video.revrivulet.
 
 Kodi invokes this script directly (not as an import), passing the
 plugin:// invocation as sys.argv. Bootstrap sys.path so the addon's own
@@ -16,9 +16,10 @@ from urllib.parse import parse_qs
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from lib.addonid import ADDON_ID
 from lib.ui import router, urlutil
 
-router.BASE_URL = sys.argv[0] if len(sys.argv) > 0 else 'plugin://plugin.video.rivulet/'
+router.BASE_URL = sys.argv[0] if len(sys.argv) > 0 else 'plugin://%s/' % ADDON_ID
 try:
     router.ADDON_HANDLE = int(sys.argv[1])
 except (IndexError, ValueError):

@@ -296,11 +296,11 @@ def test_addon_media_path_builds_from_addon_id_not_hardcoded(load_views):
     path = compat.addon_media_path('discover.png')
 
     assert path.endswith('org.custom.testaddon/resources/media/discover.png')
-    assert 'plugin.video.rivulet' not in path
+    assert 'plugin.video.revrivulet' not in path
 
 
 def test_addon_fanart_returns_configured_fanart_path(load_views):
-    sentinel = 'special://home/addons/plugin.video.rivulet/resources/custom-fanart.jpg'
+    sentinel = 'special://home/addons/plugin.video.revrivulet/resources/custom-fanart.jpg'
     ctx = load_views(addon_info={'fanart': sentinel})
 
     assert ctx.compat.addon_fanart() == sentinel

@@ -22,13 +22,13 @@ jobs:
 
       - name: Build addon package
         run: |
-          git archive --format=zip --prefix=plugin.video.rivulet/ \
-            -o "plugin.video.rivulet-${{ steps.addon.outputs.version }}.zip" \
+          git archive --format=zip --prefix=plugin.video.revrivulet/ \
+            -o "plugin.video.revrivulet-${{ steps.addon.outputs.version }}.zip" \
             HEAD -- addon.xml default.py service.py resources lib LICENSE
 
       - name: Verify addon package contents
         env:
-          ZIP_PATH: plugin.video.rivulet-${{ steps.addon.outputs.version }}.zip
+          ZIP_PATH: plugin.video.revrivulet-${{ steps.addon.outputs.version }}.zip
         run: |
           python3 - <<'PY'
           import os
@@ -39,7 +39,7 @@ jobs:
           with zipfile.ZipFile(zip_path) as zf:
               names = zf.namelist()
 
-          prefix = "plugin.video.rivulet/"
+          prefix = "plugin.video.revrivulet/"
           required = ["addon.xml", "default.py", "service.py", "lib/", "resources/", "LICENSE"]
           missing = [r for r in required if not any(n.startswith(prefix + r) for n in names)]
           if missing:
@@ -50,5 +50,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: plugin.video.rivulet-${{ steps.addon.outputs.version }}
-          path: plugin.video.rivulet-${{ steps.addon.outputs.version }}.zip
+          name: plugin.video.revrivulet-${{ steps.addon.outputs.version }}
+          path: plugin.video.revrivulet-${{ steps.addon.outputs.version }}.zip

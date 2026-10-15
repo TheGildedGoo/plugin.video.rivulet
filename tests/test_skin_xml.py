@@ -22,7 +22,7 @@ real defect it would have caught:
 4. `colordiffuse` - Kodi wants exactly 8 hex digits (AARRGGBB); a 6-digit
    value is silently misread. This repo shipped `FF3A3A3A` where
    `#0A0C0E` was meant and nobody saw it until the backdrop was measured.
-5. Addon strings - `$ADDON[plugin.video.rivulet <id>]` with no matching
+5. Addon strings - `$ADDON[plugin.video.revrivulet <id>]` with no matching
    `strings.po` entry renders blank; `$LOCALIZE[...]` reads KODI's own
    catalog, not the addon's, so it *always* renders blank in an addon
    skin. A handful of labels also shipped as bare, untranslated English
@@ -279,7 +279,7 @@ def test_six_hex_colordiffuse_is_rejected_regression(tmp_path):
 # 5. addon strings: $ADDON ids, $LOCALIZE, bare English literals
 
 
-_ADDON_STRING_RE = re.compile(r'\$ADDON\[plugin\.video\.rivulet (\d+)\]')
+_ADDON_STRING_RE = re.compile(r'\$ADDON\[plugin\.video\.revrivulet (\d+)\]')
 _PO_MSGCTXT_RE = re.compile(r'^msgctxt\s+"#(\d+)"', re.MULTILINE)
 
 
@@ -296,7 +296,7 @@ def _has_localize(path):
 
 
 def test_skin_addon_string_ids_exist_in_english_catalog():
-    """A `$ADDON[plugin.video.rivulet <id>]` pointing at an id nobody added
+    """A `$ADDON[plugin.video.revrivulet <id>]` pointing at an id nobody added
     to `strings.po` has nothing to substitute and renders blank."""
     valid_ids = _po_ids(_ENGLISH_PO)
     offenders = []
@@ -305,7 +305,7 @@ def test_skin_addon_string_ids_exist_in_english_catalog():
         for string_id in _addon_string_ids(path):
             total += 1
             if string_id not in valid_ids:
-                offenders.append('%s: $ADDON[plugin.video.rivulet %d] has no #%d entry in %s' % (path, string_id, string_id, _ENGLISH_PO))
+                offenders.append('%s: $ADDON[plugin.video.revrivulet %d] has no #%d entry in %s' % (path, string_id, string_id, _ENGLISH_PO))
     assert total, 'no $ADDON[...] substitutions found across %s - the check is not scanning anything' % _SKIN_DIR
     assert not offenders, 'orphaned skin addon-string ids:\n  ' + '\n  '.join(offenders)
 
@@ -321,7 +321,7 @@ def test_skin_never_uses_localize_substitution():
 def test_unknown_addon_string_id_is_rejected_regression(tmp_path):
     """Regression: an id absent from strings.po must be flagged."""
     bad = tmp_path / 'Bad.xml'
-    bad.write_text('<window><controls><control type="label"><label>$ADDON[plugin.video.rivulet 99999]</label></control></controls></window>', encoding='utf-8')
+    bad.write_text('<window><controls><control type="label"><label>$ADDON[plugin.video.revrivulet 99999]</label></control></controls></window>', encoding='utf-8')
     assert _addon_string_ids(str(bad)) == [99999]
     assert 99999 not in _po_ids(_ENGLISH_PO)
 
@@ -340,13 +340,13 @@ _SUBSTITUTION_RE = re.compile(r'\$(?:INFO|ADDON|LOCALIZE|VAR|ESCINFO)\[[^\]]*\]'
 _BBCODE_RE = re.compile(r'\[/?[A-Za-z][^\]]*\]')
 _WORD_RE = re.compile(r'[A-Za-z]+')
 
-#: Literal English words this skin may ship un-substituted. `RIVULET` is
+#: Literal English words this skin may ship un-substituted. `REVRIVULET` is
 #: the brand wordmark, never translated in any locale. `OK`/`BACK` label
 #: the remote-control keys themselves (as in "[OK] select  [BACK] back"),
 #: not sentence content - the action verb beside each is already routed
 #: through `$ADDON[...]` (ids 30209/30210/30223/30224/30225/...); the key
 #: caption is left as-is the way a keyboard's own key legends are.
-_ALLOWED_LITERAL_WORDS = frozenset({'RIVULET', 'OK', 'BACK'})
+_ALLOWED_LITERAL_WORDS = frozenset({'REVRIVULET', 'OK', 'BACK'})
 
 
 def _literal_words(label_text):
@@ -388,7 +388,7 @@ def test_allowed_literal_words_survive_substitution_stripping_regression(tmp_pat
     """Regression: the allow-listed OK/BACK hint strip - literal key
     captions mixed with a real $ADDON substitution - must NOT be flagged,
     or the rule would be too strict to ship."""
-    text = '[COLOR FF38BDF8]OK[/COLOR] $ADDON[plugin.video.rivulet 30209] [COLOR FF38BDF8]BACK[/COLOR] $ADDON[plugin.video.rivulet 30210]'
+    text = '[COLOR FF38BDF8]OK[/COLOR] $ADDON[plugin.video.revrivulet 30209] [COLOR FF38BDF8]BACK[/COLOR] $ADDON[plugin.video.revrivulet 30210]'
     assert set(_literal_words(text)) <= _ALLOWED_LITERAL_WORDS
 
 

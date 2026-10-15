@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""Background service entry point for plugin.video.rivulet.
+"""Background service entry point for plugin.video.revrivulet.
 
 Kodi launches this script once at startup (xbmc.service extension).
 Bootstrap sys.path so the addon's own ``lib`` package is importable,

@@ -793,7 +793,7 @@ def test_install_binary_does_not_stamp_a_refused_download(tmp_path, monkeypatch,
 # --- android_bin_dirs / install_dir -----------------------------------------
 
 
-def _android_profile_dir(pkg="org.xbmc.kodi", addon_id="plugin.video.rivulet"):
+def _android_profile_dir(pkg="org.xbmc.kodi", addon_id="plugin.video.revrivulet"):
     """A realistic Kodi-on-Android `special://profile/addon_data/<addon_id>`
     path: `.../Android/data/<pkg>/files/.kodi/userdata/addon_data/<addon_id>/`."""
     return (
@@ -804,41 +804,41 @@ def _android_profile_dir(pkg="org.xbmc.kodi", addon_id="plugin.video.rivulet"):
 
 def test_android_bin_dirs_derives_candidates_from_realistic_kodi_profile_path(monkeypatch):
     _set_platform(monkeypatch, "Linux", "armv8l", android_root="/system")
-    assert serverbin.android_bin_dirs(_android_profile_dir(), "plugin.video.rivulet") == [
-        "/data/user/0/org.xbmc.kodi/files/plugin.video.rivulet/bin",
-        "/data/data/org.xbmc.kodi/files/plugin.video.rivulet/bin",
+    assert serverbin.android_bin_dirs(_android_profile_dir(), "plugin.video.revrivulet") == [
+        "/data/user/0/org.xbmc.kodi/files/plugin.video.revrivulet/bin",
+        "/data/data/org.xbmc.kodi/files/plugin.video.revrivulet/bin",
     ]
 
 
 def test_android_bin_dirs_empty_when_not_android(monkeypatch):
     _set_platform(monkeypatch, "Linux", "x86_64")
-    assert serverbin.android_bin_dirs(_android_profile_dir(), "plugin.video.rivulet") == []
+    assert serverbin.android_bin_dirs(_android_profile_dir(), "plugin.video.revrivulet") == []
 
 
 def test_android_bin_dirs_empty_when_profile_dir_does_not_match_android_layout(monkeypatch):
     _set_platform(monkeypatch, "Linux", "armv8l", android_root="/system")
     assert serverbin.android_bin_dirs(
-        "/home/user/.kodi/userdata/addon_data/plugin.video.rivulet/", "plugin.video.rivulet") == []
+        "/home/user/.kodi/userdata/addon_data/plugin.video.revrivulet/", "plugin.video.revrivulet") == []
 
 
 def test_install_dir_returns_plain_bin_when_not_android(monkeypatch):
     _set_platform(monkeypatch, "Linux", "x86_64")
-    profile_dir = "/home/user/.kodi/userdata/addon_data/plugin.video.rivulet"
-    assert serverbin.install_dir(profile_dir, "plugin.video.rivulet") == os.path.join(profile_dir, "bin")
+    profile_dir = "/home/user/.kodi/userdata/addon_data/plugin.video.revrivulet"
+    assert serverbin.install_dir(profile_dir, "plugin.video.revrivulet") == os.path.join(profile_dir, "bin")
 
 
 def test_install_dir_returns_plain_bin_when_profile_dir_does_not_match_android_layout(monkeypatch):
     _set_platform(monkeypatch, "Linux", "armv8l", android_root="/system")
-    profile_dir = "/home/user/.kodi/userdata/addon_data/plugin.video.rivulet"
-    assert serverbin.install_dir(profile_dir, "plugin.video.rivulet") == os.path.join(profile_dir, "bin")
+    profile_dir = "/home/user/.kodi/userdata/addon_data/plugin.video.revrivulet"
+    assert serverbin.install_dir(profile_dir, "plugin.video.revrivulet") == os.path.join(profile_dir, "bin")
 
 
 def test_install_dir_picks_first_writable_android_candidate(monkeypatch):
     _set_platform(monkeypatch, "Linux", "armv8l", android_root="/system")
     monkeypatch.setattr(os.path, "isdir", lambda p: True)
     monkeypatch.setattr(os, "access", lambda p, mode: True)
-    assert serverbin.install_dir(_android_profile_dir(), "plugin.video.rivulet") == (
-        "/data/user/0/org.xbmc.kodi/files/plugin.video.rivulet/bin")
+    assert serverbin.install_dir(_android_profile_dir(), "plugin.video.revrivulet") == (
+        "/data/user/0/org.xbmc.kodi/files/plugin.video.revrivulet/bin")
 
 
 def test_install_dir_falls_through_to_second_candidate_when_first_unwritable(monkeypatch):
@@ -848,15 +848,15 @@ def test_install_dir_falls_through_to_second_candidate_when_first_unwritable(mon
     _set_platform(monkeypatch, "Linux", "armv8l", android_root="/system")
     monkeypatch.setattr(os.path, "isdir", lambda p: True)
     monkeypatch.setattr(os, "access", lambda p, mode: "/data/data/" in p)
-    assert serverbin.install_dir(_android_profile_dir(), "plugin.video.rivulet") == (
-        "/data/data/org.xbmc.kodi/files/plugin.video.rivulet/bin")
+    assert serverbin.install_dir(_android_profile_dir(), "plugin.video.revrivulet") == (
+        "/data/data/org.xbmc.kodi/files/plugin.video.revrivulet/bin")
 
 
 def test_install_dir_falls_back_to_plain_bin_when_no_android_candidate_usable(monkeypatch):
     _set_platform(monkeypatch, "Linux", "armv8l", android_root="/system")
     monkeypatch.setattr(os.path, "isdir", lambda p: False)
     profile_dir = _android_profile_dir()
-    assert serverbin.install_dir(profile_dir, "plugin.video.rivulet") == os.path.join(profile_dir, "bin")
+    assert serverbin.install_dir(profile_dir, "plugin.video.revrivulet") == os.path.join(profile_dir, "bin")
 
 
 # --- libstremio-server.so companion (c-shared library mode) ----------------

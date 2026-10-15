@@ -240,7 +240,7 @@ def test_oninit_fills_each_band_row_and_labels_it(ctx):
     assert [i.getLabel() for i in win.getControl(recent_list).items] == ['W']
     assert win.getControl(resume_label).label == 'STR30245'
     assert win.getControl(recent_label).label == 'STR30246'
-    assert win.getControl(ctx.gridwindow.HEADING).label == 'RIVULET / CONTINUE'
+    assert win.getControl(ctx.gridwindow.HEADING).label == 'REVRIVULET / CONTINUE'
 
 
 def test_oninit_leaves_an_absent_band_empty_and_unlabelled(ctx):

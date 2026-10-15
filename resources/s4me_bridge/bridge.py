@@ -73,7 +73,11 @@ if _HERE not in sys.path:
 
 import bridge_helpers as bh  # noqa: E402 - sys.path must be set up first
 
-ADDON_ID = "plugin.video.rivulet"
+# Literal on purpose: RunScript launches this file with only its own
+# directory on sys.path, so it cannot import lib.addonid. Keep this equal
+# to lib.addonid.ADDON_ID. tests/test_revrivulet_identity.py fails if the
+# two drift. S4ME_ADDON_ID is Stream4Me itself and stays as it is.
+ADDON_ID = "plugin.video.revrivulet"
 S4ME_ADDON_ID = "plugin.video.s4me"
 
 #: `POST /shutdown` requires this header (any non-empty value) rather

@@ -35,11 +35,11 @@
             <control type="image"><width>845</width><height>1080</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
             <control type="image"><left>845</left><width>1075</width><height>1080</height><texture colordiffuse="FF0A0C0E">fade_h.png</texture></control>
             <control type="image"><left>120</left><top>44</top><width>72</width><height>72</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
-            <control type="label"><left>208</left><top>44</top><width>520</width><height>72</height><font>font37</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny><label>[B]RIVULET[/B]</label></control>
+            <control type="label"><left>208</left><top>44</top><width>520</width><height>72</height><font>font37</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny><label>[B]REVRIVULET[/B]</label></control>
             <!-- Short accent under the wordmark. A list cannot draw a
                  section rule of its own, and at ten feet the brand needs
                  a colour anchor that is not another row. -->
-            <control type="image"><left>120</left><top>128</top><width>168</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+            <control type="image"><left>120</left><top>128</top><width>248</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
             <!-- No plate behind the status line. 1AFFFFFF is the skin's
                  hairline colour - every other use of it (BusyDialog,
                  ConfirmDialog, OptionListDialog, CountdownDialog,
@@ -60,7 +60,7 @@
             <control type="label">
                 <left>120</left><top>156</top><width>400</width><height>36</height>
                 <font>font12</font><textcolor>8AEEF3F6</textcolor><aligny>center</aligny>
-                <label>$ADDON[plugin.video.rivulet 30420]</label>
+                <label>$ADDON[plugin.video.revrivulet 30420]</label>
             </control>
             <!-- Watch rows are 108px and Browse rows are 72px. A Kodi list
                  has one item height, so these are two lists: one row size
@@ -103,13 +103,13 @@
             <control type="label">
                 <left>120</left><top>436</top><width>400</width><height>36</height>
                 <font>font12</font><textcolor>8AEEF3F6</textcolor><aligny>center</aligny>
-                <label>$ADDON[plugin.video.rivulet 30421]</label>
+                <label>$ADDON[plugin.video.revrivulet 30421]</label>
                 <visible>!String.IsEmpty(Window.Property(HomeTools))</visible>
             </control>
             <control type="label">
                 <left>120</left><top>436</top><width>400</width><height>36</height>
                 <font>font12</font><textcolor>8AEEF3F6</textcolor><aligny>center</aligny>
-                <label>$ADDON[plugin.video.rivulet 30425]</label>
+                <label>$ADDON[plugin.video.revrivulet 30425]</label>
                 <visible>String.IsEmpty(Window.Property(HomeTools))</visible>
             </control>
             <!-- Four type rows at 72px = 288. Fewer rows leave empty list
@@ -146,7 +146,7 @@
             <control type="label">
                 <left>120</left><top>792</top><width>400</width><height>32</height>
                 <font>font12</font><textcolor>8AEEF3F6</textcolor><aligny>center</aligny>
-                <label>$ADDON[plugin.video.rivulet 30425]</label>
+                <label>$ADDON[plugin.video.revrivulet 30425]</label>
                 <visible>!String.IsEmpty(Window.Property(HomeTools))</visible>
             </control>
             <!-- One horizontal row, three tiles of 300px in a 900px list.
@@ -175,7 +175,7 @@
                 </focusedlayout>
             </control>
             <control type="label"><left>120</left><top>1000</top><width>780</width><height>32</height><font>Mono26</font><textcolor>57EEF3F6</textcolor><aligny>center</aligny>
-                <label>[COLOR FF38BDF8]OK[/COLOR] $ADDON[plugin.video.rivulet 30209]     [COLOR FF38BDF8]BACK[/COLOR] $ADDON[plugin.video.rivulet 30211]</label>
+                <label>[COLOR FF38BDF8]OK[/COLOR] $ADDON[plugin.video.revrivulet 30209]     [COLOR FF38BDF8]BACK[/COLOR] $ADDON[plugin.video.revrivulet 30211]</label>
             </control>
         </control>
     </controls>

@@ -28,7 +28,9 @@ venv/
 # without cutting a release.
 /*.zip
 /dist/*
-!/dist/plugin.video.rivulet-*.zip
+!/dist/plugin.video.revrivulet-*.zip
+!/dist/repository.revrivulet.zip
+!/dist/repository.revrivulet-*.zip
 /build/
 
 # Generated GitHub Pages repository tree (.github/workflows/repo.yml)

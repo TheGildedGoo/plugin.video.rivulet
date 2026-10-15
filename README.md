@@ -1,16 +1,16 @@
 <div align="center">
   <img src="artwork/logo.svg" alt="Rivulet logo" width="180" height="180">
 
-  # Rivulet
+  # RevRivulet
 
-  **A Kodi client for the Stremio addon protocol.**
+  **A Kodi client for the Stremio addon protocol. Installs beside official Rivulet.**
 
   Browse and search catalogs, install community addons, resolve streams and
   play them back through a streaming server — all from a custom Kodi UI.
 
-  [![Test](https://github.com/rivulet-kodi/plugin.video.rivulet/actions/workflows/test.yml/badge.svg)](https://github.com/rivulet-kodi/plugin.video.rivulet/actions/workflows/test.yml)
-  [![Build addon zip](https://github.com/rivulet-kodi/plugin.video.rivulet/actions/workflows/build.yml/badge.svg)](https://github.com/rivulet-kodi/plugin.video.rivulet/actions/workflows/build.yml)
-  [![Latest release](https://img.shields.io/github/v/release/rivulet-kodi/plugin.video.rivulet?label=release)](https://github.com/rivulet-kodi/plugin.video.rivulet/releases)
+  [![Test](https://github.com/TheGildedGoo/plugin.video.rivulet/actions/workflows/test.yml/badge.svg)](https://github.com/TheGildedGoo/plugin.video.rivulet/actions/workflows/test.yml)
+  [![Build addon zip](https://github.com/TheGildedGoo/plugin.video.rivulet/actions/workflows/build.yml/badge.svg)](https://github.com/TheGildedGoo/plugin.video.rivulet/actions/workflows/build.yml)
+  [![Latest release](https://img.shields.io/github/v/release/TheGildedGoo/plugin.video.rivulet?label=release)](https://github.com/TheGildedGoo/plugin.video.rivulet/releases)
   [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
   [![Python 3.8 | 3.11 | 3.13](https://img.shields.io/badge/python-3.8%20%7C%203.11%20%7C%203.13-3776AB.svg)](.github/workflows/test.yml)
   [![Coverage >= 90%](https://img.shields.io/badge/coverage-%E2%89%A590%25-brightgreen.svg)](pyproject.toml)
@@ -82,40 +82,29 @@ Rivulet's custom UI:
 
 ## Install
 
-1. Download
-   [`plugin.video.rivulet.zip`](https://rivulet-kodi.github.io/plugin.video.rivulet/plugin.video.rivulet.zip)
-   — that URL always serves the current release. (Per-version zips are on the
-   [releases page](https://github.com/rivulet-kodi/plugin.video.rivulet/releases/latest).)
-2. In Kodi: **Settings → Add-ons → Install from zip file** and pick the
-   downloaded zip.
-3. Open **Rivulet** from the Videos section of the home screen.
+RevRivulet does not replace official Rivulet. Prefer the repository below so Kodi can update it. A one-off zip is `plugin.video.revrivulet-<version>.zip` inside `dist/` on this branch, and the same zip is published at
+[`plugin.video.revrivulet.zip`](https://thegildedgoo.github.io/plugin.video.rivulet/plugin.video.revrivulet.zip)
+once GitHub Pages is serving `gh-pages`.
 
 ## Auto-updates
 
-Instead of re-downloading and reinstalling a zip for every release, install
-the repository once — no separate download needed, useful on set-top boxes
-(e.g. Nvidia Shield):
-
 1. **Settings → File manager → Add source**, enter
-   `https://rivulet-kodi.github.io/plugin.video.rivulet/` as the path, and
-   give it a name (e.g. `Rivulet`).
-2. **Settings → Add-ons → Install from zip file → Rivulet →
-   `repository.rivulet.zip`** (or descend into `repository.rivulet/` for the
-   versioned filename).
-3. From then on, Kodi offers Rivulet — and its future updates — from
-   **Settings → Add-ons → Install from repository → Rivulet Repository**,
-   with automatic update checks like any other Kodi repo.
+   `https://thegildedgoo.github.io/plugin.video.rivulet/` as the path, and
+   give it a name (e.g. `RevRivulet`).
+2. **Settings → Add-ons → Install from zip file → RevRivulet →
+   `repository.revrivulet.zip`**. Unknown sources has to be allowed.
+3. **Settings → Add-ons → Install from repository → RevRivulet Repository →
+   RevRivulet**.
+4. Turn on automatic addon updates (Settings → System → Add-ons, or the
+   Add-ons gear: update from any repository, install updates automatically).
 
-Alternatively, download
-[`repository.rivulet.zip`](https://rivulet-kodi.github.io/plugin.video.rivulet/repository.rivulet.zip)
-directly and install it the same way as step 2 above (**Install from zip
-file**) without adding a source. Prefer these version-less URLs when linking
-people to the addon: a `repository.rivulet-1.0.0.zip` style link breaks
-silently as soon as the next release ships.
+Official Rivulet stays installed. Open **RevRivulet** for this fork.
 
 The repository is served from GitHub Pages at
-[rivulet-kodi.github.io/plugin.video.rivulet](https://rivulet-kodi.github.io/plugin.video.rivulet/),
-published by `.github/workflows/repo.yml` on every `v*` tag push.
+[thegildedgoo.github.io/plugin.video.rivulet](https://thegildedgoo.github.io/plugin.video.rivulet/),
+published by `.github/workflows/repo.yml` on every push to `main`. If that
+URL 404s, set Settings → Pages → Deploy from a branch → `gh-pages` → `/ (root)`.
+Details and the shared streaming-server port are in `docs/REVRIVULET.md`.
 
 ## Streaming server
 
@@ -125,11 +114,13 @@ All playback is resolved through a streaming server speaking the same
 pure-Go, drop-in implementation of it). Configure it under
 **Settings → Streaming server**:
 
+RevRivulet keeps the default URL `http://127.0.0.1:11470` and reuses a server that is already listening there (official Rivulet's, if it started first). Its own binary is installed under `addon_data/plugin.video.revrivulet/`, not official Rivulet's profile. See `docs/REVRIVULET.md`.
+
 | Setting | Purpose |
 | --- | --- |
 | **Server URL** | Where the streaming server is listening. Defaults to `http://127.0.0.1:11470`, the standard Stremio server port. Point this at any already-running `stremio-server-go` (or official Stremio server) instance, local or remote. |
 | **Run embedded server** | When enabled, the addon's background service spawns and supervises a local `stremio-server-go` process for the lifetime of the Kodi session, and stops it on shutdown. |
-| **Server binary path** | The `stremio-server-go` executable to run when the embedded server is enabled. Leave empty to auto-detect: the service first looks in `special://profile/addon_data/plugin.video.rivulet/bin/`, then on `PATH`. |
+| **Server binary path** | The `stremio-server-go` executable to run when the embedded server is enabled. Leave empty to auto-detect: the service first looks in `special://profile/addon_data/plugin.video.revrivulet/bin/`, then on `PATH`. |
 
 `stremio-server-go` no longer needs to be installed by hand: use the
 **Download stremio-server binary** button under

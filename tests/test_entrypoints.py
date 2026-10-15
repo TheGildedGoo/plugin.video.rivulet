@@ -88,18 +88,18 @@ def load_default(monkeypatch):
 
 
 def test_argv_handle_parsed_as_int(load_default):
-    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '7', '?action=meta&id=tt1'])
+    _ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '7', '?action=meta&id=tt1'])
     assert ctx.router.ADDON_HANDLE == 7
     assert ctx.run_calls == [True]  # non-home action dispatched to router.run()
 
 
 def test_argv_missing_handle_falls_back_to_negative_one(load_default):
-    _ns, ctx = load_default(['plugin://plugin.video.rivulet/'])
+    _ns, ctx = load_default(['plugin://plugin.video.revrivulet/'])
     assert ctx.router.ADDON_HANDLE == -1
 
 
 def test_argv_non_numeric_handle_falls_back_to_negative_one(load_default):
-    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', 'not-a-number', '?action=meta'])
+    _ns, ctx = load_default(['plugin://plugin.video.revrivulet/', 'not-a-number', '?action=meta'])
     assert ctx.router.ADDON_HANDLE == -1
 
 
@@ -109,7 +109,7 @@ def test_argv_non_numeric_handle_falls_back_to_negative_one(load_default):
 
 
 def test_leading_question_mark_is_stripped_and_action_dispatched(load_default):
-    ns, ctx = load_default(['plugin://plugin.video.rivulet/', '3', '?action=meta&type=movie&id=tt1'])
+    ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '3', '?action=meta&type=movie&id=tt1'])
     assert ns['_raw_qs'] == 'action=meta&type=movie&id=tt1'
     assert ns['_action'] == 'meta'
     assert ctx.run_calls == [True]
@@ -117,13 +117,13 @@ def test_leading_question_mark_is_stripped_and_action_dispatched(load_default):
 
 
 def test_query_without_leading_question_mark_still_parses_action(load_default):
-    ns, ctx = load_default(['plugin://plugin.video.rivulet/', '3', 'action=play'])
+    ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '3', 'action=play'])
     assert ns['_action'] == 'play'
     assert ctx.run_calls == [True]
 
 
 def test_missing_query_defaults_action_to_home(load_default):
-    ns, ctx = load_default(['plugin://plugin.video.rivulet/', '9', ''])
+    ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '9', ''])
     assert ns['_action'] == 'home'
     assert ctx.run_calls == []
     assert len(ctx.env.end_of_directory) == 1
@@ -135,7 +135,7 @@ def test_missing_query_defaults_action_to_home(load_default):
 
 
 def test_home_action_ends_directory_exactly_once_before_the_window_opens(load_default):
-    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', '?action=home'])
+    _ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '5', '?action=home'])
     assert ctx.env.end_of_directory == [
         {'handle': 5, 'succeeded': True, 'updateListing': False, 'cacheToDisc': False},
     ]
@@ -147,7 +147,7 @@ def test_home_action_ends_directory_exactly_once_before_the_window_opens(load_de
 
 
 def test_home_action_opens_homewindow_on_success(load_default):
-    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', '?action=home'])
+    _ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '5', '?action=home'])
     assert ctx.open_home_calls == [True]
     assert not any('Container.Update' in cmd for cmd in ctx.env.executed_builtins)
 
@@ -162,7 +162,7 @@ def test_home_action_falls_back_to_container_update_on_homewindow_error(load_def
         raise RuntimeError('HomeWindow.onInit blew up')
 
     _ns, ctx = load_default(
-        ['plugin://plugin.video.rivulet/', '5', '?action=home'], open_home=_raise,
+        ['plugin://plugin.video.revrivulet/', '5', '?action=home'], open_home=_raise,
     )
 
     # endOfDirectory is still satisfied exactly once despite the failure -
@@ -209,7 +209,7 @@ def test_bare_launch_during_the_player_phase_is_a_noop(load_default):
         _owner(ctx, phase='player')
         ctx.env.player_is_playing = True
 
-    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', '?action=home'], before=before)
+    _ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '5', '?action=home'], before=before)
     _assert_launch_ignored(ctx)
 
 
@@ -217,7 +217,7 @@ def test_bare_launch_while_a_ui_is_alive_and_nothing_plays_is_a_noop(load_defaul
     # Phase 3 just started: the old UI ended the phase and reopened the
     # picker, then Kodi's delayed refresh arrives.
     _ns, ctx = load_default(
-        ['plugin://plugin.video.rivulet/', '5', '?action=home'],
+        ['plugin://plugin.video.revrivulet/', '5', '?action=home'],
         before=lambda ctx: _owner(ctx, phase='addon'),
     )
     _assert_launch_ignored(ctx)
@@ -231,7 +231,7 @@ def test_bare_launch_with_a_live_ui_but_background_playback_still_opens_home(loa
         _owner(ctx, phase='addon')
         ctx.env.player_is_playing = True
 
-    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', '?action=home'], before=before)
+    _ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '5', '?action=home'], before=before)
     assert ctx.open_home_calls == [True]
 
 
@@ -239,14 +239,14 @@ def test_a_stale_ui_marker_never_locks_the_user_out(load_default):
     # The interpreter was killed: its stamp stays on Window(10000) forever,
     # in whichever phase it died. Past the age limit it counts for nothing.
     _ns, ctx = load_default(
-        ['plugin://plugin.video.rivulet/', '5', '?action=home'],
+        ['plugin://plugin.video.revrivulet/', '5', '?action=home'],
         before=lambda ctx: _owner(ctx, age=60.0, phase='player'),
     )
     assert ctx.open_home_calls == [True]
 
 
 def test_a_first_launch_with_no_marker_opens_home(load_default):
-    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', '?action=home'])
+    _ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '5', '?action=home'])
     assert ctx.open_home_calls == [True]
     assert 'Dialog.Close(all, true)' in ctx.env.executed_builtins
 
@@ -255,7 +255,7 @@ def test_a_garbled_marker_is_ignored(load_default):
     def before(ctx):
         ctx.env.window_properties[10000] = {_HEARTBEAT: 'garbage', _PHASE: 'player'}
 
-    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', '?action=home'], before=before)
+    _ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '5', '?action=home'], before=before)
     assert ctx.open_home_calls == [True]
 
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <settings version="1">
-    <section id="plugin.video.rivulet">
+    <section id="plugin.video.revrivulet">
         <category id="home" label="30219">
             <group id="1">
                 <setting id="home_show_mystuff" type="boolean" label="30244">
@@ -86,7 +86,7 @@
                 </setting>
                 <setting id="server_download" type="action" label="30060">
                     <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=server_download)</data>
+                    <data>RunPlugin(plugin://plugin.video.revrivulet/?action=server_download)</data>
                     <control type="button" format="action"/>
                 </setting>
                 <setting id="server_force_library" type="boolean" label="30362">
@@ -133,7 +133,7 @@
                 </setting>
                 <setting id="advancedsettings_install" type="action" label="30065">
                     <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=advancedsettings_install)</data>
+                    <data>RunPlugin(plugin://plugin.video.revrivulet/?action=advancedsettings_install)</data>
                     <control type="button" format="action"/>
                 </setting>
                 <setting id="sync_progress" type="boolean" label="30170">
@@ -508,17 +508,17 @@
             <group id="1">
                 <setting id="login" type="action" label="30020">
                     <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=login)</data>
+                    <data>RunPlugin(plugin://plugin.video.revrivulet/?action=login)</data>
                     <control type="button" format="action"/>
                 </setting>
                 <setting id="logout" type="action" label="30021">
                     <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=logout)</data>
+                    <data>RunPlugin(plugin://plugin.video.revrivulet/?action=logout)</data>
                     <control type="button" format="action"/>
                 </setting>
                 <setting id="sync_addons_now" type="action" label="30036">
                     <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=sync_addons_now)</data>
+                    <data>RunPlugin(plugin://plugin.video.revrivulet/?action=sync_addons_now)</data>
                     <control type="button" format="action"/>
                 </setting>
             </group>

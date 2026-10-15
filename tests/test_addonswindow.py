@@ -372,7 +372,7 @@ def test_onclick_toggle_row_disables_addon_notifies_and_reloads(load_addonswindo
     win.onClick(ctx.addonswindow.LIST)
 
     assert store.disable_calls == [(descriptor['transportUrl'], True)]
-    assert ctx.env.notifications == [('Rivulet', 'STR30251', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30251', 'info', 4000)]
     addon_item = win.getControl(ctx.addonswindow.LIST).items[1]
     assert addon_item.getLabel().endswith('STR30251')
 
@@ -391,7 +391,7 @@ def test_onclick_toggle_row_enables_addon_notifies_and_reloads(load_addonswindow
     win.onClick(ctx.addonswindow.LIST)
 
     assert store.disable_calls == [(descriptor['transportUrl'], False)]
-    assert ctx.env.notifications == [('Rivulet', 'STR30252', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30252', 'info', 4000)]
     addon_item = win.getControl(ctx.addonswindow.LIST).items[1]
     assert addon_item.getLabel() == 'Addon A  \u00b7  v1.0'
 
@@ -411,7 +411,7 @@ def test_onclick_toggle_protected_addon_still_works(load_addonswindow, monkeypat
     win.onClick(ctx.addonswindow.LIST)
 
     assert store.disable_calls == [(descriptor['transportUrl'], True)]
-    assert ctx.env.notifications == [('Rivulet', 'STR30251', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30251', 'info', 4000)]
 
 
 def test_onclick_toggle_never_calls_sync_addons(load_addonswindow, monkeypatch):
@@ -536,7 +536,7 @@ def test_onclick_move_concurrent_update_notifies_and_reloads_instead_of_raising(
 
     win.onClick(ctx.addonswindow.LIST)  # must not raise ConcurrentUpdateError
 
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
     assert reload_calls == [True]
 
 
@@ -574,7 +574,7 @@ def test_onclick_move_store_raises_valueerror_notifies_without_reload(load_addon
 
     win.onClick(ctx.addonswindow.LIST)  # must not raise ValueError
 
-    assert ctx.env.notifications == [('Rivulet', 'STR30272', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30272', 'info', 4000)]
     assert reload_calls == []
 
 
@@ -666,7 +666,7 @@ def test_install_addon_error_notifies_and_does_not_install(load_addonswindow, mo
     win.onClick(ctx.addonswindow.LIST)
 
     assert store.installed == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30014', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30014', 'info', 4000)]
 
 
 def test_install_manifest_missing_id_notifies_and_does_not_install(load_addonswindow, monkeypatch):
@@ -681,7 +681,7 @@ def test_install_manifest_missing_id_notifies_and_does_not_install(load_addonswi
     win.onClick(ctx.addonswindow.LIST)
 
     assert store.installed == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30014', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30014', 'info', 4000)]
 
 
 def test_install_success_persists_notifies_and_reloads(load_addonswindow, monkeypatch):
@@ -698,7 +698,7 @@ def test_install_success_persists_notifies_and_reloads(load_addonswindow, monkey
     win.onClick(ctx.addonswindow.LIST)
 
     assert store.installed == [(url, manifest)]
-    assert ctx.env.notifications == [('Rivulet', 'STR30012', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30012', 'info', 4000)]
     # _reload() re-populated the list with the freshly-installed addon.
     items = win.getControl(ctx.addonswindow.LIST).items
     assert len(items) == 2
@@ -733,7 +733,7 @@ def test_remove_confirmed_removes_notifies_and_reloads(load_addonswindow, monkey
     win.onClick(ctx.addonswindow.LIST)
 
     assert store.removed == [descriptor['transportUrl']]
-    assert ctx.env.notifications == [('Rivulet', 'STR30013', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30013', 'info', 4000)]
     assert captured == [('STR30011', 'Addon A', 'Yes', 'No')]
     items_after = win.getControl(ctx.addonswindow.LIST).items
     assert len(items_after) == 1
@@ -774,7 +774,7 @@ def test_remove_protected_addon_notifies_and_never_calls_remove(load_addonswindo
     assert store.removed == []
     assert captured == []
     assert ctx.env.notifications == [
-        ('Rivulet', 'STR30191', 'info', 4000),
+        ('RevRivulet', 'STR30191', 'info', 4000),
     ]
 
 
@@ -800,7 +800,7 @@ def test_remove_store_raises_valueerror_notifies_protected(load_addonswindow, mo
     win.onClick(ctx.addonswindow.LIST)
 
     assert ctx.env.notifications == [
-        ('Rivulet', 'STR30191', 'info', 4000),
+        ('RevRivulet', 'STR30191', 'info', 4000),
     ]
 
 
@@ -839,7 +839,7 @@ def test_onclick_toggle_concurrent_update_notifies_and_reloads_instead_of_raisin
 
     win.onClick(ctx.addonswindow.LIST)  # must not raise ConcurrentUpdateError
 
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
     assert reload_calls == [True]
 
 
@@ -871,7 +871,7 @@ def test_remove_confirmed_concurrent_update_notifies_and_reloads_instead_of_rais
 
     win.onClick(ctx.addonswindow.LIST)  # must not raise ConcurrentUpdateError
 
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
     assert reload_calls == [True]
 
 
@@ -898,7 +898,7 @@ def test_install_concurrent_update_notifies_and_does_not_report_success(load_add
     win.onClick(ctx.addonswindow.LIST)  # must not raise ConcurrentUpdateError
 
     assert store.installed == []
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
 
 
 def test_remove_store_raises_valueerror_is_not_caught_by_guard_mutation(load_addonswindow, monkeypatch):
@@ -932,7 +932,7 @@ def test_remove_store_raises_valueerror_is_not_caught_by_guard_mutation(load_add
 
     win.onClick(ctx.addonswindow.LIST)  # must not raise ValueError
 
-    assert ctx.env.notifications == [('Rivulet', 'STR30191', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30191', 'info', 4000)]
     assert reload_calls == []
 
 
@@ -990,7 +990,7 @@ def test_open_addons_window_is_closed_exactly_once_when_domodal_raises(load_addo
     win = captured['window']
     assert win.close_calls == 1
     assert win.closed is True
-    assert ctx.env.notifications == [('Rivulet', 'STR30032', 'info', 4000)]
+    assert ctx.env.notifications == [('RevRivulet', 'STR30032', 'info', 4000)]
 
 
 # ---------------------------------------------------------------------------

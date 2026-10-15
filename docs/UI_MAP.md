@@ -1,6 +1,6 @@
 # UI map
 
-Confirmed in `addon.xml`: upstream **0.30.1**. This fork's Home pass is **0.30.1-ui.1**.
+This fork is **RevRivulet** (`plugin.video.revrivulet`), version **0.30.1.rev1**. It installs beside official Rivulet. Upstream of the Home redesign was **0.30.1**.
 
 The addon draws its own 1920×1080 skin (`resources/skins/Default/1080i/`). Kodi calls `default.py`. A bare launch (`action` missing or `home`) ends the directory handle and opens `HomeWindow`. Any other action goes to `lib/ui/router.py`. If `HomeWindow` itself raises, `default.py` falls back to `lib/ui/views.py:home()`, a recovery directory with a notice and Settings only.
 

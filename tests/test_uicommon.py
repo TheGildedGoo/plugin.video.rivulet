@@ -149,9 +149,9 @@ def test_busy_dialog_closes_the_dialog_even_when_the_body_raises(load_uicommon):
 
 
 def test_addon_skin_path_returns_the_addons_own_install_path(load_uicommon):
-    ctx = load_uicommon(addon_info={'path': 'special://home/addons/plugin.video.rivulet'})
+    ctx = load_uicommon(addon_info={'path': 'special://home/addons/plugin.video.revrivulet'})
 
-    assert ctx.uicommon.addon_skin_path() == 'special://home/addons/plugin.video.rivulet'
+    assert ctx.uicommon.addon_skin_path() == 'special://home/addons/plugin.video.revrivulet'
 
 
 # ---------------------------------------------------------------------------

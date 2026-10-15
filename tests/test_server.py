@@ -190,7 +190,7 @@ def test_resolve_stream_allows_every_direct_network_media_scheme(scheme, host_pa
 
 
 @pytest.mark.parametrize("url", [
-    "plugin://plugin.video.rivulet/?action=play",
+    "plugin://plugin.video.revrivulet/?action=play",
     "script://special/path",
     "special://home/addons/evil",
     "file:///etc/passwd",

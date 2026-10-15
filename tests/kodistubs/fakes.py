@@ -13,10 +13,10 @@ for `xbmcgui.ListItem` and its Kodi->=20 `InfoTagVideo` metadata object.
 # Default addon-info dict (`xbmcaddon.Addon.getAddonInfo`), matching the
 # addon's real addon.xml identity.
 _DEFAULT_ADDON_INFO = {
-    'id': 'plugin.video.rivulet',
-    'name': 'Rivulet',
-    'icon': 'special://home/addons/plugin.video.rivulet/icon.png',
-    'fanart': 'special://home/addons/plugin.video.rivulet/fanart.jpg',
+    'id': 'plugin.video.revrivulet',
+    'name': 'RevRivulet',
+    'icon': 'special://home/addons/plugin.video.revrivulet/icon.png',
+    'fanart': 'special://home/addons/plugin.video.revrivulet/fanart.jpg',
 }
 
 # Default settings dict (`xbmcaddon.Addon.getSetting`/getSettingBool/

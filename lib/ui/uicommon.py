@@ -86,6 +86,7 @@ import threading
 import xbmc
 import xbmcgui
 
+from lib.addonid import ADDON_ID
 from lib.stremio.streaminfo import escape_label  # noqa: F401 (re-exported)
 
 #: Back/Nav-Back, PreviousMenu/Esc, Backspace - closes a window without a
@@ -368,7 +369,7 @@ def _home_property(name, value=None):
         else:
             window.setProperty(name, value)
     except Exception as exc:  # noqa: BLE001 - see docstring
-        xbmc.log('[plugin.video.rivulet] uicommon: Window(10000) property %s failed: %r' % (name, exc), xbmc.LOGDEBUG)
+        xbmc.log('[%s] uicommon: Window(10000) property %s failed: %r' % (ADDON_ID, name, exc), xbmc.LOGDEBUG)
     return ''
 
 
@@ -593,7 +594,7 @@ def redirect_back_to_transient(action):
     try:
         _TRANSIENT_DIALOGS[-1].cancel()
     except Exception as exc:  # noqa: BLE001 - a broken dialog must not close the screen
-        xbmc.log('[plugin.video.rivulet] uicommon: transient cancel failed: %r' % (exc,), xbmc.LOGDEBUG)
+        xbmc.log('[%s] uicommon: transient cancel failed: %r' % (ADDON_ID, exc), xbmc.LOGDEBUG)
     return True
 
 

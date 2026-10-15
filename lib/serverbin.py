@@ -37,10 +37,14 @@ except ImportError:  # pragma: no cover - exercised only without the dependency
     requests = None  # type: ignore[assignment]
 
 from lib import procflags
+from lib.addonid import ADDON_ID
 
 GITHUB_REPO = "M0Rf30/stremio-server-go"
 SERVER_TAG = "v0.23.0"
-USER_AGENT = "plugin.video.rivulet"
+# Identity only. Download URLs and the install path are unchanged; the
+# path is install_dir(profile, ADDON_ID), so the binary lands in this
+# addon's profile rather than official Rivulet's.
+USER_AGENT = ADDON_ID
 
 BINARY_NAME = "stremio-server"
 #: The optional stremio-server-go c-shared library build (cmd/libstremio),
