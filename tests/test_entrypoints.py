@@ -224,15 +224,21 @@ def test_bare_launch_while_a_ui_is_alive_and_nothing_plays_is_a_noop(load_defaul
     assert any('already running' in msg for msg, _level in ctx.env.log_calls)
 
 
-def test_bare_launch_with_a_live_ui_but_background_playback_still_opens_home(load_default):
-    # Kodi IS playing and the earlier session is in its addon phase: a
-    # deliberate launch from Kodi's menus, honoured.
+def test_stop_refresh_with_live_heartbeat_phase_addon_and_playback_does_not_close(
+    load_default,
+):
+    """The Stop race: CloseFile has not finished, so isPlaying() is still
+    true, and the phase can already read `addon` if it was cleared before
+    the restored window opened. A live heartbeat means the UI is up.
+    Dialog.Close(all) here dismisses the stack that was about to come
+    back, and a second Home is the Kodi menu the user then lands on."""
     def before(ctx):
         _owner(ctx, phase='addon')
         ctx.env.player_is_playing = True
 
     _ns, ctx = load_default(['plugin://plugin.video.revrivulet/', '5', '?action=home'], before=before)
-    assert ctx.open_home_calls == [True]
+    _assert_launch_ignored(ctx)
+    assert any('already running' in msg for msg, _level in ctx.env.log_calls)
 
 
 def test_a_stale_ui_marker_never_locks_the_user_out(load_default):

@@ -983,8 +983,8 @@ msgid "No enabled addon supports search. Enable one, such as Cinemeta."
 msgstr "Kein aktiviertes Addon unterstützt die Suche. Aktiviere eines, z. B. Cinemeta."
 
 msgctxt "#30382"
-msgid "Search failed: no addon answered. Try again or enable another search addon, such as Cinemeta."
-msgstr "Suche fehlgeschlagen: Kein Addon hat geantwortet. Versuche es erneut oder aktiviere ein weiteres Such-Addon, z. B. Cinemeta."
+msgid "Search failed: no addon answered. Enable another search addon, such as Cinemeta."
+msgstr "Suche fehlgeschlagen: Kein Addon hat geantwortet. Aktiviere ein weiteres Such-Addon, z. B. Cinemeta."
 
 msgctxt "#30383"
 msgid "Search incomplete, no answer from: %s"
@@ -1042,3 +1042,11 @@ msgstr "Hier einmal anmelden. RevRivulet hat eine eigene Stremio-Anmeldung."
 msgctxt "#30429"
 msgid "%d min"
 msgstr "%d Min."
+
+msgctxt "#30430"
+msgid "This title could not be loaded."
+msgstr "Dieser Titel konnte nicht geladen werden."
+
+msgctxt "#30431"
+msgid "No source answered."
+msgstr "Keine Quelle hat geantwortet."

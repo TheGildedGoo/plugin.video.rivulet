@@ -19,6 +19,8 @@ import, even where `requests` is missing; only constructing/using an
 AddonClient actually needs it.
 """
 import json
+import threading
+import weakref
 from urllib.parse import quote, urlsplit, urlunsplit
 
 from lib.addonid import ADDON_ID
@@ -324,6 +326,14 @@ class AddonClient:
     """Thin HTTP client for the addon manifest/catalog/meta/stream/subtitles
     resources. One `requests.Session()` per client instance (stored as
     `.session`, not private, so callers/tests can substitute it directly).
+
+    `requests.Session` is not thread-safe. Fan-out workers used to share
+    this one session, and a response body read on one thread could be
+    observed as an empty result on another - the intermittent "No streams
+    found" that a second attempt then filled in. The constructing thread
+    keeps `.session` (a test that replaces it still records every call
+    made on that object). Every other thread gets its own session, created
+    on first use and closed when that thread drops it.
     """
 
     def __init__(self, timeout=15):
@@ -332,6 +342,49 @@ class AddonClient:
         self.timeout = timeout
         self.session = requests.Session()
         self.session.headers['User-Agent'] = USER_AGENT
+        # Identity of the session we created. A caller that assigns a
+        # different object to `.session` (every test fake does) wants that
+        # object used from every thread; only the untouched production
+        # session is unsafe to share.
+        self._owned_session = self.session
+        self._owner_ident = threading.get_ident()
+        self._worker_sessions = threading.local()
+
+    def _active_session(self):
+        """The `requests.Session` the current thread may use.
+
+        The owner thread, and any thread when `.session` has been
+        substituted, uses `.session`. A worker thread against the session
+        this client constructed gets a private one, copying the headers
+        (the User-Agent) already set on the owned session.
+        """
+        if threading.get_ident() == self._owner_ident or self.session is not self._owned_session:
+            return self.session
+        session = getattr(self._worker_sessions, 'session', None)
+        if session is None:
+            session = requests.Session()
+            session.headers.update(self._owned_session.headers)
+            # Pool threads and abandoned daemon workers never call
+            # `_release_worker_session()`. Closing on collection is what
+            # keeps an unclosed socket from becoming a `ResourceWarning`
+            # (this suite treats those as errors).
+            weakref.finalize(session, session.close)
+            self._worker_sessions.session = session
+        return session
+
+    def _release_worker_session(self):
+        """Close this thread's private session, if it made one. The owner
+        thread's `.session` is left open - the client owns that for the
+        process. A no-op when this thread never called `_active_session()`
+        or when it is using a substituted `.session`."""
+        session = getattr(self._worker_sessions, 'session', None)
+        if session is None:
+            return
+        self._worker_sessions.session = None
+        try:
+            session.close()
+        except Exception:  # noqa: BLE001 - a close failure must not kill a worker that is already done
+            pass
 
     def _get_json(self, url):
         """GET `url` and JSON-decode the body, capped at `_MAX_RESPONSE_BYTES`.
@@ -350,7 +403,7 @@ class AddonClient:
         safe = safe_url_for_log(url)
         resp = None
         try:
-            resp = self.session.get(url, timeout=self.timeout, stream=True)
+            resp = self._active_session().get(url, timeout=self.timeout, stream=True)
             resp.raise_for_status()
         except requests.RequestException as exc:
             category = _request_error_category(exc)

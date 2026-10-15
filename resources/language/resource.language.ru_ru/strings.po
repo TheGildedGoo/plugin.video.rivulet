@@ -983,8 +983,8 @@ msgid "No enabled addon supports search. Enable one, such as Cinemeta."
 msgstr "Ни один включённый аддон не поддерживает поиск. Включите такой аддон, например Cinemeta."
 
 msgctxt "#30382"
-msgid "Search failed: no addon answered. Try again or enable another search addon, such as Cinemeta."
-msgstr "Поиск не удался: ни один аддон не ответил. Повторите попытку или включите другой аддон с поиском, например Cinemeta."
+msgid "Search failed: no addon answered. Enable another search addon, such as Cinemeta."
+msgstr "Поиск не удался: ни один аддон не ответил. Включите другой аддон с поиском, например Cinemeta."
 
 msgctxt "#30383"
 msgid "Search incomplete, no answer from: %s"
@@ -1042,3 +1042,11 @@ msgstr "Войдите здесь один раз. У RevRivulet свой вхо
 msgctxt "#30429"
 msgid "%d min"
 msgstr "%d мин"
+
+msgctxt "#30430"
+msgid "This title could not be loaded."
+msgstr "Не удалось загрузить этот материал."
+
+msgctxt "#30431"
+msgid "No source answered."
+msgstr "Ни один источник не ответил."

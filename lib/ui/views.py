@@ -80,7 +80,7 @@ def _url_for(action, **params):
 _SOFT_DEADLINE_S = 4.0
 
 
-def _fan_out(fn, items, max_workers):
+def _fan_out(fn, items, max_workers, client=None):
     """Call `fn(item)` once per item, fanned out over up to `max_workers`
     raw daemon `threading.Thread` workers pulling from a `queue.Queue` -
     NOT `concurrent.futures.ThreadPoolExecutor` (see `_SOFT_DEADLINE_S`'s
@@ -88,6 +88,12 @@ def _fan_out(fn, items, max_workers):
     pairs, one per item, in completion order (not input order) - callers
     read from it directly so they can apply their own winner/deadline
     semantics on top of the same daemon-thread fan-out.
+
+    `client`, when given, has its per-thread requests session closed as
+    each worker exits (`AddonClient._release_worker_session`). Callers
+    that do not pass it still get a private session per worker via
+    `AddonClient._active_session()`; that session is closed when the
+    thread drops it.
     """
     work = queue.Queue()
     for index, item in enumerate(items):
@@ -95,19 +101,24 @@ def _fan_out(fn, items, max_workers):
     results = queue.Queue()
 
     def _worker():
-        while True:
-            try:
-                index, item = work.get_nowait()
-            except queue.Empty:
-                return
-            results.put((index, fn(item)))
+        try:
+            while True:
+                try:
+                    index, item = work.get_nowait()
+                except queue.Empty:
+                    return
+                results.put((index, fn(item)))
+        finally:
+            release = getattr(client, '_release_worker_session', None)
+            if callable(release):
+                release()
 
     for _ in range(min(len(items), max_workers)):
         threading.Thread(target=_worker, daemon=True).start()
     return results
 
 
-def _map_addons(fn, items):
+def _map_addons(fn, items, client=None):
     """Call `fn(item)` once per item in `items`, fanned out across a small
     bounded thread pool, and return the results in the same order as
     `items` - a drop-in replacement for `[fn(item) for item in items]`
@@ -135,7 +146,7 @@ def _map_addons(fn, items):
         return []
     if len(items) == 1:
         return [fn(items[0])]
-    results = _fan_out(fn, items, _MAX_ADDON_WORKERS)
+    results = _fan_out(fn, items, _MAX_ADDON_WORKERS, client=client)
     out = [None] * len(items)
     remaining = len(items)
     deadline = time.monotonic() + _SOFT_DEADLINE_S
@@ -183,6 +194,39 @@ def _action_item(label, url, icon=None):
         art.update({'icon': icon, 'thumb': icon})
     li.setArt(art)
     return (url, li, False)
+
+
+def _usable_meta(meta):
+    """A meta the detail screen can open: a dict with a non-empty string id.
+
+    `None`, `{}`, and a dict that has no id used to count as a hit -
+    `_fetch_meta` returned on the first non-None, and anything truthy was
+    cached for `metacache.TTL_SECONDS`. An addon that answered HTTP 200
+    with an empty object then beat a slower addon that had the title, or
+    poisoned the cache for half an hour. An id is what every later screen
+    keys off; without one there is nothing to open.
+    """
+    if not isinstance(meta, dict):
+        return False
+    meta_id = meta.get('id')
+    return isinstance(meta_id, str) and bool(meta_id.strip())
+
+
+#: First try plus two silent retries of an `AddonError`. A usable meta
+#: returns immediately; a successful body with no id is not retried
+#: (the addon answered, it just had nothing we can open). Same shape as
+#: the stream fan-out's own attempts, kept local so this call site
+#: bounds its own patience.
+_META_ATTEMPTS = 3
+_META_RETRY_BACKOFF_SECONDS = (0.4, 0.8)
+
+
+def _pause_before_meta_retry(seconds):
+    """See `streamswindow._pause_before_stream_retry`. Returns True when
+    Kodi is aborting and the worker should stop."""
+    if seconds <= 0:
+        return False
+    return xbmc.Monitor().waitForAbort(seconds)
 
 
 def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; ratchet
@@ -258,7 +302,7 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
     if cache_dir is not None:
         from lib.ui.metacache import load_cached_meta
         cached = load_cached_meta(cache_dir, stype, sid)
-        if cached is not None:
+        if _usable_meta(cached):
             return cached
 
     if on_miss is not None:
@@ -273,11 +317,21 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
 
     def _fetch_one(descriptor):
         transport_url = descriptor.get('transportUrl')
-        try:
-            return client.meta(transport_url, stype, sid)
-        except AddonError as exc:
-            log('views._fetch_meta: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGWARNING)
-            return None
+        for attempt in range(_META_ATTEMPTS):
+            try:
+                meta = client.meta(transport_url, stype, sid)
+            except AddonError as exc:
+                log('views._fetch_meta: %s failed: %s' % (
+                    safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGWARNING)
+                if attempt + 1 >= _META_ATTEMPTS or _pause_before_meta_retry(
+                    _META_RETRY_BACKOFF_SECONDS[attempt],
+                ):
+                    return None
+                continue
+            # A body that arrived is the addon's answer. Retrying `{}`
+            # would only delay the next addon, and it must not win.
+            return meta if _usable_meta(meta) else None
+        return None
 
     if len(targets) == 1:
         result = _fetch_one(targets[0])
@@ -288,12 +342,17 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
         results = queue.Queue()
 
         def _worker():
-            while True:
-                try:
-                    index, descriptor = work.get_nowait()
-                except queue.Empty:
-                    return
-                results.put((index, _fetch_one(descriptor)))
+            try:
+                while True:
+                    try:
+                        index, descriptor = work.get_nowait()
+                    except queue.Empty:
+                        return
+                    results.put((index, _fetch_one(descriptor)))
+            finally:
+                release = getattr(client, '_release_worker_session', None)
+                if callable(release):
+                    release()
 
         for _ in range(min(len(targets), _MAX_ADDON_WORKERS)):
             threading.Thread(target=_worker, daemon=True).start()
@@ -303,16 +362,18 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
         while len(finished) < len(targets):
             index, one = results.get()
             finished[index] = one
-            if one is not None:
+            if _usable_meta(one):
                 # Only consults results already in hand - never blocks on a
                 # still-running addon - then picks the earliest-index winner
                 # among those, preserving list-order preference whenever the
-                # preferred addon is at least as fast as the others.
-                winning_index = min(i for i, r in finished.items() if r is not None)
+                # preferred addon is at least as fast as the others. An
+                # id-less body is not a winner: the loop keeps waiting for
+                # an addon that actually has this title.
+                winning_index = min(i for i, r in finished.items() if _usable_meta(r))
                 result = finished[winning_index]
                 break
 
-    if store and cache_dir is not None and result:
+    if store and cache_dir is not None and _usable_meta(result):
         from lib.ui.metacache import store_cached_meta
         store_cached_meta(cache_dir, stype, sid, result)
     return result
@@ -619,7 +680,7 @@ def _refresh_addon_manifests(store, client):
             log('views._refresh_addon_manifests: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGWARNING)
             return None
 
-    fetched = _map_addons(_fetch, descriptors)
+    fetched = _map_addons(_fetch, descriptors, client=client)
     refreshed = {}
     for descriptor, manifest in zip(descriptors, fetched):
         if manifest and manifest.get('id') and manifest != descriptor.get('manifest'):

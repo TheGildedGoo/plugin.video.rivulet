@@ -983,7 +983,7 @@ msgid "No enabled addon supports search. Enable one, such as Cinemeta."
 msgstr ""
 
 msgctxt "#30382"
-msgid "Search failed: no addon answered. Try again or enable another search addon, such as Cinemeta."
+msgid "Search failed: no addon answered. Enable another search addon, such as Cinemeta."
 msgstr ""
 
 msgctxt "#30383"
@@ -1041,4 +1041,12 @@ msgstr ""
 
 msgctxt "#30429"
 msgid "%d min"
+msgstr ""
+
+msgctxt "#30430"
+msgid "This title could not be loaded."
+msgstr ""
+
+msgctxt "#30431"
+msgid "No source answered."
 msgstr ""

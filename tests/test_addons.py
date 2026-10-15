@@ -7,7 +7,10 @@ Reference: stremio-core src/types/addon/manifest.rs (Manifest::is_resource_suppo
 src/addon_transport/http_transport/http_transport.rs (URL patterns), and
 src/constants.rs URI_COMPONENT_ENCODE_SET (safe set: -_.!~*'()).
 """
+import threading
+
 import pytest
+import requests
 
 from lib.stremio.addons import (
     _MAX_RESPONSE_BYTES,
@@ -539,6 +542,61 @@ def test_addon_client_session_does_not_send_default_requests_user_agent():
     ua = client.session.headers["User-Agent"]
     assert ua == "plugin.video.revrivulet"
     assert "python-requests" not in ua
+
+
+def test_worker_thread_uses_its_own_session_owner_keeps_the_shared_one():
+    """requests.Session is not thread-safe. Fan-out workers must not share
+    the session the constructing thread (and every test that replaces
+    `.session`) uses."""
+    client = AddonClient()
+    seen = {}
+
+    def _run():
+        session = client._active_session()
+        seen["worker"] = session
+
+        def _get(url, timeout=None, stream=None):
+            seen["get_session_is_worker"] = True
+            raise requests.RequestException("stop")
+
+        session.get = _get
+        try:
+            client._get_json(MANIFEST_URL)
+        except AddonError:
+            seen["raised"] = True
+        finally:
+            client._release_worker_session()
+
+    worker = threading.Thread(target=_run)
+    worker.start()
+    worker.join(2)
+
+    assert seen["worker"] is not client.session
+    assert seen["get_session_is_worker"] is True
+    assert seen["raised"] is True
+    assert client._active_session() is client.session
+    client.session.close()
+
+
+def test_substituted_session_is_shared_with_worker_threads():
+    """A test (or caller) that replaces `.session` wants that object to
+    record every call, including ones made off the constructing thread.
+    Opening a real session there would escape the fake and hit the
+    network, which this suite blocks."""
+    client = AddonClient()
+    fake = FakeSession(responses=[_json_response({"id": "org.test"})])
+    client.session = fake
+    seen = []
+
+    def _run():
+        seen.append(client._active_session())
+
+    worker = threading.Thread(target=_run)
+    worker.start()
+    worker.join(2)
+
+    assert seen == [fake]
+    client._owned_session.close()
 
 
 def test_addon_client_manifest_returns_dict():

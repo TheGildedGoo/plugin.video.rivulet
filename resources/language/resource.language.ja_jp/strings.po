@@ -983,8 +983,8 @@ msgid "No enabled addon supports search. Enable one, such as Cinemeta."
 msgstr "検索に対応した有効なアドオンがありません。Cinemeta のようなアドオンを有効にしてください。"
 
 msgctxt "#30382"
-msgid "Search failed: no addon answered. Try again or enable another search addon, such as Cinemeta."
-msgstr "検索に失敗しました。応答したアドオンがありません。もう一度お試しいただくか、Cinemeta のような別の検索対応アドオンを有効にしてください。"
+msgid "Search failed: no addon answered. Enable another search addon, such as Cinemeta."
+msgstr "検索に失敗しました。応答したアドオンがありません。Cinemeta のような別の検索対応アドオンを有効にしてください。"
 
 msgctxt "#30383"
 msgid "Search incomplete, no answer from: %s"
@@ -1042,3 +1042,11 @@ msgstr "ここで一度ログインしてください。RevRivuletは独自のSt
 msgctxt "#30429"
 msgid "%d min"
 msgstr "%d分"
+
+msgctxt "#30430"
+msgid "This title could not be loaded."
+msgstr "このタイトルを読み込めませんでした。"
+
+msgctxt "#30431"
+msgid "No source answered."
+msgstr "応答したソースがありません。"

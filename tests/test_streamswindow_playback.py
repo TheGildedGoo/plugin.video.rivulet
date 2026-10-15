@@ -1573,7 +1573,10 @@ def test_full_play_stop_cycle_phase1_to_phase2_to_phase3(load_streamswindow, mon
                 xbmc.Player().play('http://127.0.0.1:11470/x/0')
                 log.append(('handoff', uic.input_suppressed(), ancestor._closed_for_playback, self.closed))
                 return True
-            # Phase 3: the picker is back.
+            # Phase 3: the picker is back. doModal ends the player phase
+            # as the window opens; until then a Stop refresh still sees
+            # phase player and must not Dialog.Close the stack.
+            self.doModal()
             log.append(('phase3', uic.input_suppressed(), kodi.callback_at_tick is not None))
             return False
 
@@ -1597,6 +1600,45 @@ def test_full_play_stop_cycle_phase1_to_phase2_to_phase3(load_streamswindow, mon
     ancestor.onClick(30002)
     ancestor.onAction(xbmcgui.Action(92))
     assert (ancestor.clicks, ancestor.backs) == (1, 1)
+
+
+def test_stop_keeps_the_player_phase_until_the_restored_picker_opens(load_streamswindow, monkeypatch):
+    """Phase must still be `player` when the picker is opened after Stop.
+    Ending it in the gap before doModal is what a Videos-window refresh
+    used to observe, together with isPlaying() still true."""
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    uic = ctx.uicommon
+    _wire_single_supported_addon(sw)
+    phases = []
+    real_open = sw.open_window
+
+    def _open(*args, **kwargs):
+        phases.append(uic.player_phase_active())
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(sw, 'open_window', _open)
+
+    class RecordingWindow(sw.StreamsWindow):
+        def start(self, pairs, stype, sid, poster=None, heading='', art=None, meta=None, video_id=None):
+            self.pairs = list(pairs)
+            if len(phases) == 1:
+                sw._close_for_player_handoff(self)
+                return True
+            # Still phase player on the way into the restored window.
+            # doModal's first line is what ends it, once the window exists.
+            assert uic.player_phase_active() is True
+            self.doModal()
+            assert uic.player_phase_active() is False
+            return False
+
+    monkeypatch.setattr(sw, 'StreamsWindow', RecordingWindow)
+    monkeypatch.setattr(sw, '_wait_for_playback_end', lambda *a, **k: (True, False))
+
+    assert sw.open_streams('movie', 'tt1') is False
+
+    assert phases == [False, True]  # first open is the addon UI; the reopen after Stop is still phase player
+    assert uic.player_phase_active() is False  # the restored window's doModal ended it
 
 
 def test_a_play_that_fails_after_the_handoff_never_leaves_the_player_phase_stuck(load_streamswindow, monkeypatch):

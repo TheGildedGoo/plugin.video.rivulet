@@ -369,6 +369,97 @@ def test_fetch_meta_skips_addon_returning_no_usable_result(load_views):
     assert result == hit_meta
 
 
+def test_fetch_meta_does_not_treat_an_idless_body_as_a_hit(load_views):
+    """`{}` and a dict with no id are not a title. The fan-out must keep
+    waiting for an addon that returns a meta with an id, and must not
+    cache the empty body."""
+    ctx = load_views()
+    views = ctx.views
+    started = threading.Event()
+    release = threading.Event()
+    box = {}
+
+    class _Client:
+        def __init__(self):
+            self.meta_calls = []
+
+        def meta(self, transport_url, stype, sid):
+            self.meta_calls.append(transport_url)
+            if transport_url == 't-empty':
+                started.set()
+                return {}
+            if transport_url == 't-noid':
+                return {'name': 'No id'}
+            assert started.wait(2)
+            assert release.wait(2)
+            return {'id': 'tt1', 'name': 'Real', 'type': 'series'}
+
+    client = _Client()
+    addons = [
+        {'transportUrl': 't-empty', 'manifest': {'id': 'org.empty', 'resources': ['meta'], 'types': ['series'], 'idPrefixes': ['tt']}},
+        {'transportUrl': 't-noid', 'manifest': {'id': 'org.noid', 'resources': ['meta'], 'types': ['series'], 'idPrefixes': ['tt']}},
+        {'transportUrl': 't-real', 'manifest': {'id': 'org.real', 'resources': ['meta'], 'types': ['series'], 'idPrefixes': ['tt']}},
+    ]
+    _wire_data_layer(views, FakeStore(addons=addons, data_dir=None), client)
+
+    def _run():
+        box['result'] = views._fetch_meta('series', 'tt1')
+
+    worker = threading.Thread(target=_run)
+    worker.start()
+    assert started.wait(2)
+    worker.join(0.2)
+    assert worker.is_alive()  # {} did not win, and neither did the id-less dict
+    release.set()
+    worker.join(2)
+
+    assert box['result'] == {'id': 'tt1', 'name': 'Real', 'type': 'series'}
+
+
+def test_fetch_meta_retries_an_addon_error_then_returns_the_meta(load_views, tmp_path):
+    ctx = load_views()
+    views = ctx.views
+    hit = {'id': 'tt1', 'name': 'Late', 'type': 'movie'}
+
+    class _Flaky:
+        def __init__(self):
+            self.meta_calls = []
+
+        def meta(self, transport_url, stype, sid):
+            self.meta_calls.append(transport_url)
+            if len(self.meta_calls) < views._META_ATTEMPTS:
+                raise AddonError('timed out', category='ReadTimeout')
+            return hit
+
+    client = _Flaky()
+    descriptor = {
+        'transportUrl': 't1',
+        'manifest': {'id': 'org.a', 'resources': ['meta'], 'types': ['movie'], 'idPrefixes': ['tt']},
+    }
+    _wire_data_layer(views, FakeStore(addons=[descriptor], data_dir=str(tmp_path)), client)
+
+    assert views._fetch_meta('movie', 'tt1') == hit
+    assert client.meta_calls == ['t1', 't1', 't1']
+    # The successful meta is what got cached, not the failures.
+    assert views._fetch_meta('movie', 'tt1') == hit
+    assert client.meta_calls == ['t1', 't1', 't1']
+
+
+def test_fetch_meta_does_not_cache_an_idless_success(load_views, tmp_path):
+    ctx = load_views()
+    views = ctx.views
+    client = FakeAddonClient(meta_results={'t1': {'name': 'No id'}})
+    descriptor = {
+        'transportUrl': 't1',
+        'manifest': {'id': 'org.a', 'resources': ['meta'], 'types': ['movie'], 'idPrefixes': ['tt']},
+    }
+    _wire_data_layer(views, FakeStore(addons=[descriptor], data_dir=str(tmp_path)), client)
+
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert client.meta_calls == ['t1', 't1']
+
+
 def test_fetch_meta_never_dispatches_to_a_disabled_addon(load_views):
     """_fetch_meta()'s fan-out must read get_enabled_addons(), not
     get_addons(): a disabled meta-capable addon must receive no request,

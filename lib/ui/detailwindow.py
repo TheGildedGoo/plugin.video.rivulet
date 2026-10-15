@@ -795,7 +795,10 @@ def open_detail(stype, sid):
         log('detailwindow: meta fetch for %s/%s cancelled by the user' % (stype, sid), xbmc.LOGINFO)
         return False
     if not meta_obj:
-        notify(L(30030))
+        # Distinct from "no streams" (#30030). The fetch already retried
+        # the addons that failed; this is the message when none of them
+        # produced a meta with an id.
+        notify(L(30430))
         return False
 
     from lib.ui.streamswindow import open_streams
