@@ -771,6 +771,73 @@ def test_onaction_season_nav_without_focus_on_the_bar_does_not_repopulate(load_d
     assert win.season_index == 0
 
 
+def test_right_and_left_walk_every_episode_of_the_season(load_detailwindow):
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    import xbmcgui
+    win = _make_window(picker)
+    videos = [
+        {'id': 'v%d' % index, 'season': 1, 'episode': index, 'title': 'Ep %d' % index}
+        for index in range(1, 8)
+    ]
+    win.start({'id': 'tt1', 'videos': videos}, 'series')
+    win.onInit()
+    win.setFocusId(picker.LIST)
+    control = win.getControl(picker.LIST)
+    assert control.size() == 7
+
+    for index in range(1, 7):
+        win.onAction(xbmcgui.Action(2))
+        assert control.selected_index == index
+    win.onAction(xbmcgui.Action(2))
+    assert control.selected_index == 6
+    win.onAction(xbmcgui.Action(1))
+    assert control.selected_index == 5
+
+
+def test_opening_a_new_episode_uses_its_still_and_selects_it(load_detailwindow):
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    win = _make_window(picker)
+    win.start({
+        'id': 'tt1',
+        'poster': 'series-poster.jpg',
+        'background': 'series-fanart.jpg',
+        'videos': [
+            {'id': 'v1', 'season': 1, 'episode': 1, 'title': 'One', 'thumbnail': 'one.jpg'},
+            {'id': 'v2', 'season': 1, 'episode': 2, 'title': 'Two'},
+            {'id': 'v3', 'season': 2, 'episode': 1, 'title': 'Three', 'thumbnail': 'three.jpg'},
+        ],
+    }, 'series', video_id='v3')
+    win.onInit()
+
+    assert win.getControl(picker.POSTER).image == 'three.jpg'
+    assert win.getControl(picker.BACKGROUND).image == 'three.jpg'
+    assert win.season_index == 1
+    items = win.getControl(picker.LIST).items
+    assert [item.getProperty('row_id') for item in items] == ['v3']
+    assert items[0].getProperty('thumb') == 'three.jpg'
+    assert win.getControl(picker.LIST).selected_index == 0
+
+
+def test_episode_row_thumb_falls_back_to_the_series_poster(load_detailwindow):
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    win = _make_window(picker)
+    win.start({
+        'id': 'tt1',
+        'poster': 'series-poster.jpg',
+        'videos': [
+            {'id': 'v1', 'season': 1, 'episode': 1, 'title': 'One'},
+            {'id': 'v2', 'season': 1, 'episode': 2, 'title': 'Two', 'thumbnail': 'two.jpg'},
+        ],
+    }, 'series')
+    win.onInit()
+
+    thumbs = [item.getProperty('thumb') for item in win.getControl(picker.LIST).items]
+    assert thumbs == ['series-poster.jpg', 'two.jpg']
+
+
 # ---------------------------------------------------------------------------
 # DetailWindow._open_context_menu() - ACTION_CONTEXT_MENU (117): one
 # dialogs.choose() actions menu combining the pre-existing 'Cast & Crew'
@@ -1589,8 +1656,8 @@ def test_open_detail_series_builds_window_against_skin_path_and_starts_with_the_
             captured['init_args'] = args
             super().__init__(*args, **kwargs)
 
-        def start(self, meta_obj, stype):
-            captured['start_args'] = (meta_obj, stype)
+        def start(self, meta_obj, stype, video_id=None):
+            captured['start_args'] = (meta_obj, stype, video_id)
             return True
 
     monkeypatch.setattr(ctx.detailwindow, 'DetailWindow', RecordingWindow)
@@ -1599,7 +1666,7 @@ def test_open_detail_series_builds_window_against_skin_path_and_starts_with_the_
 
     assert result is True
     assert captured['init_args'] == ('DetailWindow.xml', '/addon/path', 'Default', '1080i')
-    assert captured['start_args'] == (meta, 'series')
+    assert captured['start_args'] == (meta, 'series', None)
 
 
 def test_open_detail_series_window_is_closed_exactly_once_when_start_raises(
@@ -1620,7 +1687,7 @@ def test_open_detail_series_window_is_closed_exactly_once_when_start_raises(
             self.close_calls += 1
             super().close()
 
-        def start(self, meta_obj, stype):
+        def start(self, meta_obj, stype, video_id=None):
             # Stands in for a crash inside onInit()/onAction() while the
             # modal loop is running - self.close() (the window's own,
             # normal-path close) never gets a chance to run.
@@ -1722,7 +1789,7 @@ def test_open_detail_series_closes_the_busy_dialog_before_building_the_window(
             captured['dialog_closed_count'] = busy.closed
             super().__init__(*args, **kwargs)
 
-        def start(self, meta_obj, stype):
+        def start(self, meta_obj, stype, video_id=None):
             return True
 
     monkeypatch.setattr(ctx.detailwindow, 'DetailWindow', RecordingWindow)

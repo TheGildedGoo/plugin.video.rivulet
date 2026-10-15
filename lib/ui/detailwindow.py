@@ -187,11 +187,12 @@ def _season_count(season_groups):
     return sum(1 for season, _label, _videos in season_groups if season != 0)
 
 
-def _episode_properties(video):
+def _episode_properties(video, fallback=''):
     """Map one video/episode meta to the string Properties
     `DetailWindow.xml`'s itemlayout reads via
-    `$INFO[ListItem.Property(...)]`: `thumb` (episode still - may be
-    empty, the row's thumb `<control>` degrades gracefully to nothing),
+    `$INFO[ListItem.Property(...)]`: `thumb` (the episode still, or
+    `fallback` when the video has none, so a row is never a blank
+    plate),
     `line2` (first line of the episode's plot, falling back to its air
     date, falling back to empty), and `code`/`title` - the episode code
     and title split back out of `_episode_label()`'s one combined
@@ -207,8 +208,10 @@ def _episode_properties(video):
     line1 = plot.splitlines()[0] if plot else ''
     released = video.get('released') or ''
     aired = released.split('T', 1)[0] if released else ''
+    raw_thumb = video.get('thumbnail')
+    thumb = raw_thumb.strip() if isinstance(raw_thumb, str) else ''
     return {
-        'thumb': video.get('thumbnail') or '',
+        'thumb': thumb or fallback or '',
         'line2': escape_label(line1 or aired or ''),
         'code': _episode_code(video),
         'title': _episode_title(video),
@@ -374,8 +377,12 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         # is one. Episode checkmarks read state.watched from it. Absent
         # means "local progress only".
         self._library_item = None
+        # Set when the caller opened a specific episode (New Episodes).
+        # None keeps the series poster and the first episode of the
+        # default season, which is every other entry into this window.
+        self.focus_video_id = None
 
-    def start(self, meta, stype):
+    def start(self, meta, stype, video_id=None):
         """doModal() showing `meta`'s episode list. Returns True if
         playback started somewhere down the chain (the caller should
         also close). Also fires `_prefetch_s4me_streams()` for the
@@ -389,7 +396,8 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self.rows = [(video.get('id'), _episode_label(video)) for video in self.videos]
         self._video_by_id = {video.get('id'): video for video in self.videos}
         self.season_groups = _group_by_season(self.meta.get('videos'))
-        self.season_index = self._default_season_index()
+        self.focus_video_id = video_id or None
+        self.season_index = self._season_index_for(self.focus_video_id)
         active = self._active_videos()
         _prefetch_s4me_streams(self.stype, active[0].get('id') if active else None)
         self.doModal()
@@ -402,6 +410,16 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             if season != 0:
                 return index
         return 0
+
+    def _season_index_for(self, video_id):
+        """Season-bar index of `video_id`, or the default season when
+        the id is absent. A New Episodes pick in season 3 has to land
+        on season 3, not on the first season's episode 1."""
+        if video_id:
+            for index, (_season, _label, videos) in enumerate(self.season_groups):
+                if any(video.get('id') == video_id for video in videos):
+                    return index
+        return self._default_season_index()
 
     def _active_videos(self):
         """Videos the episode list (`LIST`) should currently show: every
@@ -426,10 +444,12 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         from lib.ui.compat import L
 
         sid = self.meta.get('id')
+        raw_poster = self.meta.get('poster') if isinstance(self.meta, dict) else ''
+        fallback = raw_poster.strip() if isinstance(raw_poster, str) else ''
         items = []
         for video in videos:
             item = xbmcgui.ListItem(_episode_label(video))
-            properties = _episode_properties(video)
+            properties = _episode_properties(video, fallback)
             properties['row_id'] = video.get('id')
             progress = self._episode_progress(self.stype, sid, video.get('id'))
             percent = _watched_percent(progress)
@@ -538,9 +558,9 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
     def onInit(self):
         from lib.ui.compat import addon_fanart
 
-        background = self.meta.get('background') or self.meta.get('logo') or self.meta.get('poster')
+        poster, background = self._focus_art()
         self.getControl(BACKGROUND).setImage(background or addon_fanart())
-        self.getControl(POSTER).setImage(self.meta.get('poster') or '')
+        self.getControl(POSTER).setImage(poster)
         # [B]...[/B] applied here, not in the skin XML, because this
         # label is always Python-set: any markup baked into the
         # <label> itself would just be overwritten the moment this
@@ -553,18 +573,68 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
 
         self._build_season_bar()
         self._populate_episode_list(self._active_videos())
+        self._select_focus_video()
         self.setFocusId(LIST)
+
+    def _focus_art(self):
+        """Poster and backdrop for this window. A focused episode uses
+        its own still for both, and the series art when that still is
+        missing. Every other open keeps the series chain."""
+        video = self._video_by_id.get(self.focus_video_id) if self.focus_video_id else None
+        raw = video.get('thumbnail') if isinstance(video, dict) else ''
+        thumb = raw.strip() if isinstance(raw, str) else ''
+        if thumb:
+            return thumb, thumb
+        background = self.meta.get('background') or self.meta.get('logo') or self.meta.get('poster')
+        poster = self.meta.get('poster') or ''
+        return poster, background
+
+    def _select_focus_video(self):
+        video_id = self.focus_video_id
+        if not video_id:
+            return
+        control = self.getControl(LIST)
+        for index in range(control.size()):
+            if control.getListItem(index).getProperty('row_id') == video_id:
+                control.selectItem(index)
+                return
 
     @gated_input
     def onAction(self, action):
         action_id = action.getId()
         if action_id in _SEASON_NAV_ACTIONS and self.getFocusId() == SEASON_BAR:
             self._sync_season_from_bar()
+        elif action_id in _SEASON_NAV_ACTIONS and self.getFocusId() == LIST:
+            # Vertical list: Kodi moves up/down itself, and onleft/onright
+            # point back here so the scrollbar never takes the key. Left
+            # and right still have to walk the whole season.
+            self._step_episode(-1 if action_id == 1 else 1)
         if action_id == _CONTEXT_MENU_ACTION:
             self._open_context_menu()
             return
         if action_id in BACK_ACTIONS:
             self.close()
+
+    def _step_episode(self, delta):
+        """Select the episode `delta` rows away, clamped to the season.
+
+        `selectItem` scrolls a row that sits below the visible window
+        into view. The list already holds every episode of the season;
+        this only moves the cursor."""
+        control = self.getControl(LIST)
+        count = control.size()
+        if count <= 0:
+            return
+        pos = control.getSelectedPosition()
+        if pos < 0:
+            pos = 0
+        nxt = pos + delta
+        if nxt < 0:
+            nxt = 0
+        elif nxt >= count:
+            nxt = count - 1
+        if nxt != pos:
+            control.selectItem(nxt)
 
     def _open_credits(self):
         """'Cast & Crew' row of `_open_context_menu()`: `self.meta` is
@@ -824,7 +894,7 @@ def _pull_account_item(content_id):
         return None
 
 
-def open_detail(stype, sid):
+def open_detail(stype, sid, video_id=None):
     """Fetch (stype, sid)'s full meta. A movie (no `videos`) has nothing
     to pick, so it opens StreamsWindow directly; a series opens this
     window first to pick an episode. Returns True if playback started
@@ -860,7 +930,7 @@ def open_detail(stype, sid):
     try:
         win = open_window(DetailWindow, 'DetailWindow.xml')
         win._library_item = library_item
-        return win.start(meta_obj, stype)
+        return win.start(meta_obj, stype, video_id=video_id)
     except Exception as exc:  # a skin/UI failure must surface, not vanish
         log('detailwindow: window failed to open: %r' % (exc,), xbmc.LOGERROR)
         notify(L(30032))

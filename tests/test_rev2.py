@@ -138,9 +138,9 @@ def test_publish_builds_rev2_beside_revrivulet_without_rewriting_the_tree(tmp_pa
     assert 'plugin.video.revrivulet' in ids
     assert PUBLISHED_ID in ids
     rev2 = root.find("addon[@id='%s']" % PUBLISHED_ID)
-    assert rev2.get('version') == '0.1.0.r2.1'
+    assert rev2.get('version') == '0.1.0.r2.2'
     assert rev2.get('name') == 'Rev2Rivulet'
-    zip_path = output / PUBLISHED_ID / ('%s-0.1.0.r2.1.zip' % PUBLISHED_ID)
+    zip_path = output / PUBLISHED_ID / ('%s-0.1.0.r2.2.zip' % PUBLISHED_ID)
     with zipfile.ZipFile(str(zip_path)) as zf:
         addon_py = zf.read('%s/lib/addonid.py' % PUBLISHED_ID).decode('utf-8')
         home = zf.read('%s/resources/skins/Default/1080i/Rev2HomeWindow.xml' % PUBLISHED_ID).decode('utf-8')
