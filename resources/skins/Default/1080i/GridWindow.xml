@@ -156,16 +156,17 @@
                     <scrolltime tween="cubic" easing="out">260</scrolltime>
                     <visible>!String.IsEmpty(Window.Property(band_resume))</visible>
                     <itemlayout width="320" height="506">
+                        <!-- mask_poster.png is 2:3, matching this 288x432 box. Kodi stretches a diffuse to the control, so a square mask clips the poster to an oval. -->
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
                         <!-- A finished title is dimmed so the eye skips past it. -->
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>!String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
@@ -193,7 +194,7 @@
                         <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
                         <!-- Accent underline under the focused poster. -->
@@ -233,14 +234,14 @@
                     <itemlayout width="320" height="506">
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
                         <!-- A finished title is dimmed so the eye skips past it. -->
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>!String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
@@ -268,7 +269,7 @@
                         <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
                         <!-- Accent underline under the focused poster. -->
@@ -308,14 +309,14 @@
                     <itemlayout width="320" height="506">
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
                         <!-- A finished title is dimmed so the eye skips past it. -->
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>!String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
@@ -343,7 +344,7 @@
                         <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
                         <!-- Accent underline under the focused poster. -->
@@ -383,14 +384,14 @@
                     <itemlayout width="320" height="506">
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
                         <!-- A finished title is dimmed so the eye skips past it. -->
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" colordiffuse="4DFFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                             <visible>!String.IsEmpty(ListItem.Property(watched))</visible>
                         </control>
@@ -418,7 +419,7 @@
                         <control type="image"><top>0</top><left>8</left><width>304</width><height>440</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>288</width><height>432</height>
-                            <texture border="16" diffuse="round_mask.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
+                            <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
                         <!-- Accent underline under the focused poster. -->

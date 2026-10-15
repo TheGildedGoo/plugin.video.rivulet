@@ -225,5 +225,6 @@ def test_hub_bar_is_right_aligned_and_posters_have_a_focus_frame():
     assert rows.find('onleft') is not None and rows.find('onright') is not None
     blob = ET.tostring(rows.find('focusedlayout'), encoding='unicode')
     assert 'FFFFFFFF' in blob
-    assert 'round_mask.png' in blob
+    assert 'mask_poster.png' in blob
+    assert 'round_mask.png' not in blob
     assert 'pill_fill.png' in ET.tostring(bar, encoding='unicode')

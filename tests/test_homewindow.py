@@ -1109,7 +1109,9 @@ def test_home_lists_declare_a_visible_focus_and_navigation():
     assert (pills.findtext('onup') or '').strip() == '30011'
     assert (pills.findtext('ondown') or '').strip() == '30001'
     assert (rows.findtext('onup') or '').strip() == '30010'
-    assert 'round_mask.png' in ET.tostring(root, encoding='unicode')
+    blob = ET.tostring(root, encoding='unicode')
+    assert 'mask_poster.png' in blob and 'mask_land.png' in blob
+    assert 'round_mask.png' not in blob
     focusable = [
         control for control in root.iter('control')
         if control.get('type') in ('list', 'panel') and control.get('id')

@@ -41,7 +41,9 @@ real defect it would have caught:
 import glob
 import os
 import re
+import struct
 import xml.etree.ElementTree as ET
+import zlib
 
 import pytest
 
@@ -678,3 +680,188 @@ def test_window_close_animation_is_rejected_regression(tmp_path):
         encoding='utf-8',
     )
     assert len(_window_close_animations(str(bad))) == 1
+
+
+# ---------------------------------------------------------------------------
+# 10. poster diffuse masks
+#
+# Kodi stretches a diffuse to the control and does not 9-slice it. The
+# rev4 mask was a 48px square, so every poster was clipped to an ellipse
+# and the grey plate showed through the corners.
+
+
+_POSTER_MASKS = {
+    # 2x the Home poster. Radius in the file is 32px, 16px on that 200x300 box.
+    'mask_poster.png': (400, 600, 2, 3),
+    # 2x the Continue card, 392x220.
+    'mask_land.png': (784, 440, 392, 220),
+}
+
+
+def _paeth(left, up, up_left):
+    guess = left + up - up_left
+    pa = abs(guess - left)
+    pb = abs(guess - up)
+    pc = abs(guess - up_left)
+    if pa <= pb and pa <= pc:
+        return left
+    if pb <= pc:
+        return up
+    return up_left
+
+
+def _reconstruct_row(row, prev, filt):
+    stride = len(row)
+    if filt == 0:
+        return row
+    for x in range(stride):
+        left = row[x - 4] if x >= 4 else 0
+        up = prev[x]
+        up_left = prev[x - 4] if x >= 4 else 0
+        if filt == 1:
+            pred = left
+        elif filt == 2:
+            pred = up
+        elif filt == 3:
+            pred = (left + up) // 2
+        elif filt == 4:
+            pred = _paeth(left, up, up_left)
+        else:
+            raise AssertionError('bad png filter %s' % filt)
+        row[x] = (row[x] + pred) & 255
+    return row
+
+
+def _png_rgba(path):
+    """Decode an 8-bit non-interlaced RGBA PNG. The test toolchain has no
+    image library, and the mask check has to see real pixels."""
+    with open(path, 'rb') as handle:
+        data = handle.read()
+    if data[:8] != b'\x89PNG\r\n\x1a\n':
+        raise AssertionError('%s is not a PNG' % path)
+    pos = 8
+    width = height = None
+    idat = []
+    while pos + 8 <= len(data):
+        length, kind = struct.unpack('>I4s', data[pos:pos + 8])
+        chunk = data[pos + 8:pos + 8 + length]
+        pos += 12 + length
+        if kind == b'IHDR':
+            width, height, bit, color, comp, filt, interlace = struct.unpack('>IIBBBBB', chunk)
+            if (bit, color, comp, filt, interlace) != (8, 6, 0, 0, 0):
+                raise AssertionError('unsupported PNG header in %s' % path)
+        elif kind == b'IDAT':
+            idat.append(chunk)
+        elif kind == b'IEND':
+            break
+    raw = zlib.decompress(b''.join(idat))
+    stride = width * 4
+    rows = []
+    prev = bytearray(stride)
+    index = 0
+    for _y in range(height):
+        filt = raw[index]
+        index += 1
+        row = bytearray(raw[index:index + stride])
+        index += stride
+        prev = _reconstruct_row(row, prev, filt)
+        rows.append(prev)
+    if index != len(raw):
+        raise AssertionError('trailing png bytes in %s' % path)
+    return width, height, rows
+
+
+def _alpha(rows, x, y):
+    return rows[y][x * 4 + 3]
+
+
+def _mask_box_offenders():
+    """Image controls whose diffuse or plate is a poster mask of the wrong aspect."""
+    offenders = []
+    seen = {name: 0 for name in _POSTER_MASKS}
+    for path in _skin_files():
+        for control in ET.parse(path).iter('control'):
+            if control.get('type') != 'image':
+                continue
+            width = (control.findtext('width') or '').strip()
+            height = (control.findtext('height') or '').strip()
+            for texture in list(control):
+                if texture.tag != 'texture':
+                    continue
+                names = [(texture.text or '').strip(), (texture.get('diffuse') or '').strip()]
+                for name, (_mw, _mh, rw, rh) in _POSTER_MASKS.items():
+                    if name not in names:
+                        continue
+                    seen[name] += 1
+                    if texture.get('border') is not None:
+                        offenders.append('%s still has a border' % name)
+                    if not (width.isdigit() and height.isdigit()):
+                        offenders.append('%s box is not fixed' % name)
+                        continue
+                    if int(width) * rh != int(height) * rw:
+                        offenders.append('%s on %sx%s is not %s:%s' % (name, width, height, rw, rh))
+    for name, count in seen.items():
+        if count == 0:
+            offenders.append('%s is unused' % name)
+    return offenders
+
+
+def _mask_pixel_offenders(name, width, height):
+    """A rounded rectangle is opaque on the straight edges. An ellipse is not."""
+    got_w, got_h, rows = _png_rgba(os.path.join(_MEDIA_DIR, name))
+    offenders = []
+    if (got_w, got_h) != (width, height):
+        offenders.append('%s is %sx%s' % (name, got_w, got_h))
+        return offenders
+    probes = (
+        ((0, 0), 0),
+        ((0, height // 2), 255),
+        ((width // 2, 0), 255),
+        ((width // 2, height // 2), 255),
+        ((8, 8), 0),
+    )
+    for (x, y), expect in probes:
+        if _alpha(rows, x, y) != expect:
+            offenders.append('%s pixel %s,%s alpha %s' % (name, x, y, _alpha(rows, x, y)))
+    top = [_alpha(rows, x, 0) for x in range(width)]
+    first_solid = next(i for i, value in enumerate(top) if value == 255)
+    # 32px radius in this 2x file, a couple of pixels early where the arc
+    # is already inside the top row of pixels. An oval would land near the middle.
+    if not 28 <= first_solid <= 34:
+        offenders.append('%s corner radius starts at x=%s' % (name, first_solid))
+    partial = 0
+    transparent = 0
+    for row in rows:
+        for x in range(width):
+            pixel = row[x * 4:x * 4 + 4]
+            if pixel[0] != 255 or pixel[1] != 255 or pixel[2] != 255:
+                offenders.append('%s is not white' % name)
+                return offenders
+            if pixel[3] == 0:
+                transparent += 1
+            elif pixel[3] != 255:
+                partial += 1
+    if not 50 < partial < 5000:
+        offenders.append('%s partial alpha count %s' % (name, partial))
+    if not 50 < transparent < 3000:
+        offenders.append('%s transparent count %s' % (name, transparent))
+    return offenders
+
+
+def test_poster_masks_match_each_art_box_and_are_not_ovals():
+    """The unfocused poster on a TV was a jagged grey oval. A square diffuse
+    stretched onto a 2:3 control becomes an ellipse, and ``border`` does not
+    stop that. Each mask has to share its control's aspect, stay opaque on
+    the straight edges, and only soften the corners."""
+    leftovers = []
+    for path in _skin_files():
+        text = _read(path)
+        for banned in ('round_mask.png', 'round_fill.png'):
+            if banned in text:
+                leftovers.append('%s still names %s' % (os.path.basename(path), banned))
+    offenders = leftovers + _mask_box_offenders()
+    for name, (width, height, rw, rh) in _POSTER_MASKS.items():
+        if width * rh != height * rw:
+            offenders.append('%s file aspect' % name)
+        offenders.extend(_mask_pixel_offenders(name, width, height))
+    assert offenders == []
