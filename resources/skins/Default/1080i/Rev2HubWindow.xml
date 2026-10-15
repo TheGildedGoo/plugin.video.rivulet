@@ -37,29 +37,34 @@
 <control type="button" id="30073"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF0A0D12</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30427]</label><ondown>31000</ondown><onup>30011</onup><visible>!String.IsEmpty(Window.Property(HomeSignedOut))</visible></control><control type="button" id="30070"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF0A0D12</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30001]</label><ondown>31000</ondown><onup>30011</onup></control><control type="button" id="30071"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF0A0D12</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30003]</label><ondown>31000</ondown><onup>30011</onup></control><control type="button" id="30072"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF0A0D12</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30004]</label><ondown>31000</ondown><onup>30011</onup></control>
             </control>
 
-            <!-- Same band as Home, shorter because the rows start higher.
-                 Metadata sits under the logo, not through it. background=true
-                 keeps Kodi from painting a grey box behind the clearlogo. -->
+            <!-- Same hero zone as Home: top third of the 1920x1080 skin,
+                 rows on y=360. The old band started at y=108 with a 100px
+                 description, so the overview ran into this list. The title
+                 and the clearlogo share a 64px max height. The description
+                 is two lines and scrolls inside the box.
+                 background=true keeps the clearlogo off a grey plate. -->
             <control type="image" id="30023">
-                <left>64</left><top>108</top><width>780</width><height>80</height>
+                <left>64</left><top>172</top><width>780</width><height>64</height>
                 <aspectratio align="left" aligny="center">keep</aspectratio>
                 <texture background="true"></texture>
                 <visible>!String.IsEmpty(Window.Property(HeroLogo))</visible>
             </control>
             <control type="label" id="30020">
-                <left>64</left><top>108</top><width>900</width><height>80</height>
+                <left>64</left><top>172</top><width>900</width><height>64</height>
                 <font>font37</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
+                <wrapmultiline>false</wrapmultiline>
                 <label></label>
                 <visible>String.IsEmpty(Window.Property(HeroLogo))</visible>
             </control>
             <control type="label" id="30021">
-                <left>64</left><top>200</top><width>980</width><height>32</height>
+                <left>64</left><top>244</top><width>980</width><height>32</height>
                 <font>font12</font><textcolor>C8EEF3F6</textcolor><aligny>center</aligny>
                 <label></label>
             </control>
             <control type="textbox" id="30022">
-                <left>64</left><top>240</top><width>820</width><height>100</height>
+                <left>64</left><top>284</top><width>820</width><height>64</height>
                 <font>font13</font><textcolor>B3EEF3F6</textcolor>
+                <autoscroll delay="2000" time="4000" repeat="6000">true</autoscroll>
                 <label></label>
             </control>
 

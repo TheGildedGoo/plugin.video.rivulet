@@ -172,6 +172,7 @@ def test_make_list_item_sets_every_property_the_skin_draws(ctx):
     assert list_item.getProperty('badge') == '[COLOR FF38BDF8]50%[/COLOR]'
     assert list_item.getProperty('progress_width') == str(ctx.gridwindow.PROGRESS_TRACK_WIDTH // 2)
     assert list_item.getProperty('caption') == '50% watched'
+    assert list_item.getProperty('plot') == ''
     assert list_item.getProperty('watched') == ''
 
 
@@ -195,11 +196,14 @@ def test_make_list_item_escapes_addon_supplied_name_markup(ctx):
     unescaped `[COLOR]`/`$INFO[` payload there would let it restyle or
     inject skin-evaluated info labels into the grid cell it draws into."""
     item = _item(ctx.mystuff.BAND_RESUME, name='[COLOR red]Evil[/COLOR]$INFO[Skin.String(x)]')
+    item['description'] = '[COLOR red]Evil[/COLOR]$INFO[Skin.String(x)]'
 
     list_item = ctx.gridwindow.make_list_item(item)
 
     assert '[COLOR' not in list_item.getLabel()
     assert '$INFO[' not in list_item.getLabel()
+    assert '[COLOR' not in list_item.getProperty('plot')
+    assert '$INFO[' not in list_item.getProperty('plot')
 
 
 # ---------------------------------------------------------------------------

@@ -122,17 +122,26 @@
                 <label></label>
             </control>
 
-            <!-- Focused title + caption: a cell's own label is truncated to
-                 its column, so the full title renders here. -->
-            <control type="label"><left>96</left><top>112</top><width>1400</width><height>40</height><font>font27</font><textcolor>FFFFFFFF</textcolor>
+            <!-- Hero zone, same top third as Home (1920x1080 skin space).
+                 The old title was a 40px box and the caption a 24px box
+                 for a 23px font, ten pixels above the first row, so the
+                 line ran into the band header. Title max height is 64.
+                 The caption sits under it. The description is two lines
+                 and scrolls; the rows start at y=360. -->
+            <control type="label" id="30020"><left>96</left><top>172</top><width>1400</width><height>64</height><font>font37</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
+                <wrapmultiline>false</wrapmultiline>
                 <label>$INFO[ListItem.Label]</label>
             </control>
-            <control type="label"><left>96</left><top>156</top><width>1400</width><height>24</height><font>font10</font><textcolor>80EEF3F6</textcolor>
+            <control type="label" id="30021"><left>96</left><top>244</top><width>1400</width><height>32</height><font>font12</font><textcolor>80EEF3F6</textcolor><aligny>center</aligny>
                 <label>$INFO[ListItem.Property(caption)]</label>
+            </control>
+            <control type="textbox" id="30024"><left>96</left><top>284</top><width>1100</width><height>64</height><font>font13</font><textcolor>B3EEF3F6</textcolor>
+                <autoscroll delay="2000" time="4000" repeat="6000">true</autoscroll>
+                <label>$INFO[ListItem.Property(plot)]</label>
             </control>
 
             <control type="grouplist" id="30001">
-                <left>96</left><top>190</top><width>1980</width><height>850</height>
+                <left>96</left><top>360</top><width>1980</width><height>680</height>
                 <orientation>vertical</orientation>
                 <itemgap>0</itemgap>
                 <usecontrolcoords>true</usecontrolcoords>
