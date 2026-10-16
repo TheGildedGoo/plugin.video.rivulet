@@ -5,8 +5,15 @@
 
 The catalog text is drawn immediately. When an OMDb or MDBList key is
 set and the 24-hour cache has this IMDb id, that text is rebuilt with
-the cached scores. A miss starts one daemon thread. The thread does
-not touch Kodi; when it finishes it posts Action(noop), and the
+the cached scores.
+
+A miss does not fetch at once. Holding Right across a row used to start
+one request per title it passed, and OMDb's free key allows 1,000 a
+day. The miss becomes the plan: the focused title, then the next few on
+its row. One worker waits until the focus has rested ``_DWELL_SECONDS``
+on that plan, then fetches it in order. A new focus replaces the plan
+(latest wins), so titles skimmed past are never requested. The worker
+does not touch Kodi; after each fetch it posts Action(noop), and the
 window's existing onAction paints the hero again, which now hits the
 cache.
 
@@ -29,11 +36,19 @@ from lib.stremio.ratings import (
 )
 
 _FAIL_SECONDS = 60
+#: How long the focus must rest before a miss is fetched.
+_DWELL_SECONDS = 0.6
+#: Titles after the focused one that ride along once it has been fetched.
+PREFETCH = 2
 _lock = threading.Lock()
 _inflight = set()
 _failed_until = {}  # type: dict
 _cache = None
 _cache_path = ''
+#: Latest-wins plan: (imdb id, omdb key, mdblist key, cache) in fetch order,
+#: and the monotonic time it was set.
+_plan = {'items': [], 'at': 0.0, 'running': False}
+_wake = threading.Event()
 
 
 def _token(key):
@@ -66,11 +81,26 @@ def _get_cache():
     return _cache
 
 
-def overlay_text(meta, fallback):
+def _misses(cache, metas):
+    """IMDb ids from `metas` the cache does not hold, in order."""
+    found = []
+    for meta in metas or ():
+        try:
+            imdb_id = imdb_id_of(meta)
+        except Exception:
+            imdb_id = None
+        if imdb_id and imdb_id not in found and cache.lookup(imdb_id) is None:
+            found.append(imdb_id)
+    return found
+
+
+def overlay_text(meta, fallback, upcoming=None):
     """`fallback` (the catalog panel) plus cached scores when a key is set.
 
-    A miss schedules a fetch and returns `fallback` unchanged, so the
-    first paint still shows the catalog's IMDb rating. Never raises.
+    A miss plans a fetch and returns `fallback` unchanged, so the first
+    paint still shows the catalog's IMDb rating. `upcoming` is the next
+    few metas on the row; their misses ride along after this one. Never
+    raises.
     """
     try:
         imdb_id = imdb_id_of(meta)
@@ -81,9 +111,12 @@ def overlay_text(meta, fallback):
             return fallback
         cache = _get_cache()
         scores = cache.lookup(imdb_id)
+        later = [other for other in _misses(cache, upcoming) if other != imdb_id]
         if scores is None:
-            _schedule(imdb_id, omdb_key, mdblist_key, cache)
+            _schedule(imdb_id, omdb_key, mdblist_key, cache, later[:PREFETCH])
             return fallback
+        if later:
+            _schedule(later[0], omdb_key, mdblist_key, cache, later[1:PREFETCH])
         if not scores:
             return fallback
         from lib.ui.homewindow import _hero_meta_text
@@ -104,21 +137,72 @@ def apply_to_property(listitem, meta, prop):
         listitem.setProperty(prop, text)
 
 
-def _schedule(imdb_id, omdb_key, mdblist_key, cache):
-    fail_id = _fail_id(imdb_id, omdb_key, mdblist_key)
-    now = time.time()
+def _schedule(imdb_id, omdb_key, mdblist_key, cache, prefetch=()):
+    """Replace the plan with `imdb_id` then `prefetch`. Latest wins.
+
+    Nothing is fetched until the focus has rested `_DWELL_SECONDS` on
+    this plan. One worker serves every window; it is started here when
+    it is not already running.
+    """
+    items = []
+    for wanted in [imdb_id] + list(prefetch or ()):
+        if wanted and wanted not in [item[0] for item in items]:
+            items.append((wanted, omdb_key, mdblist_key, cache))
+    if not items:
+        return
     with _lock:
-        if imdb_id in _inflight:
-            return
-        if _failed_until.get(fail_id, 0) > now:
-            return
+        _plan['items'] = items
+        _plan['at'] = time.monotonic()
+        start = not _plan['running']
+        if start:
+            _plan['running'] = True
+    _wake.set()
+    if start:
+        threading.Thread(target=_loop, name='rivulet-ratings', daemon=True).start()
+
+
+def _next_due():
+    """The plan's head once its dwell has passed: `(item, None)`, or
+    `(None, seconds)` to wait, or `(None, None)` when the plan is empty
+    (the worker then stops)."""
+    with _lock:
+        if not _plan['items']:
+            _plan['running'] = False
+            return None, None
+        left = _plan['at'] + _DWELL_SECONDS - time.monotonic()
+        if left > 0:
+            return None, left
+        item = _plan['items'].pop(0)
+        imdb_id, omdb_key, mdblist_key, _cache_obj = item
+        fail_id = _fail_id(imdb_id, omdb_key, mdblist_key)
+        if imdb_id in _inflight or _failed_until.get(fail_id, 0) > time.time():
+            return (), None
         _inflight.add(imdb_id)
-    thread = threading.Thread(
-        target=_worker,
-        args=(imdb_id, omdb_key, mdblist_key, cache, fail_id),
-        daemon=True,
-    )
-    thread.start()
+        return item + (fail_id,), None
+
+
+def _loop():
+    """The one worker. Waits out the dwell, then fetches in plan order."""
+    while True:
+        item, wait = _next_due()
+        if item is None and wait is None:
+            return
+        if item is None:
+            _wake.clear()
+            _wake.wait(wait)
+            continue
+        if not item:
+            continue
+        imdb_id, omdb_key, mdblist_key, cache, fail_id = item
+        try:
+            cached = cache.lookup(imdb_id) is not None
+        except Exception:
+            cached = False
+        if cached:
+            with _lock:
+                _inflight.discard(imdb_id)
+            continue
+        _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id)
 
 
 def _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id):

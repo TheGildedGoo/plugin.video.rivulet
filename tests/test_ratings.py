@@ -287,3 +287,55 @@ def test_worker_caches_an_empty_title(kodi_stubs, tmp_path, monkeypatch):
     assert cache.lookup('tt0111161') == {}
     logged = ' '.join(msg for msg, _level in ctx.env.log_calls)
     assert _SECRET not in logged
+
+
+def test_a_skimmed_title_is_never_requested(kodi_stubs, tmp_path, monkeypatch):
+    """Latest wins. Holding Right across a row used to fetch every title
+    it passed; only the one the focus rests on goes out."""
+    ctx = kodi_stubs(reload=('lib.ui.compat', 'lib.ui.ratingsched'))
+    sched = ctx.ratingsched
+    fetched = []
+
+    def fetch(imdb_id, *_args, **_kwargs):
+        fetched.append(imdb_id)
+        return {'imdbRating': '7.0'}
+
+    monkeypatch.setattr('lib.stremio.ratings.fetch_scores', fetch)
+    monkeypatch.setattr(sched, '_DWELL_SECONDS', 0.2)
+    cache = RatingsCache(str(tmp_path / 'ratings.json'))
+    for passing in ('tt0000001', 'tt0000002', 'tt0000003'):
+        sched._schedule(passing, _SECRET, '', cache)
+    import time
+
+    deadline = time.monotonic() + 3
+    while sched._plan['running'] and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert fetched == ['tt0000003']
+
+
+def test_the_next_titles_ride_along_after_the_focused_one(kodi_stubs, tmp_path, monkeypatch):
+    ctx = kodi_stubs(reload=('lib.ui.compat', 'lib.ui.ratingsched'))
+    sched = ctx.ratingsched
+    fetched = []
+    monkeypatch.setattr(
+        'lib.stremio.ratings.fetch_scores',
+        lambda imdb_id, *_a, **_k: fetched.append(imdb_id) or {'imdbRating': '7.0'},
+    )
+    monkeypatch.setattr(sched, '_DWELL_SECONDS', 0.05)
+    cache = RatingsCache(str(tmp_path / 'ratings.json'))
+    cache.store('tt0000006', {'imdbRating': '6.0'})
+    monkeypatch.setattr(sched, '_keys', lambda: (_SECRET, ''))
+    monkeypatch.setattr(sched, '_get_cache', lambda: cache)
+
+    sched.overlay_text(
+        {'id': 'tt0000005'}, 'fallback',
+        [{'id': 'tt0000006'}, {'id': 'tt0000007'}, {'id': 'tt0000008'}],
+    )
+    import time
+
+    deadline = time.monotonic() + 3
+    while sched._plan['running'] and time.monotonic() < deadline:
+        time.sleep(0.02)
+    # 6 is cached already; the two after the focused title are 7 and 8,
+    # capped at PREFETCH.
+    assert fetched == ['tt0000005', 'tt0000007', 'tt0000008'][:1 + sched.PREFETCH]

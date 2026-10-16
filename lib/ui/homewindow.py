@@ -977,6 +977,29 @@ def _apply_library_meta(window):
                 item.setProperty('meta_state', 'done')
 
 
+def _upcoming_facts(window, count=2):
+    """`hero_facts` of the next posters on the focused row, so their
+    ratings ride along once the focus rests. [] off a container."""
+    facts = []
+    try:
+        control = window.getControl(window.getFocusId())
+        position = control.getSelectedPosition()
+        size = control.size()
+    except Exception:
+        return facts
+    if not isinstance(position, int) or position < 0:
+        return facts
+    for index in range(position + 1, min(size, position + 1 + count)):
+        try:
+            raw = control.getListItem(index).getProperty('hero_facts') or ''
+            parsed = json.loads(raw) if raw else None
+        except Exception:
+            parsed = None
+        if isinstance(parsed, dict):
+            facts.append(parsed)
+    return facts
+
+
 def _set_fill_image(window, image):
     """The scale plate. Hubs have no library row, so the control is absent there."""
     try:
@@ -1027,7 +1050,7 @@ def paint_hero(window, item=None):
         except ValueError:
             facts = None
         if isinstance(facts, dict):
-            meta = overlay_text(facts, meta)
+            meta = overlay_text(facts, meta, _upcoming_facts(window))
     plot = item.getProperty('hero_plot') or item.getProperty('subtitle') or ''
     fanart = item.getProperty('fanart') or ''
     logo = item.getProperty('hero_logo') or ''
