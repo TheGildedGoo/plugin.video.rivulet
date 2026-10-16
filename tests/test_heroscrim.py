@@ -140,7 +140,8 @@ def test_an_empty_hero_hides_the_bar():
     window = _Window()
     place_hero_bar(window, 'home', '', '', '', False)
     assert window.controls[BAR].visible is False
-    assert window.controls[30020].y is None
+    # Nothing to measure, so the title stays where the skin put it.
+    assert 30020 not in window.controls
 
 
 def test_estimates_cover_noto_sans():
