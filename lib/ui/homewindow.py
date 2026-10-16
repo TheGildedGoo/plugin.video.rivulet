@@ -301,32 +301,23 @@ def _shelf_page_gen(state):
     """The catalog generator positioned on page 2.
 
     Page 1 is already on the row (and in `state['pending']` when it did
-    not fit). Creating the generator fetches that page again and discards
-    it, which is the only way to resume `skip` without holding the first
-    generator open across the whole session.
+    not fit). The generator starts at `skip` = page one's length, with
+    page one's ids already seen, so page one is not fetched again.
     """
     if not state or not state.get('transport') or not state.get('catalog'):
         return None
     gen = state.get('gen')
     if gen is not None:
         return gen
-    from lib.ui.views import iter_catalog_pages
+    from lib.ui.views import iter_catalog_pages_after
 
     catalog = state['catalog']
-    try:
-        gen = iter_catalog_pages(
-            state['transport'], catalog.get('type'), catalog.get('id'),
-            extra=state.get('extra'), catalog=catalog, manifest=state.get('manifest'),
-        )
-        next(gen)
-    except StopIteration:
-        return None
-    except Exception as exc:
-        if isinstance(exc, AssertionError):
-            raise
-        from lib.ui.compat import log
-        log('home: catalog page resume failed: %r' % (exc,))
-        return None
+    first = [meta for meta in (state.get('metas') or []) if isinstance(meta, dict)]
+    gen = iter_catalog_pages_after(
+        state['transport'], catalog.get('type'), catalog.get('id'),
+        len(first), [meta.get('id') for meta in first],
+        extra=state.get('extra'), catalog=catalog, manifest=state.get('manifest'),
+    )
     state['gen'] = gen
     return gen
 
@@ -810,12 +801,88 @@ def _append_to_shelf(window, list_id, metas):
         control.selectItem(min(pos, len(items) - 1))
 
 
+def _shelf_lock(window):
+    lock = getattr(window, '_shelf_lock', None)
+    if lock is None:
+        lock = threading.Lock()
+        window._shelf_lock = lock
+    return lock
+
+
+def _schedule_shelf_extend(window, action, room):
+    """The next catalog page for one Home row, off the GUI thread.
+
+    Page two used to be fetched inside onAction: the hero froze, Right
+    presses queued, and a slow addon held the row for its whole timeout.
+    The answer lands in `_shelf_ready` and is appended on the noop this
+    worker posts. One fetch per row at a time.
+    """
+    inflight = getattr(window, '_shelf_inflight', None)
+    if inflight is None:
+        inflight = set()
+        window._shelf_inflight = inflight
+    if action in inflight:
+        return
+    state = (getattr(window, '_shelf_more', None) or {}).get(action)
+    if not state:
+        return
+    inflight.add(action)
+
+    def _work():
+        metas = []
+        try:
+            metas = _pull_more(state, room)
+        except Exception as exc:
+            if isinstance(exc, AssertionError):
+                raise
+            metas = []
+        with _shelf_lock(window):
+            ready = getattr(window, '_shelf_ready', None)
+            if ready is None:
+                window._shelf_ready = [(action, metas)]
+            else:
+                ready.append((action, metas))
+            inflight.discard(action)
+        try:
+            import xbmc
+            xbmc.executebuiltin('Action(noop)')
+        except Exception:
+            pass
+
+    thread = threading.Thread(target=_work, name='rivulet-home-shelf', daemon=True)
+    threads = getattr(window, '_shelf_threads', None)
+    if threads is None:
+        window._shelf_threads = [thread]
+    else:
+        threads.append(thread)
+    thread.start()
+
+
+def _join_shelf_extends(window):
+    """Test hook. Production appends on the noop the worker posts."""
+    for thread in list(getattr(window, '_shelf_threads', []) or []):
+        thread.join(timeout=2)
+
+
+def _apply_shelf_extends(window):
+    """Append what the row workers fetched. UI thread only."""
+    with _shelf_lock(window):
+        ready = list(getattr(window, '_shelf_ready', None) or [])
+        window._shelf_ready = []
+    for action, metas in ready:
+        for name, list_id, _label in _SHELVES:
+            if name == action and metas:
+                _append_to_shelf(window, list_id, metas)
+
+
 def _maybe_extend_focused_shelf(window):
     """Append the next posters when the remote is within four of the end.
 
-    The panel only had the first slice. Moving into the unloaded part
+    The row only had the first slice. Moving into the unloaded part
     left the container on a blank item, paint_hero cleared the title,
-    and the row stopped taking left and right.
+    and the row stopped taking left and right. What page one still
+    holds is appended at once; a further page is fetched off the GUI
+    thread (`_schedule_shelf_extend`).
     """
     focus = window.getFocusId()
     action = None
@@ -826,7 +893,9 @@ def _maybe_extend_focused_shelf(window):
     if action is None:
         return
     state = (getattr(window, '_shelf_more', None) or {}).get(action)
-    if not state:
+    if not state or state.get('exhausted'):
+        return
+    if action in (getattr(window, '_shelf_inflight', None) or ()):
         return
     control = window.getControl(focus)
     count = control.size()
@@ -837,7 +906,13 @@ def _maybe_extend_focused_shelf(window):
     for index in range(count):
         if control.getListItem(index).getProperty('sid'):
             shown += 1
-    _append_to_shelf(window, focus, _pull_more(state, _ROW_LIMIT - shown))
+    room = _ROW_LIMIT - shown
+    if room <= 0:
+        return
+    if state.get('pending'):
+        _append_to_shelf(window, focus, _pull_more(state, room))
+        return
+    _schedule_shelf_extend(window, action, room)
 
 
 def _fetch_library_meta(stype, sid):
@@ -1122,6 +1197,7 @@ class HomeWindow(BaseWindow):
         # The library fetch finished on a worker and woke a noop. The
         # poster properties have to be current before the hero paints.
         _apply_library_meta(self)
+        _apply_shelf_extends(self)
         action_id = action.getId()
         if action_id in BACK_ACTIONS:
             self.close()

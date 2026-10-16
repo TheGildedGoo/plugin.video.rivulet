@@ -289,6 +289,9 @@ def _load_posters(desc):
         desc.get('transport'), desc.get('manifest'), desc.get('catalog'),
         extra=desc.get('extra'),
     )
+    # Page one, whole. A later page resumes `skip` from its length and
+    # treats its ids as seen, without fetching it again.
+    desc['metas'] = metas
     desc['pending'] = metas[_ROW_INITIAL:]
     desc['gen'] = None
     desc['exhausted'] = False

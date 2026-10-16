@@ -560,48 +560,73 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
     first = _fetch_catalog(transport, ctype, cid, extra=base_extra or None)
 
     seen = set()
-
-    def _dedupe(page):
-        """This page's not-yet-seen metas, in order (`fresh`), and that
-        same list with adult-flagged metas additionally dropped when
-        `hide_adult` is on (`filtered` - what callers actually see).
-        Kept separate so a page that IS new but happens to be entirely
-        adult content is not mistaken for the addon re-serving an
-        already-seen window (see the loop's `if not fresh` check
-        below, which must see the PRE-filter freshness)."""
-        fresh = []
-        for meta_obj in page:
-            key = meta_obj.get('id') if isinstance(meta_obj, dict) else None
-            if key is not None:
-                if key in seen:
-                    continue
-                seen.add(key)
-            fresh.append(meta_obj)
-        filtered = filter_metas(fresh) if hide_adult else fresh
-        # Country and original language, after the adult pass. A title
-        # the addon did not label stays. Skip bookkeeping still uses
-        # `fresh`, so a hidden title cannot look like a stuck page.
-        from lib.ui.regiondialog import apply_region_filter
-
-        filtered = apply_region_filter(filtered)
-        return fresh, filtered
-
-    _, filtered_first = _dedupe(first)
+    _, filtered_first = _dedupe_page(first, seen, hide_adult)
     yield filtered_first
 
     if not first or not catalog_supports_extra(catalog, 'skip'):
         return
     if any(name == 'skip' for name, _value in base_extra):
         return
+    yield from _follow_pages(transport, ctype, cid, base_extra, len(first), len(first), seen, hide_adult)
 
-    page_size = len(first)
-    #: Metas the addon has actually served so far, duplicates and all -
-    #: NOT the deduped count. This is what the next `skip` is counted
-    #: from, so a page that comes back longer or shorter than the first
-    #: can't make the following request skip past (or back over) items
-    #: the addon never served.
-    served = len(first)
 
+def iter_catalog_pages_after(transport, ctype, cid, served, seen_ids, extra=None,
+                             catalog=None, manifest=None):
+    """The pages after a first page the caller already has.
+
+    Home's rows hold page one from the disk cache. Resuming used to
+    build `iter_catalog_pages()` and throw its first page away, which
+    fetched page one again before page two. `served` is how many metas
+    page one held and is where `skip` starts; `seen_ids` are the ids
+    already on screen, so a title cannot appear twice. Same stopping
+    rules as `iter_catalog_pages()`.
+    """
+    from lib.stremio.addons import catalog_supports_extra
+
+    hide_adult = _adult_filtering_enabled()
+    if hide_adult and is_adult_catalog(catalog if catalog is not None else {'type': ctype}, manifest):
+        return
+    base_extra = list(extra or [])
+    if not served or not catalog_supports_extra(catalog, 'skip'):
+        return
+    if any(name == 'skip' for name, _value in base_extra):
+        return
+    seen = set(key for key in (seen_ids or ()) if key is not None)
+    yield from _follow_pages(transport, ctype, cid, base_extra, served, served, seen, hide_adult)
+
+
+def _dedupe_page(page, seen, hide_adult):
+    """This page's not-yet-seen metas, in order (`fresh`), and that
+    same list with adult-flagged metas additionally dropped when
+    `hide_adult` is on (`filtered` - what callers actually see).
+    Kept separate so a page that IS new but happens to be entirely
+    adult content is not mistaken for the addon re-serving an
+    already-seen window (see `_follow_pages`'s `if not fresh` check,
+    which must see the PRE-filter freshness). `seen` is updated."""
+    fresh = []
+    for meta_obj in page:
+        key = meta_obj.get('id') if isinstance(meta_obj, dict) else None
+        if key is not None:
+            if key in seen:
+                continue
+            seen.add(key)
+        fresh.append(meta_obj)
+    filtered = filter_metas(fresh) if hide_adult else fresh
+    # Country and original language, after the adult pass. A title
+    # the addon did not label stays. Skip bookkeeping still uses
+    # `fresh`, so a hidden title cannot look like a stuck page.
+    from lib.ui.regiondialog import apply_region_filter
+
+    filtered = apply_region_filter(filtered)
+    return fresh, filtered
+
+
+def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hide_adult):
+    """Pages two onward. `served` is the metas the addon has actually
+    served so far, duplicates and all - NOT the deduped count. This is
+    what the next `skip` is counted from, so a page that comes back
+    longer or shorter than the first can't make the following request
+    skip past (or back over) items the addon never served."""
     for page_index in range(1, _MAX_CATALOG_PAGES):
         try:
             page = _fetch_catalog(
@@ -616,7 +641,7 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
         if not page:
             return
         served += len(page)
-        fresh, filtered = _dedupe(page)
+        fresh, filtered = _dedupe_page(page, seen, hide_adult)
         # A page with nothing new means the addon is ignoring `skip` and
         # re-serving the same window - stop rather than loop to the cap.
         # Judged on `fresh` (pre-filter): a page that IS new but entirely

@@ -1344,6 +1344,72 @@ def test_right_near_the_end_appends_the_rest_of_the_catalog_page(load_homewindow
     assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Two'
 
 
+def test_a_new_catalog_page_is_fetched_off_the_remote_and_appended_on_the_noop(
+    load_homewindow, monkeypatch,
+):
+    """Page two used to be fetched inside onAction, holding the row for
+    the addon's timeout. It is fetched on a worker; the noop appends it."""
+    ctx = load_homewindow()
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    items = []
+    for index in range(1, 4):
+        item = xbmcgui.ListItem('T%d' % index)
+        item.setProperty('sid', 'tt%d' % index)
+        item.setProperty('hero_title', 'T%d' % index)
+        items.append(item)
+    shelf = win.getControl(ctx.homewindow._SHELVES[0][1])
+    shelf.addItems(items)
+    shelf.selected_index = 2
+    win.setFocusId(ctx.homewindow._SHELVES[0][1])
+    win._shelf_more = {'movies': {'pending': [], 'exhausted': False, 'gen': None}}
+    calls = []
+
+    def fake_pull(state, room):
+        calls.append(room)
+        return [{'id': 'tt4', 'name': 'Four', 'type': 'movie', 'poster': 'p'}]
+
+    monkeypatch.setattr(ctx.homewindow, '_pull_more', fake_pull)
+
+    win.onAction(xbmcgui.Action(2))
+    ctx.homewindow._join_shelf_extends(win)
+    assert [item.getProperty('sid') for item in shelf.items] == ['tt1', 'tt2', 'tt3']
+    assert 'Action(noop)' in ctx.env.executed_builtins
+
+    win.onAction(xbmcgui.Action(0))
+
+    assert [item.getProperty('sid') for item in shelf.items] == ['tt1', 'tt2', 'tt3', 'tt4']
+    assert shelf.selected_index == 2
+    assert len(calls) == 1
+
+
+def test_resuming_a_row_does_not_fetch_page_one_again(load_homewindow, monkeypatch):
+    """The resume used to rebuild the generator and discard its first page."""
+    ctx = load_homewindow()
+    requested = []
+
+    def fake_fetch(transport, ctype, cid, extra=None):
+        requested.append(list(extra or []))
+        return [{'id': 'tt3', 'name': 'Three'}, {'id': 'tt1', 'name': 'One again'}]
+
+    monkeypatch.setattr(ctx.views, '_fetch_catalog', fake_fetch)
+    state = {
+        'transport': 'https://addon.example/manifest.json',
+        'manifest': {'id': 'x'},
+        'catalog': {'type': 'movie', 'id': 'top', 'extra': [{'name': 'skip'}]},
+        'extra': None,
+        'metas': [{'id': 'tt1', 'name': 'One'}, {'id': 'tt2', 'name': 'Two'}],
+        'pending': [],
+        'gen': None,
+        'exhausted': False,
+    }
+
+    added = ctx.homewindow._pull_more(state, 10)
+
+    assert requested[0] == [('skip', 2)]
+    assert [meta['id'] for meta in added] == ['tt3']
+
+
 def test_focus_ring_sits_on_the_art_and_the_hero_does_not_overlap():
     """The ring used to be a larger plate inside a zoomed group, so it
     sat off the poster. The title band used to share its box with the

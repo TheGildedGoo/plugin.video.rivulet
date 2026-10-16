@@ -585,3 +585,34 @@ def test_decade_tile_opens_the_coverflow(load_hub, monkeypatch):
     win.onClick(ctx.hubwindow.HUB_LIST)
     assert opened == [([{'id': 'shawshank', 'type': 'movie', 'name': 'The Shawshank Redemption'}], 'New')]
     assert win.closed is not True
+
+
+def test_a_hub_row_pages_on_without_fetching_page_one_again(load_hub, monkeypatch):
+    ctx = load_hub()
+    monkeypatch.setattr(
+        ctx.homewindow, '_one_catalog_page',
+        lambda *args, **kwargs: [{'id': 'tt%d' % index, 'name': 'T%d' % index} for index in range(1, 4)],
+    )
+    requested = []
+
+    def fake_fetch(transport, ctype, cid, extra=None):
+        requested.append(list(extra or []))
+        return [{'id': 'tt4', 'name': 'T4'}]
+
+    import lib.ui.views as views
+
+    monkeypatch.setattr(views, '_fetch_catalog', fake_fetch)
+    desc = {
+        'transport': 'https://addon.example/manifest.json',
+        'manifest': {'id': 'x'},
+        'catalog': {'type': 'movie', 'id': 'top', 'extra': [{'name': 'skip'}]},
+        'extra': None,
+        'posters': None,
+        'col': 0,
+    }
+
+    ctx.hubwindow._load_posters(desc)
+    posters = ctx.hubwindow._extend_row(desc)
+
+    assert requested == [[('skip', 3)]]
+    assert [poster.getProperty('sid') for poster in posters] == ['tt1', 'tt2', 'tt3', 'tt4']
