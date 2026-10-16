@@ -272,8 +272,11 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             # of a silently-approved action.
             return yesno_answers.pop(0) if yesno_answers else False
 
-        def notification(self, heading, message, icon=None, time=4000):
+        def notification(self, heading, message, icon=None, time=4000, sound=True):
+            # The recorded tuple stays four items: existing assertions
+            # unpack it. The chime is the parallel list.
             env.notifications.append((heading, message, icon, time))
+            env.notification_sounds.append(bool(sound))
 
     class DialogProgress:
         def create(self, heading, message=''):

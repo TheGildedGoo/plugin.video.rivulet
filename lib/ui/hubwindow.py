@@ -623,7 +623,10 @@ class HubWindow(BaseWindow):
             self._descs, self._episodes = loaded
             if not self._descs:
                 from lib.ui.compat import notify
-                notify(L(30030))
+                # The category opened onto nothing. Keep the message.
+                # Kodi's notification chime is what fired on Movies,
+                # Series, and Other, so this toast does not play it.
+                notify(L(30030), sound=False)
                 self.close()
                 return
         _paint_list(self, select=self.getControl(HUB_LIST).getSelectedPosition())
@@ -834,7 +837,7 @@ def _open_decade(window, item):
     if loaded is CANCELLED:
         return
     if not loaded:
-        notify(L(30030))
+        notify(L(30030), sound=False)
         return
     from lib.ui.detailwindow import open_detail
     from lib.ui.infowindow import open_showcase
@@ -847,7 +850,7 @@ def _open_decade(window, item):
         from lib.ui.compat import log
 
         log('hub: decade coverflow failed: %r' % (exc,), xbmc.LOGERROR)
-        notify(L(30032))
+        notify(L(30032), sound=False)
         return
     if not selected:
         return
@@ -884,7 +887,7 @@ def open_hub(types, heading, action=''):
     from lib.ui.compat import L, log, notify
 
     if not types:
-        notify(L(30030))
+        notify(L(30030), sound=False)
         return False
     log('hub: opening HubWindow %s (%s)' % (action, heading or ''), xbmc.LOGINFO)
     win = None
@@ -893,7 +896,7 @@ def open_hub(types, heading, action=''):
         return win.start(types, heading)
     except Exception as exc:
         log('hub: window failed to open: %r' % (exc,), xbmc.LOGERROR)
-        notify(L(30032))
+        notify(L(30032), sound=False)
         return False
     finally:
         if win is not None:

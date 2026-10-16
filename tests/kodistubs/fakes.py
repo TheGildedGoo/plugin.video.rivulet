@@ -185,6 +185,9 @@ class Env:
 
         # xbmcgui.Dialog / DialogProgress recorders
         self.notifications = []         # [(heading, message, icon, time)]
+        # Parallel to `notifications`. False is a toast that must not play
+        # Kodi's notification chime (addon open, category navigation).
+        self.notification_sounds = []
         self.dialog_input_prompts = []  # [heading, ...]
         self.dialog_yesno_prompts = []  # [(heading, message), ...]
         self.dialog_created = []        # [(heading, message)]

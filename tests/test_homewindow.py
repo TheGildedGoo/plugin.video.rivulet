@@ -661,6 +661,8 @@ def test_notify_if_updated_changed_version_notifies_once_and_records(load_homewi
     assert len(ctx.env.notifications) == 1
     heading, message, icon, time_ms = ctx.env.notifications[0]
     assert message == 'Updated to version 1.1.0'
+    # Opening the addon after an update must not play the notification chime.
+    assert ctx.env.notification_sounds == [False]
 
 
 def test_notify_if_updated_unchanged_version_notifies_nothing(load_homewindow):

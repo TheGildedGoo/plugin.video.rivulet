@@ -934,7 +934,7 @@ def open_credits_picker(store, client, meta):
             )
         except AddonError as exc:
             log('infowindow: discover fetch %s failed: %s' % (safe_url_for_log(parsed['transport_url']), addon_error_detail(exc)), xbmc.LOGERROR)
-            notify(L(30032))
+            notify(L(30032), sound=False)
             return
         if metas is CANCELLED:
             return
@@ -958,7 +958,7 @@ def _open_results(metas):
     from lib.ui.compat import L, notify
 
     if not metas:
-        notify(L(30030))
+        notify(L(30030), sound=False)
         return
     selected = open_showcase(metas)
     if not selected:

@@ -593,7 +593,7 @@ def open_my_stuff(bands=None):
         return False
 
     if not items:
-        notify(_empty_notice(bands, bool(store.get_auth())))
+        notify(_empty_notice(bands, bool(store.get_auth())), sound=False)
         return False
 
     if bands is None:
@@ -607,7 +607,7 @@ def open_my_stuff(bands=None):
         selected = open_grid(group_by_band(items), heading=heading)
     except Exception as exc:  # a skin/UI failure must surface, not vanish
         log('mystuff: grid failed to open: %r' % (exc,), xbmc.LOGERROR)
-        notify(L(30032))
+        notify(L(30032), sound=False)
         return False
     if not selected:
         return False

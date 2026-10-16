@@ -58,9 +58,18 @@ def log(msg, level=xbmc.LOGDEBUG):
     xbmc.log(_LOG_PREFIX + str(msg), level)
 
 
-def notify(msg, heading=None, icon=None, time_ms=4000):
+def notify(msg, heading=None, icon=None, time_ms=4000, sound=True):
+    """Toast `msg`. `sound` is Kodi's notification chime.
+
+    `Dialog.notification` plays that chime unless `sound` is false. Opening
+    the addon and moving into a category (Movies, Series, Other, an empty
+    hub) pass `sound=False`: the text can stay, the ding cannot. A result
+    of something the user just did (library, playback, pairing) keeps the
+    default so the corner toast is audible.
+    """
     xbmcgui.Dialog().notification(
-        heading or ADDON_NAME, str(msg), icon or xbmcgui.NOTIFICATION_INFO, time_ms
+        heading or ADDON_NAME, str(msg), icon or xbmcgui.NOTIFICATION_INFO, time_ms,
+        sound=sound,
     )
 
 

@@ -1331,6 +1331,10 @@ def _notify_if_updated(store):
     recorded yet, so that first call only seeds the current version and
     stays silent.
 
+    The toast is silent. Kodi's notification chime is what played every
+    time the addon was opened after a sideload, and opening the addon
+    must not ding.
+
     Best-effort: `store` I/O failing here must never stop the home screen
     from opening.
     """
@@ -1346,7 +1350,7 @@ def _notify_if_updated(store):
             return
         store.set_last_seen_version(current)
         if last_seen is not None:
-            notify(L(30184) % current)
+            notify(L(30184) % current, sound=False)
     except Exception as exc:
         log('homewindow: update-notification check failed: %r' % (exc,), xbmc.LOGWARNING)
 
