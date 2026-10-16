@@ -466,6 +466,9 @@ def _played_posters(store, library_entries):
             _enrich(missing)
         except Exception:
             pass
+    from lib.ui.regiondialog import apply_region_filter
+
+    played = apply_region_filter(played)
     posters = []
     seen = set()
     for entry in played:
@@ -476,7 +479,7 @@ def _played_posters(store, library_entries):
         posters.append(_continue_item(entry))
         if len(posters) >= SHELF_CAP:
             return posters
-    for meta in _library_continue_metas(library_entries):
+    for meta in apply_region_filter(_library_continue_metas(library_entries)):
         key = (meta.get('type'), meta.get('id'))
         if key in seen:
             continue
@@ -506,7 +509,9 @@ def _library_posters(auth, library_entries):
         metas = library_metas(library_entries)
     except Exception:
         metas = []
-    posters = [_poster_item(meta) for meta in metas]
+    from lib.ui.regiondialog import apply_region_filter
+
+    posters = [_poster_item(meta) for meta in apply_region_filter(metas)]
     if posters:
         return posters
     return [_poster_item({'name': L(30426), 'description': L(30423)})]

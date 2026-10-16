@@ -480,6 +480,7 @@ def _enrich(items):
             'year', 'releaseInfo', 'released', 'runtime', 'imdbRating',
             'genres', 'rottenTomatoes', 'rtRating', 'tomatoMeter',
             'metascore', 'metacritic', 'ratings',
+            'country', 'language', 'originalLanguage', 'original_language',
         ):
             if item.get(key) or meta.get(key) in (None, '', []):
                 continue
@@ -586,7 +587,9 @@ def open_my_stuff(bands=None):
         merged = _restrict_bands(merged, bands)
         items = _enrich(merged)
         _label_next_episodes(items)
-        return items
+        from lib.ui.regiondialog import apply_region_filter
+
+        return apply_region_filter(items)
 
     items = run_cancellable(_load, L(30033))
     if items is CANCELLED:

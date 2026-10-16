@@ -1201,3 +1201,19 @@ msgstr ""
 msgctxt "#30469"
 msgid "Could not save the key."
 msgstr ""
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr ""
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr ""
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr ""
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr ""

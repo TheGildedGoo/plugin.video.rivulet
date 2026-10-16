@@ -56,6 +56,19 @@ def test_slim_meta_keeps_the_poster_fields_and_drops_the_rest():
     assert slim_meta('nope') is None
 
 
+def test_slim_meta_keeps_country_and_language():
+    """The region checklist reads these off a cached row. Dropping them
+    made a hidden country look unlabeled on the next launch."""
+    slim = slim_meta({
+        'id': 'tt1', 'country': 'India', 'language': 'Hindi',
+        'original_language': 'hi', 'cast': ['A'],
+    })
+    assert slim['country'] == 'India'
+    assert slim['language'] == 'Hindi'
+    assert slim['original_language'] == 'hi'
+    assert 'cast' not in slim
+
+
 def test_hints_come_from_the_envelope():
     hints = hints_from_envelope({
         'metas': [], 'cacheMaxAge': 14400, 'staleRevalidate': 3600,

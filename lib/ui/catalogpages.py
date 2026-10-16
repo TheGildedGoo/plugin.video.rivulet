@@ -117,12 +117,24 @@ def cached_first_page(transport, manifest, catalog, extra=None):
         key = cache_key(transport, catalog.get('type'), catalog.get('id'), extra)
         state, metas = cache.lookup(key)
         if state == 'fresh' and metas is not None:
-            return metas
+            return _region_filter(metas)
         if state == 'stale' and metas:
             _schedule_revalidate(transport, manifest, catalog, extra, key)
-            return metas
+            return _region_filter(metas)
     metas, hints = _fetch_first_page(transport, manifest, catalog, extra)
     if cache is not None and key is not None:
         cache.store(key, metas, hints)
         cache.save()
-    return metas
+    return _region_filter(metas)
+
+
+def _region_filter(metas):
+    """The setting, applied on the way out so the cache keeps every title.
+
+    A later change to the checklist then hides or restores a row without
+    waiting for the page to expire. The stored copy is the slim meta,
+    which keeps ``country`` and ``language`` for this.
+    """
+    from lib.ui.regiondialog import apply_region_filter
+
+    return apply_region_filter(metas)

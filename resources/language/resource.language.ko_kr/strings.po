@@ -1201,3 +1201,19 @@ msgstr "이 키는 너무 깁니다."
 msgctxt "#30469"
 msgid "Could not save the key."
 msgstr "키를 저장하지 못했습니다."
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "국가와 언어 숨기기"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "국가"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "원어"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "숨긴 항목 없음"

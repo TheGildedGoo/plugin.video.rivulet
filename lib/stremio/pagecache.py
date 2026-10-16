@@ -40,6 +40,9 @@ _SLIM_FIELDS = (
     'id', 'type', 'name', 'poster', 'background', 'logo',
     'year', 'releaseInfo', 'released', 'runtime', 'imdbRating', 'popularity',
     'genres',
+    # The region checklist reads these. Dropping them made a cached row
+    # look unlabeled, so a hidden country came back on the next launch.
+    'country', 'language', 'originalLanguage', 'original_language',
     'rottenTomatoes', 'rtRating', 'tomatoMeter', 'tomatoes',
     'metascore', 'metacritic', 'metaScore',
 )

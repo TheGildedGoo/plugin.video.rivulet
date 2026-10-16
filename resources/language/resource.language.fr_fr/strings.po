@@ -1201,3 +1201,19 @@ msgstr "Cette clé est trop longue."
 msgctxt "#30469"
 msgid "Could not save the key."
 msgstr "Impossible d'enregistrer la clé."
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "Masquer des pays et des langues"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "Pays"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "Langues d'origine"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "Rien de masqué"

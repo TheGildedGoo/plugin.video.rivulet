@@ -284,7 +284,7 @@ def new_episodes(series_items, metas, seen, now):
             still = _episode_still(video, content_id)
             title = _text(video.get("title")) or _text(video.get("name"))
             overview = _text(video.get("overview")) or _text(video.get("description"))
-            results.append({
+            row = {
                 "type": content_type,
                 "id": content_id,
                 "video_id": video_id,
@@ -297,7 +297,21 @@ def new_episodes(series_items, metas, seen, now):
                 "overview": overview,
                 "poster": still or meta.get("poster"),
                 "background": still or meta.get("background"),
-            })
+            }
+            # The Series row filters on these. An episode object does not
+            # carry them; the series meta does. Missing stays missing, so
+            # a show the addon did not label is not hidden.
+            country = meta.get("country")
+            language = (
+                meta.get("language")
+                or meta.get("originalLanguage")
+                or meta.get("original_language")
+            )
+            if country:
+                row["country"] = country
+            if language:
+                row["language"] = language
+            results.append(row)
     return results
 
 

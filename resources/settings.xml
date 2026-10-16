@@ -38,6 +38,25 @@
                     <default>true</default>
                     <control type="toggle"/>
                 </setting>
+                <!-- The checklist, not a text field: a remote cannot
+                     type country names, and an edit control focused by
+                     accident eats the arrows. The stored value stays
+                     hidden. Its default is the starting exclusion list. -->
+                <setting id="content_exclude_edit" type="action" label="30470">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.revrivulet/?action=content_exclude)</data>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting id="content_exclude" type="string" label="30470" visible="false">
+                    <level>0</level>
+                    <default>c:in,l:hi,l:kn,l:ml,l:ta,l:te</default>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30470</heading>
+                    </control>
+                </setting>
                 <setting id="startup_autoload" type="boolean" label="30230">
                     <level>0</level>
                     <default>false</default>

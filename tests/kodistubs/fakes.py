@@ -185,6 +185,10 @@ class Env:
 
         # xbmcgui.Dialog / DialogProgress recorders
         self.notifications = []         # [(heading, message, icon, time)]
+        # Dialog.multiselect recordings, and scripted answers. Each answer
+        # is a list of indexes, or None for cancel. An empty queue cancels.
+        self.dialog_multiselects = []
+        self.multiselect_answers = []
         # Parallel to `notifications`. False is a toast that must not play
         # Kodi's notification chime (addon open, category navigation).
         self.notification_sounds = []

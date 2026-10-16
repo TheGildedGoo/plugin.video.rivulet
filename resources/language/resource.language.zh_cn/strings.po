@@ -1201,3 +1201,19 @@ msgstr "此密钥太长。"
 msgctxt "#30469"
 msgid "Could not save the key."
 msgstr "无法保存密钥。"
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "隐藏国家和地区及语言"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "国家"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "原始语言"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "未隐藏任何内容"

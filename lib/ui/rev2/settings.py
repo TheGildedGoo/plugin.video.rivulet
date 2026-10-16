@@ -17,8 +17,8 @@ OPTIONS = 32011
 ALL_SETTINGS = 32012
 
 #: (category string id, ((setting id, label string id, settings.xml default), ...))
-#: Boolean settings only. About fifteen, which is the spec's pane;
-#: everything else is behind All settings. The default matches
+#: Booleans, plus the country/language checklist (default None), which
+#: opens a list instead of flipping. The boolean default matches
 #: settings.xml so a key the user has never touched reads the same here
 #: as in Kodi's dialog.
 PANES = (
@@ -30,6 +30,7 @@ PANES = (
         ('home_show_anime', 30222, True),
         ('home_show_other', 30229, True),
         ('home_hide_adult', 30280, True),
+        ('content_exclude', 30470, None),
         ('startup_autoload', 30230, False),
     )),
     (30070, (
@@ -84,9 +85,12 @@ class SettingsWindow(BaseWindow):
         options.reset()
         items = []
         for key, label_id, default in self._selected_pane():
-            item = xbmcgui.ListItem(
-                label=L(label_id), label2=_state_label(setting_bool(key, default)),
-            )
+            if default is None:
+                from lib.ui.regiondialog import exclusion_summary
+                label2 = exclusion_summary()
+            else:
+                label2 = _state_label(setting_bool(key, default))
+            item = xbmcgui.ListItem(label=L(label_id), label2=label2)
             item.setProperty('setting', key)
             items.append(item)
         options.addItems(items)
@@ -122,6 +126,11 @@ class SettingsWindow(BaseWindow):
             if candidate == key:
                 default = candidate_default
                 break
+        if default is None:
+            from lib.ui.regiondialog import edit_exclusions
+            edit_exclusions()
+            self._fill_options()
+            return
         ADDON.setSetting(key, 'false' if setting_bool(key, default) else 'true')
         self._fill_options()
 

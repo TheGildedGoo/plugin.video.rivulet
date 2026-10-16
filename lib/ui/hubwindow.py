@@ -839,7 +839,9 @@ def _fetch_decade(desc, years, label):
     if cache is not None:
         state, cached = cache.lookup(key)
         if state in ('fresh', 'stale') and cached:
-            return cached
+            from lib.ui.regiondialog import apply_region_filter
+
+            return apply_region_filter(cached)
     catalog = desc.get('catalog') or {}
     client = get_client()
     hints = {}
@@ -880,7 +882,9 @@ def _fetch_decade(desc, years, label):
     if cache is not None and metas:
         cache.store(key, metas, hints)
         cache.save()
-    return metas
+    from lib.ui.regiondialog import apply_region_filter
+
+    return apply_region_filter(metas)
 
 
 def _open_decade(window, item):
