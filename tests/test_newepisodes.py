@@ -101,6 +101,18 @@ def test_new_episodes_tolerates_a_series_with_no_videos_key():
     assert result == []
 
 
+def test_new_episodes_keeps_the_series_country_and_language():
+    """The Series row hides a show from these fields. The episode itself
+    does not carry them."""
+    meta = _meta(videos=[_video('s1e2', 1, 2, PAST)])
+    meta['country'] = 'India'
+    meta['language'] = 'Hindi'
+    result = new_episodes([_series()], {'tt1': meta}, {}, NOW)
+    assert len(result) == 1
+    assert result[0]['country'] == 'India'
+    assert result[0]['language'] == 'Hindi'
+
+
 def test_new_episodes_tolerates_a_series_missing_from_metas():
     result = new_episodes([_series()], {}, {}, NOW)
     assert result == []

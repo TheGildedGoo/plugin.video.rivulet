@@ -1201,3 +1201,19 @@ msgstr "Ключ слишком длинный."
 msgctxt "#30469"
 msgid "Could not save the key."
 msgstr "Не удалось сохранить ключ."
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "Скрыть страны и языки"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "Страны"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "Языки оригинала"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "Ничего не скрыто"

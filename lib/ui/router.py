@@ -79,6 +79,7 @@ def run():
         'advancedsettings_install': lambda p: _install_advancedsettings(),
         'sync_addons_now': _view_action('sync_addons_now'),
         'pair_key': lambda p: _pair_key(),
+        'content_exclude': lambda p: _content_exclude(),
     }
 
     # Any action not in this dict - unrecognized, or a favourite/.strm URL
@@ -93,6 +94,12 @@ def run():
     except Exception as exc:  # noqa: BLE001 - last-resort guard, must never crash Kodi
         log('router: action "%s" failed: %r' % (action, exc), xbmc.LOGERROR)
         _fail_gracefully(action)
+
+
+def _content_exclude():
+    """Action 'content_exclude': the Settings checklist of countries and languages."""
+    from lib.ui.regiondialog import edit_exclusions
+    edit_exclusions()
 
 
 def _pair_key():

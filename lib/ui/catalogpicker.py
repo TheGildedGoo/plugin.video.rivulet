@@ -471,7 +471,10 @@ def _new_episode_items(store):
         if not metas:
             return []
         seen = store.get_seen_episodes()
-        return new_episodes(series_items, metas, seen, datetime.datetime.utcnow())
+        episodes = new_episodes(series_items, metas, seen, datetime.datetime.utcnow())
+        from lib.ui.regiondialog import apply_region_filter
+
+        return apply_region_filter(episodes)
     except Exception as exc:
         log('catalogpicker: new-episodes computation failed: %r' % (exc,), xbmc.LOGWARNING)
         return []

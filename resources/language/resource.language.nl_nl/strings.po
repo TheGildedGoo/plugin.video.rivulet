@@ -1201,3 +1201,19 @@ msgstr "Deze sleutel is te lang."
 msgctxt "#30469"
 msgid "Could not save the key."
 msgstr "De sleutel kon niet worden opgeslagen."
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "Landen en talen verbergen"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "Landen"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "Oorspronkelijke talen"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "Niets verborgen"

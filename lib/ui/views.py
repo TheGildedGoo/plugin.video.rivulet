@@ -578,6 +578,12 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
                 seen.add(key)
             fresh.append(meta_obj)
         filtered = filter_metas(fresh) if hide_adult else fresh
+        # Country and original language, after the adult pass. A title
+        # the addon did not label stays. Skip bookkeeping still uses
+        # `fresh`, so a hidden title cannot look like a stuck page.
+        from lib.ui.regiondialog import apply_region_filter
+
+        filtered = apply_region_filter(filtered)
         return fresh, filtered
 
     _, filtered_first = _dedupe(first)

@@ -1154,6 +1154,24 @@ def test_fetch_catalog_pages_fetches_an_adult_catalog_when_setting_is_off(load_v
     assert client.calls  # the request was actually made
 
 
+def test_fetch_catalog_pages_hides_an_excluded_country(load_views):
+    """A stated country on the exclusion list is dropped. A title with
+    no country or language stays, and so does a different country."""
+    ctx = load_views(settings={'content_exclude': 'c:in,l:hi'})
+    page = [
+        {'id': 'us', 'name': 'Dune', 'type': 'movie', 'country': 'United States'},
+        {'id': 'in', 'name': 'Radhe', 'type': 'movie', 'country': 'India'},
+        {'id': 'hi', 'name': 'Hindi film', 'type': 'movie', 'language': 'Hindi'},
+        {'id': 'bare', 'name': 'Bare', 'type': 'movie'},
+    ]
+    client = FakePagingClient([page])
+    _wire_data_layer(ctx.views, FakeStore(), client)
+
+    metas = ctx.views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+
+    assert [meta['id'] for meta in metas] == ['us', 'bare']
+
+
 def test_fetch_catalog_pages_filters_adult_metas_out_of_an_ordinary_catalog_by_default(load_views):
     """The catalog itself isn't flagged, but one item in it is - that
     item must be dropped from the results by default, the rest kept."""

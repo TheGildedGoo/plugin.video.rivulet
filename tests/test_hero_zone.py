@@ -33,11 +33,13 @@ above the row, not under the header. The description is six lines in a
 column 55% of the screen wide (1056px). A two-line box under the header
 clipped the plot at the top and at the right edge. Ratings share that
 lower band, in the right quarter. Both sit on one black bar
-(hero_bar.png) across the screen, just above the row. The bar's top
-64 pixels fade into the picture. Python shortens the bar when the
-text is short and keeps its bottom on the row. The vertical fade
-starts at y=0 and stays clear through that text, so the header is
-not on a lighter strip. It is opaque by the row.
+(hero_bar.png) across the screen. The bar's top 64 pixels fade into
+the picture. Python shortens the bar when the text is short. On Home
+and the hubs the bar stops 40px above the row, and a 2px grey line
+runs across the top of that row, so the row title is not tight against
+the description. Grid and a catalog list still end on the row. The
+vertical fade starts at y=0 and stays clear through that text, so the
+header is not on a lighter strip. It is opaque by the row.
 """
 import os
 import xml.etree.ElementTree as ET
@@ -59,22 +61,22 @@ _ROWS = {
     'HomeWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
         'rows': '30001', 'pills': '30010', 'lines': 6, 'font': 30, 'title_h': 64,
-        'kind': 'grouplist', 'band': (692, 388),
+        'kind': 'grouplist', 'band': (692, 388), 'gap': 40,
     },
     'Rev2HomeWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
         'rows': '30001', 'pills': '30010', 'lines': 6, 'font': 30, 'title_h': 64,
-        'kind': 'grouplist', 'band': (692, 388),
+        'kind': 'grouplist', 'band': (692, 388), 'gap': 40,
     },
     'HubWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
         'rows': '31000', 'lines': 6, 'font': 30, 'title_h': 64,
-        'kind': 'fixedlist', 'band': (740, 340),
+        'kind': 'fixedlist', 'band': (740, 340), 'gap': 40,
     },
     'Rev2HubWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
         'rows': '31000', 'lines': 6, 'font': 30, 'title_h': 64,
-        'kind': 'fixedlist', 'band': (740, 340),
+        'kind': 'fixedlist', 'band': (740, 340), 'gap': 40,
     },
     'GridWindow.xml': {
         'title': '30020', 'meta': '30021', 'plot': '30024', 'caption': '30025',
@@ -213,6 +215,7 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
             el for el in root.iter('control')
             if el.get('type') == 'image' and _texture_name(el) == 'white.png'
             and (el.findtext('top') or '').strip() == str(band_top)
+            and _px(el, 'top') + _px(el, 'height') == _SCREEN
         ]
         assert len(plates) == 1, name
         plate = plates[0]
@@ -225,6 +228,21 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
         meta = _by_id(root, spec['meta'])
         plot = _by_id(root, spec['plot'])
         plot_bottom, title_top, title_h = _assert_text_stack(name, title, meta, plot, spec)
+        # Home and the hubs stop the text short of the row so the heading
+        # is not tight against the description. A hairline marks that edge.
+        gap = spec.get('gap', 0)
+        stack_limit = band_top - gap
+        if gap:
+            lines = [
+                el for el in root.iter('control')
+                if el.get('type') == 'image' and _texture_name(el) == 'white.png'
+                and (el.findtext('top') or '').strip() == str(band_top)
+                and _px(el, 'height') == 2
+            ]
+            assert len(lines) == 1, name
+            assert (lines[0].find('texture').get('colordiffuse') or '') == 'FF8B949E', name
+            assert _px(lines[0], 'width') == 1920, name
+            assert _px(lines[0], 'left') == 0, name
         caption_id = spec.get('caption')
         if caption_id:
             caption = _by_id(root, caption_id)
@@ -233,15 +251,15 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
             assert caption_top >= plot_bottom, name
             assert caption_top <= plot_bottom + 16, name
             assert _px(caption, 'width') == _TEXT_WIDTH, name
-            assert caption_bottom <= band_top, name
-            assert band_top - caption_bottom <= 8, name
+            assert caption_bottom <= stack_limit, name
+            assert stack_limit - caption_bottom <= 8, name
             stack_bottom = caption_bottom
         else:
-            assert plot_bottom <= band_top, name
-            assert band_top - plot_bottom <= 8, name
+            assert plot_bottom <= stack_limit, name
+            assert stack_limit - plot_bottom <= 8, name
             stack_bottom = plot_bottom
-        assert _px(meta, 'top') + _px(meta, 'height') <= band_top + 8, name
-        assert stack_bottom <= band_top, name
+        assert _px(meta, 'top') + _px(meta, 'height') <= stack_limit + 8, name
+        assert stack_bottom <= stack_limit, name
 
         rows = _by_id(root, spec['rows'])
         row_top, row_h = _px(rows, 'top'), _px(rows, 'height')
@@ -347,7 +365,8 @@ def test_hero_bar_spans_the_screen_and_ends_on_the_row():
         assert _px(bar, 'left') == 0, name
         assert _px(bar, 'width') == 1920, name
         band_top = _ROWS[name]['band'][0] if name in _ROWS else 740
-        assert _px(bar, 'top') + _px(bar, 'height') == band_top, name
+        gap = _ROWS[name].get('gap', 0) if name in _ROWS else 0
+        assert _px(bar, 'top') + _px(bar, 'height') == band_top - gap, name
         controls = list(root.iter('control'))
         title = _by_id(root, '30020')
         assert controls.index(bar) < controls.index(title), name

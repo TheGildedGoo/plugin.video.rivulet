@@ -272,6 +272,12 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             # of a silently-approved action.
             return yesno_answers.pop(0) if yesno_answers else False
 
+        def multiselect(self, heading, options, autoclose=0, preselect=None, useDetails=False):
+            env.dialog_multiselects.append((heading, list(options), list(preselect or [])))
+            if env.multiselect_answers:
+                return env.multiselect_answers.pop(0)
+            return None
+
         def notification(self, heading, message, icon=None, time=4000, sound=True):
             # The recorded tuple stays four items: existing assertions
             # unpack it. The chime is the parallel list.

@@ -258,6 +258,35 @@ def test_right_at_the_end_of_the_screen_appends_the_rest_and_keeps_the_hero(load
     assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'plot 3'
 
 
+def test_oninit_paints_the_first_card_before_the_remote_moves(load_hub, monkeypatch):
+    """The first card is focused as the hub opens, but getFocusId() is
+    still the top bar. The hero used to stay on the addon fanart until
+    the selection moved. The descriptor already has that card."""
+    ctx = load_hub()
+    import xbmcgui
+    monkeypatch.setattr(ctx.hubwindow, 'get_store', lambda: _Store(auth=None))
+    poster = xbmcgui.ListItem('Dune')
+    poster.setProperty('hero_title', 'Dune')
+    poster.setProperty('hero_plot', 'A desert.')
+    poster.setProperty('fanart', 'back.jpg')
+    poster.setProperty('sid', 'tt1')
+    poster.setProperty('stype', 'movie')
+    win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
+    win.types = frozenset({'movie'})
+    win.heading = 'Movies'
+    win._descs = [{'heading': 'TOP', 'posters': [poster], 'col': 0}]
+    win._episodes = []
+    # What Kodi reports during onInit: the default control, not the list.
+    win.getFocusId = lambda: ctx.hubwindow.BTN_SEARCH
+
+    win.onInit()
+
+    assert win.getControl(ctx.homewindow.BACKGROUND).image == 'back.jpg'
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Dune'
+    assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'A desert.'
+    assert win.getProperty('HeroFill') == ''
+
+
 def test_empty_hub_closes_and_notifies(load_hub, monkeypatch):
     ctx = load_hub()
     monkeypatch.setattr(ctx.hubwindow, 'get_store', lambda: _Store(addons=[]))

@@ -940,6 +940,9 @@ def open_credits_picker(store, client, meta):
             return
         if hide_adult:
             metas = filter_metas(metas)
+        from lib.ui.regiondialog import apply_region_filter
+
+        metas = apply_region_filter(metas)
         _open_results(metas)
         return
 

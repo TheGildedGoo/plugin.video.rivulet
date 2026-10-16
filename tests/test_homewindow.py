@@ -151,6 +151,9 @@ def _patch_library(monkeypatch, ctx, entries=None):
     monkeypatch.setattr(
         ctx.mystuff, '_fetch_library_entries', lambda store, _entries=list(entries or []): _entries,
     )
+    # A real fetch opens the addon client. These tests assert the row,
+    # not Cinemeta. The one that does is explicit about the answer.
+    monkeypatch.setattr(ctx.homewindow, '_fetch_library_meta', lambda stype, sid: None)
 
 
 # ---------------------------------------------------------------------------
@@ -360,12 +363,99 @@ def test_oninit_shows_the_library_row_when_authenticated(load_homewindow, monkey
     assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.BROWSE_LIST).items] == [
         'movies', 'series', 'anime',
     ]
-    # Focus lands on the library poster, so the hero is that title's art
-    # (the poster, when the record has no background) rather than the
-    # addon fanart the window opened with.
+    # Focus lands on the library poster. There is no backdrop yet, so
+    # the hero is that poster, full-bleed, not the addon fanart and not
+    # a letterboxed poster on a black plate.
     assert win.getControl(ctx.homewindow.BACKGROUND).image == 's'
+    assert win.getProperty('HeroFill') == '1'
+    assert win.getControl(ctx.homewindow.HERO_FILL).image == 's'
     assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as ?'
     assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
+
+
+def test_library_focus_fetches_meta_and_paints_the_backdrop(load_homewindow, monkeypatch):
+    """The library record is a poster. On focus, Cinemeta (the meta
+    addon) supplies the backdrop and the description the other rows
+    already show. The fetch does not block the window opening."""
+    import time
+
+    ctx = load_homewindow()
+    import xbmcgui
+    _patch_library(monkeypatch, ctx, [{
+        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
+    }])
+    started = threading.Event()
+    release = threading.Event()
+
+    def _meta(stype, sid):
+        assert (stype, sid) == ('movie', 'tt9')
+        started.set()
+        release.wait(2)
+        return {
+            'id': 'tt9', 'type': 'movie', 'name': 'Saved',
+            'poster': 's', 'background': 'wide.jpg',
+            'description': 'A desert planet.', 'year': '2024',
+        }
+
+    monkeypatch.setattr(ctx.homewindow, '_fetch_library_meta', _meta)
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}))
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+
+    opened = time.time()
+    win.onInit()
+    assert time.time() - opened < 0.5
+    assert started.is_set()
+    # Still the poster, covering the frame, while the request is in flight.
+    assert win.getProperty('HeroFill') == '1'
+    assert win.getControl(ctx.homewindow.BACKGROUND).image == 's'
+    release.set()
+    ctx.homewindow._join_library_meta(win)
+    win.onAction(xbmcgui.Action(999))
+
+    assert win.getControl(ctx.homewindow.BACKGROUND).image == 'wide.jpg'
+    assert win.getProperty('HeroFill') == ''
+    assert win.getControl(ctx.homewindow.HERO_FILL).image == ''
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Saved'
+    assert 'desert planet' in win.getControl(ctx.homewindow.HERO_PLOT).text
+    assert win.getControl(30026).visible is True
+    item = win.getControl(ctx.homewindow.LIBRARY_SHELF).items[0]
+    assert item.getProperty('needs_meta') == ''
+    assert item.getProperty('fanart') == 'wide.jpg'
+
+
+def test_library_focus_keeps_a_full_bleed_poster_when_meta_has_no_backdrop(load_homewindow, monkeypatch):
+    """No backdrop in the answer: the poster still covers the hero, and
+    the description and the ratings show on the bar."""
+    ctx = load_homewindow()
+    import xbmcgui
+    _patch_library(monkeypatch, ctx, [{
+        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
+    }])
+
+    def _meta(stype, sid):
+        return {
+            'id': 'tt9', 'type': 'movie', 'name': 'Saved', 'poster': 's',
+            'description': 'Only a poster.', 'year': '2021',
+        }
+
+    calls = []
+
+    def _counting(stype, sid):
+        calls.append(sid)
+        return _meta(stype, sid)
+
+    monkeypatch.setattr(ctx.homewindow, '_fetch_library_meta', _counting)
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}))
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.onInit()
+    ctx.homewindow._join_library_meta(win)
+    win.onAction(xbmcgui.Action(999))
+    win.onAction(xbmcgui.Action(999))
+
+    assert calls == ['tt9']
+    assert win.getProperty('HeroFill') == '1'
+    assert win.getControl(ctx.homewindow.HERO_FILL).image == 's'
+    assert 'Only a poster' in win.getControl(ctx.homewindow.HERO_PLOT).text
 
 
 def test_oninit_hides_library_row_when_not_authenticated(load_homewindow, monkeypatch):

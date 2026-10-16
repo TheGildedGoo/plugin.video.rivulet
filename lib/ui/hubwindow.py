@@ -433,6 +433,36 @@ def _paint_list(window, select=None):
     control.selectItem(max(0, min(select, len(items) - 1)))
 
 
+def _opening_poster(window):
+    """The poster the hero should show when the hub opens.
+
+    ``onInit`` focuses the list, but Kodi still reports the top bar from
+    ``getFocusId()`` until the window has finished opening, and
+    ``getSelectedItem()`` on that bar has no backdrop. The descriptors
+    already hold the first card. Painting from that card is what fills
+    the hero before the remote moves. Once the list can say which row
+    is selected, that row wins, so a resume lands on the same title.
+    """
+    descs = getattr(window, '_descs', None) or []
+    if not descs:
+        return None
+    index = 0
+    try:
+        selected = window.getControl(HUB_LIST).getSelectedPosition()
+    except Exception:
+        selected = -1
+    if isinstance(selected, int) and 0 <= selected < len(descs):
+        index = selected
+    desc = descs[index]
+    posters = desc.get('posters') or []
+    if not posters:
+        return None
+    col = desc.get('col') or 0
+    if not isinstance(col, int) or col < 0 or col >= len(posters):
+        col = 0
+    return posters[col]
+
+
 def _current_poster(window):
     index = window.getControl(HUB_LIST).getSelectedPosition()
     if index < 0 or index >= len(window._descs):
@@ -698,7 +728,11 @@ class HubWindow(BaseWindow):
                 return
         _paint_list(self, select=self.getControl(HUB_LIST).getSelectedPosition())
         self.setFocusId(HUB_LIST)
-        paint_hero(self)
+        # The list's selected item is not readable yet: focus is still the
+        # top bar, so paint_hero() from getFocusId() leaves the addon
+        # fanart up while the first card is already focused. The poster
+        # is on the descriptor. Paint that.
+        paint_hero(self, _opening_poster(self))
         from lib.ui.posterwarm import collect_poster_urls, request_warm
 
         groups = []
@@ -839,7 +873,9 @@ def _fetch_decade(desc, years, label):
     if cache is not None:
         state, cached = cache.lookup(key)
         if state in ('fresh', 'stale') and cached:
-            return cached
+            from lib.ui.regiondialog import apply_region_filter
+
+            return apply_region_filter(cached)
     catalog = desc.get('catalog') or {}
     client = get_client()
     hints = {}
@@ -880,7 +916,9 @@ def _fetch_decade(desc, years, label):
     if cache is not None and metas:
         cache.store(key, metas, hints)
         cache.save()
-    return metas
+    from lib.ui.regiondialog import apply_region_filter
+
+    return apply_region_filter(metas)
 
 
 def _open_decade(window, item):
