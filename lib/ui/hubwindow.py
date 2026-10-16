@@ -17,7 +17,13 @@ vertically.
 
 Search-only catalogs are skipped. They cannot draw a poster until the
 viewer types a query. A genre-required catalog uses its first declared
-genre so the row is not empty.
+genre so the row is not empty. On the Movies hub, a catalog whose
+required genre options are all years is decade tiles instead (1960s
+through the current decade). Selecting one merges up to four pages per
+year and opens the existing coverflow.
+
+The next unloaded row is fetched off this thread. The row stays on the
+grey plates until that fetch lands and the UI thread paints it.
 
 Series, and only Series, may pin a New Episodes row. That calls
 `catalogpicker._new_episode_items` and `_mark_episode_seen`. The
@@ -32,6 +38,8 @@ row: the skin hides the title whenever `HeroLogo` is set.
 
 This module does not change playback, the player, or the Stremio client.
 """
+import threading
+
 import xbmcgui
 
 from lib.ui.dependencies import get_store
@@ -115,6 +123,28 @@ def _descriptors(addons, types):
             options = catalog_extra_options(catalog, 'genre')
             if not options:
                 continue
+            # Movies only. A series year catalog keeps the first option,
+            # which is what that row has always drawn.
+            if wanted == {'movie'}:
+                from lib.stremio.decades import decade_tiles, is_year_catalog
+
+                if is_year_catalog(catalog):
+                    tiles = decade_tiles(options)
+                    if not tiles:
+                        continue
+                    descs.append({
+                        'heading': _heading_for(catalog),
+                        'kind': 'decade',
+                        'layout': 'decade',
+                        'transport': transport,
+                        'manifest': manifest,
+                        'catalog': catalog,
+                        'extra': None,
+                        'tiles': tiles,
+                        'posters': _decade_posters(tiles),
+                        'col': 0,
+                    })
+                    continue
             extra = [('genre', options[0])]
         descs.append({
             'heading': _heading_for(catalog),
@@ -150,7 +180,7 @@ def _episode_descriptor(store, types):
     for index, episode in enumerate(episodes[:SHELF_CAP]):
         # `name` is what `_poster_item` writes into `hero_title`. For
         # this row that has to be the episode (`S1E3 · Title`), not the
-        # series. The series name moves to `hero_meta`, under the title.
+        # series. The series name moves to `hero_meta`, the right-quarter panel.
         # No logo: HubWindow.xml hides the title while HeroLogo is set,
         # and the series clearlogo would put the show's name back.
         item = _poster_item({
@@ -164,6 +194,8 @@ def _episode_descriptor(store, types):
         show = episode.get('name') or ''
         if show and episode.get('label'):
             item.setProperty('hero_meta', escape_label(show))
+            # The panel is the series name, not the show's ratings.
+            item.setProperty('hero_facts', '')
         item.setProperty('episode_index', str(index))
         posters.append(item)
         kept.append(episode)
@@ -179,6 +211,23 @@ def _episode_descriptor(store, types):
         'col': 0,
         'episodes': kept,
     }
+
+
+def _decade_posters(tiles):
+    """Grey-plate tiles. No catalog request: the years are on the manifest.
+
+    ``n0``..``n7`` are what the skin centers on the plate. ``decade`` is
+    what a click reads so it does not open the tile as a title.
+    """
+    posters = []
+    for tile in tiles:
+        item = xbmcgui.ListItem(tile.get('label') or '')
+        item.setProperty('decade', str(tile.get('start')))
+        item.setProperty('decade_years', ','.join(tile.get('years') or []))
+        item.setProperty('hero_title', tile.get('label') or '')
+        item.setProperty('stype', 'movie')
+        posters.append(item)
+    return posters
 
 
 def _load_posters(desc):
@@ -287,6 +336,7 @@ def _apply_posters(row_item, posters, col, layout=''):
         poster = posters[col]
         row_item.setProperty('hero_title', poster.getProperty('hero_title'))
         row_item.setProperty('hero_meta', poster.getProperty('hero_meta'))
+        row_item.setProperty('hero_facts', poster.getProperty('hero_facts'))
         row_item.setProperty('hero_plot', poster.getProperty('hero_plot'))
         row_item.setProperty('hero_logo', poster.getProperty('hero_logo'))
         row_item.setProperty('fanart', poster.getProperty('fanart'))
@@ -328,6 +378,146 @@ def _current_poster(window):
     return posters[col]
 
 
+def _row_lock(window):
+    lock = getattr(window, '_row_lock', None)
+    if lock is None:
+        lock = threading.Lock()
+        window._row_lock = lock
+    return lock
+
+
+def _extend_needs_network(desc):
+    """True when the next posters are not already in memory.
+
+    A ``pending`` page was fetched with the first screen. Extending from
+    it is a list slice, and the keypress can land on the new poster.
+    An empty pending list means the next page is a request, which must
+    not block Up/Down/Right on a 15s timeout.
+    """
+    if not desc or desc.get('exhausted') or desc.get('kind') == 'decade':
+        return False
+    if desc.get('pending'):
+        return False
+    return True
+
+
+def _schedule_row_fetch(window, indexes):
+    """Fetch ``indexes`` off the GUI thread. The plates stay grey until
+    ``_apply_fetched_rows`` runs on the next action.
+    """
+    inflight = getattr(window, '_row_fetch_inflight', None)
+    if inflight is None:
+        window._row_fetch_inflight = set()
+        window._row_fetch_threads = []
+    todo = []
+    for index in indexes:
+        if index in window._row_fetch_inflight:
+            continue
+        if index < 0 or index >= len(window._descs):
+            continue
+        if window._descs[index].get('posters') is not None:
+            continue
+        todo.append(index)
+    if not todo:
+        return
+    window._row_fetch_inflight.update(todo)
+
+    def _work(indexes_to_load):
+        loaded = []
+        for index in indexes_to_load:
+            try:
+                if index < len(window._descs) and window._descs[index].get('posters') is None:
+                    _load_posters(window._descs[index])
+            except Exception:
+                pass
+            loaded.append(index)
+        with _row_lock(window):
+            ready = getattr(window, '_row_fetch_ready', None)
+            if ready is None:
+                window._row_fetch_ready = loaded
+            else:
+                ready.extend(loaded)
+            for index in indexes_to_load:
+                window._row_fetch_inflight.discard(index)
+        try:
+            import xbmc
+            xbmc.executebuiltin('Action(noop)')
+        except Exception:
+            pass
+
+    thread = threading.Thread(
+        target=_work, args=(list(todo),), name='rivulet-hub-row', daemon=True,
+    )
+    window._row_fetch_threads.append(thread)
+    thread.start()
+
+
+def _join_row_fetches(window):
+    """Test hook. Production paints on the noop action the worker wakes."""
+    for thread in list(getattr(window, '_row_fetch_threads', []) or []):
+        thread.join(timeout=2)
+
+
+def _apply_fetched_rows(window):
+    """Paint rows the worker has finished. UI thread only."""
+    with _row_lock(window):
+        ready = list(getattr(window, '_row_fetch_ready', None) or [])
+        window._row_fetch_ready = []
+    if not ready or not window._descs:
+        return
+    index = window.getControl(HUB_LIST).getSelectedPosition()
+    removed = False
+    for row in sorted(set(ready), reverse=True):
+        if row < len(window._descs) and window._descs[row].get('posters') == []:
+            del window._descs[row]
+            removed = True
+    if removed:
+        if not window._descs:
+            return
+        _paint_list(window, select=max(0, min(index, len(window._descs) - 1)))
+        window.setFocusId(HUB_LIST)
+        return
+    for row in ready:
+        _refresh_row(window, row)
+
+
+def _schedule_extend(window, index):
+    """The next page of one row, off the GUI thread."""
+    inflight = getattr(window, '_extend_inflight', None)
+    if inflight is None:
+        window._extend_inflight = set()
+    if index in window._extend_inflight:
+        return
+    window._extend_inflight.add(index)
+
+    def _work():
+        try:
+            if index < len(window._descs):
+                _extend_row(window._descs[index])
+        except Exception:
+            pass
+        with _row_lock(window):
+            ready = getattr(window, '_row_fetch_ready', None)
+            if ready is None:
+                window._row_fetch_ready = [index]
+            else:
+                ready.append(index)
+            window._extend_inflight.discard(index)
+        try:
+            import xbmc
+            xbmc.executebuiltin('Action(noop)')
+        except Exception:
+            pass
+
+    thread = threading.Thread(target=_work, name='rivulet-hub-extend', daemon=True)
+    threads = getattr(window, '_row_fetch_threads', None)
+    if threads is None:
+        window._row_fetch_threads = [thread]
+    else:
+        threads.append(thread)
+    thread.start()
+
+
 def _move_col(window, delta):
     index = window.getControl(HUB_LIST).getSelectedPosition()
     if index < 0 or index >= len(window._descs):
@@ -337,9 +527,14 @@ def _move_col(window, delta):
     if not posters:
         return
     # Load before clamping, so a right at the end of this screen moves
-    # onto the poster that just arrived instead of sticking.
+    # onto the poster that just arrived instead of sticking. A page that
+    # is already in memory stays on this turn. A page that still has to
+    # be requested does not block the remote.
     if delta > 0 and (desc.get('col') or 0) >= len(posters) - 3:
-        posters = _extend_row(desc)
+        if _extend_needs_network(desc):
+            _schedule_extend(window, index)
+        else:
+            posters = _extend_row(desc)
     col = max(0, min((desc.get('col') or 0) + delta, len(posters) - 1))
     desc['col'] = col
     item = window.getControl(HUB_LIST).getSelectedItem()
@@ -364,13 +559,21 @@ def _refresh_row(window, index):
 
 
 def _on_vertical(window):
+    """The focused row and the one after it. Unloaded rows are fetched
+    off this thread so Down is not a catalog timeout.
+    """
+    _apply_fetched_rows(window)
+    if not window._descs:
+        return
     index = window.getControl(HUB_LIST).getSelectedPosition()
-    before = len(window._descs)
-    index = _ensure_loaded(window._descs, index)
-    if len(window._descs) != before:
-        _paint_list(window, select=index)
-        if window._descs:
-            window.setFocusId(HUB_LIST)
+    if index < 0:
+        return
+    pending = []
+    for row in (index, index + 1):
+        if row < len(window._descs) and window._descs[row].get('posters') is None:
+            pending.append(row)
+    if pending:
+        _schedule_row_fetch(window, pending)
         return
     _refresh_row(window, index)
     _refresh_row(window, index + 1)
@@ -426,11 +629,21 @@ class HubWindow(BaseWindow):
         _paint_list(self, select=self.getControl(HUB_LIST).getSelectedPosition())
         self.setFocusId(HUB_LIST)
         paint_hero(self)
+        from lib.ui.posterwarm import collect_poster_urls, request_warm
+
+        groups = []
+        for desc in (self._descs or [])[:_INITIAL_ROWS]:
+            if desc.get('kind') == 'decade':
+                groups.append([])
+                continue
+            groups.append(desc.get('posters') or [])
+        request_warm(collect_poster_urls(groups))
 
     @gated_input
     def onAction(self, action):
         from lib.ui.uicommon import BACK_ACTIONS
 
+        _apply_fetched_rows(self)
         action_id = action.getId()
         if action_id in BACK_ACTIONS:
             self.close()
@@ -510,6 +723,9 @@ def _offer_library(window):
 def _activate(window, item):
     if item is None:
         return
+    if item.getProperty('decade') != '':
+        _open_decade(window, item)
+        return
     index = item.getProperty('episode_index')
     # "0" is a real index. An empty property is a normal poster.
     if index != '':
@@ -520,6 +736,122 @@ def _activate(window, item):
         return
     from lib.ui.detailwindow import open_detail
     if open_detail(item.getProperty('stype'), sid):
+        window.should_close_caller = True
+        window.close()
+
+
+def _decade_cache_key(desc, label):
+    from lib.stremio.pagecache import cache_key
+
+    catalog = desc.get('catalog') or {}
+    return cache_key(
+        desc.get('transport'), catalog.get('type'), catalog.get('id'),
+        [('decade', label)],
+    )
+
+
+def _fetch_decade(desc, years, label):
+    """Merged metas for one decade, from the page cache when it is fresh.
+
+    A stale hit is returned immediately. The pages themselves are what
+    carry ``cacheMaxAge`` (Cinemeta sends four hours); the merged list
+    is stored under that hint so the second open does not repeat the
+    requests.
+    """
+    from lib.stremio.addons import AddonError, addon_error_detail, safe_url_for_log
+    from lib.stremio.decades import merge_decade_pages
+    from lib.ui.catalogpages import get_page_cache
+    from lib.ui.compat import log
+    from lib.ui.dependencies import get_client
+
+    cache = get_page_cache()
+    key = _decade_cache_key(desc, label)
+    if cache is not None:
+        state, cached = cache.lookup(key)
+        if state in ('fresh', 'stale') and cached:
+            return cached
+    catalog = desc.get('catalog') or {}
+    client = get_client()
+    hints = {}
+    transport = desc.get('transport')
+
+    def fetch(year, skip):
+        import xbmc
+
+        extra = [('genre', str(year))]
+        if skip:
+            extra.append(('skip', str(skip)))
+        try:
+            metas, page_hints = client.catalog_with_hints(
+                transport, catalog.get('type'), catalog.get('id'), extra=extra,
+            )
+        except AddonError as exc:
+            log(
+                'hub: decade %s year %s failed: %s' % (
+                    label, year, addon_error_detail(exc),
+                ),
+                xbmc.LOGWARNING,
+            )
+            raise
+        if page_hints:
+            hints.update(page_hints)
+        return metas, page_hints.get('hasMore') if isinstance(page_hints, dict) else None
+
+    try:
+        metas = merge_decade_pages(years, fetch)
+    except Exception as exc:
+        log('hub: decade %s failed: %r (%s)' % (label, exc, safe_url_for_log(transport)))
+        return []
+    from lib.stremio.contentrating import filter_metas
+    from lib.ui.views import _adult_filtering_enabled
+
+    if _adult_filtering_enabled():
+        metas = filter_metas(metas)
+    if cache is not None and metas:
+        cache.store(key, metas, hints)
+        cache.save()
+    return metas
+
+
+def _open_decade(window, item):
+    """Spinner, then the existing coverflow. A picked title still opens
+    its page. Back on the spinner cancels the merge.
+    """
+    from lib.ui.compat import L, notify
+    from lib.ui.uicommon import CANCELLED, run_cancellable
+
+    years = [year for year in (item.getProperty('decade_years') or '').split(',') if year]
+    label = item.getLabel() or item.getProperty('hero_title') or ''
+    index = window.getControl(HUB_LIST).getSelectedPosition()
+    if index < 0 or index >= len(window._descs):
+        return
+    desc = window._descs[index]
+
+    def _load():
+        return _fetch_decade(desc, years, label)
+
+    loaded = run_cancellable(_load, L(30033))
+    if loaded is CANCELLED:
+        return
+    if not loaded:
+        notify(L(30030))
+        return
+    from lib.ui.detailwindow import open_detail
+    from lib.ui.infowindow import open_showcase
+
+    try:
+        selected = open_showcase(loaded, catalog_title=desc.get('heading') or label)
+    except Exception as exc:
+        import xbmc
+
+        from lib.ui.compat import log
+
+        log('hub: decade coverflow failed: %r' % (exc,), xbmc.LOGERROR)
+        notify(L(30032))
+        return
+    if not selected:
+        return
+    if open_detail(selected.get('type') or 'movie', selected.get('id')):
         window.should_close_caller = True
         window.close()
 

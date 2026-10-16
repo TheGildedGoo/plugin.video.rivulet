@@ -121,7 +121,7 @@ def test_item_properties_full_meta_maps_every_field(load_infowindow):
         'plot': 'A plot.',
         'year': '2019',
         'runtime': '132 min',
-        'meta_line': '2019 · IMDb 8.4 · 132 min · Action, Sci-Fi',
+        'meta_line': 'IMDb 8.4\n2019\n132 min\nAction, Sci-Fi',
     }
 
 
@@ -156,7 +156,7 @@ def test_item_properties_coerces_numeric_rating_and_runtime_to_str(load_infowind
     props = ctx.infowindow._item_properties({'imdbRating': 9.0, 'runtime': 120})
     assert props['rating'] == '9.0'
     assert props['runtime'] == '120'
-    assert props['meta_line'] == 'IMDb 9.0 · 120'
+    assert props['meta_line'] == 'IMDb 9.0\n120'
 
 
 def test_year_range_closes_open_ended_series_with_a_word(load_infowindow):
@@ -200,14 +200,14 @@ def test_meta_line_joins_year_rating_runtime_and_genre(load_infowindow):
         'year': '2005', 'rating': '2.5', 'runtime': '120 min',
         'genre': 'Horror, Sci-Fi',
     })
-    assert line == '2005 · IMDb 2.5 · 120 min · Horror, Sci-Fi'
+    assert line == 'IMDb 2.5\n2005\n120 min\nHorror, Sci-Fi'
 
 
 def test_meta_line_keeps_genre_last(load_infowindow):
     """Genre trails the metadata, where the chip layout always put it."""
     ctx = load_infowindow()
     line = ctx.infowindow._meta_line({'year': '2005', 'genre': 'Horror'})
-    assert line == '2005 · Horror'
+    assert line == '2005\nHorror'
     assert line.endswith('Horror')
 
 
@@ -226,7 +226,7 @@ def test_meta_line_full_series_range_is_never_truncated(load_infowindow):
         'releaseInfo': '2010-2017', 'imdbRating': '9.0',
     })
     assert props['year'] == '2010-2017'
-    assert props['meta_line'] == '2010-2017 · IMDb 9.0'
+    assert props['meta_line'] == 'IMDb 9.0\n2010-2017'
     assert '...' not in props['meta_line']
 
 
@@ -241,8 +241,8 @@ def test_meta_line_skips_missing_segments_without_dangling_separators(load_infow
     ctx = load_infowindow()
     _meta_line = ctx.infowindow._meta_line
     assert _meta_line({'year': '2019'}) == '2019'
-    assert _meta_line({'year': '2019', 'runtime': '98 min'}) == '2019 · 98 min'
-    assert _meta_line({'rating': '7.1', 'runtime': '98 min'}) == 'IMDb 7.1 · 98 min'
+    assert _meta_line({'year': '2019', 'runtime': '98 min'}) == '2019\n98 min'
+    assert _meta_line({'rating': '7.1', 'runtime': '98 min'}) == 'IMDb 7.1\n98 min'
     assert _meta_line({}) == ''
     assert _meta_line(None) == ''
 
@@ -261,7 +261,8 @@ def test_meta_line_uses_only_glyphs_both_estuary_faces_have(load_infowindow):
     tests/test_glyph_coverage.py)."""
     ctx = load_infowindow()
     line = ctx.infowindow._meta_line({'year': '2010-2017', 'rating': '9.0', 'runtime': '120 min'})
-    assert set(ch for ch in line if ord(ch) > 127) == {'·'}
+    assert '★' not in line
+    assert not [ch for ch in line if ord(ch) > 127]
 
 
 def test_item_properties_year_falls_back_to_date_only_released(load_infowindow):
@@ -452,6 +453,37 @@ def test_onaction_back_actions_close_the_window(load_infowindow, action_id):
 
     assert win.closed is True
     assert win.selected is None
+
+
+def test_down_and_up_step_one_row_and_the_backdrop_follows(load_infowindow):
+    """Down moves eight titles, one viewport. Up moves back. The fanart
+    is the title that key landed on, including a Down that stops on the
+    last title."""
+    ctx = load_infowindow()
+    infowindow = ctx.infowindow
+    import xbmcgui
+    win = infowindow.ShowcaseWindow('ShowcaseWindow.xml', '/addon/path', 'Default', '1080i')
+    win.metas = [
+        _make_meta('tt%d' % index, 'Title %d' % index, background='https://x/bg%d.jpg' % index)
+        for index in range(10)
+    ]
+    win.onInit()
+    select = win.getControl(infowindow.SELECT)
+
+    win.onAction(xbmcgui.Action(infowindow._ACTION_DOWN))
+    assert select.getSelectedPosition() == 8
+    assert win.getControl(infowindow.BACKGROUND).image == 'https://x/bg8.jpg'
+
+    win.onAction(xbmcgui.Action(infowindow._ACTION_DOWN))
+    assert select.getSelectedPosition() == 9
+    assert win.getControl(infowindow.BACKGROUND).image == 'https://x/bg9.jpg'
+
+    win.onAction(xbmcgui.Action(infowindow._ACTION_UP))
+    assert select.getSelectedPosition() == 1
+    assert win.getControl(infowindow.BACKGROUND).image == 'https://x/bg1.jpg'
+
+    win.onAction(xbmcgui.Action(infowindow._ACTION_UP))
+    assert select.getSelectedPosition() == 0
 
 
 def test_onaction_non_back_action_does_not_close(load_infowindow):
@@ -961,7 +993,7 @@ def test_enrich_worker_merges_into_metas_and_queues_props(load_infowindow, monke
     assert win._enrich_pending == {
         0: {
             'genre': 'Drama, Thriller', 'rating': '7.9', 'plot': 'A full plot.',
-            'year': '2026', 'meta_line': '2026 · IMDb 7.9 · Drama, Thriller',
+            'year': '2026', 'meta_line': 'IMDb 7.9\n2026\nDrama, Thriller',
         },
     }
 

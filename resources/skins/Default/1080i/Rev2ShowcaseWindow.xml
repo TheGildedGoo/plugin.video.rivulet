@@ -19,18 +19,18 @@
                  the opening frame dark instead of flashing skin-default
                  white. -->
             <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="E60A0C0E">white.png</texture></control>
-            <!-- Design line 93 is filter:brightness(.55); colordiffuse
-                 multiplies, so .55*255 = 0x8C. Was FF777777 (.47). -->
-            <control type="image" id="30000"><width>1920</width><height>1080</height><texture colordiffuse="FF8C8C8C"></texture><aspectratio>scale</aspectratio></control>
-            <!-- Scrim over the fanart: fade_bottom.png/fade_edge.png bake
-                 pure black pixels, and colordiffuse multiplies, so a black
-                 source can only ever render black regardless of tint - that
-                 produced a full-width seam where the old ramp met a separate
-                 FF0A0C0E rect. fade_v.png is white RGB with the design's
-                 4-stop alpha ramp (.55/.72/.94/solid at 0/26/52/74% of
-                 frame height) baked into it, so one FF0A0C0E-tinted control
-                 reproduces the exact gradient continuously, with no seam. -->
-            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF0A0D12">fade_v.png</texture></control>
+            <!-- Shown whole. scale cropped it, and the old FF8C8C8C
+                 multiply dimmed it to 55%. The plate behind is already
+                 dark, so a non-16:9 backdrop letterboxes. -->
+            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
+            <!-- fade_h.png is clear on the left and black on the right,
+                 so this is the right quarter (x=1440) with no flip. -->
+            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><texture colordiffuse="E60A0D12">fade_h.png</texture></control>
+            <!-- fade_v.png is opaque only from about 75% of its height.
+                 368 + 0.75*496 = 740, the top of the one visible row.
+                 The solid plate under it keeps the art off that row. -->
+            <control type="image"><left>0</left><top>368</top><width>1920</width><height>496</height><texture colordiffuse="FF0A0D12">fade_v.png</texture></control>
+            <control type="image"><left>0</left><top>740</top><width>1920</width><height>340</height><texture colordiffuse="FF0A0D12">white.png</texture></control>
             <control type="image" id="30001"><top>535</top><left>810</left><width>300</width><height>10</height><texture>white.png</texture>
                 <animation effect="zoom" pulse="true" center="auto" start="0,100" end="100,100" time="1000" condition="Control.IsVisible(30001)">Conditional</animation>
             </control>
@@ -56,90 +56,60 @@
                 <ondown>30002</ondown>
             </control>
 
-            <!-- Title. -->
-            <!-- Title band. font60 is 60, and its line box is taller than
-                 the point size, so the control is 92. It ends above the
-                 metadata. The whole hero stays inside the top third. -->
-            <control type="label"><left>96</left><top>112</top><width>1180</width><height>92</height><font>font60</font><textcolor>FFFFFFFF</textcolor><aligny>center</aligny>
+            <!-- Title on the left. font60 is 60, and its line box is
+                 taller than the point size, so the control is 92. The
+                 description is the next control, directly under it. -->
+            <control type="label"><left>96</left><top>112</top><width>1180</width><height>92</height><font>font60</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
                 <wrapmultiline>false</wrapmultiline>
                 <label>[B]$INFO[ListItem.Label][/B]</label>
             </control>
 
-            <!-- Metadata line: year, IMDb rating, runtime and genre as
-                 one flowing label, composed in Python by infowindow.py's
-                 `_meta_line()` (which joins with ' · ' and skips what
-                 the meta lacks, so a sparse item never shows a dangling
-                 separator).
-
-                 This was three 110px-wide bordered chips, each with its
-                 own 1px border rects, plus a reflow matrix that placed
-                 every chip and the trailing genre in each slot the ones
-                 ahead of it could leave open - ~30 controls in all.
-                 Kodi sizes a control from the XML at load time and
-                 cannot fit a box to its text, so those fixed widths
-                 were wrong in both directions on real data: a series
-                 range needs ~140px at Mono26 and rendered clipped
-                 ("2010-2017" -> "2010..."), while a "120 min" runtime
-                 came within a pixel of both borders. A single label has
-                 no width to overflow and no slots to enumerate, and it
-                 matches how DetailWindow/StreamsWindow already print
-                 the same metadata.
-
-                 font12 (NotoSans), not the chips' Mono26: the line is
-                 prose now rather than tabular figures, and the rating
-                 reads "IMDb 9.0" - NotoMono has no U+2605 to draw a
-                 star with (tests/test_glyph_coverage.py), and the
-                 spelled-out name says which scale the number is on,
-                 which neither a star nor the old accent-coloured box
-                 ever did. -->
-            <control type="label"><left>96</left><top>212</top><width>1180</width><height>36</height><font>font12</font><textcolor>C7EEF3F6</textcolor><aligny>center</aligny>
-                <label>$INFO[ListItem.Property(meta_line)]</label>
-                <visible>!String.IsEmpty(ListItem.Property(meta_line))</visible>
-            </control>
-
-            <!-- Three lines of font27 (27). The rest scrolls. The strip
-                 starts at y=360, so this box cannot run into a poster. -->
-            <control type="textbox"><left>96</left><top>256</top><width>1080</width><height>96</height><font>font27</font><textcolor>B8EEF3F6</textcolor>
+            <!-- Three lines of font27 (27). The rest scrolls. It starts
+                 under the title, not under the ratings, and ends above
+                 the row at y=740. -->
+            <control type="textbox"><left>96</left><top>212</top><width>1180</width><height>96</height><font>font27</font><textcolor>F2EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor>
                 <label>$INFO[ListItem.Property(plot)]</label>
                 <autoscroll time="3000" delay="3000" repeat="3000">true</autoscroll>
             </control>
 
+            <!-- Ratings in the right quarter. One textbox, because the
+                 old chips were fixed 110px boxes and a series range
+                 rendered as "2010...". infowindow builds meta_line with
+                 one fact per line and skips whatever the meta lacks, so
+                 a missing Rotten Tomatoes score is absent rather than
+                 blank. font12 (NotoSans): the panel names IMDb, and
+                 NotoMono has no star glyph. -->
+            <control type="textbox"><left>1480</left><top>112</top><width>380</width><height>220</height><font>font12</font><textcolor>FFFFFFFF</textcolor><align>right</align>
+                <label>$INFO[ListItem.Property(meta_line)]</label>
+                <visible>!String.IsEmpty(ListItem.Property(meta_line))</visible>
+            </control>
+
+            <!-- One row of 220px cells (200px poster). The list is exactly
+                 that row tall, so a second row cannot show. Up and down
+                 are handled in Python: they move eight titles, one
+                 viewport, and the hero follows the focused item. -->
             <control type="fixedlist" id="30002">
-                <!-- 1676 = one focused slot (336: 308 ring + 28 gap) + five
-                     unfocused (5x268: 240 poster + 28 gap). -->
-                <top>360</top><left>96</left><width>1676</width><height>458</height>
+                <top>740</top><left>48</left><width>1840</width><height>340</height>
                 <viewtype>wrap</viewtype><orientation>horizontal</orientation>
                 <scrolltime tween="cubic" easing="out">300</scrolltime>
-                <!-- focusposition 0: the focused poster leads the strip,
-                     flush against the frame's left edge like the rest of
-                     this window's content. -->
                 <focusposition>0</focusposition>
-                <onup>30003</onup>
-                <itemlayout width="268" height="458">
+                <onup>30002</onup><ondown>30002</ondown>
+                <itemlayout width="220" height="340">
                     <control type="image">
-                        <top>98</top><left>14</left><width>240</width><height>360</height>
-                        <texture diffuse="rv_mask_240x360.png">$INFO[ListItem.Property(thumbnail)]</texture>
+                        <top>20</top><left>10</left><width>200</width><height>300</height>
+                        <texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                         <aspectratio align="center" aligny="center">keep</aspectratio>
                     </control>
                 </itemlayout>
-                <focusedlayout width="336" height="458">
-                    <!-- Rounded plate behind the poster. The artwork's diffuse mask lets the corners of the plate show. -->
-                    <control type="image"><top>0</top><left>0</left><width>308</width><height>458</height><texture border="12" colordiffuse="FFFFFFFF">rv_focus_frame.png</texture></control>
+                <focusedlayout width="220" height="340">
                     <control type="image">
-                        <top>4</top><left>4</left><width>300</width><height>450</height>
-                        <texture diffuse="rv_mask_300x450.png">$INFO[ListItem.Property(thumbnail)]</texture>
+                        <top>20</top><left>10</left><width>200</width><height>300</height>
+                        <texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                         <aspectratio align="center" aligny="center">keep</aspectratio>
                     </control>
+                    <control type="image"><top>20</top><left>10</left><width>200</width><height>300</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture></control>
                 </focusedlayout>
             </control>
-
-            <!-- No title under the strip: the hero block above already
-                 renders ListItem.Label at font60, so a second copy under
-                 the focused poster is the same string twice. The strip
-                 starts at the bottom of the hero zone (y=360). -->
-
-            <control type="image"><left>0</left><top>360</top><width>96</width><height>720</height><texture flipx="true" colordiffuse="FF0A0D12">fade_out_h.png</texture></control>
-            <control type="image"><left>1780</left><top>360</top><width>140</width><height>720</height><texture colordiffuse="FF0A0D12">fade_out_h.png</texture></control>
         </control>
     </controls>
 </window>

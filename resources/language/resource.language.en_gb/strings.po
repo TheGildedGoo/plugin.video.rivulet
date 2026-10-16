@@ -1090,3 +1090,114 @@ msgstr ""
 msgctxt "#30441"
 msgid "Details"
 msgstr ""
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr ""
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr ""
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr ""
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr ""
+
+msgctxt "#30446"
+msgid "4K"
+msgstr ""
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr ""
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr ""
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr ""
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr ""
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr ""
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr ""
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr ""
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr ""
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr ""
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr ""
+
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr ""
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr ""
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr ""
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr ""
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr ""
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr ""
+
+msgctxt "#30463"
+msgid "Save"
+msgstr ""
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr ""
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr ""
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr ""
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr ""
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr ""
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr ""

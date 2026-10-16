@@ -1181,6 +1181,26 @@ def test_resume_offset_ms_persists_across_store_instances(tmp_path):
     assert Store(str(data_dir)).get_resume_offset_ms() == 9000
 
 
+def test_autoplay_finish_marker_matches_only_its_own_episode(tmp_path):
+    store = make_store(tmp_path)
+    assert store.take_autoplay_finish('t0', 'e1') is False
+    store.set_autoplay_finish('t0', 'e1')
+    assert store.take_autoplay_finish('t1', 'e1') is False
+    assert store.take_autoplay_finish('t0', 'e2') is False
+    assert store.take_autoplay_finish('t0', 'e1') is True
+    assert store.take_autoplay_finish('t0', 'e1') is False
+
+
+def test_autoplay_finish_marker_persists_and_clears(tmp_path):
+    data_dir = tmp_path / "addon_data"
+    Store(str(data_dir)).set_autoplay_finish('t0', 'e1')
+    other = Store(str(data_dir))
+    assert other.take_autoplay_finish('t0', 'e1') is True
+    assert Store(str(data_dir)).take_autoplay_finish('t0', 'e1') is False
+    Store(str(data_dir)).set_autoplay_finish(None)
+    assert Store(str(data_dir)).take_autoplay_finish('t0', 'e1') is False
+
+
 # --- last seen version (homewindow update notification) --------------------
 
 

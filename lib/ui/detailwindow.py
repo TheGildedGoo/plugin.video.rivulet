@@ -741,12 +741,11 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         return auth, item, True
 
     def _toggle_library(self, auth, item, add, lookup_ok):
-        """Push an explicit `library_add_payload()` (built fresh from
-        `self.meta` -- see that function's own docstring for why it
-        never takes `item`) or a `library_remove_payload()` tombstone of
-        the already-fetched `item` (only reachable with `add=False` when
-        `_open_context_menu()` found `item` actually in the library, so
-        it is never `None` here). Logged out notifies rather than
+        """Push an explicit add or a `library_remove_payload()` tombstone.
+
+        The put pulls the account row again first
+        (`library_add_from_existing` keeps that row's `state`). Logged
+        out notifies rather than
         failing silently or attempting a write with no `authKey` to send
         (the real API would just reject a `None` authKey as a normal
         auth error -- notifying directly here is both cheaper and
@@ -766,9 +765,32 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         if not lookup_ok:
             notify(L(30302))
             return
-        payload = library.library_add_payload(self.meta) if add else library.library_remove_payload(item)
+        # The menu lookup decided the label. Pull again now so the put
+        # carries the account's current `state` instead of a blank one.
+        fresh = self._pull_library_item(auth)
+        if fresh is CANCELLED:
+            return
+        fresh_item, fresh_ok = fresh
+        if not fresh_ok:
+            notify(L(30302))
+            return
+        if add:
+            payload = library.library_add_from_existing(
+                self.meta, fresh_item if isinstance(fresh_item, dict) else None,
+            )
+        else:
+            base = fresh_item if isinstance(fresh_item, dict) else item
+            if not isinstance(base, dict):
+                notify(L(30302))
+                return
+            payload = library.library_remove_payload(base)
         if not self._push_library_item(auth, payload):
             return
+        from lib.ui.homewindow import mark_library_dirty
+        from lib.ui.mystuff import note_library_write
+
+        note_library_write(payload)
+        mark_library_dirty()
         notify(L(30297) if add else L(30298))
 
     def _toggle_watched(self, auth, item, watched, lookup_ok):
@@ -797,6 +819,30 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         if not self._push_library_item(auth, payload):
             return
         notify(L(30299) if watched else L(30300))
+
+    def _pull_library_item(self, auth):
+        """`(item, lookup_ok)` read at the moment of the put.
+
+        Returns `CANCELLED` when Back stops the spinner. A failed read
+        is `(None, False)` and must not be pushed over.
+        """
+        import xbmc
+
+        from lib.stremio.api import ApiError
+        from lib.ui.compat import L, log
+        from lib.ui.dependencies import get_api
+
+        try:
+            found = run_cancellable(
+                lambda: get_api().get_library_item(auth.get('authKey'), self.meta.get('id')),
+                L(30033),
+            )
+        except ApiError as exc:
+            log('detailwindow: library pull failed: %r' % (exc,), xbmc.LOGWARNING)
+            return None, False
+        if found is CANCELLED:
+            return CANCELLED
+        return found, True
 
     @staticmethod
     def _push_library_item(auth, payload):

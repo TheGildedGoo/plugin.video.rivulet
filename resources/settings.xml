@@ -43,6 +43,37 @@
                     <default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <!-- Keys last, and not a category of their own: Kodi
+                     focuses a category's first setting, and an edit
+                     control traps the arrows. The pair button is an
+                     action, so it can sit above the fields. Empty means
+                     the hero keeps the catalog's IMDb rating and hides
+                     the rest. -->
+                <setting id="ratings_pair" type="action" label="30457">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.revrivulet/?action=pair_key)</data>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting id="ratings_omdb_key" type="string" label="30453">
+                    <level>0</level>
+                    <default></default>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30455</heading>
+                    </control>
+                </setting>
+                <setting id="ratings_mdblist_key" type="string" label="30454">
+                    <level>0</level>
+                    <default></default>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30456</heading>
+                    </control>
+                </setting>
             </group>
         </category>
         <category id="server" label="30101">
@@ -158,6 +189,50 @@
                         <minimum>3</minimum>
                         <step>1</step>
                         <maximum>60</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+                <setting id="binge_lead_seconds" type="integer" label="30442">
+                    <level>0</level>
+                    <default>30</default>
+                    <constraints>
+                        <minimum>5</minimum>
+                        <step>1</step>
+                        <maximum>180</maximum>
+                    </constraints>
+                    <control type="slider" format="integer">
+                        <popup>false</popup>
+                    </control>
+                </setting>
+                <setting id="binge_quality" type="string" label="30443">
+                    <level>0</level>
+                    <default>highest</default>
+                    <constraints>
+                        <options>
+                            <option label="30444">highest</option>
+                            <option label="30257">1080p</option>
+                            <option label="30446">2160p</option>
+                        </options>
+                        <allowempty>false</allowempty>
+                    </constraints>
+                    <control type="list" format="string">
+                        <heading>30443</heading>
+                    </control>
+                </setting>
+                <setting id="binge_cached_only" type="boolean" label="30447">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="binge_still_watching" type="integer" label="30448">
+                    <level>0</level>
+                    <default>3</default>
+                    <constraints>
+                        <minimum>0</minimum>
+                        <step>1</step>
+                        <maximum>50</maximum>
                     </constraints>
                     <control type="slider" format="integer">
                         <popup>false</popup>

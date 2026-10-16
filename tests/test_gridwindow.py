@@ -173,6 +173,7 @@ def test_make_list_item_sets_every_property_the_skin_draws(ctx):
     assert list_item.getProperty('progress_width') == str(ctx.gridwindow.PROGRESS_TRACK_WIDTH // 2)
     assert list_item.getProperty('caption') == '50% watched'
     assert list_item.getProperty('plot') == ''
+    assert list_item.getProperty('hero_meta') == ''
     assert list_item.getProperty('watched') == ''
 
 
@@ -514,8 +515,8 @@ def test_rows_are_gated_on_a_window_property_not_numitems(ctx):
         'a row is gated on NumItems, which is false in the pass that fills it')
     for band, (list_id, label_id) in ctx.gridwindow.BAND_ROWS.items():
         condition = '<visible>!String.IsEmpty(Window.Property(band_%s))</visible>' % band
-        assert xml.count(condition) == 2, (
-            '%s: expected its header AND its row gated on %s, found %d'
+        assert xml.count(condition) == 3, (
+            '%s: expected its group, its header AND its row gated on %s, found %d'
             % (band, condition, xml.count(condition)))
         assert re.search(r'<control type="label" id="%d"' % label_id, xml)
         assert re.search(r'<control type="panel" id="%d"' % list_id, xml)
@@ -564,51 +565,48 @@ def test_cell_is_tall_enough_for_everything_it_draws():
         % (cell_h, max(bottoms)))
 
 
-def test_the_first_band_fits_and_the_next_one_peeks():
-    """Exactly one band needs to be wholly on screen. The next must show
-    enough of itself - its header, and a slice of its posters - that it is
-    obviously there to scroll to, without being so nearly complete that it
-    reads as a clipped row instead of a deliberate peek."""
+def test_the_focused_band_is_the_only_row_on_screen():
+    """The focused band fills the row viewport, so up and down leave it
+    in the same place. itemgap is 0, so the next band stays off screen."""
     import re
+    import xml.etree.ElementTree as ET
 
     xml = _grid_xml()
-    geom = re.search(
-        r'<control type="grouplist" id="30001">\s*<left>\d+</left><top>(\d+)</top>', xml)
-    assert geom, 'grouplist geometry not found'
-    top = int(geom.group(1))
-    header = int(re.search(r'<width>1500</width><height>(\d+)</height>', xml).group(1))
-    cell = int(re.search(r'<itemlayout width="\d+" height="(\d+)">', xml).group(1))
+    rows = ET.fromstring(xml).find(".//control[@id='30001']")
+    assert rows is not None and rows.get('type') == 'grouplist'
+    top = int(rows.findtext('top'))
+    height = int(rows.findtext('height'))
+    gap = int(rows.findtext('itemgap'))
+    assert top + height == 1080, 'the row band must run to the bottom of the skin'
+    assert gap == 0, 'a non-zero gap shows part of another band'
 
+    groups = [
+        child for child in list(rows)
+        if child.tag == 'control' and child.get('type') == 'group'
+    ]
+    assert len(groups) == 4, 'expected one group per band, found %d' % len(groups)
+    for group in groups:
+        assert int(group.findtext('height')) == height, (
+            'a band shorter than the viewport bottom-aligns and the row jumps')
+
+    header = int(re.search(r'<width>1500</width><height>(\d+)</height>', xml).group(1))
     badge = re.search(
         r'<control type="label"><top>(\d+)</top><left>\d+</left><width>\d+</width>'
         r'<height>(\d+)</height><font>\w+</font>\s*<label>\$INFO\[ListItem.Property\(badge\)\]',
         xml)
     assert badge, 'no badge line in the cell layout'
-    badge_end = int(badge.group(1)) + int(badge.group(2))
-
-    poster = re.search(
-        r'<top>0</top><left>\d+</left><width>\d+</width><height>(\d+)</height>\s*'
-        r'<texture[^>]*background="true">', xml)
-    assert poster, 'no poster box found'
-    poster_h = int(poster.group(1))
-
-    # Band 1 must end on screen, with room to spare.
-    band1_end = top + header + badge_end
-    assert band1_end <= 1040, (
-        'the first band ends at %d, too close to the 1080 frame' % band1_end)
-
-    # Band 2 must show its header and a real, but partial, slice.
-    row = header + cell
-    band2_header_end = top + row + header
-    assert band2_header_end < 1080, (
-        'the second band\'s header is off screen, so there is no sign it exists')
-    slice_seen = 1080 - band2_header_end
-    assert slice_seen >= 80, (
-        'only %dpx of the second band shows - too little to read as more content'
-        % slice_seen)
-    assert slice_seen <= poster_h * 0.8, (
-        '%dpx of a %dpx poster shows - that reads as a clipped row, not a peek'
-        % (slice_seen, poster_h))
+    # The header is the top of the band group. The badge's top is inside
+    # the panel, which starts under that header.
+    panel = groups[0].find(".//control[@type='panel']")
+    panel_top = int(panel.findtext('top'))
+    panel_h = int(panel.findtext('height'))
+    badge_end = panel_top + int(badge.group(1)) + int(badge.group(2))
+    assert header == panel_top
+    assert panel_top + panel_h == height, (
+        'the panel must fill the band so one row is visible and nothing clips')
+    assert badge_end <= height, (
+        'the badge ends at %d inside a %dpx band' % (badge_end, height))
+    assert top + badge_end <= 1080
 
 
 def test_focus_is_marked_without_scaling_the_cell():
@@ -669,9 +667,17 @@ def test_focus_frame_is_wider_than_the_poster_on_every_band():
     import re
 
     xml = _grid_xml()
+    poster = re.search(
+        r'<top>0</top><left>(\d+)</left><width>(\d+)</width><height>(\d+)</height>\s*'
+        r'<texture[^>]*background="true">\$INFO\[ListItem.Property\(thumbnail\)\]</texture>',
+        xml)
+    assert poster, 'no poster box found'
+    left, width, height = (int(poster.group(i)) for i in (1, 2, 3))
+    # 8px of accent past the poster on the left, the right and the bottom.
     frames = re.findall(
-        r'<top>0</top><left>8</left><width>304</width><height>440</height>'
-        r'<texture[^>]*colordiffuse="FF38BDF8">',
+        r'<top>0</top><left>%d</left><width>%d</width><height>%d</height>'
+        r'<texture[^>]*colordiffuse="FF38BDF8">'
+        % (left - 8, width + 16, height + 8),
         xml,
     )
     assert len(frames) == 4, 'expected one focus frame per band, found %d' % len(frames)

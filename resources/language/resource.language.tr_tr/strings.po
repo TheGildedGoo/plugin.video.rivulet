@@ -1090,3 +1090,114 @@ msgstr "Bölüm listesi"
 msgctxt "#30441"
 msgid "Details"
 msgstr "Ayrıntılar"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "Bitime kalan saniye"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "Otomatik oynatma kalitesi"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "En yüksek"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "Sıradaki"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "Yalnızca önbellekteki kaynakları otomatik oynat"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "Hâlâ izliyor musunuz sorusundan önceki bölüm sayısı"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "Hâlâ izliyor musunuz?"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "Sıradaki: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "Tüm kaynaklar yükleniyor…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "Tüm kaynaklar yükleniyor… %d/%d"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API anahtarı"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API anahtarı"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "OMDb API anahtarı (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "MDBList API anahtarı (mdblist.com/preferences/)"
+
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "Puan anahtarını telefondan eşle"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Bir anahtar eşle"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve anahtarı yapıştır. 3 dakika geçerlidir."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Anahtar kaydedildi"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "Eşleme başlayamadı. TV'nin bir ağa ihtiyacı var."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Bu kodun süresi doldu. Yeniden dene."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Kaydet"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Kaydedildi. Bu sayfayı kapatabilirsin."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Bu kod eşleşmiyor."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Bir anahtar gir."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Zaten kaydedildi."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Bu anahtar çok uzun."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "Anahtar kaydedilemedi."

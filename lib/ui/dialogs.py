@@ -399,7 +399,7 @@ class RivuletCountdown:
         self._window = None
         self._panel = None
 
-    def run(self, heading, message, seconds, monitor=None):
+    def run(self, heading, message, seconds, monitor=None, accept_on_timeout=True, alive=None):
         """Ticks `seconds` down to 0, one second at a time, setting
         `heading`/`message` and a `remaining` Mono26 readout
         (`'<N> s'`) each tick. Returns True once the countdown runs out
@@ -410,6 +410,17 @@ class RivuletCountdown:
         down - same convention as every other abort check in
         streamswindow.py). `monitor` defaults to a fresh `xbmc.Monitor()`
         for real callers; tests inject their own.
+
+        `accept_on_timeout` False is the still-watching prompt: the
+        timer running out is a decline (None), same as Back. Select is
+        still True. The Up next card leaves the default, so the timer
+        and Select both mean play.
+
+        `alive`, when passed, is called each tick. False means the
+        episode ended while the card was up. The return is the string
+        ``'ended'`` so the caller can tell that apart from Select. This
+        is polled while `isPlaying()` is still the right question; it
+        is never called from a stop callback.
 
         `message` is either a plain string, or a callable taking the
         remaining seconds and returning the line to show. The callable
@@ -424,19 +435,23 @@ class RivuletCountdown:
         self._panel = _Panel(self._window, self._CONTROLS)
         self._panel.label(COUNTDOWN_HEADING, heading)
         try:
-            for remaining in range(seconds, 0, -1):
+            for remaining in range(max(1, int(seconds)), 0, -1):
                 if self._window.iscanceled():
                     return None
                 if self._window.isskipped():
                     return True
+                if alive is not None and not alive():
+                    return 'ended'
                 # _Panel skips a write whose value has not changed, so a
                 # static message costs one setLabel for the whole run.
                 self._panel.label(COUNTDOWN_MESSAGE, formatter(remaining))
-                self._panel.percent(COUNTDOWN_BAR, int((seconds - remaining) * 100 / seconds))
+                self._panel.percent(COUNTDOWN_BAR, int((seconds - remaining) * 100 / max(1, int(seconds))))
                 self._panel.label(COUNTDOWN_REMAINING, '%d s' % remaining)
                 if monitor.waitForAbort(1.0):
                     return False
-            return True
+                if alive is not None and not alive():
+                    return 'ended'
+            return True if accept_on_timeout else None
         finally:
             self.close()
 

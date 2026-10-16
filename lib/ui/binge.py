@@ -97,3 +97,68 @@ def pick_binge_stream(pairs, binge_group):
             if info.get('binge_group') == binge_group:
                 return pair
     return pairs[0] if pairs else None
+
+
+#: Known heights only. Copied from `streaminfo._RESOLUTION_HEIGHT` rather
+#: than imported so this module stays a pure function of the pairs it is
+#: handed. An unparsed resolution is not a height, and `pick_up_next_stream`
+#: ranks it below every known one instead of dropping it.
+_KNOWN_HEIGHTS = {'2160p': 2160, '1080p': 1080, '720p': 720, '480p': 480}
+
+
+def _known_height(info):
+    return _KNOWN_HEIGHTS.get((info or {}).get('resolution') or '')
+
+
+def pick_up_next_stream(pairs, binge_group, max_height=0, cached_only=False):
+    """The stream Up next auto-plays.
+
+    `pairs` is the next episode's own list, in whatever order the caller
+    sorted. `max_height` 0 means no cap. A known height above the cap is
+    dropped; an unknown height is kept (same rule as
+    `streaminfo.filter_streams`: an unparsed title is not the same thing
+    as a 4K file).
+
+    Preference, highest known height first:
+
+    1. A stream `parse_stream` marked cached (`info['cached'] is True`).
+       The debrid name and emoji markers live in that flag; this function
+       does not re-read the title.
+    2. When nothing is cached and `cached_only` is set, `None`. The caller
+       does not auto-play.
+    3. Otherwise the best remaining stream, same height rule.
+
+    `binge_group` only breaks a tie inside that winning height and cache
+    class. It does not pick a lower or uncached stream over a cached
+    higher one. `None` when nothing is eligible.
+    """
+    eligible = []
+    for pair in pairs or []:
+        info = pair[0] if pair else None
+        height = _known_height(info)
+        if max_height and height is not None and height > max_height:
+            continue
+        eligible.append(pair)
+    cached = [pair for pair in eligible if (pair[0] or {}).get('cached') is True]
+    if cached:
+        pool = cached
+    elif cached_only:
+        return None
+    else:
+        pool = eligible
+    if not pool:
+        return None
+
+    def _rank(pair):
+        height = _known_height(pair[0] if pair else None)
+        # Known heights outrank an unparsed title. The boolean sorts
+        # above False, so (True, 2160) beats (True, 1080) beats (False, 0).
+        return (height is not None, height or 0)
+
+    best = max(_rank(pair) for pair in pool)
+    band = [pair for pair in pool if _rank(pair) == best]
+    if binge_group:
+        for pair in band:
+            if (pair[0] or {}).get('binge_group') == binge_group:
+                return pair
+    return band[0]

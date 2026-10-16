@@ -1094,9 +1094,101 @@ def test_onaction_paints_the_hero_from_the_focused_poster(load_homewindow, monke
 
     assert win.closed is False
     assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Dune'
-    assert win.getControl(ctx.homewindow.HERO_META).label == '2021'
+    assert win.getControl(ctx.homewindow.HERO_META).text == '2021'
     assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'A boy and a desert.'
     assert win.getControl(ctx.homewindow.BACKGROUND).image == 'https://img/dune.jpg'
+
+
+def _hero_with_facts(ctx, facts, meta='2021'):
+    import json
+
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    item = xbmcgui.ListItem('Shawshank')
+    item.setProperties({
+        'hero_title': 'Shawshank',
+        'hero_meta': meta,
+        'hero_plot': 'A man and a wall.',
+        'hero_facts': json.dumps(facts),
+        'fanart': 'https://img/shawshank.jpg',
+        'sid': 'tt0111161',
+        'stype': 'movie',
+    })
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([item])
+    win.setFocusId(ctx.homewindow.CONTINUE_SHELF)
+    return win
+
+
+def test_cached_ratings_replace_the_hero_panel(load_homewindow, monkeypatch, tmp_path):
+    """A key plus a fresh cache rebuilds the right-quarter panel. The
+    key itself never lands in the label."""
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    import lib.ui.ratingsched as ratingsched
+    from lib.stremio.ratings import RatingsCache
+
+    cache = RatingsCache(str(tmp_path / 'ratings.json'))
+    cache.store('tt0111161', {
+        'rottenTomatoes': '91%',
+        'metascore': '95',
+        'imdbRating': '8.8',
+    })
+    scheduled = []
+    monkeypatch.setattr(ratingsched, '_keys', lambda: ('secret-omdb', ''))
+    monkeypatch.setattr(ratingsched, '_get_cache', lambda: cache)
+    monkeypatch.setattr(ratingsched, '_schedule', lambda *args: scheduled.append(args))
+    win = _hero_with_facts(ctx, {'id': 'tt0111161', 'year': 2021})
+
+    import xbmcgui
+    win.onAction(xbmcgui.Action(1))
+
+    text = win.getControl(ctx.homewindow.HERO_META).text
+    assert text == 'Rotten Tomatoes 91%\nMetascore 95\nIMDb 8.8\n2021'
+    assert 'secret-omdb' not in text
+    assert scheduled == []
+
+
+def test_an_empty_ratings_key_keeps_the_catalog_line(load_homewindow, monkeypatch):
+    """No key means no fetch. The catalog's IMDb line stays, and the
+    missing Rotten Tomatoes and Metascore lines stay hidden."""
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    import lib.ui.ratingsched as ratingsched
+
+    def _forbidden(*_args, **_kwargs):
+        raise AssertionError('a fetch was scheduled with no key')
+
+    monkeypatch.setattr(ratingsched, '_schedule', _forbidden)
+    win = _hero_with_facts(ctx, {'id': 'tt0111161', 'year': 2021, 'imdbRating': '9.3'})
+
+    import xbmcgui
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getControl(ctx.homewindow.HERO_META).text == '2021'
+    logged = ' '.join(msg for msg, _level in ctx.env.log_calls)
+    assert 'secret-omdb' not in logged
+
+
+def test_a_ratings_miss_keeps_the_catalog_line_and_schedules(load_homewindow, monkeypatch, tmp_path):
+    ctx = load_homewindow()
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    import lib.ui.ratingsched as ratingsched
+    from lib.stremio.ratings import RatingsCache
+
+    cache = RatingsCache(str(tmp_path / 'ratings.json'))
+    scheduled = []
+    monkeypatch.setattr(ratingsched, '_keys', lambda: ('secret-omdb', ''))
+    monkeypatch.setattr(ratingsched, '_get_cache', lambda: cache)
+    monkeypatch.setattr(ratingsched, '_schedule', lambda *args: scheduled.append(args[0]))
+    win = _hero_with_facts(ctx, {'id': 'tt0111161', 'year': 2021})
+
+    import xbmcgui
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getControl(ctx.homewindow.HERO_META).text == '2021'
+    assert scheduled == ['tt0111161']
+    logged = ' '.join(msg for msg, _level in ctx.env.log_calls)
+    assert 'secret-omdb' not in logged
 
 
 def test_a_blank_focused_item_does_not_clear_the_hero(load_homewindow, monkeypatch):
@@ -1184,11 +1276,11 @@ def test_focus_ring_sits_on_the_art_and_the_hero_does_not_overlap():
     meta = root.find(".//control[@id='30021']")
     plot = root.find(".//control[@id='30022']")
     title_bottom = int(title.findtext('top')) + int(title.findtext('height'))
-    meta_top = int(meta.findtext('top'))
-    meta_bottom = meta_top + int(meta.findtext('height'))
     plot_top = int(plot.findtext('top'))
-    assert meta_top >= title_bottom
-    assert plot_top >= meta_bottom
+    assert plot_top >= title_bottom
+    assert plot_top <= title_bottom + 16
+    assert int(meta.findtext('left')) >= 1440
+    assert meta.get('type') == 'textbox'
 
 
 def test_home_lists_declare_a_visible_focus_and_navigation():
@@ -1221,9 +1313,11 @@ def test_home_lists_declare_a_visible_focus_and_navigation():
         if (button.findtext('texturefocus') or '').strip() != 'pill_fill.png':
             missing.append('%s pill' % button.get('id'))
     rows = root.find(".//control[@id='30001']")
-    row_ids = [child.get('id') for child in list(rows) if child.tag == 'control']
-    assert row_ids[0] == '30140' and row_ids[1] == '30040'
-    assert '30010' not in row_ids
+    groups = [child for child in list(rows) if child.tag == 'control']
+    assert groups and all(child.get('type') == 'group' for child in groups)
+    first = [child.get('id') for child in list(groups[0]) if child.tag == 'control']
+    assert first[0] == '30140' and first[1] == '30040'
+    assert rows.find(".//control[@id='30010']") is None
     pills = root.find(".//control[@id='30010']")
     assert (pills.findtext('onup') or '').strip() == '30011'
     assert (pills.findtext('ondown') or '').strip() == '30001'
@@ -1244,6 +1338,10 @@ def test_home_lists_declare_a_visible_focus_and_navigation():
         for direction in ('onleft', 'onright'):
             if control.find(direction) is None:
                 missing.append('%s %s' % (control.get('id'), direction))
+        if control.get('type') == 'panel':
+            for direction in ('onup', 'ondown'):
+                if control.find(direction) is None:
+                    missing.append('%s %s' % (control.get('id'), direction))
     assert not missing, 'Home focus gaps: %s' % missing
 
 
@@ -1435,6 +1533,40 @@ def test_continue_resume_replays_the_saved_stream_and_waits_out_playback(load_ho
     assert captured['order'] == ['play', 'wait', 'end']
     assert captured['streams'] is None
     assert captured['detail'] == []
+    assert win.closed is False
+
+
+def test_continue_resume_natural_end_rolls_into_up_next(load_homewindow, monkeypatch):
+    """A Continue resume that plays through does not go straight Home.
+    It joins the same Up next chain as a picker play. A user stop does
+    not, which is the test above."""
+    ctx = load_homewindow()
+    saved = {'url': 'https://cdn.example/ep.mp4', 'behaviorHints': {}}
+    captured = _arm_continue(ctx, monkeypatch, choice=0, stream=saved, started=True)
+
+    def fake_wait(*_args, **_kwargs):
+        captured['order'].append('wait')
+        return True, True
+
+    def fake_binge(*args, **kwargs):
+        captured['order'].append('binge')
+        captured['binge'] = (args, kwargs)
+        return None
+
+    monkeypatch.setattr(ctx.streamswindow, '_wait_for_playback_end', fake_wait)
+    monkeypatch.setattr(ctx.streamswindow, '_try_binge_watch', fake_binge)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([_series_resume_item()])
+
+    win.onClick(ctx.homewindow.CONTINUE_SHELF)
+
+    # Home ends the phase when it comes back. The card's own phase
+    # change is inside streamswindow and is not this test's fake.
+    assert captured['order'] == ['play', 'wait', 'binge', 'end']
+    assert captured['binge'][0][0] == 'series'
+    assert captured['binge'][0][4] == 'tt1:1:3'
+    assert captured['binge'][0][1]['videos'][1]['id'] == 'tt1:1:4'
+    assert captured['streams'] is None
     assert win.closed is False
 
 

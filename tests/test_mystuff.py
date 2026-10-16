@@ -520,10 +520,55 @@ def test_a_series_with_a_next_episode_gets_a_zero_padded_label(mystuff):
 # ---------------------------------------------------------------------------
 
 
+def test_library_metas_sorts_newest_added_first(mystuff):
+    library = [
+        {'_id': 'old', 'type': 'movie', 'name': 'Old', '_ctime': '2020-01-01T00:00:00Z'},
+        {'_id': 'new', 'type': 'movie', 'name': 'New', '_ctime': '2024-06-01T00:00:00Z'},
+        {'_id': 'mid', 'type': 'movie', 'name': 'Mid', '_mtime': '2022-01-01T00:00:00Z'},
+    ]
+    assert [item['id'] for item in mystuff.library_metas(library)] == ['new', 'mid', 'old']
+
+
+def test_noted_library_write_shows_before_the_account_echoes_it(mystuff, monkeypatch):
+    """Add paints from the put. A datastoreGet that has not caught up
+    still includes that row, and a remove drops it."""
+    mystuff.clear_library_writes()
+    added = {
+        '_id': 'tt9', 'type': 'series', 'name': 'Added', 'removed': False,
+        'temp': False, '_ctime': '2026-10-15T00:00:00Z', '_mtime': '2026-10-15T00:00:00Z',
+        'state': {'timeOffset': 0, 'duration': 0},
+    }
+
+    class _Store:
+        def get_auth(self):
+            return {'authKey': 'k'}
+
+    class _Api:
+        def datastore_get(self, auth_key, collection='libraryItem', ids=None, all=True):
+            return [{
+                '_id': 'tt1', 'type': 'movie', 'name': 'Older',
+                '_ctime': '2020-01-01T00:00:00Z',
+            }]
+
+    monkeypatch.setattr('lib.stremio.api.StremioAPI', _Api)
+    mystuff.note_library_write(added)
+    try:
+        fetched = mystuff._fetch_library_entries(_Store())
+        assert [item['_id'] for item in fetched] == ['tt1', 'tt9']
+        assert [item['id'] for item in mystuff.library_metas(fetched)] == ['tt9', 'tt1']
+        removed = dict(added, removed=True, _mtime='2026-10-15T00:01:00Z')
+        mystuff.note_library_write(removed)
+        fetched = mystuff._fetch_library_entries(_Store())
+        assert [item['id'] for item in mystuff.library_metas(fetched)] == ['tt1']
+    finally:
+        mystuff.clear_library_writes()
+
+
 def test_fetch_library_entries_returns_empty_on_api_error(mystuff):
     """A Stremio API outage/auth hiccup must not crash "My Stuff" - the
     local played bands still work fully offline, so a library failure is
     logged and swallowed rather than propagated."""
+    mystuff.clear_library_writes()
     from lib.stremio.api import ApiError
 
     class _FailingAPI:

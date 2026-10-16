@@ -33,7 +33,6 @@ from lib.stremio.addons import (
     AddonError,
     addon_error_detail,
     safe_url_for_log,
-    validate_transport_url,
 )
 from lib.stremio.api import ApiError, StremioAPI
 from lib.stremio.contentrating import filter_metas, is_adult_catalog
@@ -683,26 +682,39 @@ def _sync_addons_if_logged_in(store, notify_success=False, cancellable=False):
     push is neither a success nor a failure: nothing is notified, the
     auth is untouched, and the return value is False - the local change
     already happened and the next sync pushes the whole collection
-    anyway (it is a full-collection set, not a delta)."""
+    anyway (it is a full-collection set, not a delta).
+
+    The push always pulls first. ``addonCollectionSet`` replaces the
+    account, so a set built from the local list alone deletes an addon
+    that was added on the web after the last pull. A failed pull does
+    not push. 401/403 still clears auth; a timeout does not.
+    """
     auth = store.get_auth()
     if not auth:
         if notify_success:
             notify(L(30020))
         return False
     try:
-        payload = []
-        for descriptor in store.get_addons():
-            flags = descriptor.get('flags')
-            if flags and 'disabled' in flags:
-                descriptor = dict(descriptor)
-                flags = dict(flags)
-                del flags['disabled']
-                descriptor['flags'] = flags
-            payload.append(descriptor)
-        auth_key = auth.get('authKey')
-
         def push():
-            StremioAPI().addon_collection_set(auth_key, payload)
+            from lib.ui.addonsync import pull_account_addons
+
+            # Force: the 15-minute Home clock must not skip this. The
+            # payload is built AFTER the merge, from whatever the store
+            # holds now, so a web-only addon is in the set.
+            pull_account_addons(store, api=StremioAPI(), force=True)
+            fresh = store.get_auth()
+            if not fresh or not fresh.get('authKey'):
+                raise ApiError('auth cleared', status_code=401)
+            payload = []
+            for descriptor in store.get_addons():
+                flags = descriptor.get('flags')
+                if flags and 'disabled' in flags:
+                    descriptor = dict(descriptor)
+                    flags = dict(flags)
+                    del flags['disabled']
+                    descriptor['flags'] = flags
+                payload.append(descriptor)
+            StremioAPI().addon_collection_set(fresh.get('authKey'), payload)
 
         if cancellable:
             # Only the network push runs on the worker; every notify/
@@ -832,16 +844,29 @@ def open_settings():
 
 
 def sync_addons_now():
-    """RunPlugin action (Settings > Account > Sync addons now): force a
-    push of the local addon collection, with explicit feedback either
-    way - unlike the automatic post-install/remove/login push, a
-    manually-triggered sync must confirm success too, not just surface
-    failures. Also refreshes every installed addon's cached manifest
-    from its own transportUrl first (see `_refresh_addon_manifests`), so
-    a freshly-updated local manifest set - not a stale install-time
-    snapshot - is what gets pushed to the account."""
+    """RunPlugin action (Settings > Account > Sync addons now).
+
+    Order is pull, merge, refresh manifests, push. The pull has to
+    happen before the refresh so an addon that exists only on the
+    account is fetched and then pushed back with the rest. The push
+    pulls again immediately before ``addonCollectionSet``: a set of the
+    local list alone would delete that addon. A failed pull leaves the
+    local list alone and does not push.
+    """
     handle = router.ADDON_HANDLE
     store = get_store()
+    if store.get_auth():
+        from lib.ui.addonsync import pull_account_addons
+
+        try:
+            pull_account_addons(store, api=StremioAPI(), force=True)
+        except ApiError as exc:
+            log('views.sync_addons_now: pull failed: %r' % (exc,), xbmc.LOGERROR)
+            if exc.is_auth_error:
+                store.set_auth(None)
+            notify(L(30035))
+            _finish_action(handle, refresh=False)
+            return
     _refresh_addon_manifests(store, get_client())
     _sync_addons_if_logged_in(store, notify_success=True)
     _finish_action(handle, refresh=False)
@@ -892,23 +917,14 @@ def login():
             # that fails validate_transport_url() (credentials, plaintext
             # public host, non-HTTP(S), ...) is discarded here rather than
             # persisted/installed - only its safe identity/origin is
-            # logged, never the raw descriptor.
-            seen = {a.get('transportUrl') for a in local_addons}
-            merged = list(local_addons)
-            for descriptor in remote_addons:
-                transport_url = descriptor.get('transportUrl')
-                if not transport_url:
-                    continue
-                try:
-                    normalized_url = validate_transport_url(transport_url)
-                except AddonError:
-                    manifest_id = (descriptor.get('manifest') or {}).get('id') or '?'
-                    log('views.login: discarding unsafe synced addon %s (%s)' % (
-                        manifest_id, safe_url_for_log(transport_url)), xbmc.LOGWARNING)
-                    continue
-                if normalized_url not in seen:
-                    merged.append(dict(descriptor, transportUrl=normalized_url))
-                    seen.add(normalized_url)
+            # logged, never the raw descriptor. The same helper is what
+            # Home and every push use, so a short GET cannot wipe locals.
+            from lib.stremio.collection import union_addon_descriptors
+
+            merged, discarded = union_addon_descriptors(local_addons, remote_addons)
+            for manifest_id, safe in discarded:
+                log('views.login: discarding unsafe synced addon %s (%s)' % (
+                    manifest_id, safe), xbmc.LOGWARNING)
             return merged
 
         from lib.store import ConcurrentUpdateError

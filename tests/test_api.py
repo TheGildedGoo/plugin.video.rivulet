@@ -148,6 +148,17 @@ def test_addon_collection_get_posts_correct_path_and_body():
     assert body["update"] is True
 
 
+def test_addon_collection_state_keeps_last_modified():
+    api = make_api()
+    api.session = FakeSession(
+        responses=[_ok({"result": {"addons": [{"transportUrl": "https://a.example/manifest.json"}], "lastModified": "2026-10-15T00:00:00Z"}})]
+    )
+    addons, modified = api.addon_collection_state("tok-123")
+    assert modified == "2026-10-15T00:00:00Z"
+    assert addons[0]["transportUrl"] == "https://a.example/manifest.json"
+    assert api.session.calls[0]["kwargs"]["json"]["update"] is True
+
+
 def test_addon_collection_get_error_raises_api_error():
     api = make_api()
     api.session = FakeSession(

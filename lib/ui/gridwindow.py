@@ -4,7 +4,8 @@
 """GridWindow: the merged "Continue" screen, opened via `open_grid()` -
 one labelled, horizontally-scrolling poster row per band of
 `lib.ui.mystuff`'s merge, stacked vertically in `GridWindow.xml`'s
-`grouplist` so several bands are on screen at once.
+`grouplist`. The focused band is pinned at the bottom of the
+screen. Up and down switch bands; only that band is visible.
 
 This module fills those rows and returns the title picked. Each cell
 carries four runtime properties the skin draws (Kodi's skin engine can
@@ -23,15 +24,17 @@ neither compute nor format, so all four are prepared here):
                     dimmed so the eye skips past it
 
 Each band owns a (list, header-label) control-id pair - see `BAND_ROWS`.
-A band with no titles is not drawn at all: the skin hides both controls
-on the list's own `NumItems`, so an empty band leaves no stray heading
+A band with no titles is not drawn at all: the skin hides its group on
+a window property set from `onInit()` (not `Container.NumItems`, which
+is still 0 in that pass), so an empty band leaves no stray heading
 behind, and `usecontrolcoords` closes the gap it would have taken.
 
 Control ids:
     BACKGROUND = 30000  fanart of the focused item
     ROWS       = 30001  the vertical grouplist holding every band row
     HEADING    = 30006  "REVRIVULET / CONTINUE" breadcrumb
-    30020/30021/30024  focused title, caption, and description
+    30020/30024/30025  focused title, description, and the caption under it
+    30021              ratings in the right quarter (hero_meta)
     300x2/301x7        per-band list and header label (see `BAND_ROWS`)
 
 Like every other Rivulet screen, the actual rendering is
@@ -75,16 +78,18 @@ NEW_EPISODES_BAND = 'library'
 LIST = BAND_ROWS['resume'][0]
 
 #: Width, in skin pixels, of a cell's progress track - must match the
-#: 288px bar in `GridWindow.xml`'s cell layouts, since `_progress_width()`
+#: 200px bar in `GridWindow.xml`'s cell layouts, since `_progress_width()`
 #: scales into it.
 #:
-#: 288 is the poster's REAL rendered width, not merely its layout box: the
-#: artwork is drawn `aspectratio=keep` into a 288x432 box, a true 2:3, so
+#: 200 is the poster's REAL rendered width, not merely its layout box: the
+#: artwork is drawn `aspectratio=keep` into a 200x300 box, a true 2:3, so
 #: a standard poster fills it edge to edge. The two must stay equal - at
 #: an earlier 240 track against a 216-wide rendered poster the bar
 #: overhung the artwork by 12px each side, plainly visible on a real
 #: device against the focused cell's outline. A test pins them together.
-PROGRESS_TRACK_WIDTH = 288
+#: The poster shrank from 288x432 so a whole band, title and badge
+#: included, fits in the one visible row at the bottom of the skin.
+PROGRESS_TRACK_WIDTH = 200
 
 #: Floor on a rendered progress bar, in skin pixels. A title watched 1-2%
 #: scales to a sub-pixel sliver that renders as nothing at all, which
@@ -189,6 +194,7 @@ def make_list_item(item):
     """Project one merged `lib.ui.mystuff` item onto a `ListItem` for the
     grid. Pure apart from `L()`, so tests can assert every property
     without a window."""
+    from lib.ui.homewindow import _hero_meta_text
     from lib.ui.mystuff import BAND_RECENT
 
     list_item = xbmcgui.ListItem(label=escape_label(item.get('name') or ''))
@@ -197,6 +203,7 @@ def make_list_item(item):
         'badge': _badge(item),
         'progress_width': _progress_width(item),
         'caption': _caption(item),
+        'hero_meta': escape_label(_hero_meta_text(item)),
         'plot': escape_label(item.get('description') or ''),
         # Finished titles are dimmed by the skin so the eye skips past
         # them, the way a watched episode greys out in most apps. A
@@ -318,6 +325,24 @@ class GridWindow(BaseWindow):
             self.getControl(BACKGROUND).setImage((item or {}).get('background') or '')
         except Exception as exc:  # noqa: BLE001 - a broken/partial skin must never crash navigation
             log('gridwindow: setImage failed: %r' % (exc,), xbmc.LOGDEBUG)
+        self._refresh_ratings(item)
+
+    def _refresh_ratings(self, item):
+        """Overlay a cached ratings fetch onto the focused card.
+
+        The skin reads `hero_meta`. A key that is still fetching leaves
+        that property as the catalog composed it."""
+        if not isinstance(item, dict):
+            return
+        try:
+            listitem = self.getControl(self.getFocusId()).getSelectedItem()
+        except Exception:
+            return
+        if listitem is None:
+            return
+        from lib.ui.ratingsched import apply_to_property
+
+        apply_to_property(listitem, item, 'hero_meta')
 
     @gated_input
     def onAction(self, action):

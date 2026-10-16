@@ -1090,3 +1090,114 @@ msgstr "에피소드 목록"
 msgctxt "#30441"
 msgid "Details"
 msgstr "상세 정보"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "끝나기 전 초"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "자동 재생 화질"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "최고"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "다음 재생"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "캐시된 소스만 자동 재생"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "아직 시청 중인지 묻기까지의 회차"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "아직 시청 중인가요?"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "다음: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "모든 소스 불러오는 중…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "모든 소스 불러오는 중… %d/%d"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API 키"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API 키"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "OMDb API 키 (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "MDBList API 키 (mdblist.com/preferences/)"
+
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "휴대폰에서 평점 키 페어링"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "키 페어링"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "휴대폰에서 이 페이지를 열고 키를 붙여넣으세요. 3분 동안 유효합니다."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "키를 저장했습니다"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "페어링을 시작하지 못했습니다. TV에 네트워크가 필요합니다."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "이 코드는 만료되었습니다. 다시 시도하세요."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "저장"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "저장했습니다. 이 페이지를 닫아도 됩니다."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "이 코드가 일치하지 않습니다."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "키를 입력하세요."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "이미 저장했습니다."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "이 키는 너무 깁니다."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "키를 저장하지 못했습니다."

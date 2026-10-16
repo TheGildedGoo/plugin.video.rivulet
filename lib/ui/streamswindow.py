@@ -52,20 +52,16 @@ leaves that panel empty exactly like today.
 `video_id=None` kwarg - the id of the episode whose streams are being
 shown, threaded from `lib.ui.detailwindow`'s episode click (the only
 caller that has one; a movie or any other context-free call keeps
-defaulting to `None`, so nothing below ever runs for it). Once playback
-of that episode ends NATURALLY (played through to completion, not
-stopped by the user - see `_wait_for_playback_end()`), if it's a
-series, the 'binge_enable' setting is on, `meta['videos']` has a next
-episode (`lib.ui.binge.next_video()`), and that episode's own streams
-can be fetched, `_try_binge_watch()` shows a cancellable/skippable countdown
-offering to auto-play it - see that
-function's docstring for exactly how it reuses `play_direct()`'s
-`item_meta=`/`on_ready=close_windows_for_playback` contract and loops
-for the episode after that. The user stopping the episode instead of
-letting it end, cancelling the countdown, a monitor abort, no next
-episode, or no fetchable stream for it all fall back to the
+defaulting to `None`, so nothing below ever runs for it). Near the end
+of a series episode (see `binge_lead_seconds`; there is no credits
+timestamp on the meta), or after a natural end when the duration was
+never known, `_after_playback()` shows an Up next card. Select or the
+countdown auto-plays the next episode's cached-highest stream (see
+`lib.ui.binge.pick_up_next_stream`). Back, a user Stop, the series
+ending, a cached-only miss, or a failed resolve all fall back to the
 SAME "reopen the picker" round trip described above - `open_streams()`
-still only ever returns False.
+still only ever returns False. Continue Resume calls the same helper
+and returns Home instead of reopening a picker.
 
 Every installed addon's own stream fetch runs CONCURRENTLY, not one at
 a time: real user logs showed the old serial `for` loop - each addon
@@ -89,6 +85,17 @@ share. That live phase only ever feeds the FIRST window a picker opens;
 every reopen after a played pick (or a binge-watched one) works off
 whatever `StreamsWindow.pairs` had already accumulated by then, a
 static snapshot, never resumes listening for more addons.
+
+Opening on the first answer used to leave the list blank: the only
+status was a "Loading more sources..." line in the side panel, under
+the poster, and Kodi's list selects the LAST row when items are added
+(and again when the list takes focus). A title with many sources
+therefore opened scrolled to the bottom of a list that had not finished
+painting. The column header now shows "Loading all sources…" with how
+many addons have answered (`set_load_progress()`) until `set_loading(False)`.
+Until the user moves the cursor, every rebuild during that fan-out —
+including the one that clears the line — puts the cursor back on row 0,
+the best stream after `sort_streams()`.
 """
 import queue
 import threading
@@ -96,7 +103,7 @@ import threading
 import xbmcgui
 
 from lib.stremio import streaminfo
-from lib.ui.binge import next_video, pick_binge_stream
+from lib.ui.binge import next_video, pick_up_next_stream
 from lib.ui.dependencies import get_client, get_store
 from lib.ui.uicommon import (
     BaseWindow,
@@ -121,6 +128,13 @@ INFO_PANEL = 30008
 SOURCES_COUNT = 30100
 ADDONS_COUNT = 30101
 CACHED_COUNT = 30102
+#: Column-header status while the fan-out is still outstanding. Python
+#: owns its visibility (no static `<visible>` in the skin): a hardcoded
+#: false would outrank `setVisible(True)` on real Kodi, the same trap
+#: BusyDialog.xml's progress bar documents. Sits in the list column,
+#: not the side panel — the old INFO_PANEL line was under the poster
+#: and the list itself looked empty.
+LOADING_STATUS = 30110
 
 #: Cap on concurrent addon HTTP calls a streams fan-out below opens at
 #: once - mirrors `lib.ui.views._MAX_ADDON_WORKERS`'s bounded-pool
@@ -134,10 +148,25 @@ CACHED_COUNT = 30102
 #: 27.6s cost of the old serial loop this replaces.
 _MAX_STREAM_ADDON_WORKERS = 8
 
-#: strings.po id for the transient "more sources still loading" line
-#: `StreamsWindow._rebuild_list()` appends to INFO_PANEL while
-#: `open_streams()`'s fan-out still has an addon outstanding.
-_LOADING_STRING_ID = 30185
+#: strings.po ids for LOADING_STATUS. 30452 is the answered/total
+#: form. The numbers are a fraction, not an inflected noun — the
+#: catalogs have no plural machinery that would get "3 addons" right
+#: in Polish or Arabic. 30185 stays in the catalogs; it was the old
+#: side-panel line this header replaced.
+_LOADING_HEADING_STRING_ID = 30451
+_LOADING_PROGRESS_STRING_ID = 30452
+
+#: Action ids that mean the user moved the cursor. Kodi selects the
+#: last row on its own when items are added; treating that as a choice
+#: is how the finished list opened on the bottom. The noop wake the
+#: fan-out uses (`Action(noop)`) and Back are deliberately absent.
+_CURSOR_MOVE_ACTIONS = frozenset({
+    3, 4,  # up, down
+    5, 6,  # page up, page down
+    14, 15,  # next item, previous item
+    104, 105,  # mouse wheel
+    111, 112,  # scroll
+})
 
 #: strings.po ids for the left column's localized 'N SOURCE(S)' / 'N
 #: ADDON(S)' / 'N CACHED' summary counts (see _rebuild_list()) -
@@ -230,12 +259,34 @@ _BINGE_COUNTDOWN_SETTING = 'binge_countdown'
 _BINGE_COUNTDOWN_DEFAULT_SECONDS = 10
 _BINGE_COUNTDOWN_MIN_SECONDS = 3
 
-#: strings.po ids for the countdown dialog: the heading, and the
-#: '%s'/'%d'-parameterized "Playing <label> in <N> s" message, which
-#: `_binge_countdown()` re-formats on every tick because the remaining
-#: seconds are part of the sentence.
-_BINGE_DIALOG_HEADING_STRING_ID = 30182
+#: How early the Up next card appears. There is no credits timestamp on
+#: a Stremio video, so this window IS the credits. Default 30s.
+_BINGE_LEAD_SETTING = 'binge_lead_seconds'
+_BINGE_LEAD_DEFAULT_SECONDS = 30
+_BINGE_LEAD_MIN_SECONDS = 5
+
+#: `binge_quality` select values -> a max height. `highest` (and anything
+#: unrecognised) is 0, "no cap". Known heights above the cap are dropped;
+#: an unparsed resolution is kept.
+_BINGE_QUALITY_SETTING = 'binge_quality'
+_BINGE_QUALITY_CAPS = {'1080p': 1080, '2160p': 2160}
+
+_BINGE_CACHED_ONLY_SETTING = 'binge_cached_only'
+
+#: How many episodes THIS chain may start before "Are you still watching?".
+#: 0 asks every time. The episode the user pressed play on is not counted.
+_BINGE_STILL_WATCHING_SETTING = 'binge_still_watching'
+_BINGE_STILL_WATCHING_DEFAULT = 3
+
+#: strings.po ids for the countdown dialog. The heading is "Up next".
+#: The message is the '%s'/'%d' "Playing <label> in <N> s" line, which
+#: `_binge_countdown()` re-formats on every tick. The still-watching
+#: prompt reuses the same window with its own heading and a message
+#: that does not promise the timer will start playback.
 _BINGE_DIALOG_MESSAGE_STRING_ID = 30183
+_UP_NEXT_HEADING_STRING_ID = 30445
+_STILL_WATCHING_HEADING_STRING_ID = 30449
+_STILL_WATCHING_MESSAGE_STRING_ID = 30450
 
 
 def _read_stream_filters():
@@ -291,10 +342,23 @@ class StreamsWindow(BaseWindow):
         self._pending_lock = threading.Lock()
         self._pending_batches = []
         self._pending_loading = None
+        #: `(answered, total)` queued by `set_load_progress()`, or None
+        #: when the count has not changed. Same lock as the batches.
+        self._pending_progress = None
         #: True while `open_streams()`'s own fan-out still has an addon
-        #: outstanding - renders `_LOADING_STRING_ID`'s status line onto
-        #: INFO_PANEL until the last one answers (`set_loading(False)`).
+        #: outstanding. LOADING_STATUS stays visible until the last one
+        #: answers (`set_loading(False)`).
         self._loading = False
+        #: Addons answered so far, and how many were asked. Fed by
+        #: `set_load_progress()`; 0/0 means the count is not known yet
+        #: and the header falls back to the heading with no fraction.
+        self._load_answered = 0
+        self._load_total = 0
+        #: True once the user moves the cursor (see `_CURSOR_MOVE_ACTIONS`).
+        #: While this is false and a fan-out is in progress, a rebuild
+        #: puts the cursor on row 0 instead of keeping whichever row
+        #: Kodi selected — the last one, after `addItems()`.
+        self._user_moved_cursor = False
         #: The prefix of `self.pairs` (by OBJECT IDENTITY, oldest-first)
         #: LIST currently holds - set by `_rebuild_list()` every time it
         #: runs. `_append_prefix_length()` compares this against a fresh
@@ -364,7 +428,12 @@ class StreamsWindow(BaseWindow):
         # Any exit path must stop accepting further live updates before
         # the underlying window (and its controls) actually goes away -
         # see add_pairs()/set_loading()'s own no-op-after-close contract.
+        # A force-close for playback reopens THIS window. The fan-out
+        # drops updates while `_closed` is set, including the
+        # `set_loading(False)` that means it finished, so the reopened
+        # picker must not keep "Loading all sources…" up forever.
         self._closed = True
+        self._loading = False
         super().close()
 
     def add_pairs(self, pairs):
@@ -386,8 +455,8 @@ class StreamsWindow(BaseWindow):
         self._wake()
 
     def set_loading(self, loading):
-        """Thread-safe toggle for the transient "more sources still
-        loading" INFO_PANEL line (see `_rebuild_list()`) - `True` while
+        """Thread-safe toggle for the "Loading all sources…" header
+        (see `_refresh_loading_label()`) - `True` while
         `open_streams()`'s fan-out still has an addon outstanding,
         `False` once the last one has answered. Same worker->GUI
         handoff as `add_pairs()`; a silent no-op once this window has
@@ -396,6 +465,20 @@ class StreamsWindow(BaseWindow):
             if self._closed:
                 return
             self._pending_loading = bool(loading)
+        self._wake()
+
+    def set_load_progress(self, answered, total):
+        """Thread-safe answered/total count for the loading header.
+
+        `answered` is how many addons have returned (including an empty
+        list — that is still an answer) and `total` is how many were
+        asked. A count-only tick refreshes the label without rebuilding
+        LIST, so it cannot move the cursor. A silent no-op once this
+        window has closed."""
+        with self._pending_lock:
+            if self._closed:
+                return
+            self._pending_progress = (int(answered), int(total))
         self._wake()
 
     def _wake(self):
@@ -410,10 +493,12 @@ class StreamsWindow(BaseWindow):
         screen. Returns True if anything actually changed, so a caller
         only rebuilds the list when there is something new to show."""
         with self._pending_lock:
-            if not self._pending_batches and self._pending_loading is None:
+            if (not self._pending_batches and self._pending_loading is None
+                    and self._pending_progress is None):
                 return False
             batches, self._pending_batches = self._pending_batches, []
             loading, self._pending_loading = self._pending_loading, None
+            progress, self._pending_progress = self._pending_progress, None
         if batches:
             for batch in batches:
                 self.pairs.extend(batch)
@@ -422,7 +507,15 @@ class StreamsWindow(BaseWindow):
             self.pairs = streaminfo.sort_streams(self.pairs, key=sort_key)
         if loading is not None:
             self._loading = loading
-        return True
+        if progress is not None:
+            self._load_answered, self._load_total = progress
+        # A count tick on its own must not rebuild LIST. `addItems()` —
+        # even of nothing — is what moves Kodi's cursor, and the header
+        # is a label, not a row.
+        changed = bool(batches) or loading is not None
+        if progress is not None and not changed:
+            self._refresh_loading_label()
+        return changed
 
     def _apply_pending(self):
         """`onAction()`'s live-merge drain - GUI thread only. Rebuilds
@@ -448,7 +541,13 @@ class StreamsWindow(BaseWindow):
         since landing on whatever now occupies that slot keeps the
         cursor in a stable spot on screen, rather than jumping to some
         unrelated stream elsewhere in the list just because it happens
-        to share the old raw index."""
+        to share the old raw index.
+
+        That identity restore is skipped while a fan-out is in progress
+        (and on the rebuild that ends it) until the user moves the
+        cursor. Kodi selects the last row when items are added, and
+        keeping that row is how the finished list opened on the bottom
+        instead of the best stream."""
         control = self.getControl(LIST)
         focused = control.getSelectedItem()
         focus_index = control.getSelectedPosition()
@@ -461,6 +560,7 @@ class StreamsWindow(BaseWindow):
             if 0 <= pos < len(self.pairs):
                 focus_pair = self.pairs[pos]
 
+        loading_before = self._loading
         if not self._merge_pending():
             return
 
@@ -468,6 +568,13 @@ class StreamsWindow(BaseWindow):
         self._rebuild_list(0 if start is None else start)
         visible = self._rendered_visible_pairs
         if not visible:
+            return
+        # The fan-out, and the rebuild that ends it, have no user choice
+        # yet unless they already moved. Kodi selects the last row when
+        # items are added; keeping that identity opens the finished list
+        # on the bottom instead of the best stream.
+        if not self._user_moved_cursor and (loading_before or self._loading):
+            self._focus_first_stream()
             return
         if focus_pair is not None:
             for index, pair in enumerate(visible):
@@ -647,9 +754,8 @@ class StreamsWindow(BaseWindow):
             lines.append(L(_FILTERS_MATCHED_NOTHING_STRING_ID))
         elif hidden_count:
             lines.append(L(_HIDDEN_STRING_ID if hidden_count == 1 else _HIDDEN_PLURAL_STRING_ID) % hidden_count)
-        if self._loading:
-            lines.append(L(_LOADING_STRING_ID))
         self.getControl(INFO_PANEL).setText('\n'.join(lines))
+        self._refresh_loading_label()
 
         # Left column summary counts (design's stacked 'NN SOURCES' /
         # 'NN ADDONS' / 'NN CACHED' lines) - their own labels, not more
@@ -670,6 +776,42 @@ class StreamsWindow(BaseWindow):
             L(_ADDON_STRING_ID if addon_count == 1 else _ADDONS_STRING_ID) % addon_count
         )
         self.getControl(CACHED_COUNT).setLabel(L(_CACHED_STRING_ID) % cached_count)
+
+    def _refresh_loading_label(self):
+        """Show or hide LOADING_STATUS from `self._loading` and the
+        answered/total count. GUI thread only. A known total uses the
+        fraction; otherwise the heading alone, so the list column is
+        never blank while addons are still out."""
+        from lib.ui.compat import L
+
+        control = self.getControl(LOADING_STATUS)
+        if not self._loading:
+            control.setLabel('')
+            control.setVisible(False)
+            return
+        total = self._load_total
+        if total:
+            answered = self._load_answered
+            if answered < 0:
+                answered = 0
+            elif answered > total:
+                answered = total
+            control.setLabel(L(_LOADING_PROGRESS_STRING_ID) % (answered, total))
+        else:
+            control.setLabel(L(_LOADING_HEADING_STRING_ID))
+        control.setVisible(True)
+
+    def _focus_first_stream(self):
+        """Put the cursor on row 0.
+
+        That row is the best stream: `sort_streams()` ordered `self.pairs`
+        before this list was built. Kodi selects the last row when items
+        are added and again when the list takes focus, which is why a
+        caller has to do this AFTER `setFocusId()` and AFTER `addItems()`,
+        not before."""
+        control = self.getControl(LIST)
+        if control.size():
+            control.selectItem(0)
 
     def _row_render(self, info, include_addon):
         """Cache `info`'s own (line1, line2, properties) row material by
@@ -723,9 +865,15 @@ class StreamsWindow(BaseWindow):
         with self._pending_lock:
             self._closed = False
 
+        # A reopen (playback force-closed this same window) is a fresh
+        # list. The previous session's cursor move must not keep the
+        # next paint on the bottom.
+        self._user_moved_cursor = False
+
         # Pick up anything open_streams() queued via set_loading()/
-        # add_pairs() before doModal() actually opened this window, so
-        # the ONE initial build below already reflects it.
+        # set_load_progress()/add_pairs() before doModal() actually
+        # opened this window, so the ONE initial build below already
+        # reflects it.
         self._merge_pending()
 
         # resolve_art() folds the legacy `self.poster` kwarg into `art`'s
@@ -748,6 +896,9 @@ class StreamsWindow(BaseWindow):
 
         self._rebuild_list()
         self.setFocusId(LIST)
+        # After setFocusId: giving the list focus is the second place
+        # Kodi selects the last row. Row 0 is the best stream.
+        self._focus_first_stream()
 
     @gated_input
     def onAction(self, action):
@@ -755,6 +906,11 @@ class StreamsWindow(BaseWindow):
         # infowindow.ShowcaseWindow.onAction() calls _apply_enriched()
         # before its own per-focus work - see add_pairs()/set_loading().
         self._apply_pending()
+        # After the drain, so a Down that arrives together with a batch
+        # still starts from row 0 and THEN moves. Recording the move
+        # first would treat Kodi's own last-row selection as the user's.
+        if action.getId() in _CURSOR_MOVE_ACTIONS:
+            self._user_moved_cursor = True
         super().onAction(action)
 
     @gated_input
@@ -858,7 +1014,7 @@ def _close_for_player_handoff(picker):
     picker.close()
 
 
-def _wait_for_playback_end(player=None, monitor=None, start_timeout=_PLAYBACK_START_TIMEOUT_SECONDS, tick=0.5):
+def _wait_for_playback_end(player=None, monitor=None, start_timeout=_PLAYBACK_START_TIMEOUT_SECONDS, tick=0.5, up_next=None):
     """Block until playback `open_streams()` just started has both begun
     and ended, so it can safely reopen the streams picker underneath
     Kodi's player instead of unwinding the whole custom-window stack.
@@ -936,6 +1092,7 @@ def _wait_for_playback_end(player=None, monitor=None, start_timeout=_PLAYBACK_ST
             # A new item replaced one that was playing (Kodi calls the old
             # item's stop callback first): only a stop AFTER this start counts.
             self.playback_finished = False
+            self.ended_naturally = False
 
         def onPlayBackEnded(self):
             self.ended_naturally = True
@@ -968,6 +1125,24 @@ def _wait_for_playback_end(player=None, monitor=None, start_timeout=_PLAYBACK_ST
             return True, False
 
         while player.isPlaying():
+            # Up next is offered only while the file is actually playing,
+            # which is the one place getTime() is safe. `up_next` is None
+            # for the direct unit tests of this wait; they keep the old
+            # (proceed, ended) pair and never touch the clock.
+            if up_next is not None and not up_next.get('cut_request') and not up_next.get('abort'):
+                try:
+                    _consider_up_next(player, up_next)
+                except Exception as exc:  # noqa: BLE001 - a card hiccup must not trap playback
+                    log('streamswindow: up-next card failed: %r' % (exc,), xbmc.LOGWARNING)
+                    up_next['done'] = True
+                if up_next.get('abort'):
+                    return False, False
+                if up_next.get('cut_request'):
+                    # The user accepted, or the timer ran out, while the
+                    # file is still playing. Return now so the caller can
+                    # resolve the next episode BEFORE stopping this one.
+                    # Resolve failure then leaves this episode on screen.
+                    return True, False
             if monitor.waitForAbort(tick):
                 return False, False
         if not _await_player_closed(player, monitor, tick):
@@ -1405,131 +1580,455 @@ def _binge_item_meta(show_name, video, art, poster, meta):
     return item_meta
 
 
-def _binge_countdown(label, seconds):
+def _remaining_seconds(player):
+    """Seconds left in the file, or None when the duration is unknown.
+
+    Called only while `isPlaying()` just returned True. A getter that
+    raises (the file closed between the two calls) is "unknown", which
+    falls back to the post-end card rather than guessing a credits window.
+    """
+    try:
+        total = float(player.getTotalTime() or 0)
+        if total <= 0:
+            return None
+        position = float(player.getTime() or 0)
+    except Exception:  # noqa: BLE001 - a clock miss must not kill the wait
+        return None
+    return max(0.0, total - position)
+
+
+def _still_playing(player):
+    try:
+        return bool(player.isPlaying())
+    except Exception:  # noqa: BLE001 - treat a broken player as "not playing"
+        return False
+
+
+def _autoplay_limits():
+    """`(lead, countdown, still_watching)` from the current settings."""
+    from lib.ui.compat import setting_int
+
+    lead = setting_int(
+        _BINGE_LEAD_SETTING, _BINGE_LEAD_DEFAULT_SECONDS, minimum=_BINGE_LEAD_MIN_SECONDS,
+    )
+    countdown = setting_int(
+        _BINGE_COUNTDOWN_SETTING, _BINGE_COUNTDOWN_DEFAULT_SECONDS, minimum=_BINGE_COUNTDOWN_MIN_SECONDS,
+    )
+    still = setting_int(
+        _BINGE_STILL_WATCHING_SETTING, _BINGE_STILL_WATCHING_DEFAULT, minimum=0,
+    )
+    return lead, countdown, still
+
+
+def _binge_quality_cap():
+    from lib.ui.compat import ADDON
+
+    value = ADDON.getSetting(_BINGE_QUALITY_SETTING) or 'highest'
+    return _BINGE_QUALITY_CAPS.get(value, 0)
+
+
+def _up_next_context(stype, meta, poster, art, video_id, played_info, autoplayed=0):
+    """The mutable bag `_wait_for_playback_end` and the chain share.
+
+    `cut_request` is set when the card accepted while the file was still
+    playing: the caller resolves the next stream before anything stops.
+    `preset` is the same pair when the file ended during the card, so
+    the caller plays it without a second countdown and without the
+    cut marker (the natural end already marks the episode watched).
+    `suppress` means Back, a declined still-watching prompt, or a
+    resolve failure: do not start another episode.
+    """
+    show_name = ''
+    if isinstance(meta, dict):
+        show_name = meta.get('name') or meta.get('id') or ''
+    return {
+        'stype': stype,
+        'meta': meta,
+        'poster': poster,
+        'art': art,
+        'video_id': video_id,
+        'played_info': played_info,
+        'autoplayed': autoplayed,
+        'show_name': show_name,
+        'done': False,
+    }
+
+
+def _choose_next_pair(stype, meta, video_id, played_info):
+    """The next episode and the stream Up next would play, or None.
+
+    Applies the picker's own playback filters first, then the auto-play
+    cap and cached-only switch. See `pick_up_next_stream`.
+    """
+    if stype != 'series' or video_id is None or not meta:
+        return None
+
+    from lib.ui.compat import ADDON, setting_bool
+
+    if not setting_bool(_BINGE_ENABLE_SETTING, True):
+        return None
+    candidate = next_video(meta, video_id)
+    if candidate is None:
+        return None
+    pairs = _fetch_stream_pairs(stype, candidate.get('id'))
+    if not pairs:
+        return None
+    sort_key = ADDON.getSetting('stream_sort') or 'quality'
+    pairs = streaminfo.sort_streams(pairs, key=sort_key)
+    pairs = streaminfo.filter_streams(pairs, **_read_stream_filters())
+    picked = pick_up_next_stream(
+        pairs,
+        (played_info or {}).get('binge_group'),
+        max_height=_binge_quality_cap(),
+        cached_only=setting_bool(_BINGE_CACHED_ONLY_SETTING, False),
+    )
+    if not picked:
+        return None
+    info, stream = picked
+    return candidate, info, stream
+
+
+def _arm_autoplay_finish():
+    """Mark the episode now playing so its stop flush counts as watched.
+
+    Read before `play()` replaces `now_playing.json`. A missing store
+    method or a missing context is logged and ignored: playback of the
+    next episode must still start. The word "failed" is avoided on
+    purpose; a player test treats that word as a swallowed bug.
+    """
+    import xbmc
+
+    from lib.ui.compat import log
+
+    try:
+        store = get_store()
+        context = store.get_now_playing()
+        if not isinstance(context, dict) or not context.get('started_at'):
+            return
+        store.set_autoplay_finish(context.get('started_at'), context.get('video_id'))
+    except Exception as exc:  # noqa: BLE001 - the next episode still has to start
+        log('streamswindow: autoplay finish marker skipped: %r' % (exc,), xbmc.LOGWARNING)
+
+
+def _play_up_next(stype, meta, poster, art, show_name, candidate, stream, arm):
+    """Start `candidate`. `arm` forces the current episode's stop to
+    count as watched, and is True only for a credits cut. A natural end
+    already does that, so the post-end path passes False.
+
+    `resume_offset_ms=0` skips the resume confirm and queues no seek.
+    The next episode starts at the beginning.
+    """
+    from lib.ui.player import play_direct
+
+    def on_ready():
+        if arm:
+            _arm_autoplay_finish()
+        close_windows_for_playback()
+
+    item_meta = _binge_item_meta(show_name, candidate, art, poster, meta)
+    return play_direct(
+        stream, stype, candidate.get('id'), item_meta=item_meta,
+        on_ready=on_ready, video_id=candidate.get('id'), resume_offset_ms=0,
+    )
+
+
+def _binge_countdown(label, seconds, accept_on_timeout=True, alive=None, still_watching=False):
     """Thin wrapper around `RivuletCountdown().run()` - the documented
-    seam `_try_binge_watch()` calls and the tests pin, kept even though
-    it is now a one-liner. Mirrors `_wait_for_playback_end()`'s own
-    tri-state contract: True once the countdown runs out uninterrupted
-    OR the user skips it via CountdownDialog.xml's OK/Select "play now"
-    affordance - a new affordance the old dialog never had, folded into
-    the same True the completion case returns since both mean
-    "auto-play now" (caller treats them identically; call out the skip
-    path in release notes) - None if the user cancelled via Back (fall
-    back to reopening the picker - a deliberate "not now", not a Back
-    action), or False on a `monitor.waitForAbort()` abort (Kodi
-    shutting down - the caller must return False immediately, reopening
-    nothing, same as every other abort check in this module)."""
+    seam `_try_binge_watch()` calls and the tests pin. True once the
+    countdown runs out uninterrupted OR the user presses Select. None
+    if the user cancelled via Back. False on a monitor abort. The
+    string ``'ended'`` means the file finished while the card was up.
+
+    `still_watching` True does not auto-play when the timer runs out
+    (`accept_on_timeout` False) and uses the "Are you still watching?"
+    copy. Select is still True.
+    """
     import xbmc
 
     from lib.ui.compat import L
     from lib.ui.dialogs import RivuletCountdown
 
-    # The message embeds the live countdown ("Playing <title> in 8 s"),
-    # so it is a per-tick formatter rather than a fixed string - which is
-    # also what CountdownDialog.xml's own design copy shows.
+    if still_watching:
+        heading = L(_STILL_WATCHING_HEADING_STRING_ID)
+        accept_on_timeout = False
+    else:
+        heading = L(_UP_NEXT_HEADING_STRING_ID)
+
+    def message(remaining):
+        # The Up next line embeds the live countdown ("Playing <title>
+        # in 8 s"). The still-watching line does not: the timer running
+        # out declines, it does not start the next episode.
+        if still_watching:
+            return L(_STILL_WATCHING_MESSAGE_STRING_ID) % (label,)
+        return L(_BINGE_DIALOG_MESSAGE_STRING_ID) % (label, remaining)
+
     return RivuletCountdown().run(
-        L(_BINGE_DIALOG_HEADING_STRING_ID),
-        lambda remaining: L(_BINGE_DIALOG_MESSAGE_STRING_ID) % (label, remaining),
-        seconds,
-        monitor=xbmc.Monitor(),
+        heading, message, seconds, monitor=xbmc.Monitor(),
+        accept_on_timeout=accept_on_timeout, alive=alive,
     )
 
 
-def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
-    """After an episode has played through to its NATURAL end (the caller
-    only reaches here when `_wait_for_playback_end()` reported
-    `ended_naturally`; a user stop never gets this far), try
-    to keep going straight into the next one(s) - see the module
-    docstring's binge-watching paragraph for the user-facing shape.
+def _consider_up_next(player, ctx):
+    """Maybe show the card. Mutates `ctx`. See `_up_next_context`.
 
-    Loops internally rather than telling its caller "keep going": each
-    successfully auto-played episode immediately tries the ONE after it
-    too, matching the "loop for the episode after that" requirement.
-    Returns `None` the moment there is nothing left to binge into (not a
-    series, no `video_id`/`meta`, the 'binge_enable' setting is off,
-    `lib.ui.binge.next_video()` found no next episode, its streams could
-    not be fetched, the countdown was cancelled, the auto-played episode
-    was stopped rather than played through to its own natural end, or
-    `play_direct()` itself failed) - the caller must fall back to its own
-    normal "reopen the picker" step, exactly as if this function had
-    never run. Returns
-    `False` the moment a `monitor.waitForAbort()` fires anywhere in the
-    chain (Kodi shutting down) - the caller must return False
-    immediately instead, reopening nothing, same as every other abort
-    check in this module."""
+    One offer per episode (`done`). Duration 0, or remaining still
+    above the lead, waits for a later tick. No next episode, or no
+    qualifying stream, leaves the post-end path to notice the same
+    thing: this does not set `suppress` for "nothing to play".
+    """
+    if ctx.get('done') or ctx.get('suppress') or ctx.get('cut_request') or ctx.get('preset'):
+        return
+    from lib.ui.compat import setting_bool
+
+    if ctx.get('stype') != 'series' or not ctx.get('video_id') or not ctx.get('meta'):
+        ctx['done'] = True
+        return
+    if not setting_bool(_BINGE_ENABLE_SETTING, True):
+        ctx['done'] = True
+        return
+    remaining = _remaining_seconds(player)
+    if remaining is None:
+        return
+    lead, countdown, limit = _autoplay_limits()
+    if remaining > lead:
+        return
+    ctx['done'] = True
+    choice = _choose_next_pair(ctx['stype'], ctx['meta'], ctx['video_id'], ctx.get('played_info'))
+    if choice is None:
+        return
+    candidate, info, stream = choice
+    label = _binge_label(candidate)
+    seconds = min(countdown, max(1, int(remaining)))
+
+    def alive():
+        return _still_playing(player)
+    if (ctx.get('autoplayed') or 0) >= limit:
+        result = _binge_countdown(label, seconds, alive=alive, still_watching=True)
+        if result is True:
+            ctx['autoplayed'] = 0
+        else:
+            ctx['suppress'] = True
+            if result is False:
+                ctx['abort'] = True
+            return
+    result = _binge_countdown(label, seconds, alive=alive)
+    if result is None:
+        ctx['suppress'] = True
+        return
+    if result is False:
+        ctx['abort'] = True
+        return
+    if result == 'ended':
+        ctx['preset'] = (candidate, info, stream)
+        return
+    ctx['cut_request'] = (candidate, info, stream)
+
+
+def _finish_cut_or_wait(ctx):
+    """Play a credits-cut the card already accepted.
+
+    Returns ``'playing'`` when the next episode started, ``'stopped'``
+    when resolve failed and the current episode was then waited out
+    (stop-return, do not chain), or ``False`` on a Kodi abort.
+    """
+    import xbmc
+
+    from lib.ui.compat import log
+
+    candidate, info, stream = ctx['cut_request']
+    started = _play_up_next(
+        ctx['stype'], ctx['meta'], ctx['poster'], ctx['art'], ctx.get('show_name') or '',
+        candidate, stream, arm=True,
+    )
+    if started:
+        log('streamswindow: up-next cut to %r' % candidate.get('id'), xbmc.LOGINFO)
+        ctx['video_id'] = candidate.get('id')
+        ctx['played_info'] = info
+        ctx['autoplayed'] = (ctx.get('autoplayed') or 0) + 1
+        ctx['cut_request'] = None
+        ctx['done'] = False
+        return 'playing'
+    # Resolve failed. The episode is still on screen: the marker is
+    # armed only from on_ready, which did not run. Wait it out and do
+    # not offer again.
+    ctx['suppress'] = True
+    ctx['cut_request'] = None
+    ctx['done'] = True
+    proceed, _ended = _wait_for_playback_end(up_next=ctx)
+    if not proceed or ctx.get('abort'):
+        end_player_phase()
+        return False
+    if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):
+        end_player_phase()
+        return False
+    return 'stopped'
+
+
+def _try_binge_watch(
+    stype, meta, poster, art, video_id, played_info,
+    preset=None, autoplayed=0, already_playing=False,
+):
+    """After an episode has played through to its natural end, or the
+    Up next card already picked a stream (`preset`), keep going.
+
+    The card during the credits is `_consider_up_next`, called from the
+    wait below. This loop is the post-end card: it runs when the file
+    ended without that offer (unknown duration, or the user seeked past
+    the window). `preset` skips the second card for a file that ended
+    while the first card was up.
+
+    `already_playing` means `video_id` is on screen right now (a credits
+    cut just started it). The first pass waits for THAT episode instead
+    of fetching the one after it.
+
+    Returns `None` when the chain stops (not a series, setting off, no
+    next episode, nothing eligible, countdown cancelled, the user
+    stopped, resolve failed). Returns `False` on a Kodi abort. The phase
+    stays `player` on a user stop so the picker's `doModal` is what ends
+    it. Continue Resume ends the phase itself, because Home's reopen
+    does not.
+    """
     if stype != 'series' or video_id is None or not meta:
         return None
 
     import xbmc
 
-    from lib.ui.compat import ADDON, log, setting_bool, setting_int
-    from lib.ui.player import play_direct
+    from lib.ui.compat import log, setting_bool
 
-    if not setting_bool(_BINGE_ENABLE_SETTING, True):
+    if not already_playing and not setting_bool(_BINGE_ENABLE_SETTING, True):
         return None
 
     show_name = meta.get('name') or meta.get('id') or ''
     current_video_id = video_id
-    binge_group = (played_info or {}).get('binge_group')
-    countdown_seconds = setting_int(
-        _BINGE_COUNTDOWN_SETTING, _BINGE_COUNTDOWN_DEFAULT_SECONDS, minimum=_BINGE_COUNTDOWN_MIN_SECONDS,
-    )
+    current_info = played_info
+    # A cut already started this episode. Wait for it; do not play the
+    # one after it on the first pass.
+    skip_play = already_playing
 
     try:
         while True:
-            candidate = next_video(meta, current_video_id)
-            if candidate is None:
-                return None
+            if not skip_play:
+                if preset is None:
+                    _lead, countdown, limit = _autoplay_limits()
+                    choice = _choose_next_pair(stype, meta, current_video_id, current_info)
+                    if choice is None:
+                        return None
+                    candidate, picked_info, picked_stream = choice
+                    if autoplayed >= limit:
+                        prompt = _binge_countdown(
+                            _binge_label(candidate), countdown, still_watching=True,
+                        )
+                        if prompt is False:
+                            return False
+                        if prompt is not True:
+                            return None
+                        autoplayed = 0
+                    countdown_result = _binge_countdown(_binge_label(candidate), countdown)
+                    if countdown_result is None:
+                        return None
+                    if countdown_result is False:
+                        return False
+                else:
+                    candidate, picked_info, picked_stream = preset
+                    preset = None
 
-            next_pairs = _fetch_stream_pairs(stype, candidate.get('id'))
-            if not next_pairs:
-                return None
-            sort_key = ADDON.getSetting('stream_sort') or 'quality'
-            next_pairs = streaminfo.sort_streams(next_pairs, key=sort_key)
-            picked_info, picked_stream = pick_binge_stream(next_pairs, binge_group)
+                if not _play_up_next(
+                    stype, meta, poster, art, show_name, candidate, picked_stream, arm=False,
+                ):
+                    return None
+                log('streamswindow: binge-watching auto-played %r' % candidate.get('id'), xbmc.LOGINFO)
+                autoplayed += 1
+                current_video_id = candidate.get('id')
+                current_info = picked_info
+            skip_play = False
 
-            countdown = _binge_countdown(_binge_label(candidate), countdown_seconds)
-            if countdown is None:
-                return None
-            if countdown is False:
-                return False
-
-            item_meta = _binge_item_meta(show_name, candidate, art, poster, meta)
-            if not play_direct(
-                picked_stream, stype, candidate.get('id'), item_meta=item_meta,
-                on_ready=close_windows_for_playback,
-                video_id=candidate.get('id'),
-            ):
-                return None
-            log('streamswindow: binge-watching auto-played %r' % candidate.get('id'), xbmc.LOGINFO)
-
-            proceed, ended_naturally = _wait_for_playback_end()
-            if not proceed:
+            ctx = _up_next_context(
+                stype, meta, poster, art, current_video_id, current_info, autoplayed=autoplayed,
+            )
+            proceed, ended_naturally = _wait_for_playback_end(up_next=ctx)
+            if not proceed or ctx.get('abort'):
                 end_player_phase()
                 return False
-            if not ended_naturally:
-                # The user stopped this auto-played episode instead of
-                # letting it end - stop the chain here, exactly like any
-                # other "nothing left to binge into" case above. The
-                # phase stays `player` until the picker's doModal: ending
-                # it here is the gap a Videos-window refresh used to
-                # Dialog.Close through.
+            if ctx.get('cut_request'):
+                cut = _finish_cut_or_wait(ctx)
+                if cut is False:
+                    return False
+                if cut == 'stopped':
+                    return None
+                # The next episode is the one now playing. Loop back to
+                # the wait, not to another play().
+                autoplayed = ctx['autoplayed']
+                current_video_id = ctx['video_id']
+                current_info = ctx['played_info']
+                skip_play = True
+                continue
+            if ctx.get('preset'):
+                preset = ctx['preset']
+            if ctx.get('suppress') or not ended_naturally:
+                # Stop, Back on the card, or a declined prompt. Phase
+                # stays `player` until the caller's screen comes back.
                 return None
             if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):
                 end_player_phase()
                 return False
-            # Player gone and queue drained: the next episode's countdown is
-            # a Rivulet screen again (see uicommon's "UI phases" notes).
+            # Player gone: the next card is a Rivulet screen again.
             end_player_phase()
-
-            current_video_id = candidate.get('id')
-            binge_group = picked_info.get('binge_group')
     except Exception as exc:  # noqa: BLE001 - a binge-chain hiccup must fall back to the picker, never crash open_streams()
         # Leave the phase alone. The caller reopens the picker, and that
         # window's doModal ends `player`. Ending it here is the same gap
         # a Stop refresh uses to Dialog.Close the stack.
         log('streamswindow: binge-watching failed: %r (falling back to the picker)' % (exc,), xbmc.LOGWARNING)
         return None
+
+
+def _after_playback(stype, meta, poster, art, video_id, played_info):
+    """Wait out the player, then run Up next when it should.
+
+    Returns False on a Kodi abort (phase already ended, reopen nothing).
+    Returns None when the caller should do its own stop-return. On a
+    user Stop the phase is left at `player` so a picker's `doModal` ends
+    it. Continue ends it after this returns, because Home does not.
+
+    A credits cut resolves the next episode before this returns to the
+    reopen path. Resolve failure waits the current episode out and
+    returns None without chaining.
+    """
+    import xbmc
+
+    ctx = _up_next_context(stype, meta, poster, art, video_id, played_info, autoplayed=0)
+    proceed, ended_naturally = _wait_for_playback_end(up_next=ctx)
+    if not proceed or ctx.get('abort'):
+        end_player_phase()
+        return False
+    if ctx.get('cut_request'):
+        cut = _finish_cut_or_wait(ctx)
+        if cut is False:
+            return False
+        if cut == 'stopped':
+            return None
+        # The next episode is already playing. Wait for it; do not
+        # fetch the one after it. Phase stays `player`.
+        if _try_binge_watch(
+            stype, meta, poster, art, ctx['video_id'], ctx['played_info'],
+            autoplayed=ctx['autoplayed'], already_playing=True,
+        ) is False:
+            return False
+        return None
+    if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):
+        end_player_phase()
+        return False
+    if ctx.get('preset') and ended_naturally and not ctx.get('suppress'):
+        end_player_phase()
+        if _try_binge_watch(
+            stype, meta, poster, art, video_id, played_info, preset=ctx['preset'],
+        ) is False:
+            return False
+        return None
+    if ended_naturally and not ctx.get('suppress'):
+        end_player_phase()
+        if _try_binge_watch(stype, meta, poster, art, video_id, played_info) is False:
+            return False
+    return None
 
 
 class _PickerFeed:
@@ -1548,6 +2047,8 @@ class _PickerFeed:
         self._window = None
         self._done = False
         self._stopped = False
+        self._answered = 0
+        self._total = 0
 
     def add(self, pairs):
         with self._lock:
@@ -1558,6 +2059,23 @@ class _PickerFeed:
                 return
             window = self._window
         window.add_pairs(pairs)
+
+    def set_counts(self, answered, total):
+        """Remember how many addons have answered, and tell the live
+        window when one is attached. Empty answers count: the header's
+        fraction must move even when an addon found nothing to add."""
+        with self._lock:
+            self._answered = int(answered)
+            self._total = int(total)
+            answered = self._answered
+            total = self._total
+            window = None if self._stopped else self._window
+        if window is not None:
+            window.set_load_progress(answered, total)
+
+    def counts(self):
+        with self._lock:
+            return self._answered, self._total
 
     def mark_done(self):
         """Every addon has now answered - flip the live window's status
@@ -1688,6 +2206,11 @@ def open_streams(
     pairs = streaminfo.sort_streams(pairs, key=sort_key)
 
     feed = _PickerFeed()
+    # The wait loop above already consumed at least one answer (the
+    # list is non-empty). The header needs that count before the
+    # window exists; later answers, including empty ones, go through
+    # set_counts() on the drain thread.
+    feed.set_counts(consume_next.consumed, total)
     stop_event = threading.Event()
 
     def drain_remaining():
@@ -1697,7 +2220,10 @@ def open_streams(
                 if result is None:
                     break
                 _addon_name, addon_pairs = result
-                if addon_pairs and not stop_event.is_set():
+                if stop_event.is_set():
+                    continue
+                feed.set_counts(consume_next.consumed, total)
+                if addon_pairs:
                     feed.add(addon_pairs)
         except Exception as exc:  # noqa: BLE001 - nothing else can catch a failure on this background thread; log it as loudly as open_streams()'s own window-construction failures below, rather than let it vanish silently.
             log('streamswindow: fan-out failed: %r' % (exc,), xbmc.LOGERROR)
@@ -1723,6 +2249,7 @@ def open_streams(
             win = open_window(StreamsWindow, 'StreamsWindow.xml')
             if live:
                 win.set_loading(feed.attach(win))
+                win.set_load_progress(*feed.counts())
             # Pass the offset only while it is set, and only as a
             # keyword. Test doubles of start() predate the argument and
             # do not accept it; the ordinary picker never sets it.
@@ -1805,27 +2332,14 @@ def open_streams(
         # to come back. A natural end is the exception: binge's countdown
         # is a Rivulet screen and needs input, so the phase ends before
         # that and `_try_binge_watch()` owns it from there.
-        proceed, ended_naturally = _wait_for_playback_end()
-        if not proceed:
-            end_player_phase()
+        # Up next (during the credits, or the post-end card when the
+        # duration was unknown) and the settle live in `_after_playback`.
+        # False is a Kodi abort: reopen nothing. None falls through to
+        # reopening THIS picker, which is also what a user Stop, a Back
+        # on the card, a series end, and a failed resolve do. The phase
+        # stays `player` on that path until the restored picker's doModal.
+        played_info = win.played_pair[0] if win.played_pair else None
+        if _after_playback(stype, meta, poster, art, video_id, played_info) is False:
             return False
-        if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):  # brief settle pause before reopening
-            end_player_phase()
-            return False
-
-        # Binge-watching: try to auto-play straight through as many
-        # consecutive "next episodes" as apply (see _try_binge_watch()'s
-        # own docstring) before falling back to reopening THIS picker -
-        # but only when the just-played episode ran through to its own
-        # natural end; the user pressing stop must fall straight through
-        # to reopening the picker, never auto-play the next episode.
-        # None means the normal fall-back; False means a monitor abort
-        # fired mid-chain, which must return False immediately instead,
-        # reopening nothing, same as every other abort check above.
-        if ended_naturally:
-            end_player_phase()
-            played_info = win.played_pair[0] if win.played_pair else None
-            if _try_binge_watch(stype, meta, poster, art, video_id, played_info) is False:
-                return False
 
         log('streamswindow: reopening StreamsWindow after playback (%d streams)' % len(pairs), xbmc.LOGINFO)

@@ -3,7 +3,11 @@
 
 """HomeWindow: RevRivulet's entry screen.
 
-A full-bleed fanart hero for the focused title. The type chips
+A full-bleed fanart hero for the focused title, drawn whole rather
+than cropped. Ratings sit in the right quarter; the title and the
+description stay on the left. One row is visible,
+pinned to the bottom of the screen. Down moves to the next row and Up
+moves back; the hero follows the focused poster. The type chips
 (Movies, Series, Anime, Other) sit in a pill row under the top bar.
 Under that, horizontal rows: Continue (in progress), Library (the
 Stremio library), and one poster preview per installed type. Search,
@@ -31,6 +35,8 @@ Login is this addon's own profile (`addon_data/<addon id>/auth.json`
 via `compat.addon_profile_dir()`), not the Stremio app's session and
 not official Rivulet's.
 """
+import json
+
 import xbmcgui
 
 from lib.ui.dependencies import get_store
@@ -41,7 +47,7 @@ STATUS_LABEL = 30005
 BROWSE_LIST = 30010  # type chips (Movies, Series, Anime, Other)
 TOOLS_LIST = 30011  # right-aligned grouplist: Sign in, Search, Add-ons, Settings
 HERO_TITLE = 30020
-HERO_META = 30021
+HERO_META = 30021  # textbox in the right quarter; setText(), not setLabel()
 HERO_PLOT = 30022  # textbox; setText(), not setLabel()
 HERO_LOGO = 30023
 CONTINUE_SHELF = 30040
@@ -213,28 +219,21 @@ def _runtime_text(meta):
 
 
 def _hero_meta_text(meta):
-    """Year, rating, runtime, genres. The middle dot is in NotoSans."""
-    bits = []
-    year = meta.get('year') or meta.get('releaseInfo') or ''
-    if year:
-        bits.append(str(year))
-    rating = meta.get('imdbRating') or ''
-    if rating:
-        bits.append(str(rating))
-    runtime = _runtime_text(meta)
-    if runtime:
-        bits.append(runtime)
-    genres = meta.get('genres') or []
-    if isinstance(genres, list):
-        names = [str(genre) for genre in genres if genre][:3]
-        if names:
-            bits.append(', '.join(names))
-    return ' \u00b7 '.join(bits)
+    """Ratings, year, runtime and genres, one per line.
+
+    The skin draws this in the right quarter. Whatever the meta does
+    not carry is left out, so a sparse title never shows a bare label.
+    """
+    from lib.ui.compat import L
+    from lib.ui.playbackmeta import hero_panel_text
+
+    return hero_panel_text(meta, runtime_text=_runtime_text(meta), now_word=L(30234))
 
 
 def _poster_item(meta, action=''):
     """One shelf cell. `action` set means the click opens that menu
     action (Sign in) instead of the title's page."""
+    from lib.stremio.ratings import panel_facts
     from lib.ui.uicommon import escape_label
 
     name = meta.get('name') or ''
@@ -246,6 +245,7 @@ def _poster_item(meta, action=''):
         'hero_title': escape_label(name),
         'hero_meta': escape_label(_hero_meta_text(meta)),
         'hero_plot': escape_label(_truncate(meta.get('description') or '', 280)),
+        'hero_facts': json.dumps(panel_facts(meta), ensure_ascii=False, separators=(',', ':')),
         'action': action,
         'stype': str(meta.get('type') or ''),
         'sid': str(meta.get('id') or ''),
@@ -274,18 +274,12 @@ def _one_catalog_page(transport, manifest, catalog, extra=None):
     (`_pull_more`), so opening Home does not pull a whole catalog.
     A failed addon yields an empty row rather than taking the screen down.
     """
-    from lib.ui.views import iter_catalog_pages
+    from lib.ui.catalogpages import cached_first_page
 
     try:
-        page = next(iter_catalog_pages(
-            transport, catalog.get('type'), catalog.get('id'),
-            extra=extra, catalog=catalog, manifest=manifest,
-        ))
-    except StopIteration:
-        return []
+        return cached_first_page(transport, manifest, catalog, extra)
     except Exception:
         return []
-    return [meta for meta in (page or []) if isinstance(meta, dict)]
 
 
 def _shelf_page_gen(state):
@@ -618,6 +612,20 @@ def _load_rows(window, store, addons, auth):
     return continue_items, library_items, pages, enabled
 
 
+def _warm_shelf_posters(pages):
+    """Poster textures for the first catalog rows, after they are on screen.
+
+    Continue and Library are not catalog pages. Backgrounds and logos
+    are not warmed. The worker waits on ``waitForAbort``.
+    """
+    from lib.ui.posterwarm import collect_poster_urls, request_warm
+
+    groups = []
+    for action, _list_id, _label_id in _SHELVES:
+        groups.append(pages.get(action) or [])
+    request_warm(collect_poster_urls(groups))
+
+
 def _fill_shelves(window, store, addons, auth, show_continue):
     from lib.ui.compat import L
 
@@ -642,6 +650,7 @@ def _fill_shelves(window, store, addons, auth, show_continue):
             window, list_id, label_id, 'shelf_%s' % action,
             L(L_FOR_ACTION[action]).upper(), items,
         )
+    _warm_shelf_posters(pages)
 
 
 def _refill_saved_rows(window, store, auth):
@@ -839,6 +848,18 @@ def paint_hero(window):
     if not title and not label and not item.getProperty('sid') and not item.getProperty('hero_logo'):
         return
     meta = item.getProperty('hero_meta') or ''
+    facts_raw = item.getProperty('hero_facts') or ''
+    if facts_raw:
+        # A ratings key rebuilds this from the cached scores. No key, or
+        # a cache miss, leaves the catalog line alone and returns at once.
+        from lib.ui.ratingsched import overlay_text
+
+        try:
+            facts = json.loads(facts_raw)
+        except ValueError:
+            facts = None
+        if isinstance(facts, dict):
+            meta = overlay_text(facts, meta)
     plot = item.getProperty('hero_plot') or item.getProperty('subtitle') or ''
     fanart = item.getProperty('fanart') or ''
     logo = item.getProperty('hero_logo') or ''
@@ -846,7 +867,7 @@ def paint_hero(window):
         window.setProperty('HeroLogo', logo)
         window.getControl(HERO_LOGO).setImage(logo)
         window.getControl(HERO_TITLE).setLabel(_fit_hero_title(title or label))
-        window.getControl(HERO_META).setLabel(meta)
+        window.getControl(HERO_META).setText(meta)
         window.getControl(HERO_PLOT).setText(plot)
         window.getControl(BACKGROUND).setImage(fanart or addon_fanart())
     except Exception:
@@ -880,6 +901,12 @@ class HomeWindow(BaseWindow):
         _fill_shelves(self, store, addons, auth, show_continue)
         _focus_first(self)
         paint_hero(self)
+        # After the shelf spinner, not inside it. The 15-minute clock
+        # lives in addonsync, so a nested modal closing does not pull
+        # on every Back.
+        from lib.ui.addonsync import schedule_account_pull
+
+        schedule_account_pull(store, self)
 
     @gated_input
     def onAction(self, action):
@@ -1044,30 +1071,23 @@ def _continue_choice(item, offset_ms):
     return choose(heading, [resume, second])
 
 
-def _hold_until_playback_ends():
-    """Block until the player has closed, then end the player phase.
+def _hold_until_playback_ends(stype, meta, poster, art, video_id, played_info):
+    """Block until playback and any Up next chain have finished, then
+    end the player phase.
 
     `play_direct` returns as soon as Kodi accepts the item. Returning
     from Home's click at that moment lets `doModal` reopen Home on top
     of the picture, because Continue has no picker sitting in between
-    the way `open_streams` does. The phase stays `player` through the
-    same settle `open_streams` uses, so a Stop refresh is still ignored,
-    and ends immediately before this returns: Home is the screen coming
-    back, and its reopen does not itself end the phase. Input would
-    stay gated if the phase were left on `player`.
+    the way `open_streams` does. A natural end, or an accepted Up next
+    card, rolls into the same chain the picker uses. A user Stop, Back
+    on the card, the series ending, or a failed resolve does not: Home
+    is the stop-return. The phase ends here either way, because Home's
+    reopen does not end it and input would stay gated.
     """
-    import xbmc
-
-    from lib.ui.streamswindow import _REOPEN_SETTLE_SECONDS, _wait_for_playback_end
+    from lib.ui.streamswindow import _after_playback
     from lib.ui.uicommon import end_player_phase
 
-    proceed, _ended = _wait_for_playback_end()
-    if not proceed:
-        end_player_phase()
-        return
-    if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):
-        end_player_phase()
-        return
+    _after_playback(stype, meta, poster, art, video_id, played_info)
     end_player_phase()
 
 
@@ -1138,7 +1158,18 @@ def _resume_continue(item, offset_ms):
             resume_offset_ms=offset_ms,
         )
     if started:
-        _hold_until_playback_ends()
+        played_info = None
+        try:
+            from lib.stremio.streaminfo import parse_stream
+            played_info = parse_stream(stream)
+        except Exception as exc:  # noqa: BLE001 - a tie-break miss must not block the chain
+            log('home: saved stream was not read for Up next: %r' % (exc,), xbmc.LOGDEBUG)
+        _hold_until_playback_ends(
+            stype, item_meta.get('meta'),
+            item.getProperty('thumbnail') or None,
+            _continue_art(item),
+            video_id, played_info,
+        )
         return
     open_streams(
         stype, play_id,

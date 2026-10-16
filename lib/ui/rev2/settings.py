@@ -37,6 +37,7 @@ PANES = (
         ('sync_progress', 30170, True),
         ('resume_ask', 30171, True),
         ('binge_enable', 30180, True),
+        ('binge_cached_only', 30447, False),
         ('playback_exclude_cam', 30260, False),
         ('playback_cached_only', 30261, False),
     )),

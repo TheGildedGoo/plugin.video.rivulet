@@ -51,6 +51,11 @@ class AddonsWindow(BaseWindow):
 
     def _reload(self, focus_transport_url=None):
         self.store = get_store()
+        # Same 15-minute pull Home uses, so the list on screen matches
+        # the account. A miss leaves the descriptors already on disk.
+        from lib.ui.addonsync import pull_if_due
+
+        pull_if_due(self.store)
         self.addons = self.store.get_addons()
 
         control = self.getControl(LIST)

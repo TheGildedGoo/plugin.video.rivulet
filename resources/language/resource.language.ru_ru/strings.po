@@ -1090,3 +1090,114 @@ msgstr "Список серий"
 msgctxt "#30441"
 msgid "Details"
 msgstr "Подробности"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "Секунды до конца"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "Качество автовоспроизведения"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "Наивысшее"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "Далее"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "Автовоспроизведение только из кэша"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "Серий до вопроса, смотрите ли вы ещё"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "Вы ещё смотрите?"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "Далее: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "Загрузка всех источников…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "Загрузка всех источников… %d/%d"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "API-ключ OMDb"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "API-ключ MDBList"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "API-ключ OMDb (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "API-ключ MDBList (mdblist.com/preferences/)"
+
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "Привязать ключ оценок с телефона"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Привязать ключ"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Откройте эту страницу на телефоне и вставьте ключ. Он действует 3 минуты."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Ключ сохранён"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "Привязка не запустилась. Телевизору нужна сеть."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Срок кода истёк. Попробуйте снова."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Сохранить"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Сохранено. Эту страницу можно закрыть."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Код не совпадает."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Введите ключ."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Уже сохранено."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Ключ слишком длинный."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "Не удалось сохранить ключ."

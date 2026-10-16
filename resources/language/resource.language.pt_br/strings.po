@@ -1090,3 +1090,114 @@ msgstr "Lista de episódios"
 msgctxt "#30441"
 msgid "Details"
 msgstr "Detalhes"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "Segundos antes do fim"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "Qualidade da reprodução automática"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "A mais alta"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "A seguir"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "Reproduzir só fontes em cache"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "Episódios antes de perguntar se você ainda assiste"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "Ainda está assistindo?"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "A seguir: %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "Carregando todas as fontes…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "Carregando todas as fontes… %d/%d"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "Chave de API do OMDb"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "Chave de API do MDBList"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "Chave de API do OMDb (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "Chave de API do MDBList (mdblist.com/preferences/)"
+
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "Parear chave de avaliações pelo celular"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Parear uma chave"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Abra esta página no celular e cole a chave. Ela funciona por 3 minutos."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Chave salva"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "O pareamento não começou. A TV precisa de uma rede."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Esse código expirou. Tente de novo."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Salvar"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Salvo. Você pode fechar esta página."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Esse código não confere."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Digite uma chave."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Já foi salvo."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Essa chave é longa demais."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "Não foi possível salvar a chave."

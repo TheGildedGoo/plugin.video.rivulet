@@ -110,15 +110,33 @@ class StremioAPI:
         """Invalidate ``auth_key`` server-side."""
         self._call("logout", {"type": "Logout", "authKey": auth_key})
 
-    def addon_collection_get(self, auth_key):
-        """Return the user's synced addon descriptors."""
+    def addon_collection_state(self, auth_key):
+        """Return ``(addons, lastModified)`` for the account collection.
+
+        ``update`` stays true so the account response includes refreshed
+        official manifests. ``lastModified`` is whatever the account sent,
+        or None when the body omitted it. An unchanged timestamp is how a
+        later pull skips rewriting ``addons.json``.
+        """
         result = self._call(
             "addonCollectionGet",
             {"type": "AddonCollectionGet", "authKey": auth_key, "update": True},
         )
         if isinstance(result, dict):
-            return result.get("addons", []) or []
-        return []
+            addons = result.get("addons") or []
+            if not isinstance(addons, list):
+                addons = []
+            return addons, result.get("lastModified")
+        return [], None
+
+    def addon_collection_get(self, auth_key):
+        """Return the user's synced addon descriptors.
+
+        ``lastModified`` is available from :meth:`addon_collection_state`.
+        This stays a list so existing callers keep their contract.
+        """
+        addons, _modified = self.addon_collection_state(auth_key)
+        return addons
 
     def addon_collection_set(self, auth_key, addons):
         """Replace the user's synced addon collection with ``addons``."""

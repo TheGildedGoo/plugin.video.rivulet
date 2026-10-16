@@ -1090,3 +1090,114 @@ msgstr "エピソード一覧"
 msgctxt "#30441"
 msgid "Details"
 msgstr "詳細"
+msgctxt "#30442"
+msgid "Seconds before the end"
+msgstr "終了前の秒数"
+
+msgctxt "#30443"
+msgid "Auto-play quality"
+msgstr "自動再生の画質"
+
+msgctxt "#30444"
+msgid "Highest"
+msgstr "最高"
+
+msgctxt "#30445"
+msgid "Up next"
+msgstr "次に再生"
+
+msgctxt "#30446"
+msgid "4K"
+msgstr "4K"
+
+msgctxt "#30447"
+msgid "Auto-play cached sources only"
+msgstr "キャッシュ済みのソースだけ自動再生"
+
+msgctxt "#30448"
+msgid "Episodes before the still-watching prompt"
+msgstr "まだ見ているか確認するまでの話数"
+
+msgctxt "#30449"
+msgid "Are you still watching?"
+msgstr "まだ見ていますか？"
+
+msgctxt "#30450"
+msgid "%s is next"
+msgstr "次は %s"
+
+msgctxt "#30451"
+msgid "Loading all sources…"
+msgstr "すべてのソースを読み込み中…"
+
+msgctxt "#30452"
+msgid "Loading all sources… %d/%d"
+msgstr "すべてのソースを読み込み中… %d/%d"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb APIキー"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList APIキー"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "OMDb APIキー (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "MDBList APIキー (mdblist.com/preferences/)"
+
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "スマホから評価キーをペアリング"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "キーをペアリング"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "スマホでこのページを開き、キーを貼り付けてください。有効期限は3分です。"
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "キーを保存しました"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "ペアリングを開始できません。テレビがネットワークに接続されている必要があります。"
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "このコードは期限切れです。もう一度お試しください。"
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "保存"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "保存しました。このページを閉じてください。"
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "このコードは一致しません。"
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "キーを入力してください。"
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "保存済みです。"
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "このキーは長すぎます。"
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "キーを保存できませんでした。"

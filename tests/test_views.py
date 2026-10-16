@@ -1453,6 +1453,43 @@ def test_sync_addons_now_failure_notifies_failed(load_views):
     assert ctx.env.notifications[-1][1] == 'STR30035'
 
 
+def test_sync_addons_now_pulls_a_web_addon_before_the_push(load_views):
+    """A set of the local list alone would delete an addon that was added
+    on the web. Sync pulls first and pushes the union."""
+    ctx = load_views()
+    views = ctx.views
+    auth = {'authKey': 'abc123'}
+    local = {'transportUrl': 'https://local.example/manifest.json', 'flags': {}}
+    web = {'transportUrl': 'https://web.example/manifest.json', 'manifest': {'id': 'org.web'}, 'flags': {}}
+    store = FakeStore(addons=[local], auth=auth)
+    api = FakeStremioAPI(addon_collection_result=[local, web])
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, api)
+
+    views.sync_addons_now()
+
+    assert any(item.get('transportUrl') == web['transportUrl'] for item in store.get_addons())
+    pushed = api.addon_collection_set_calls[-1][1]
+    assert any(item.get('transportUrl') == web['transportUrl'] for item in pushed)
+    assert any(item.get('transportUrl') == local['transportUrl'] for item in pushed)
+
+
+def test_sync_addons_now_does_not_push_when_the_pull_fails(load_views):
+    ctx = load_views()
+    views = ctx.views
+    auth = {'authKey': 'abc123'}
+    store = FakeStore(addons=[{'transportUrl': 'https://local.example/manifest.json', 'flags': {}}], auth=auth)
+    api = FakeStremioAPI(addon_collection_error=ApiError('timeout'))
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, api)
+
+    views.sync_addons_now()
+
+    assert api.addon_collection_set_calls == []
+    assert ctx.env.notifications[-1][1] == 'STR30035'
+    assert store.get_auth() == auth
+
+
 def test_sync_addons_now_not_logged_in_notifies_login_prompt(load_views):
     ctx = load_views()
     views = ctx.views

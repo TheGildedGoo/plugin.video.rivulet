@@ -60,6 +60,9 @@ max-complexity = 15
 "lib/stremio/lzstring.py" = ["C901"]
 "lib/ui/player.py" = ["C901"]
 "lib/ui/streamswindow.py" = ["C901"]
+# Vendored Nayuki QR encoder (MIT). Left unmodified so the license header
+# and the algorithm stay as published.
+"lib/qrcodegen.py" = ["E101", "E401", "I001", "C901", "E501", "UP", "B"]
 "resources/s4me_bridge/*" = ["C901"]
 "tests/kodistubs/*" = ["C901"]
 "lib/*" = [

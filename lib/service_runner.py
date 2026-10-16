@@ -973,7 +973,20 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn, sync
                 context["type"], context["id"], context.get("video_id"),
                 position_ms, duration_ms, library.iso8601_utc(),
             )
-            finished = librarysync.should_mark_watched(
+            # An Up next cut stops the file on purpose, so Kodi reports a
+            # user stop. Past 90% that already marks watched. Under 90%
+            # (a short episode, or a long lead) it would not. The marker
+            # is armed only after the NEXT episode resolved, and only
+            # matches this context, so a resolve failure never sets it
+            # and the next episode's own stop cannot consume it.
+            forced = False
+            try:
+                forced = bool(store.take_autoplay_finish(
+                    context.get("started_at"), context.get("video_id"),
+                ))
+            except Exception as exc:  # noqa: BLE001 - a marker miss must not drop the sample
+                log_fn(xbmc_module.LOGWARNING, "autoplay finish marker skipped: %r" % (exc,))
+            finished = forced or librarysync.should_mark_watched(
                 position_ms, duration_ms, natural_end, playback_error,
             )
             self._push_sample(context, position_ms, duration_ms, final=True, finished=finished)

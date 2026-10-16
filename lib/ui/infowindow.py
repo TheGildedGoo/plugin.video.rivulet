@@ -9,8 +9,10 @@ a caller opens it via `open_showcase()` (below) with one already-fetched
 catalog page - `catalogpicker.CatalogPickerWindow._open_catalog()`,
 `searchwindow.SearchWindow._run_search()`,
 and this module's own
-`open_credits_picker()` - the user scrolls a horizontal poster
-coverflow (the fanart background updates to match the focused item).
+`open_credits_picker()` - the user moves through one poster row. Left
+and right change the title. Down moves to the next row of titles and
+Up moves back. The fanart, title, metadata, and description follow
+the focused item.
 Picking a movie poster jumps straight to
 `lib.ui.streamswindow.open_streams()` (a movie has nothing
 else to pick, same shortcut `lib.ui.detailwindow.open_detail()` takes -
@@ -63,6 +65,14 @@ _ENRICH_MAX_INFLIGHT = 2
 # overlay without a selection, same as the reference InfoWindow.
 _BACK_ACTIONS = frozenset({9, 10, 92})
 
+# ACTION_MOVE_UP / ACTION_MOVE_DOWN. The catalog strip is one horizontal
+# row. These step a viewport of titles, so Down is the next row and Up
+# is the previous one. Eight is that row: the 1840px strip holds eight
+# 220px cells.
+_ACTION_UP = 3
+_ACTION_DOWN = 4
+_ROW_PAGE = 8
+
 # ACTION_SHOW_INFO ("info" button) has nothing to show beyond what the
 # focused poster's own focusedlayout already renders (title/genre/plot)
 # - swallow it rather than let it fall through to back-action handling.
@@ -75,13 +85,6 @@ _INFO_ACTION = 11
 # on its own onAction - see detailwindow.py's identical constant).
 _CONTEXT_MENU_ACTION = 117
 
-
-#: Separator between the hero's metadata segments, matching the
-#: ' · '-joined lines `detailwindow._metadata_line()` and
-#: `streamswindow._rebuild_list()` already build. U+00B7 is in
-#: `_SAFE_ANYWHERE` (both Estuary faces have it), so the joined line
-#: renders whatever font the label ends up using.
-_META_SEPARATOR = ' · '
 
 #: strings.po id for the range terminator a still-running series gets
 #: in place of a bare dangling dash ("2022–now"). Translated in all 14
@@ -136,36 +139,37 @@ def _year_text(meta):
 
 
 def _meta_line(props):
-    """Join the hero's year/rating/runtime/genre into the single line
-    ShowcaseWindow.xml renders, skipping whatever the meta does not
-    carry so a sparse item never shows a dangling separator.
+    """The right-quarter panel, one fact per line.
 
-    Built here rather than laid out in the skin because Kodi sizes a
-    control from the XML at load time and cannot fit a box to its text:
-    the hero used three fixed 110px boxes, which is wide enough for a
-    bare `2019` but truncates a real series range (`2010-2017` needs
-    ~140px at Mono26 and rendered as `2010...`) and leaves under a pixel
-    either side of a `120 min` runtime. One flowing label has no width
-    to overflow, and is the same shape the other two screens that print
-    this metadata already use.
+    ShowcaseWindow.xml draws `meta_line` in a textbox, so a newline is
+    a new row. Missing facts are skipped: a title with only a year
+    shows that year, and a title with nothing shows nothing.
 
-    Genre rides on the end of this same line, where the chip layout
-    always put it. It is the one segment that used to need its own
-    control, because it had to be placed in whichever slot the chips
-    ahead of it left open; joined into the string there are no slots to
-    place it in, so the reflow matrix that placement needed is gone
-    with it.
+    The old chip row was fixed-width boxes, which clipped a series
+    range (`2010-2017` rendered as `2010...`). One textbox has no
+    per-fact width to overflow.
+
+    `props` is the flattened shape `_item_properties()` and the tests
+    use (`year`, `rating`, `runtime`, `genre`). A raw catalog meta goes
+    through `hero_panel_text()` directly so Rotten Tomatoes and
+    Metascore, which this shape does not have fields for, still show.
 
     Pure helper - no xbmc - so it is trivially unit-testable on its own.
     """
+    from lib.ui.playbackmeta import hero_panel_text
+
     props = props or {}
-    segments = (
-        props.get('year') or '',
-        _rating_segment(props.get('rating')),
-        props.get('runtime') or '',
-        props.get('genre') or '',
-    )
-    return _META_SEPARATOR.join(segment for segment in segments if segment)
+    genres = props.get('genre') or ''
+    meta = {
+        'imdbRating': props.get('rating') or '',
+        'releaseInfo': props.get('year') or '',
+    }
+    if genres:
+        meta['genres'] = [part.strip() for part in genres.split(',') if part.strip()]
+    for key in ('rottenTomatoes', 'metascore'):
+        if props.get(key):
+            meta[key] = props.get(key)
+    return hero_panel_text(meta, runtime_text=props.get('runtime') or '', now_word='')
 
 
 def _item_properties(meta):
@@ -201,11 +205,17 @@ def _item_properties(meta):
         'year': _year_text(meta),
         'runtime': str(runtime) if runtime not in (None, '') else '',
     }
-    # Precomposed for the skin: `meta_line` is what the hero actually
-    # renders, but `year`/`rating`/`runtime`/`genre` stay individually
-    # exposed - the enrich merge in `_enrich_fetch()` reads them back
-    # per field. Built last, so it sees the fields above it.
-    props['meta_line'] = _meta_line(props)
+    # Precomposed for the skin: `meta_line` is what the right-quarter
+    # panel renders. Built from the raw meta so a Rotten Tomatoes or
+    # Metascore field the flattened props do not have still appears.
+    # `year`/`rating`/`runtime`/`genre` stay individually exposed - the
+    # enrich merge reads them back per field.
+    from lib.ui.compat import L
+    from lib.ui.playbackmeta import hero_panel_text
+
+    props['meta_line'] = escape_label(hero_panel_text(
+        meta, runtime_text=props['runtime'], now_word=L(_NOW_STRING_ID),
+    ))
     return props
 
 
@@ -427,13 +437,40 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         # open on a blank plot until the user scrolls off it and back.
         if items:
             self._enrich_focused(items[0], settle=False)
+            self._apply_ratings(items[0])
+
+    def _page_row(self, direction):
+        """Move one viewport of titles. Down is +1, Up is -1.
+
+        The skin keeps the list on this control, so the key does not
+        leave the row. Clamped at both ends: the first row stays put
+        on Up, and the last title stays put on a Down past the end.
+        """
+        control = self.getControl(SELECT)
+        count = control.size()
+        if count <= 0:
+            return
+        pos = control.getSelectedPosition()
+        if pos < 0:
+            pos = 0
+        nxt = pos + direction * _ROW_PAGE
+        if nxt < 0:
+            nxt = 0
+        elif nxt >= count:
+            nxt = count - 1
+        if nxt != pos:
+            control.selectItem(nxt)
 
     @gated_input
     def onAction(self, action):
         # Before reading focus: a queued page appends items, and doing it
         # first means the strip is whole by the time anything below asks
-        # what is focused.
+        # what is focused. Up/Down then steps a row, so the fanart read
+        # below sees the title that key landed on.
         self._apply_pending_pages()
+        action_id = action.getId()
+        if action_id in (_ACTION_UP, _ACTION_DOWN) and self.getFocusId() == SELECT:
+            self._page_row(1 if action_id == _ACTION_DOWN else -1)
         if self.getFocusId() == SELECT:
             focused = self.getControl(SELECT).getSelectedItem()
             if focused is not None:
@@ -452,7 +489,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
                 # since the last action, then arm a fetch for this item.
                 self._apply_enriched()
                 self._enrich_focused(focused)
-        action_id = action.getId()
+                self._apply_ratings(focused)
         if action_id == _INFO_ACTION:
             return
         if action_id == _CONTEXT_MENU_ACTION:
@@ -503,6 +540,23 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         timer, self._enrich_timer = self._enrich_timer, None
         if timer is not None:
             timer.cancel()
+
+    def _apply_ratings(self, focused):
+        """Rebuild `meta_line` when a ratings key has a cached answer.
+
+        No key leaves the line the catalog built. A miss starts the
+        fetch; the noop it posts comes back through onAction."""
+        if focused is None:
+            return
+        try:
+            index = int(focused.getProperty('position'))
+        except (TypeError, ValueError):
+            return
+        if index < 0 or index >= len(self.metas):
+            return
+        from lib.ui.ratingsched import apply_to_property
+
+        apply_to_property(focused, self.metas[index], 'meta_line')
 
     def _apply_enriched(self):
         """Apply merged properties queued by workers onto the live ListItems.
@@ -642,7 +696,11 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         # playbackmeta.py float()s the other), so those are coerced rather
         # than rejected. `released` is merged as well as `releaseInfo`
         # because _item_properties() derives `year` from either.
-        for key in ('description', 'genres', 'imdbRating', 'releaseInfo', 'released'):
+        for key in (
+            'description', 'genres', 'imdbRating', 'releaseInfo', 'released',
+            'runtime', 'year', 'rottenTomatoes', 'rtRating', 'tomatoMeter',
+            'metascore', 'metacritic',
+        ):
             value = full.get(key)
             if not value or meta.get(key):
                 continue
@@ -654,6 +712,9 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
                     meta[key] = value
             elif isinstance(value, (str, int, float)):
                 meta[key] = str(value)
+        ratings = full.get('ratings')
+        if not meta.get('ratings') and isinstance(ratings, (dict, list)):
+            meta['ratings'] = ratings
         props = _item_properties(meta)
         # Hand off to the UI thread rather than touching the ListItem here:
         # it is inside the ControlList the skin renders every frame.
