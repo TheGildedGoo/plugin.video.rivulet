@@ -3,29 +3,44 @@
 
 """Warm Kodi's texture cache with poster URLs only.
 
-Four 1x1 image controls, visible, fed ``setImage`` four at a time.
-``visible=false`` often skips the load. Fanart and logos are not warmed:
-a background decodes toward fanartres, and ninety of those plus the
-video cache is how a 1 GB box gets tight. Posters are not downloaded
-into ``addon_data`` and ``Textures13.db`` is not written from Python.
-Kodi fills its own cache when the control is given the URL.
+Home and the hubs each carry eight 1x1 image controls (``WARM_SLOTS``)
+under their backdrop plate. The worker hands those slots the posters of
+the first rows, eight at a time, so Kodi downloads and caches them before
+the remote reaches them. Fanart and logos are not warmed: a background
+decodes toward fanartres, and ninety of those plus the video cache is how
+a 1 GB box gets tight. Posters are not downloaded into ``addon_data`` and
+``Textures13.db`` is not written from Python. Kodi fills its own cache
+when a visible control is given the URL.
 
-The thread waits on ``Monitor.waitForAbort`` between batches so a Kodi
-shutdown is not stuck behind the rest of the queue. One warmer runs at
-a time; a hub that opens while Home is still warming appends to that
-queue instead of starting a second one.
+This used to open a separate ``xbmcgui.Window`` for the slots. Kodi
+refuses to activate a window while a modal dialog is up ("Activate of
+window ... refused because there are active modal dialogs"), and every
+RevRivulet screen is one, so the slots never rendered and nothing was
+cached. Closing that window also sent Kodi's previous-window message to
+whatever was underneath. The slots now live in the screen that asked.
+
+Each batch is held for ``_HOLD_SECONDS``. Kodi cancels a queued texture
+job when its control lets go of the URL, so a batch swapped out too fast
+is a batch that never loaded. The thread waits on ``Monitor.waitForAbort``
+so a Kodi shutdown is not stuck behind the queue. One warmer runs at a
+time; a hub that opens while Home is still warming adds to that queue
+and the newest screen's slots carry the rest.
 """
 
 import threading
 
-_BATCH = 4
-_WAIT_SECONDS = 0.05
+#: Image controls in HomeWindow.xml and HubWindow.xml. 1x1, visible,
+#: drawn under the opaque backdrop plate.
+WARM_SLOTS = tuple(range(30090, 30098))
+
+_HOLD_SECONDS = 1.0
 _TITLES = 30
 _ROWS = 3
 
 _lock = threading.Lock()
 _seen = set()
 _queue = []
+_target = {'window': None}
 _running = False
 
 
@@ -58,41 +73,60 @@ def collect_poster_urls(groups, limit_rows=_ROWS, limit_titles=_TITLES):
     return urls
 
 
-def warm_posters(urls, monitor=None):
-    """Feed ``urls`` to four visible 1x1 controls. Returns when the
-    queue is done or Kodi is aborting. Posters only; the caller has
-    already dropped everything else.
-    """
-    import xbmc
-    import xbmcgui
-
-    urls = [url for url in (urls or []) if isinstance(url, str) and url]
-    if not urls:
-        return
-    monitor = monitor or xbmc.Monitor()
-    window = xbmcgui.Window()
-    images = []
-    for _slot in range(_BATCH):
-        image = xbmcgui.ControlImage(0, 0, 1, 1, '')
-        window.addControl(image)
-        images.append(image)
-    window.show()
-    try:
-        for start in range(0, len(urls), _BATCH):
-            if monitor.waitForAbort(_WAIT_SECONDS):
-                return
-            for image, url in zip(images, urls[start:start + _BATCH]):
-                image.setImage(url)
-    finally:
+def _slots(window):
+    """The window's warm controls, or [] when it has none (a Rev2 skin,
+    or a window that has already closed)."""
+    if window is None:
+        return []
+    found = []
+    for control_id in WARM_SLOTS:
         try:
-            window.close()
+            found.append(window.getControl(control_id))
+        except Exception:
+            return []
+    return found
+
+
+def _clear(slots):
+    for slot in slots:
+        try:
+            slot.setImage('')
         except Exception:
             pass
 
 
-def request_warm(urls):
-    """Queue poster URLs. A URL already queued this process is skipped.
-    The worker is a daemon and dies with ``waitForAbort``.
+def warm_posters(window, urls, monitor=None):
+    """Feed ``urls`` to ``window``'s slots, a batch per hold. Returns
+    when the list is done, the window has no slots, or Kodi is aborting.
+    Posters only; the caller has already dropped everything else.
+    """
+    import xbmc
+
+    urls = [url for url in (urls or []) if isinstance(url, str) and url]
+    if not urls:
+        return
+    slots = _slots(window)
+    if not slots:
+        return
+    monitor = monitor or xbmc.Monitor()
+    try:
+        for start in range(0, len(urls), len(slots)):
+            batch = urls[start:start + len(slots)]
+            try:
+                for slot, url in zip(slots, batch):
+                    slot.setImage(url)
+            except Exception:
+                return
+            if monitor.waitForAbort(_HOLD_SECONDS):
+                return
+    finally:
+        _clear(slots)
+
+
+def request_warm(window, urls):
+    """Queue poster URLs for ``window``'s slots. A URL already queued
+    this process is skipped. The worker is a daemon and stops with
+    ``waitForAbort``.
     """
     global _running
     fresh = []
@@ -105,6 +139,8 @@ def request_warm(urls):
         if not fresh:
             return
         _queue.extend(fresh)
+        if window is not None:
+            _target['window'] = window
         if _running:
             return
         _running = True
@@ -117,17 +153,18 @@ def _drain():
         with _lock:
             batch = list(_queue)
             del _queue[:]
+            window = _target['window']
             if not batch:
                 _running = False
                 return
         try:
-            warm_posters(batch)
+            warm_posters(window, batch)
         except Exception as exc:
             import xbmc
 
             from lib.ui.compat import log
 
-            log('posterwarm: %r' % (exc,), xbmc.LOGWARNING)
+            log('posterwarm: %s' % type(exc).__name__, xbmc.LOGWARNING)
 
 
 def reset_warmer():
@@ -136,4 +173,5 @@ def reset_warmer():
     with _lock:
         _seen.clear()
         del _queue[:]
+        _target['window'] = None
         _running = False

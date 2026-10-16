@@ -741,7 +741,7 @@ class HubWindow(BaseWindow):
                 groups.append([])
                 continue
             groups.append(desc.get('posters') or [])
-        request_warm(collect_poster_urls(groups))
+        request_warm(self, collect_poster_urls(groups))
 
     @gated_input
     def onAction(self, action):

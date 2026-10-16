@@ -12,6 +12,10 @@
             </animation>
             <!-- No WindowClose animation on purpose: Kodi drops every action while the topmost modal plays one (test_skin_xml.py rule 9). -->
             <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF07090B">white.png</texture></control>
+            <!-- Poster warm slots (lib/ui/posterwarm.py). Visible and under the
+                 backdrop: Kodi only fetches a texture for a control it draws, and
+                 a separate window cannot open while this dialog is up. -->
+            <control type="image" id="30090"><left>0</left><top>0</top><width>1</width><height>1</height><texture background="true"></texture></control><control type="image" id="30091"><left>0</left><top>0</top><width>1</width><height>1</height><texture background="true"></texture></control><control type="image" id="30092"><left>0</left><top>0</top><width>1</width><height>1</height><texture background="true"></texture></control><control type="image" id="30093"><left>0</left><top>0</top><width>1</width><height>1</height><texture background="true"></texture></control><control type="image" id="30094"><left>0</left><top>0</top><width>1</width><height>1</height><texture background="true"></texture></control><control type="image" id="30095"><left>0</left><top>0</top><width>1</width><height>1</height><texture background="true"></texture></control><control type="image" id="30096"><left>0</left><top>0</top><width>1</width><height>1</height><texture background="true"></texture></control><control type="image" id="30097"><left>0</left><top>0</top><width>1</width><height>1</height><texture background="true"></texture></control>
             <!-- keep, not scale: scale fills the frame and crops the
                  picture. The plate behind this image is already black, so
                  a backdrop that is not 16:9 letterboxes instead. -->

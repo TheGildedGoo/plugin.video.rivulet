@@ -632,7 +632,7 @@ def _load_rows(window, store, addons, auth):
     return continue_items, library_items, pages, enabled
 
 
-def _warm_shelf_posters(pages):
+def _warm_shelf_posters(window, pages):
     """Poster textures for the first catalog rows, after they are on screen.
 
     Continue and Library are not catalog pages. Backgrounds and logos
@@ -643,7 +643,7 @@ def _warm_shelf_posters(pages):
     groups = []
     for action, _list_id, _label_id in _SHELVES:
         groups.append(pages.get(action) or [])
-    request_warm(collect_poster_urls(groups))
+    request_warm(window, collect_poster_urls(groups))
 
 
 def _fill_shelves(window, store, addons, auth, show_continue):
@@ -670,7 +670,7 @@ def _fill_shelves(window, store, addons, auth, show_continue):
             window, list_id, label_id, 'shelf_%s' % action,
             L(L_FOR_ACTION[action]).upper(), items,
         )
-    _warm_shelf_posters(pages)
+    _warm_shelf_posters(window, pages)
 
 
 def _refill_saved_rows(window, store, auth):
