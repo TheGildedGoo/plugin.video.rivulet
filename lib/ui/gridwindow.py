@@ -346,34 +346,36 @@ class GridWindow(BaseWindow):
         apply_to_property(listitem, item, 'hero_meta')
 
     def _place_scrims(self, item):
-        """Pull the feathered backing in to this title's words.
+        """Size the hero bar to this title's words.
 
-        The skin's scrim images are the largest the text can be. A short
-        plot used to keep that whole rectangle. Sized from the strings,
-        because the textboxes are ``$INFO`` bindings and their height is
-        not available in this call.
+        The skin's bar is the tallest the text can be. A short plot
+        used to keep that whole slab. Sized from the strings, because
+        the textboxes are ``$INFO`` bindings and their height is not
+        available in this call.
         """
-        from lib.ui.heroscrim import place_hero_scrims
+        from lib.ui.heroscrim import place_hero_bar
 
         title = ''
         plot = ''
         meta = ''
+        caption = ''
         if isinstance(item, dict):
             title = item.get('name') or ''
             plot = item.get('description') or ''
         try:
             focused = self.getControl(self.getFocusId()).getSelectedItem()
-        except Exception:  # noqa: BLE001 - a missing focus must not skip the scrim
+        except Exception:  # noqa: BLE001 - a missing focus must not skip the bar
             focused = None
         if focused is not None:
             meta = focused.getProperty('hero_meta') or ''
+            caption = focused.getProperty('caption') or ''
             if not title:
                 title = focused.getLabel() or ''
             if not plot:
                 plot = focused.getProperty('plot') or ''
         try:
-            place_hero_scrims(self, 'grid', title, plot, meta, False)
-        except Exception:  # noqa: BLE001 - a scrim miss must not break the remote
+            place_hero_bar(self, 'grid', title, plot, meta, False, caption)
+        except Exception:  # noqa: BLE001 - a bar miss must not break the remote
             pass
 
     @gated_input

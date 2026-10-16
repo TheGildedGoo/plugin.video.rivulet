@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev12" provider-name="M0RF30">
+<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev13" provider-name="M0RF30">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.requests" version="2.22.0"/>
@@ -12,7 +12,10 @@
     <summary lang="en_GB">RevRivulet: watch Stremio-protocol catalogs, addons and streams in Kodi. Installs beside official Rivulet.</summary>
     <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote stremio-server-go streaming server, and optionally sync your addon collection with your Stremio account.</description>
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
-    <news>v0.30.1.rev12:
+    <news>v0.30.1.rev13:
+- Updated: the title, the description, and the ratings sit on one black bar just above the posters. The top of the bar fades into the picture.
+- Updated: on Series, each New Episodes card shows the show name and S:1 E:2. A thin line separates one show from the next.
+v0.30.1.rev12:
 - Fix: opening the addon, and opening Movies, Series, or Other, no longer plays the notification chime.
 - Fix: the dark boxes behind the title and the ratings are gone. A soft scrim sits behind the words and fades out at the edges.
 - Fix: the title and the description sit just above the posters. The description wraps to several lines and stays on the left side of the picture.

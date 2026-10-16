@@ -25,7 +25,7 @@
             <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
             <!-- fade_h.png is a light vignette: clear on the left, only
                  partly dark on the right, the same on every row. The
-                 ratings sit on the scrim, not in a black rectangle. -->
+                 ratings sit on the bar at the bottom of the picture. -->
             <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><aspectratio>stretch</aspectratio><texture colordiffuse="E60A0D12">fade_h.png</texture></control>
             <!-- fade_v.png stays clear through the hero text and is
                  opaque from about 75% of its height. It starts at y=0
@@ -65,22 +65,15 @@
                  control is 92. The description is the next control,
                  directly under it: six lines of font27 (27) inside 55%
                  of the screen (1056px), ending on the row at y=740.
-                 Each block sits on a scrim that fades out at the edges;
-                 Python sizes it to the text. -->
-            <!-- scrim_feather.png is clear at the rim (border 40) and
-                 dark in the middle. These boxes are the largest the text
-                 gets; lib/ui/heroscrim.py pulls them in to the words. -->
+                 Both sit on one black bar across the screen. Its top
+                 fades into the picture; Python shortens it when the
+                 text is short. -->
             <control type="image" id="30026">
-                <left>56</left><top>420</top><width>1136</width><height>360</height>
+                <left>0</left><top>396</top><width>1920</width><height>344</height>
                 <aspectratio>stretch</aspectratio>
-                <texture border="40" colordiffuse="FF0A0D12">scrim_feather.png</texture>
+                <texture border="0,64,0,8" colordiffuse="FF0A0D12">hero_bar.png</texture>
             </control>
-            <control type="image" id="30027">
-                <left>1440</left><top>420</top><width>460</width><height>360</height>
-                <aspectratio>stretch</aspectratio>
-                <texture border="40" colordiffuse="FF0A0D12">scrim_feather.png</texture>
-            </control>
-            <control type="label"><left>96</left><top>460</top><width>1056</width><height>92</height><font>font60</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
+            <control type="label" id="30020"><left>96</left><top>460</top><width>1056</width><height>92</height><font>font60</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
                 <wrapmultiline>false</wrapmultiline>
                 <label>[B]$INFO[ListItem.Label][/B]</label>
             </control>
@@ -89,7 +82,7 @@
                  under the title, not under the ratings, and ends on
                  the row at y=740. 180px leaves a little slack so Kodi's
                  textbox inset does not clip the first or last line. -->
-            <control type="textbox"><left>96</left><top>560</top><width>1056</width><height>180</height><font>font27</font><textcolor>F2EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor>
+            <control type="textbox" id="30022"><left>96</left><top>560</top><width>1056</width><height>180</height><font>font27</font><textcolor>F2EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor>
                 <label>$INFO[ListItem.Property(plot)]</label>
                 <autoscroll time="3000" delay="3000" repeat="3000">true</autoscroll>
             </control>
@@ -102,7 +95,7 @@
                  Tomatoes score is absent rather than blank. font12
                  (NotoSans): the panel names IMDb, and NotoMono has no
                  star glyph. -->
-            <control type="textbox"><left>1480</left><top>460</top><width>380</width><height>280</height><font>font12</font><textcolor>FFFFFFFF</textcolor><align>right</align>
+            <control type="textbox" id="30021"><left>1480</left><top>460</top><width>380</width><height>280</height><font>font12</font><textcolor>FFFFFFFF</textcolor><align>right</align>
                 <label>$INFO[ListItem.Property(meta_line)]</label>
                 <visible>!String.IsEmpty(ListItem.Property(meta_line))</visible>
             </control>

@@ -161,6 +161,48 @@ def _descriptors(addons, types):
     return descs
 
 
+def _episode_number(value):
+    """A season or episode field, or 0 when the addon sent none."""
+    if isinstance(value, bool):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _episode_code(episode):
+    """``S:1 E:2``. Empty when the video has neither number."""
+    season = _episode_number(episode.get('season'))
+    number = _episode_number(episode.get('episode'))
+    if season <= 0 and number <= 0:
+        return ''
+    return 'S:%d E:%d' % (season, number)
+
+
+def _contiguous_shows(episodes):
+    """Episodes of one show in one run. Show order is first appearance.
+
+    The row is still a single horizontal strip. Grouping only decides
+    which cards sit next to each other, so the divider between shows
+    has one place to land.
+    """
+    order = []
+    buckets = {}
+    for episode in episodes:
+        key = str(episode.get('id') or episode.get('name') or '')
+        group = buckets.get(key)
+        if group is None:
+            group = []
+            buckets[key] = group
+            order.append(key)
+        group.append(episode)
+    grouped = []
+    for key in order:
+        grouped.extend(buckets[key])
+    return grouped
+
+
 def _episode_descriptor(store, types):
     """The Series hub's first row, or None. The posters are already
     known: this does not fetch a catalog page."""
@@ -172,7 +214,7 @@ def _episode_descriptor(store, types):
         return None
     if not setting_bool('home_show_new_episodes', True):
         return None
-    episodes = _new_episode_items(store) or []
+    episodes = _contiguous_shows(_new_episode_items(store) or [])
     if not episodes:
         return None
     posters = []
@@ -197,6 +239,11 @@ def _episode_descriptor(store, types):
             # The panel is the series name, not the show's ratings.
             item.setProperty('hero_facts', '')
         item.setProperty('episode_index', str(index))
+        # The card overlay, not the hero. The hero still reads the
+        # episode label and the show name the way it always has.
+        item.setProperty('card_show', escape_label(show))
+        item.setProperty('card_code', _episode_code(episode))
+        item.setProperty('show_key', str(episode.get('id') or show))
         posters.append(item)
         kept.append(episode)
     if not posters:
@@ -328,6 +375,26 @@ def _apply_posters(row_item, posters, col, layout=''):
         else:
             row_item.setProperty('p%d' % slot, '')
             row_item.setProperty('n%d' % slot, '')
+    # Episode captions exist only on the Series landscape row. A poster
+    # row clears them so a recycled list item cannot keep a show name.
+    prev_show = ''
+    for slot in range(LAND_SLOTS):
+        src = start + slot
+        show = ''
+        code = ''
+        key = ''
+        if layout == 'land' and slot < slots and src < count:
+            poster = posters[src]
+            show = poster.getProperty('card_show')
+            code = poster.getProperty('card_code')
+            key = poster.getProperty('show_key')
+        row_item.setProperty('show%d' % slot, show)
+        row_item.setProperty('code%d' % slot, code)
+        if slot:
+            split = bool(layout == 'land' and key and prev_show and key != prev_show)
+            row_item.setProperty('div%d' % slot, '1' if split else '')
+        if key:
+            prev_show = key
     # Slot inside the visible window, not a pixel left. The skin has one
     # stroke per slot at that poster's own rectangle; a computed left
     # landed in window coordinates and the ring missed the card.

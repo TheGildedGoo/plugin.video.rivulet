@@ -321,7 +321,9 @@ def test_hub_bar_is_right_aligned_and_posters_have_a_focus_frame():
         assert (el.findtext('height') or '').strip() == '300'
     land_art = [
         el for el in focused.findall('control')
-        if (el.find('texture').get('diffuse') if el.find('texture') is not None else '') == 'mask_land.png'
+        if (el.find('texture') is not None)
+        and (el.find('texture').get('diffuse') or '') == 'mask_land.png'
+        and (el.findtext('texture') or '').strip().startswith('$INFO')
     ]
     assert len(land_art) == 4
     for el in land_art:
@@ -406,6 +408,79 @@ def test_new_episodes_row_paints_the_cinemeta_still_the_skin_reads(load_hub, mon
     assert row_item.getProperty('hero_plot').startswith('Jon impresses Tyrion')
     assert row_item.getProperty('hero_logo') == ''
     assert row_item.getProperty('fanart') == still
+    assert row_item.getProperty('show0') == 'Game of Thrones'
+    assert row_item.getProperty('code0') == 'S:1 E:3'
+    assert row_item.getProperty('div1') == ''
+    focused = row.find('focusedlayout')
+    shades = [
+        el for el in focused.findall('control')
+        if (el.findtext('texture') or '').strip() == 'card_shade.png'
+    ]
+    assert len(shades) == 4
+    labels = [
+        (el.findtext('label') or '').strip()
+        for el in focused.findall('control')
+        if el.get('type') == 'label'
+    ]
+    assert '$INFO[ListItem.Property(show0)]' in labels
+    assert '$INFO[ListItem.Property(code0)]' in labels
+
+
+def test_episode_cards_group_a_show_and_split_the_next(load_hub, monkeypatch):
+    """Interleaved episodes of two shows become one run per show.
+
+    The row stays one strip. A divider is only the boundary between
+    shows, and a card with no season or episode number has no code.
+    """
+    episodes = [
+        {
+            'type': 'series', 'id': 'alpha', 'name': 'Alpha',
+            'label': 'S1E1 · One', 'season': 1, 'episode': 1,
+            'poster': 'a1', 'overview': 'first',
+        },
+        {
+            'type': 'series', 'id': 'beta', 'name': 'Beta',
+            'label': 'S2E4 · Two', 'season': 2, 'episode': 4,
+            'poster': 'b1', 'overview': 'second',
+        },
+        {
+            'type': 'series', 'id': 'alpha', 'name': 'Alpha',
+            'label': 'S1E2 · Three', 'season': 1, 'episode': 2,
+            'poster': 'a2', 'overview': 'third',
+        },
+        {
+            'type': 'series', 'id': 'gamma', 'name': 'Gamma',
+            'label': 'Untitled', 'season': False, 'episode': None,
+            'poster': 'g', 'overview': '',
+        },
+    ]
+    ctx = load_hub()
+    monkeypatch.setattr(ctx.catalogpicker, '_new_episode_items', lambda store: episodes)
+    desc = ctx.hubwindow._episode_descriptor(_Store(), frozenset({'series', 'tv'}))
+    assert [item.getProperty('show_key') for item in desc['posters']] == [
+        'alpha', 'alpha', 'beta', 'gamma',
+    ]
+    assert [item.getProperty('card_code') for item in desc['posters']] == [
+        'S:1 E:1', 'S:1 E:2', 'S:2 E:4', '',
+    ]
+    import xbmcgui
+    row = xbmcgui.ListItem('New Episodes')
+    ctx.hubwindow._apply_posters(row, desc['posters'], 0, 'land')
+    assert row.getProperty('show0') == 'Alpha'
+    assert row.getProperty('code0') == 'S:1 E:1'
+    assert row.getProperty('show1') == 'Alpha'
+    assert row.getProperty('div1') == ''
+    assert row.getProperty('show2') == 'Beta'
+    assert row.getProperty('code2') == 'S:2 E:4'
+    assert row.getProperty('div2') == '1'
+    assert row.getProperty('div3') == '1'
+    assert row.getProperty('code3') == ''
+    assert row.getProperty('hero_title') == 'S1E1 · One'
+    assert row.getProperty('hero_meta') == 'Alpha'
+    ctx.hubwindow._apply_posters(row, desc['posters'], 0, '')
+    assert row.getProperty('show0') == ''
+    assert row.getProperty('code0') == ''
+    assert row.getProperty('div1') == ''
 
 
 def test_landscape_row_slides_inside_four_slots(load_hub):

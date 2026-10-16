@@ -174,6 +174,58 @@ def write_scrim():
     _scrim_feather().save(os.path.join(MEDIA, 'scrim_feather.png'), optimize=True)
 
 
+def _hero_bar(width=16, height=128, fade=64):
+    """White. The top ``fade`` rows ease from clear to solid.
+
+    The skin draws this with ``border="0,64,0,8"``, so that fade stays
+    64px when the control grows. The rest is solid and stretches.
+    """
+    image = Image.new('RGBA', (width, height))
+    pixels = image.load()
+    last = fade - 1 if fade > 1 else 1
+    for y in range(height):
+        if y >= fade:
+            alpha = 255
+        else:
+            t = y / float(last)
+            t = t * t * (3 - 2 * t)
+            alpha = int(round(255 * t))
+        color = (255, 255, 255, alpha)
+        for x in range(width):
+            pixels[x, y] = color
+    return image
+
+
+def _card_shade(width=16, height=220, clear_until=0.58, peak=210):
+    """Clear over the picture, dark along the bottom of an episode card.
+
+    Stretched to the whole card and clipped by the landscape mask, so
+    the gradient follows the rounded corners instead of a rectangle.
+    """
+    image = Image.new('RGBA', (width, height))
+    pixels = image.load()
+    start = int(round(clear_until * (height - 1)))
+    span = (height - 1) - start
+    for y in range(height):
+        if y <= start:
+            alpha = 0
+        else:
+            t = (y - start) / float(span) if span else 1.0
+            t = t * t * (3 - 2 * t)
+            alpha = int(round(peak * t))
+        color = (255, 255, 255, alpha)
+        for x in range(width):
+            pixels[x, y] = color
+    return image
+
+
+def write_hero_bar():
+    """Write hero_bar.png and card_shade.png. Run from the repo root."""
+    os.makedirs(MEDIA, exist_ok=True)
+    _hero_bar().save(os.path.join(MEDIA, 'hero_bar.png'), optimize=True)
+    _card_shade().save(os.path.join(MEDIA, 'card_shade.png'), optimize=True)
+
+
 def _switch(on):
     image = Image.new('RGBA', (72 * SS, 40 * SS), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
@@ -364,6 +416,7 @@ def main():
     write_assets(((200, 300), (392, 220), (340, 510)))
     write_hero_fades()
     write_scrim()
+    write_hero_bar()
 
 
 if __name__ == '__main__':

@@ -102,7 +102,7 @@
             <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
             <!-- fade_h.png is a light vignette: clear on the left, only
                  partly dark on the right, the same on every row. The
-                 ratings sit on the scrim, not in a black rectangle. -->
+                 ratings sit on the bar at the bottom of the picture. -->
             <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><aspectratio>stretch</aspectratio><texture colordiffuse="E60A0C0E">fade_h.png</texture></control>
             <!-- fade_v.png stays clear through the hero text and is
                  opaque from about 75% of its height. It starts at y=0
@@ -124,22 +124,15 @@
                  screen (1056px). The caption (percent watched, or the
                  next episode) sits under the description. The stack
                  ends on the row at y=684. Ratings are the textbox in
-                 the right quarter, level with that stack. Each block
-                 sits on a scrim that fades out at the edges; Python
-                 sizes it to the text. A fact the meta does not carry
+                 the right quarter, level with that stack. Both sit on
+                 one black bar across the screen. Its top fades into
+                 the picture; Python shortens it when the text is short.
+                 A fact the meta does not carry
                  is omitted. -->
-            <!-- scrim_feather.png is clear at the rim (border 40) and
-                 dark in the middle. These boxes are the largest the text
-                 gets; lib/ui/heroscrim.py pulls them in to the words. -->
             <control type="image" id="30026">
-                <left>56</left><top>332</top><width>1136</width><height>352</height>
+                <left>0</left><top>308</top><width>1920</width><height>376</height>
                 <aspectratio>stretch</aspectratio>
-                <texture border="40" colordiffuse="FF0A0C0E">scrim_feather.png</texture>
-            </control>
-            <control type="image" id="30027">
-                <left>1440</left><top>332</top><width>460</width><height>392</height>
-                <aspectratio>stretch</aspectratio>
-                <texture border="40" colordiffuse="FF0A0C0E">scrim_feather.png</texture>
+                <texture border="0,64,0,8" colordiffuse="FF0A0C0E">hero_bar.png</texture>
             </control>
             <control type="label" id="30020"><left>96</left><top>372</top><width>1056</width><height>64</height><font>font37</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
                 <wrapmultiline>false</wrapmultiline>
