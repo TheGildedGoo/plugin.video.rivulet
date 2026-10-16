@@ -1217,3 +1217,59 @@ msgstr "Özgün diller"
 msgctxt "#30473"
 msgid "Nothing hidden"
 msgstr "Hiçbiri gizli değil"
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Telefondan yükle"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Adresi yaz"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve eklentinin yükleme bağlantısını yapıştır. 3 dakika geçerlidir."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Bu eklentiyi yapılandır"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "https:// ile başlayan bir bağlantı yapıştır."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Bu bağlantı çok uzun."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "Telefonla giriş yap"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "E-posta ve şifreyi yaz"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "Telefonda QR'ı tara ya da adresi aç ve orada Stremio'ya giriş yap."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Telefondan ara"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Telefonda yaz"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve ne aradığını yaz. 3 dakika geçerlidir."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Aramak için bir şey yaz."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Bu arama çok uzun."

@@ -1217,3 +1217,59 @@ msgstr "Oorspronkelijke talen"
 msgctxt "#30473"
 msgid "Nothing hidden"
 msgstr "Niets verborgen"
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Installeren via de telefoon"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Adres typen"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Open deze pagina op de telefoon en plak de installatielink van de add-on. Hij werkt 3 minuten."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Deze add-on configureren"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "Plak een link die met https:// begint."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Deze link is te lang."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "Aanmelden met de telefoon"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "E-mail en wachtwoord typen"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "Scan de QR of open het adres op de telefoon en meld je daar aan bij Stremio."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Zoeken via de telefoon"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Typ het op de telefoon"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Open deze pagina op de telefoon en typ waarnaar je zoekt. Hij werkt 3 minuten."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Typ iets om te zoeken."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Deze zoekopdracht is te lang."

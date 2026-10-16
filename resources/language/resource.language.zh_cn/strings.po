@@ -1217,3 +1217,59 @@ msgstr "原始语言"
 msgctxt "#30473"
 msgid "Nothing hidden"
 msgstr "未隐藏任何内容"
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "从手机安装"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "输入地址"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "在手机上打开此页面并粘贴插件的安装链接。有效时间为 3 分钟。"
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "配置此插件"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "请粘贴以 https:// 开头的链接。"
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "此链接太长。"
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "用手机登录"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "输入邮箱和密码"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "用手机扫描二维码或打开该地址，然后在那里登录 Stremio。"
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "从手机搜索"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "在手机上输入"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "在手机上打开此页面并输入要搜索的内容。有效时间为 3 分钟。"
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "请输入要搜索的内容。"
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "搜索内容太长。"

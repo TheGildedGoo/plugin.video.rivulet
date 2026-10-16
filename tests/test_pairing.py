@@ -10,12 +10,18 @@ import urllib.error
 import urllib.request
 
 from lib.pairing import (
+    MAX_BODY,
     MAX_FAILURES,
     MAX_KEY_LENGTH,
+    MAX_TEXT_LENGTH,
+    MAX_URL_LENGTH,
     TTL_SECONDS,
     PairServer,
     PairSession,
+    body_limit,
     clean_key,
+    clean_text,
+    clean_url,
     local_ipv4,
     new_code,
     respond,
@@ -180,3 +186,73 @@ def test_qr_bmp_paints_the_finder_and_leaves_the_quiet_zone(tmp_path):
     assert pixel(4 * 8 + 4, 4 * 8 + 4) == b'\x00\x00\x00'
     qr = QrCode.encode_text(text, QrCode.Ecc.MEDIUM)
     assert qr.get_module(0, 0) is True
+
+
+def test_clean_url_keeps_a_link_and_reads_stremio_links_as_https():
+    assert clean_url(' https://a.example/manifest.json ') == 'https://a.example/manifest.json'
+    assert clean_url('stremio://a.example/x/manifest.json') == 'https://a.example/x/manifest.json'
+    assert clean_url('STREMIO://a.example/m.json') == 'https://a.example/m.json'
+    assert clean_url('http://192.168.1.2:7000/manifest.json') == 'http://192.168.1.2:7000/manifest.json'
+
+
+def test_clean_url_refuses_other_schemes_spaces_and_overlong_links():
+    assert clean_url('') == ''
+    assert clean_url(None) == ''
+    assert clean_url('javascript:alert(1)') == ''
+    assert clean_url('ftp://a.example/m.json') == ''
+    assert clean_url('https://a.example/ m.json') == ''
+    assert clean_url('https://a.example/' + 'x' * MAX_URL_LENGTH) == ''
+
+
+def test_clean_text_collapses_whitespace_and_drops_control_characters():
+    assert clean_text('  the \t dark\nknight ') == 'the dark knight'
+    assert clean_text('bat\x00man') == 'batman'
+    assert clean_text('   ') == ''
+    assert clean_text('x' * (MAX_TEXT_LENGTH + 1)) == ''
+    assert clean_text('x' * MAX_TEXT_LENGTH) == 'x' * MAX_TEXT_LENGTH
+
+
+def test_a_link_session_takes_a_long_link_and_measures_refusals_against_its_cap():
+    session = PairSession(code='ABCDEF', now=lambda: 0, cleaner=clean_url, max_length=MAX_URL_LENGTH)
+    configured = 'https://a.example/' + 'c' * 1500 + '/manifest.json'
+    assert session.submit('ABCDEF', 'not a link') == 'empty'
+    assert session.submit('ABCDEF', 'https://a.example/' + 'x' * MAX_URL_LENGTH) == 'long'
+    assert session.submit('ABCDEF', configured) == 'ok'
+    assert session.take() == configured
+
+
+def test_a_search_session_takes_text():
+    session = PairSession(code='ABCDEF', now=lambda: 0, cleaner=clean_text, max_length=MAX_TEXT_LENGTH)
+    assert session.submit('ABCDEF', '   ') == 'empty'
+    assert session.submit('ABCDEF', 'x' * (MAX_TEXT_LENGTH + 5)) == 'long'
+    assert session.submit('ABCDEF', ' blade  runner ') == 'ok'
+    assert session.take() == 'blade runner'
+
+
+def test_only_a_link_page_accepts_a_bigger_post():
+    assert body_limit(PairSession(code='ABCDEF')) == MAX_BODY
+    link_session = PairSession(code='ABCDEF', cleaner=clean_url, max_length=MAX_URL_LENGTH)
+    # A percent-encoded link can be three times its length.
+    assert body_limit(link_session) >= MAX_URL_LENGTH * 3
+
+
+def test_the_page_links_only_an_http_configure_page_and_sizes_its_field():
+    session = PairSession(code='ABCDEF', now=lambda: 0, cleaner=clean_url, max_length=MAX_URL_LENGTH)
+    strings = dict(_STRINGS, link='https://cfg.example/configure?a=1&b="x"', link_label='Configure <it>')
+    status, html = respond('GET', '/ABCDEF', b'', session, strings)
+    assert status == 200
+    assert 'href="https://cfg.example/configure?a=1&amp;b=&quot;x&quot;"' in html
+    assert 'rel="noopener noreferrer"' in html
+    assert 'Configure &lt;it&gt;' in html
+    assert 'maxlength="%d"' % MAX_URL_LENGTH in html
+    strings['link'] = 'javascript:alert(1)'
+    _status, html = respond('GET', '/ABCDEF', b'', session, strings)
+    assert 'javascript' not in html
+    assert '<a ' not in html
+
+
+def test_a_key_page_has_no_outbound_link_and_keeps_its_field_size():
+    session = PairSession(code='ABCDEF', now=lambda: 0)
+    _status, html = respond('GET', '/ABCDEF', b'', session, _STRINGS)
+    assert '<a ' not in html
+    assert 'maxlength="%d"' % MAX_KEY_LENGTH in html

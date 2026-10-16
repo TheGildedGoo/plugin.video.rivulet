@@ -1217,3 +1217,59 @@ msgstr "Lingue originali"
 msgctxt "#30473"
 msgid "Nothing hidden"
 msgstr "Niente nascosto"
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Installa dal telefono"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Digita l'indirizzo"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Apri questa pagina sul telefono e incolla il link di installazione dell'add-on. Vale per 3 minuti."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Configura questo add-on"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "Incolla un link che inizia con https://."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Questo link è troppo lungo."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "Accedi con il telefono"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "Digita email e password"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "Scansiona il QR o apri l'indirizzo sul telefono e accedi a Stremio da lì."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Cerca dal telefono"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Scrivilo sul telefono"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Apri questa pagina sul telefono e scrivi cosa cercare. Vale per 3 minuti."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Scrivi qualcosa da cercare."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Questa ricerca è troppo lunga."

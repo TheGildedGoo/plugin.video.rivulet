@@ -903,24 +903,42 @@ def sync_addons_now():
     _finish_action(handle, refresh=False)
 
 
-def login():
-    handle = router.ADDON_HANDLE
+def _typed_login(api):
+    """Email and password on the on-screen keyboard. The result, or None."""
     dialog = xbmcgui.Dialog()
     email = dialog.input(L(30024))
     if not email:
-        _finish_action(handle, refresh=False)
-        return
+        return None
     password = dialog.input(L(30025), option=xbmcgui.ALPHANUM_HIDE_INPUT)
     if not password:
-        _finish_action(handle, refresh=False)
-        return
-
-    api = StremioAPI()
+        return None
     try:
-        result = api.login(email, password)
+        return api.login(email, password)
     except ApiError as exc:
         log('views.login failed: %r' % (exc,), xbmc.LOGERROR)
         notify(L(30023))
+        return None
+
+
+def login():
+    """Sign in: approve a code on a phone, or type email and password.
+
+    The phone way is Stremio's own code sign-in; nothing is typed on the
+    TV and no password crosses the network here. The keyboard stays for
+    anyone who prefers it (phone remote apps can type into it).
+    """
+    handle = router.ADDON_HANDLE
+    api = StremioAPI()
+    picked = dialogs.choose(L(30427), [L(30480), L(30481)])
+    if picked == 0:
+        from lib.ui.pairwindow import link_sign_in
+
+        result = link_sign_in(api=api)
+    elif picked == 1:
+        result = _typed_login(api)
+    else:
+        result = None
+    if not result:
         _finish_action(handle, refresh=False)
         return
 

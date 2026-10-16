@@ -705,6 +705,58 @@ def test_install_success_persists_notifies_and_reloads(load_addonswindow, monkey
     assert items[1].getLabel() == 'New Addon  \u00b7  v1.0'
 
 
+def test_install_from_phone_installs_the_link_the_phone_posted(load_addonswindow, monkeypatch):
+    """Nothing is typed on the TV: the link arrives from the phone page."""
+    url = 'https://new.example/manifest.json'
+    ctx = load_addonswindow()
+    store = _FakeStore()
+    manifest = {'id': 'org.new', 'name': 'New Addon', 'version': '1.0'}
+    _wire_store(ctx.addonswindow, store)
+    _wire_client(ctx.addonswindow, _FakeAddonClient(manifest_result=manifest))
+    chosen = []
+    # The add-row chooser, then the phone-or-keyboard chooser.
+    _stub_choose(monkeypatch, ctx, [1, 0], capture=chosen)
+    import lib.ui.pairwindow as pairwindow
+
+    asked = []
+
+    def fake_pair_value(label, prompt=None, **kwargs):
+        asked.append((label, prompt, kwargs))
+        return url
+
+    monkeypatch.setattr(pairwindow, 'pair_value', fake_pair_value)
+    win = _make_window(ctx.addonswindow)
+    win.onInit()
+
+    win.onClick(ctx.addonswindow.LIST)
+
+    assert chosen[1] == ('STR30010', ['STR30474', 'STR30475'])
+    assert ctx.env.dialog_input_prompts == []
+    assert asked[0][0] == 'STR30010'
+    assert asked[0][1] == 'STR30476'
+    assert asked[0][2]['cleaner'] is pairwindow.clean_url
+    assert 'link' not in asked[0][2]['messages']
+    assert store.installed == [(url, manifest)]
+
+
+def test_install_backing_out_of_the_phone_page_installs_nothing(load_addonswindow, monkeypatch):
+    ctx = load_addonswindow()
+    store = _FakeStore()
+    _wire_store(ctx.addonswindow, store)
+    _wire_client(ctx.addonswindow, _FakeAddonClient(manifest_result={'id': 'x', 'name': 'X', 'version': '1'}))
+    _stub_choose(monkeypatch, ctx, 0)
+    import lib.ui.pairwindow as pairwindow
+
+    monkeypatch.setattr(pairwindow, 'pair_value', lambda *a, **k: None)
+    win = _make_window(ctx.addonswindow)
+    win.onInit()
+
+    win._install()
+
+    assert store.installed == []
+    assert ctx.env.notifications == []
+
+
 # ---------------------------------------------------------------------------
 # AddonsWindow._remove() - addon rows
 # ---------------------------------------------------------------------------
@@ -1040,6 +1092,7 @@ def test_install_reuses_the_shared_client_across_calls(load_addonswindow, monkey
             return None  # falsy manifest -> _install() notifies and returns early
 
     monkeypatch.setattr(ctx.dependencies, 'AddonClient', _CountingClient)
+    _stub_choose(monkeypatch, ctx, 1)  # type the address
     win = _make_window(ctx.addonswindow)
     win.onInit()
 
