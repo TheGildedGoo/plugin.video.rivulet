@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <window>
-    <defaultcontrol always="true">30011</defaultcontrol>
+    <!-- The catalog list, not always="true": see HomeWindow.xml. -->
+    <defaultcontrol>31000</defaultcontrol>
     <depth>0.52</depth>
     <coordinates><left>0</left><top>0</top></coordinates>
     <controls>

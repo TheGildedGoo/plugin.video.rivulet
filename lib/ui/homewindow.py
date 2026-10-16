@@ -664,12 +664,13 @@ def _fill_shelves(window, store, addons, auth, show_continue):
     _warm_shelf_posters(window, pages)
 
 
-def _refill_saved_rows(window, store, auth):
+def _refill_saved_rows(window, store, auth, entries=None):
     """Continue and Library from a fresh account read. Catalog pages stay
     as they were: a library write does not change what a catalog returns."""
     from lib.ui.compat import setting_bool
 
-    entries = _fetch_library(store, auth)
+    if entries is None:
+        entries = _fetch_library(store, auth)
     show_continue = setting_bool('home_show_mystuff', True)
     continue_items = _played_posters(store, entries) if show_continue else []
     library_items = _library_posters(auth, entries)
@@ -686,9 +687,10 @@ def mark_library_dirty():
 def refresh_library_row(window):
     """Re-read the account library into Home's Continue and Library rows.
 
-    A hub has no Library row. It marks the cache dirty and Home refills
-    when the hub closes (`onInit` runs again). The read is the same
-    `_fetch_library` Home already uses, not a new API method.
+    A hub has no Library row. It marks the cache dirty, and Home refills
+    when the hub closes (`_after_child`). The read is the same
+    `_fetch_library` Home already uses, not a new API method. The row
+    keeps the poster the remote was on.
     """
     global _library_dirty
 
@@ -697,20 +699,34 @@ def refresh_library_row(window):
     except Exception:
         _library_dirty = True
         return
+    _refresh_saved_rows(window)
+
+
+def _refresh_saved_rows(window, store=None):
+    """Continue and Library from a fresh account read, in place.
+
+    The read runs under the cancellable spinner. Back on it keeps the
+    rows that were there, still marked dirty. Each row then re-selects
+    the title it was on, so the remote does not jump to the first poster.
+    """
+    global _library_dirty
+
     from lib.ui.compat import L
     from lib.ui.uicommon import CANCELLED, run_cancellable
 
+    store = store or get_store()
+
     def _read():
-        store = get_store()
         auth = store.get_auth()
-        return store, auth
+        return auth, _fetch_library(store, auth)
 
     loaded = run_cancellable(_read, L(30033))
     if loaded is CANCELLED or not isinstance(loaded, tuple):
         _library_dirty = True
         return
-    store, auth = loaded
-    _refill_saved_rows(window, store, auth)
+    auth, entries = loaded
+    place = _remember_place(window)
+    _refill_saved_rows(window, store, auth, entries=entries)
     _set_shelf(
         window, CONTINUE_SHELF, 30140, 'shelf_continue',
         L(30241).upper(), window._continue_items,
@@ -720,6 +736,159 @@ def refresh_library_row(window):
         L(30422).upper(), window._library_items,
     )
     _library_dirty = False
+    _restore_place(window, place)
+
+
+#: Settings a Home row is built from. A Settings visit that changes none
+#: of them (and no sign-in, no addon change) leaves the rows, and the
+#: remote's place on them, alone.
+_ROW_SETTINGS = (
+    'home_show_mystuff', 'home_show_movies', 'home_show_series',
+    'home_show_anime', 'home_show_other', 'home_hide_adult', 'content_exclude',
+)
+
+
+def _home_signature(store):
+    """What the rows were built from. Equal signature, same rows."""
+    from lib.ui.compat import ADDON
+
+    auth = store.get_auth() or {}
+    addons = store.get_enabled_addons() or []
+    ids = []
+    for descriptor in addons:
+        if isinstance(descriptor, dict):
+            manifest = descriptor.get('manifest') or {}
+            ids.append(str(descriptor.get('transportUrl') or manifest.get('id') or ''))
+    settings = []
+    for key in _ROW_SETTINGS:
+        try:
+            settings.append(ADDON.getSetting(key))
+        except Exception:
+            settings.append('')
+    return (auth.get('authKey') if isinstance(auth, dict) else None, tuple(sorted(ids)), tuple(settings))
+
+
+#: Lists whose selection survives a refresh. The chips list is matched
+#: by its `action`, a poster by its `sid`.
+def _place_lists():
+    return (BROWSE_LIST, CONTINUE_SHELF, LIBRARY_SHELF) + tuple(
+        list_id for _action, list_id, _label in _SHELVES
+    )
+
+
+def _item_key(item):
+    if item is None:
+        return ''
+    return item.getProperty('sid') or item.getProperty('action') or item.getLabel() or ''
+
+
+def _remember_place(window):
+    """The focused control and, for every list, the title it is on."""
+    try:
+        focus = window.getFocusId()
+    except Exception:
+        focus = 0
+    rows = {}
+    for list_id in _place_lists():
+        try:
+            control = window.getControl(list_id)
+            rows[list_id] = (_item_key(control.getSelectedItem()), control.getSelectedPosition())
+        except Exception:
+            continue
+    return focus, rows
+
+
+def _focusable(window, control_id):
+    if not control_id:
+        return False
+    if control_id == BROWSE_LIST:
+        try:
+            return window.getControl(BROWSE_LIST).size() > 0
+        except Exception:
+            return False
+    if control_id == BTN_SIGNIN:
+        return bool(window.getProperty('HomeSignedOut'))
+    if control_id in _BUTTON_ACTIONS or control_id == TOOLS_LIST:
+        return True
+    for prop, list_id in (('shelf_continue', CONTINUE_SHELF), ('shelf_library', LIBRARY_SHELF)):
+        if control_id == list_id:
+            return bool(window.getProperty(prop))
+    for action, list_id, _label in _SHELVES:
+        if control_id == list_id:
+            return bool(window.getProperty('shelf_%s' % action))
+    return False
+
+
+def _restore_place(window, place):
+    """Put every list back on the title it was on, then the focus."""
+    focus, rows = place
+    for list_id, (key, position) in rows.items():
+        try:
+            control = window.getControl(list_id)
+            size = control.size()
+        except Exception:
+            continue
+        if size <= 0:
+            continue
+        target = None
+        if key:
+            for index in range(size):
+                if _item_key(control.getListItem(index)) == key:
+                    target = index
+                    break
+        if target is None:
+            target = max(0, min(position if isinstance(position, int) else 0, size - 1))
+        control.selectItem(target)
+    if _focusable(window, focus):
+        window.setFocusId(focus)
+    else:
+        _focus_first(window)
+
+
+def _after_child(window, played=False):
+    """Bring Home up to date once a screen on top of it has closed.
+
+    Kodi re-runs a dialog's onInit only when the dialog is opened again
+    (here, the reopen after playback), not when a dialog above it closes.
+    Home used to rely on onInit for both, so a library change or a new
+    addon waited for playback, and a reopen rebuilt every row and dropped
+    the remote on the first Continue poster. Now: a changed sign-in,
+    addon list, or row setting rebuilds the rows and puts the remote back
+    where it was; a library change, or coming back from playback,
+    re-reads Continue and Library in place; anything else just repaints.
+    """
+    window._child_refreshed = True
+    try:
+        store = get_store()
+        signature = _home_signature(store)
+    except Exception:
+        return
+    if signature != getattr(window, '_signature', None) or getattr(window, '_catalog_pages', None) is None:
+        place = _remember_place(window)
+        window._row_key = None
+        window._catalog_pages = None
+        window._build(place=place)
+        return
+    if played or _library_dirty:
+        _refresh_saved_rows(window, store)
+    paint_hero(window)
+
+
+def _open_child(window, opener):
+    """Run a screen over Home. True when Home closed for playback.
+
+    A child that returns True started playback; Home closes with it. A
+    plain Back refreshes Home (`_after_child`), unless Home was closed
+    for playback underneath, in which case its reopen does that.
+    """
+    window._child_refreshed = False
+    if opener():
+        window.close()
+        return True
+    if getattr(window, '_closed_for_playback', False) or getattr(window, '_child_refreshed', False):
+        return False
+    _after_child(window)
+    return False
 
 
 def _offer_library(window, item):
@@ -1160,17 +1329,22 @@ class HomeWindow(BaseWindow):
     """See module docstring. Built/run via `open_home()`."""
 
     def onInit(self):
-        # Recomputed every onInit(): onInit() re-runs on every resume from
-        # a nested modal, so a sign-in or a newly installed catalog shows
-        # up on the way back here without restarting the addon.
+        # Kodi re-runs onInit when this dialog is opened again, which is
+        # the reopen after playback. That refreshes Continue in place and
+        # keeps the remote where it was. The first open builds the rows.
+        if getattr(self, '_built', False):
+            _after_child(self, played=True)
+            return
         self._build()
+        self._built = True
 
-    def _build(self):
+    def _build(self, place=None):
         from lib.ui.compat import addon_fanart, setting_bool
 
         store = get_store()
         auth = store.get_auth()
-        self.getControl(BACKGROUND).setImage(addon_fanart())
+        if place is None:
+            self.getControl(BACKGROUND).setImage(addon_fanart())
         addons = store.get_enabled_addons()
         browse = _menu_items(addons)
         chips = self.getControl(BROWSE_LIST)
@@ -1181,8 +1355,15 @@ class HomeWindow(BaseWindow):
         self.getControl(STATUS_LABEL).setLabel(_status_text(auth))
         show_continue = setting_bool('home_show_mystuff', True)
         _fill_shelves(self, store, addons, auth, show_continue)
-        _focus_first(self)
+        if place is None:
+            _focus_first(self)
+        else:
+            _restore_place(self, place)
         paint_hero(self)
+        try:
+            self._signature = _home_signature(store)
+        except Exception:
+            self._signature = None
         # After the shelf spinner, not inside it. The 15-minute clock
         # lives in addonsync, so a nested modal closing does not pull
         # on every Back.
@@ -1234,19 +1415,16 @@ class HomeWindow(BaseWindow):
 
 
 def _open_signin(window):
-    """The existing email/password dialog, then a refresh of this window.
+    """The existing sign-in dialog, then a refresh of this window.
 
-    `views.login()` writes auth.json in this addon's profile. Home calls
-    it directly so the status line and the Library row update before the
-    dialog's RunPlugin directory finish returns. The cached rows are
-    dropped first: they were built for the signed-out key.
+    `views.login()` writes auth.json in this addon's profile. The new
+    auth key changes Home's signature, so `_after_child` rebuilds the
+    rows for it and keeps the remote where it was.
     """
     from lib.ui.views import login
 
     login()
-    window._row_key = None
-    window._catalog_pages = None
-    window._build()
+    _after_child(window)
 
 
 def _continue_item(entry):
@@ -1483,8 +1661,8 @@ def _handle_continue(window, item):
     if choice == 0:
         _resume_continue(item, offset_ms)
         return True
-    if _open_detail_for(item, land_on=item.getProperty('video_id') or None):
-        window.close()
+    land_on = item.getProperty('video_id') or None
+    _open_child(window, lambda: _open_detail_for(item, land_on=land_on))
     return True
 
 
@@ -1509,8 +1687,7 @@ def _activate(window, item, control_id=None):
             # Next up and recently finished carry the episode too. The
             # page should open there, not on season 1.
             land_on = item.getProperty('video_id') or None
-        if _open_detail_for(item, land_on=land_on):
-            window.close()
+        _open_child(window, lambda: _open_detail_for(item, land_on=land_on))
         return
     handler = _ACTIONS.get(action)
     if handler:
@@ -1536,19 +1713,24 @@ def _open_type_row(window, action):
     types = TYPE_ROW_TYPES[action]
     if types is None:
         types = _remainder_types(_available_types(get_store().get_enabled_addons()))
-    if open_hub(types, L(L_FOR_ACTION[action]), action):
-        window.close()
+    _open_child(window, lambda: open_hub(types, L(L_FOR_ACTION[action]), action))
 
 
 def _open_search(window):
     from lib.ui.searchwindow import open_search
-    if open_search():
-        window.close()
+    _open_child(window, open_search)
 
 
 def _open_addons(window):
+    """Add-ons never closes Home. A newly installed catalog shows up on
+    the way back (`_after_child` sees the addon list change)."""
     from lib.ui.addonswindow import open_addons
-    open_addons()
+
+    def _run():
+        open_addons()
+        return False
+
+    _open_child(window, _run)
 
 
 def _open_settings(window):
@@ -1559,13 +1741,12 @@ def _open_settings(window):
     else:
         from lib.ui.compat import ADDON
         ADDON.openSettings()
-    # Account > Login returns here without re-running onInit. Drop the
-    # row cache so a sign-in done in that dialog shows up on the Library
-    # row in the same visit.
+    # Account > Login returns here without re-running onInit. A sign-in,
+    # a row switched on or off, or a new exclusion changes the signature
+    # and rebuilds the rows; a look at Settings that changed nothing
+    # leaves them, and the remote's place, alone.
     try:
-        window._row_key = None
-        window._catalog_pages = None
-        window._build()
+        _after_child(window)
     except Exception:
         pass
 

@@ -1862,3 +1862,99 @@ def test_continue_row_carries_the_episode_and_the_offset(load_homewindow, monkey
     assert item.getProperty('band') == 'resume'
     assert item.getProperty('position_ms') == '724000'
     assert item.getProperty('duration_ms') == '3600000'
+
+
+# ---------------------------------------------------------------------------
+# Coming back to Home: refresh what changed, keep the remote's place
+# ---------------------------------------------------------------------------
+
+
+def _built_home(ctx, monkeypatch, library, auth=None, progress=None):
+    store = _FakeStore(auth=auth or {'authKey': 'k', 'user': {'email': 'a@b.c'}},
+                       progress_entries=progress or [])
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: store)
+    monkeypatch.setattr(ctx.homewindow, '_catalog_pages', lambda addons, enabled: ({}, {}))
+    _patch_library(monkeypatch, ctx, library)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.onInit()
+    return win, store
+
+
+_THREE = [
+    {'_id': 'tt%d' % index, 'name': 'T%d' % index, 'type': 'movie', 'poster': 'p', 'removed': False}
+    for index in (1, 2, 3)
+]
+
+
+def test_reopen_after_playback_keeps_the_poster_the_remote_was_on(load_homewindow, monkeypatch):
+    """The reopen used to rebuild every row and land on Continue's first poster."""
+    ctx = load_homewindow()
+    win, _store = _built_home(ctx, monkeypatch, _THREE)
+    library = win.getControl(ctx.homewindow.LIBRARY_SHELF)
+    library.selectItem(2)
+    win.setFocusId(ctx.homewindow.LIBRARY_SHELF)
+    picked = library.getSelectedItem().getProperty('sid')
+
+    win.onInit()
+
+    assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
+    assert library.getSelectedItem().getProperty('sid') == picked
+
+
+def test_a_settings_visit_that_changes_nothing_leaves_the_rows_alone(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    win, _store = _built_home(ctx, monkeypatch, _THREE)
+    library = win.getControl(ctx.homewindow.LIBRARY_SHELF)
+    library.selectItem(1)
+    win.setFocusId(ctx.homewindow.LIBRARY_SHELF)
+    loads = []
+    monkeypatch.setattr(ctx.homewindow, '_load_rows', lambda *a, **k: loads.append(1))
+
+    ctx.homewindow._open_settings(win)
+
+    assert ctx.env.opened_settings is True
+    assert loads == []
+    assert library.getSelectedPosition() == 1
+    assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
+
+
+def test_a_library_change_in_a_hub_shows_on_home_after_back(load_homewindow, monkeypatch):
+    """The hub marks Home dirty. Home used to wait for an onInit that
+    only playback brought."""
+    ctx = load_homewindow()
+    entries = list(_THREE[:2])
+    win, _store = _built_home(ctx, monkeypatch, entries)
+    monkeypatch.setattr(
+        ctx.mystuff, '_fetch_library_entries', lambda store, _entries=entries: list(_entries),
+    )
+
+    def fake_hub(types, heading, action=''):
+        entries.insert(0, dict(_THREE[2]))
+        ctx.homewindow.mark_library_dirty()
+        return False
+
+    monkeypatch.setattr(ctx.hubwindow, 'open_hub', fake_hub)
+
+    ctx.homewindow._open_type_row(win, 'movies')
+
+    sids = [item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items]
+    assert 'tt3' in sids
+    assert win.closed is False
+
+
+def test_a_sign_in_rebuilds_the_rows_for_the_new_account(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    win, store = _built_home(ctx, monkeypatch, _THREE)
+    builds = []
+    real_build = win._build
+    monkeypatch.setattr(win, '_build', lambda place=None: (builds.append(place), real_build(place=place)))
+    import lib.ui.views as views
+
+    def fake_login():
+        store._auth = {'authKey': 'other', 'user': {'email': 'x@y.z'}}
+
+    monkeypatch.setattr(views, 'login', fake_login)
+
+    ctx.homewindow._open_signin(win)
+
+    assert len(builds) == 1 and builds[0] is not None

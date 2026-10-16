@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <window>
-    <defaultcontrol always="true">30011</defaultcontrol>
+    <!-- The rows, not the top bar, and not always="true": Kodi then
+         restores the control the remote was on when this dialog reopens
+         after playback, instead of flashing the Search pill first. -->
+    <defaultcontrol>30001</defaultcontrol>
     <depth>0.52</depth>
     <coordinates><left>0</left><top>0</top></coordinates>
     <controls>
