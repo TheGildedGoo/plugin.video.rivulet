@@ -1384,8 +1384,7 @@ def _handle_continue(window, item):
     if choice == 0:
         _resume_continue(item, offset_ms)
         return True
-    from lib.ui.detailwindow import open_detail
-    if open_detail(item.getProperty('stype'), item.getProperty('sid')):
+    if _open_detail_for(item, land_on=item.getProperty('video_id') or None):
         window.close()
     return True
 
@@ -1406,13 +1405,28 @@ def _activate(window, item, control_id=None):
     if sid and not action:
         if control_id == CONTINUE_SHELF and _handle_continue(window, item):
             return
-        from lib.ui.detailwindow import open_detail
-        if open_detail(item.getProperty('stype'), sid):
+        land_on = None
+        if control_id == CONTINUE_SHELF:
+            # Next up and recently finished carry the episode too. The
+            # page should open there, not on season 1.
+            land_on = item.getProperty('video_id') or None
+        if _open_detail_for(item, land_on=land_on):
             window.close()
         return
     handler = _ACTIONS.get(action)
     if handler:
         handler(window)
+
+
+def _open_detail_for(item, land_on=None):
+    """`open_detail` for a poster. `land_on` is the episode the page
+    opens on (a Continue card knows it); without one the page picks
+    from local progress itself."""
+    from lib.ui.detailwindow import open_detail
+
+    if land_on:
+        return open_detail(item.getProperty('stype'), item.getProperty('sid'), land_on=land_on)
+    return open_detail(item.getProperty('stype'), item.getProperty('sid'))
 
 
 def _open_type_row(window, action):

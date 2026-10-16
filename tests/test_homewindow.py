@@ -1520,8 +1520,9 @@ def _click_continue(ctx, choice=None, stream=None, started=True, store_error=Fal
     def fake_streams(*args, **kwargs):
         captured['streams'] = (args, kwargs)
 
-    def fake_detail(stype, sid):
+    def fake_detail(stype, sid, land_on=None):
         captured['detail'].append((stype, sid))
+        captured['land_on'] = land_on
         return True
 
     class _Store:
@@ -1594,6 +1595,8 @@ def test_continue_series_episode_list_opens_detail_and_does_not_play(load_homewi
     win.onClick(ctx.homewindow.CONTINUE_SHELF)
 
     assert captured['detail'] == [('series', 'tt1')]
+    # The page opens on the episode the card is for, not season 1.
+    assert captured['land_on'] == 'tt1:1:3'
     assert captured['play'] is None
     assert captured['streams'] is None
     assert win.closed is True
@@ -1753,6 +1756,7 @@ def test_continue_next_up_still_opens_the_episode_list(load_homewindow, monkeypa
 
     assert captured['choose'] is None
     assert captured['detail'] == [('series', 'tt1')]
+    assert captured['land_on'] == 'tt1:1:3'
     assert captured['play'] is None
 
 
