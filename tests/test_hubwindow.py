@@ -262,9 +262,8 @@ def test_oninit_paints_the_first_card_before_the_remote_moves(load_hub, monkeypa
     """The first card is focused as the hub opens, but getFocusId() is
     still the top bar. The hero used to stay on the addon fanart until
     the selection moved. The descriptor already has that card."""
-    import xbmcgui
-
     ctx = load_hub()
+    import xbmcgui
     monkeypatch.setattr(ctx.hubwindow, 'get_store', lambda: _Store(auth=None))
     poster = xbmcgui.ListItem('Dune')
     poster.setProperty('hero_title', 'Dune')

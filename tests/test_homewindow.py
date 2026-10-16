@@ -379,9 +379,8 @@ def test_library_focus_fetches_meta_and_paints_the_backdrop(load_homewindow, mon
     already show. The fetch does not block the window opening."""
     import time
 
-    import xbmcgui
-
     ctx = load_homewindow()
+    import xbmcgui
     _patch_library(monkeypatch, ctx, [{
         '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
     }])
@@ -427,9 +426,8 @@ def test_library_focus_fetches_meta_and_paints_the_backdrop(load_homewindow, mon
 def test_library_focus_keeps_a_full_bleed_poster_when_meta_has_no_backdrop(load_homewindow, monkeypatch):
     """No backdrop in the answer: the poster still covers the hero, and
     the description and the ratings show on the bar."""
-    import xbmcgui
-
     ctx = load_homewindow()
+    import xbmcgui
     _patch_library(monkeypatch, ctx, [{
         '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
     }])
