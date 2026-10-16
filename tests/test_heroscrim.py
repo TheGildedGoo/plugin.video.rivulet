@@ -91,21 +91,22 @@ def test_markup_is_not_counted_as_letters():
 
 
 def test_a_short_plot_sits_lower_on_a_shorter_bar():
-    """One plot line and two rating lines. The stack ends on the row."""
+    """One plot line and two rating lines. The stack ends above the row."""
     window = _Window()
     place_hero_bar(window, 'home', 'Dune', 'A quiet film.', 'IMDb 8.1\n2024', False)
     bar = window.controls[BAR]
+    end = ANCHORS['home']['band'] - ANCHORS['home']['row_gap']
     assert bar.visible
     assert bar.x == 0 and bar.width == 1920
-    assert bar.y == 506
+    assert bar.y == 466
     assert bar.height == 186
-    assert bar.y + bar.height == ANCHORS['home']['band']
-    assert window.controls[30020].y == 570
+    assert bar.y + bar.height == end
+    assert window.controls[30020].y == 530
     assert window.controls[30020].height == 64
-    assert window.controls[30023].y == 570
-    assert window.controls[30022].y == 642
+    assert window.controls[30023].y == 530
+    assert window.controls[30022].y == 602
     assert window.controls[30022].height == 50
-    assert window.controls[30021].y == 570
+    assert window.controls[30021].y == 530
     assert window.controls[30021].height == 64
     # The fade is above the words, not a hard edge through them.
     assert window.controls[30020].y - bar.y == FADE
@@ -118,10 +119,10 @@ def test_a_full_plot_keeps_the_skin_bar():
     window = _Window()
     place_hero_bar(window, 'home', 'Dune', plot, 'IMDb 8.1', False)
     bar = window.controls[BAR]
-    assert bar.y == 356
+    assert bar.y == 316
     assert bar.height == 336
-    assert bar.y + bar.height == 692
-    assert window.controls[30020].y == 420
+    assert bar.y + bar.height == 652
+    assert window.controls[30020].y == 380
     assert window.controls[30022].height == 200
 
 

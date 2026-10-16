@@ -136,7 +136,11 @@ def block_size(text, font_px, line_px, max_width, max_lines, bold=False):
 
 
 # title_top is the highest the text sits (a full plot). A shorter plot
-# moves down so the stack still ends on `band`, the poster row.
+# moves down so the stack still ends on `band` minus `row_gap`. Home and
+# the hubs leave 40px under the description: the row title (MOVIES, NEW
+# EPISODES) was sitting on the last line. The skin draws a hairline on
+# the row's top edge in that gap. Grid and a catalog list have no
+# row_gap; their stack still ends on the row.
 # plot_max is the skin's textbox. plot_inset is the slack that box keeps
 # so Kodi's textbox padding does not clip a line. Six lines of font13
 # are 180, and the box is 200, so the inset is 20.
@@ -154,13 +158,13 @@ _SHARED = {
 }
 ANCHORS = {
     'home': {
-        'left': 64, 'title_top': 420, 'band': 692, 'title_h': 64,
+        'left': 64, 'title_top': 380, 'band': 692, 'row_gap': 40, 'title_h': 64,
         'title_id': 30020, 'logo_id': 30023, 'plot_id': 30022,
         'plot_font': 30, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 200,
         'meta_id': 30021, 'meta_max': 272, 'caption_id': None,
     },
     'hub': {
-        'left': 64, 'title_top': 468, 'band': 740, 'title_h': 64,
+        'left': 64, 'title_top': 428, 'band': 740, 'row_gap': 40, 'title_h': 64,
         'title_id': 30020, 'logo_id': 30023, 'plot_id': 30022,
         'plot_font': 30, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 200,
         'meta_id': 30021, 'meta_max': 272, 'caption_id': None,
@@ -228,9 +232,10 @@ def _shift(control, x, y, height):
 def place_hero_bar(window, kind, title, plot, meta, logo=False, caption=''):
     """Put the title, the plot, and the ratings on one bar.
 
-    The bar's bottom is the poster row. A short plot moves the text
-    down onto a shorter bar. The top 64 pixels are the fade, above the
-    words. ``kind`` is ``home``, ``hub``, ``grid``, or ``showcase``.
+    The bar's bottom is the poster row, minus ``row_gap`` where the row
+    has a heading. A short plot moves the text down onto a shorter bar.
+    The top 64 pixels are the fade, above the words. ``kind`` is
+    ``home``, ``hub``, ``grid``, or ``showcase``.
     """
     spec = ANCHORS[kind]
     title_h, plot_h, caption_h, left_h, meta_h = _stack(
@@ -241,8 +246,9 @@ def place_hero_bar(window, kind, title, plot, meta, logo=False, caption=''):
     if content <= 0:
         bar.setVisible(False)
         return
+    end = spec['band'] - spec.get('row_gap', 0)
     text_top = spec['title_top']
-    room = spec['band'] - text_top
+    room = end - text_top
     if content < room:
         text_top += room - content
     bar_top = text_top - FADE
@@ -250,7 +256,7 @@ def place_hero_bar(window, kind, title, plot, meta, logo=False, caption=''):
         bar_top = 0
     bar.setPosition(0, int(bar_top))
     bar.setWidth(1920)
-    bar.setHeight(int(spec['band'] - bar_top))
+    bar.setHeight(int(end - bar_top))
     bar.setVisible(True)
 
     y = text_top

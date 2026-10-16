@@ -14,6 +14,9 @@
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
     <news>v0.30.1.rev14:
 - New: Settings can hide titles from chosen countries and original languages. India, Hindi, Tamil, Telugu, Malayalam and Kannada start hidden. A title with no country or language stays visible.
+- Fix: the Library row shows the same backdrop, title, and ratings as the other rows. A title with no backdrop fills the hero with its poster.
+- Fix: Movies, Series, and Other open with the focused title already in the hero.
+- Fix: the row name sits below a thin line, with space under the description.
 v0.30.1.rev13:
 - Updated: the title, the description, and the ratings sit on one black bar just above the posters. The top of the bar fades into the picture.
 - Updated: on Series, each New Episodes card shows the show name and S:1 E:2. A thin line separates one show from the next.

@@ -36,6 +36,7 @@ via `compat.addon_profile_dir()`), not the Stremio app's session and
 not official Rivulet's.
 """
 import json
+import threading
 
 import xbmcgui
 
@@ -50,6 +51,9 @@ HERO_TITLE = 30020
 HERO_META = 30021  # textbox in the right quarter; setText(), not setLabel()
 HERO_PLOT = 30022  # textbox; setText(), not setLabel()
 HERO_LOGO = 30023
+#: Full-bleed poster when a library title has no backdrop. The keep
+#: image (``BACKGROUND``) letterboxes a poster; this one scales to cover.
+HERO_FILL = 30028
 CONTINUE_SHELF = 30040
 LIBRARY_SHELF = 30041
 BTN_SEARCH = 30070
@@ -230,22 +234,33 @@ def _hero_meta_text(meta):
     return hero_panel_text(meta, runtime_text=_runtime_text(meta), now_word=L(30234))
 
 
-def _poster_item(meta, action=''):
+def _poster_item(meta, action='', sparse=False):
     """One shelf cell. `action` set means the click opens that menu
-    action (Sign in) instead of the title's page."""
+    action (Sign in) instead of the title's page.
+
+    `sparse` is a library record: a name and a poster, and sometimes a
+    backdrop, with no description. The hero for that cell is filled in
+    on focus (`_schedule_library_meta`). Until that answer arrives, a
+    poster with no backdrop is drawn full-bleed (`hero_fill`) instead
+    of letterboxed on the black plate.
+    """
     from lib.stremio.ratings import panel_facts
     from lib.ui.uicommon import escape_label
 
     name = meta.get('name') or ''
+    background = meta.get('background') or ''
+    poster = meta.get('poster') or ''
     item = xbmcgui.ListItem(escape_label(name))
     item.setProperties({
-        'thumbnail': meta.get('poster') or '',
-        'fanart': meta.get('background') or meta.get('poster') or '',
+        'thumbnail': poster,
+        'fanart': background or poster,
         'hero_logo': meta.get('logo') or '',
         'hero_title': escape_label(name),
         'hero_meta': escape_label(_hero_meta_text(meta)),
         'hero_plot': escape_label(_truncate(meta.get('description') or '', 280)),
         'hero_facts': json.dumps(panel_facts(meta), ensure_ascii=False, separators=(',', ':')),
+        'hero_fill': '1' if sparse and not background and poster else '',
+        'needs_meta': '1' if sparse and meta.get('id') and meta.get('type') and not action else '',
         'action': action,
         'stype': str(meta.get('type') or ''),
         'sid': str(meta.get('id') or ''),
@@ -511,7 +526,7 @@ def _library_posters(auth, library_entries):
         metas = []
     from lib.ui.regiondialog import apply_region_filter
 
-    posters = [_poster_item(meta) for meta in apply_region_filter(metas)]
+    posters = [_poster_item(meta, sparse=True) for meta in apply_region_filter(metas)]
     if posters:
         return posters
     return [_poster_item({'name': L(30426), 'description': L(30423)})]
@@ -825,7 +840,152 @@ def _maybe_extend_focused_shelf(window):
     _append_to_shelf(window, focus, _pull_more(state, _ROW_LIMIT - shown))
 
 
-def paint_hero(window):
+def _fetch_library_meta(stype, sid):
+    """Backdrop, description, and ratings for one library title.
+
+    A library record is a name and a poster. The other rows already
+    show whatever installed addon answers ``meta`` (Cinemeta, when it
+    is installed). The same call fills this hero. A miss leaves the
+    poster, drawn full-bleed.
+    """
+    from lib.ui.views import _fetch_meta
+
+    return _fetch_meta(stype, sid)
+
+
+def _library_meta_lock(window):
+    lock = getattr(window, '_library_meta_lock', None)
+    if lock is None:
+        lock = threading.Lock()
+        window._library_meta_lock = lock
+    return lock
+
+
+def _schedule_library_meta(window, item):
+    """Fetch the focused library title off the GUI thread.
+
+    The remote must not wait on a catalog. The poster (full-bleed, when
+    there is no backdrop) stays up until the answer is applied on the
+    next action. A title already fetched, or one in flight, is not
+    asked again.
+    """
+    if item is None or item.getProperty('needs_meta') != '1':
+        return
+    state = item.getProperty('meta_state')
+    if state in ('loading', 'done'):
+        return
+    stype = item.getProperty('stype')
+    sid = item.getProperty('sid')
+    if not stype or not sid:
+        return
+    item.setProperty('meta_state', 'loading')
+
+    def _work():
+        meta = None
+        try:
+            meta = _fetch_library_meta(stype, sid)
+        except Exception:
+            meta = None
+        with _library_meta_lock(window):
+            ready = getattr(window, '_library_meta_ready', None)
+            if ready is None:
+                window._library_meta_ready = [(stype, sid, meta)]
+            else:
+                ready.append((stype, sid, meta))
+        try:
+            import xbmc
+            xbmc.executebuiltin('Action(noop)')
+        except Exception:
+            pass
+
+    thread = threading.Thread(target=_work, name='rivulet-library-meta', daemon=True)
+    threads = getattr(window, '_library_meta_threads', None)
+    if threads is None:
+        window._library_meta_threads = [thread]
+    else:
+        threads.append(thread)
+    thread.start()
+
+
+def _join_library_meta(window):
+    """Test hook. Production applies the answer on the noop the worker wakes."""
+    for thread in list(getattr(window, '_library_meta_threads', []) or []):
+        thread.join(timeout=2)
+
+
+_HERO_PROPS = (
+    'thumbnail', 'fanart', 'hero_logo', 'hero_title', 'hero_meta',
+    'hero_plot', 'hero_facts', 'hero_fill', 'needs_meta', 'stype', 'sid',
+)
+
+
+def _write_meta_onto(item, meta):
+    """Copy a fetched meta onto the poster that is already on the row.
+
+    Rebuilding the list would send the cursor home. The card keeps its
+    place; the hero reads the new properties on the next paint. No
+    backdrop still means the poster, full-bleed.
+    """
+    merged = dict(meta)
+    if not merged.get('poster'):
+        merged['poster'] = item.getProperty('thumbnail')
+    if not merged.get('name'):
+        merged['name'] = item.getLabel()
+    if not merged.get('id'):
+        merged['id'] = item.getProperty('sid')
+    if not merged.get('type'):
+        merged['type'] = item.getProperty('stype')
+    fresh = _poster_item(merged)
+    background = merged.get('background') or ''
+    poster = merged.get('poster') or item.getProperty('thumbnail') or ''
+    if not background and poster:
+        fresh.setProperty('hero_fill', '1')
+        fresh.setProperty('fanart', poster)
+    fresh.setProperty('needs_meta', '')
+    for key in _HERO_PROPS:
+        item.setProperty(key, fresh.getProperty(key))
+    label = fresh.getLabel()
+    if label:
+        item.setLabel(label)
+    item.setProperty('meta_state', 'done')
+
+
+def _apply_library_meta(window):
+    """Write fetched library metas onto their posters. UI thread only."""
+    with _library_meta_lock(window):
+        ready = list(getattr(window, '_library_meta_ready', None) or [])
+        window._library_meta_ready = []
+    if not ready:
+        return
+    try:
+        control = window.getControl(LIBRARY_SHELF)
+        items = [control.getListItem(index) for index in range(control.size())]
+    except Exception:
+        return
+    for stype, sid, meta in ready:
+        for item in items:
+            if item.getProperty('stype') != stype or item.getProperty('sid') != sid:
+                continue
+            useful = isinstance(meta, dict) and (
+                meta.get('name') or meta.get('background')
+                or meta.get('description') or meta.get('poster')
+            )
+            if useful:
+                _write_meta_onto(item, meta)
+            else:
+                item.setProperty('needs_meta', '')
+                item.setProperty('meta_state', 'done')
+
+
+def _set_fill_image(window, image):
+    """The scale plate. Hubs have no library row, so the control is absent there."""
+    try:
+        window.getControl(HERO_FILL).setImage(image)
+    except Exception:
+        pass
+
+
+def paint_hero(window, item=None):
     """Paint the backdrop from the focused poster.
 
     A button has no selected item. Leaving the labels alone in that case
@@ -839,15 +999,18 @@ def paint_hero(window):
     """
     from lib.ui.compat import addon_fanart
 
-    item = None
-    try:
-        focus_id = window.getFocusId()
-        if focus_id:
-            item = window.getControl(focus_id).getSelectedItem()
-    except Exception:
-        item = None
+    if item is None:
+        try:
+            focus_id = window.getFocusId()
+            if focus_id:
+                item = window.getControl(focus_id).getSelectedItem()
+        except Exception:
+            item = None
     if item is None:
         return
+    # A library poster has no plot until Cinemeta answers. Ask now, and
+    # keep the poster on screen while that request is in flight.
+    _schedule_library_meta(window, item)
     title = item.getProperty('hero_title') or ''
     label = item.getLabel() or ''
     if not title and not label and not item.getProperty('sid') and not item.getProperty('hero_logo'):
@@ -875,7 +1038,13 @@ def paint_hero(window):
         window.getControl(HERO_TITLE).setLabel(fitted)
         window.getControl(HERO_META).setText(meta)
         window.getControl(HERO_PLOT).setText(plot)
-        window.getControl(BACKGROUND).setImage(fanart or addon_fanart())
+        image = fanart or addon_fanart()
+        fill = item.getProperty('hero_fill') == '1' and bool(fanart)
+        # HeroFill shows the scale plate and hides the letterboxed one.
+        # A real backdrop clears it, so the picture is shown whole.
+        window.setProperty('HeroFill', '1' if fill else '')
+        window.getControl(BACKGROUND).setImage(image)
+        _set_fill_image(window, image if fill else '')
         # Same strings the labels just got. The bar cannot ask the
         # textbox how tall it is yet: Kodi measures that on the next frame.
         from lib.ui.heroscrim import place_hero_bar
@@ -927,6 +1096,9 @@ class HomeWindow(BaseWindow):
     def onAction(self, action):
         from lib.ui.uicommon import BACK_ACTIONS
 
+        # The library fetch finished on a worker and woke a noop. The
+        # poster properties have to be current before the hero paints.
+        _apply_library_meta(self)
         action_id = action.getId()
         if action_id in BACK_ACTIONS:
             self.close()
