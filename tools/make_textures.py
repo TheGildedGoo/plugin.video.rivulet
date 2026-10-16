@@ -69,13 +69,17 @@ def _gradient(width, height, horizontal, start, end):
     return image
 
 
-def _fade_h(width=480, height=1080):
-    """Clear on the left, black on the right, the same ramp on every row.
+#: The right vignette stops here. 255 turned the right quarter into a
+#: black rectangle behind the ratings. The scrim is what the text sits on.
+_FADE_H_PEAK = 88
 
-    The file this replaced was 1075x8 and already about 60% opaque on
-    its left edge, so the right quarter read as a hard-edged box that
-    only showed against the bright top of the picture. This one is the
-    control's own 480x1080, transparent at x=0.
+
+def _fade_h(width=480, height=1080):
+    """Clear on the left, a light vignette on the right, same on every row.
+
+    The file this replaced reached alpha 255, so the right quarter was a
+    solid dark panel with a hard rectangular shape. The ratings scrim is
+    the contrast now. This ramp only takes the glare off a bright edge.
     """
     image = Image.new('RGBA', (width, height))
     pixels = image.load()
@@ -83,28 +87,32 @@ def _fade_h(width=480, height=1080):
     for x in range(width):
         t = x / float(last)
         t = t * t * (3 - 2 * t)
-        color = (255, 255, 255, int(round(255 * t)))
+        color = (255, 255, 255, int(round(_FADE_H_PEAK * t)))
         for y in range(height):
             pixels[x, y] = color
     return image
 
 
 def _fade_v(width=8, height=1080):
-    """Clear at the top, opaque from 75% of the height down.
+    """Clear through the hero text, opaque from 75% of the height down.
 
-    The file this replaced started near alpha 140, so the top of
-    whatever control drew it was a hard line and a lighter strip.
-    Alpha 0 at y=0 lets that control start at the top of the screen.
-    Windows size the control so this 75% point meets the poster row.
+    A smoothstep that started at y=0 was already most of the way to black
+    behind the title, and that dark band read as a hard-edged block. The
+    ramp holds clear until 72% of the opaque point, then eases to black.
+    Windows size the control so the opaque point meets the poster row.
     """
     image = Image.new('RGBA', (width, height))
     pixels = image.load()
     hold = int(round(0.75 * (height - 1)))
+    ramp = int(round(0.72 * hold))
+    span = hold - ramp
     for y in range(height):
         if y >= hold:
             alpha = 255
+        elif y <= ramp:
+            alpha = 0
         else:
-            t = y / float(hold) if hold else 1.0
+            t = (y - ramp) / float(span) if span else 1.0
             t = t * t * (3 - 2 * t)
             alpha = int(round(255 * t))
         color = (255, 255, 255, alpha)
@@ -113,11 +121,57 @@ def _fade_v(width=8, height=1080):
     return image
 
 
+def _scrim_feather(size=128, border=40, center=210):
+    """White, dark in the middle, clear at the rim.
+
+    The skin draws this with ``border="40"``. Kodi does not scale that
+    rim, so the fade stays 40px when the center stretches to the text.
+    Distance is from the inner rectangle, which makes the corners round
+    off instead of meeting in a square edge. Alpha 0 on the outer pixel
+    is what removes the hard line.
+    """
+    image = Image.new('RGBA', (size, size))
+    pixels = image.load()
+    inner0 = border
+    inner1 = size - border - 1
+    for y in range(size):
+        for x in range(size):
+            if x < inner0:
+                dx = inner0 - x
+            elif x > inner1:
+                dx = x - inner1
+            else:
+                dx = 0
+            if y < inner0:
+                dy = inner0 - y
+            elif y > inner1:
+                dy = y - inner1
+            else:
+                dy = 0
+            if dx == 0 and dy == 0:
+                alpha = center
+            else:
+                dist = (dx * dx + dy * dy) ** 0.5
+                t = dist / float(border)
+                if t > 1.0:
+                    t = 1.0
+                t = t * t * (3 - 2 * t)
+                alpha = int(round(center * (1.0 - t)))
+            pixels[x, y] = (255, 255, 255, alpha)
+    return image
+
+
 def write_hero_fades():
     """Write fade_h.png and fade_v.png. Run from the repo root."""
     os.makedirs(MEDIA, exist_ok=True)
     _fade_h().save(os.path.join(MEDIA, 'fade_h.png'), optimize=True)
     _fade_v().save(os.path.join(MEDIA, 'fade_v.png'), optimize=True)
+
+
+def write_scrim():
+    """Write scrim_feather.png. Run from the repo root."""
+    os.makedirs(MEDIA, exist_ok=True)
+    _scrim_feather().save(os.path.join(MEDIA, 'scrim_feather.png'), optimize=True)
 
 
 def _switch(on):
@@ -309,6 +363,7 @@ def main():
     # produces the poster and landscape masks the home rows use.
     write_assets(((200, 300), (392, 220), (340, 510)))
     write_hero_fades()
+    write_scrim()
 
 
 if __name__ == '__main__':

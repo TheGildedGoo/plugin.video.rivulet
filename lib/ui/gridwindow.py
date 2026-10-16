@@ -326,6 +326,7 @@ class GridWindow(BaseWindow):
         except Exception as exc:  # noqa: BLE001 - a broken/partial skin must never crash navigation
             log('gridwindow: setImage failed: %r' % (exc,), xbmc.LOGDEBUG)
         self._refresh_ratings(item)
+        self._place_scrims(item)
 
     def _refresh_ratings(self, item):
         """Overlay a cached ratings fetch onto the focused card.
@@ -343,6 +344,37 @@ class GridWindow(BaseWindow):
         from lib.ui.ratingsched import apply_to_property
 
         apply_to_property(listitem, item, 'hero_meta')
+
+    def _place_scrims(self, item):
+        """Pull the feathered backing in to this title's words.
+
+        The skin's scrim images are the largest the text can be. A short
+        plot used to keep that whole rectangle. Sized from the strings,
+        because the textboxes are ``$INFO`` bindings and their height is
+        not available in this call.
+        """
+        from lib.ui.heroscrim import place_hero_scrims
+
+        title = ''
+        plot = ''
+        meta = ''
+        if isinstance(item, dict):
+            title = item.get('name') or ''
+            plot = item.get('description') or ''
+        try:
+            focused = self.getControl(self.getFocusId()).getSelectedItem()
+        except Exception:  # noqa: BLE001 - a missing focus must not skip the scrim
+            focused = None
+        if focused is not None:
+            meta = focused.getProperty('hero_meta') or ''
+            if not title:
+                title = focused.getLabel() or ''
+            if not plot:
+                plot = focused.getProperty('plot') or ''
+        try:
+            place_hero_scrims(self, 'grid', title, plot, meta, False)
+        except Exception:  # noqa: BLE001 - a scrim miss must not break the remote
+            pass
 
     @gated_input
     def onAction(self, action):

@@ -438,6 +438,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         if items:
             self._enrich_focused(items[0], settle=False)
             self._apply_ratings(items[0])
+            self._place_scrims(items[0])
 
     def _page_row(self, direction):
         """Move one viewport of titles. Down is +1, Up is -1.
@@ -490,6 +491,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
                 self._apply_enriched()
                 self._enrich_focused(focused)
                 self._apply_ratings(focused)
+                self._place_scrims(focused)
         if action_id == _INFO_ACTION:
             return
         if action_id == _CONTEXT_MENU_ACTION:
@@ -557,6 +559,28 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         from lib.ui.ratingsched import apply_to_property
 
         apply_to_property(focused, self.metas[index], 'meta_line')
+
+    def _place_scrims(self, focused):
+        """Pull the feathered backing in to this poster's words.
+
+        The hero labels are ``$INFO`` bindings, so their height is not
+        known until Kodi lays them out. The scrim is sized from the same
+        strings, in this call, or a short plot keeps the previous rectangle.
+        """
+        if focused is None:
+            return
+        from lib.ui.heroscrim import place_hero_scrims
+
+        try:
+            place_hero_scrims(
+                self, 'showcase',
+                focused.getLabel() or '',
+                focused.getProperty('plot') or '',
+                focused.getProperty('meta_line') or '',
+                False,
+            )
+        except Exception:  # noqa: BLE001 - a scrim miss must not break the remote
+            pass
 
     def _apply_enriched(self):
         """Apply merged properties queued by workers onto the live ListItems.

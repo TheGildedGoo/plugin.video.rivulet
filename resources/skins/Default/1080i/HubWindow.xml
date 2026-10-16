@@ -16,15 +16,16 @@
                  picture. The plate behind this image is already black, so
                  a backdrop that is not 16:9 letterboxes instead. -->
             <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
-            <!-- fade_h.png is clear on the left and black on the right,
-                 the same ramp on every row, so the right quarter
-                 (x=1440) is full height with no hard edge and no box. -->
+            <!-- fade_h.png is a light vignette: clear on the left, only
+                 partly dark on the right, the same on every row. The
+                 ratings sit on the scrim, not in a black rectangle. -->
             <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><aspectratio>stretch</aspectratio><texture colordiffuse="E607090B">fade_h.png</texture></control>
-            <!-- fade_v.png is clear at the top and opaque from about 75%
-                 of its height. It starts at y=0 so the header sits on the
-                 same ramp: a control that began lower left a lighter
-                 strip and a hard edge. 0.75*987 = 740, the row.
-                 The solid plate under it keeps the art off that row. -->
+            <!-- fade_v.png stays clear through the hero text and is
+                 opaque from about 75% of its height. It starts at y=0
+                 so there is no step under the header. 0.75*987 = 740,
+                 the row. A ramp that was already dark behind the title
+                 read as a hard-edged block. The plate keeps the art
+                 off the row. -->
             <control type="image"><left>0</left><top>0</top><width>1920</width><height>987</height><aspectratio>stretch</aspectratio><texture colordiffuse="FF07090B">fade_v.png</texture></control>
             <control type="image"><left>0</left><top>740</top><width>1920</width><height>340</height><texture colordiffuse="FF07090B">white.png</texture></control>
 
@@ -51,10 +52,24 @@
                  of the screen (1056px), so a plot wraps instead of
                  clipping off the right edge. The stack ends on the row
                  at y=740. Ratings are the textbox in the right quarter,
-                 level with that stack, over the full-height fade. A fact
-                 the meta does not carry is omitted. background=true: Kodi
-                 otherwise paints a grey box while the clearlogo loads.
+                 level with that stack. Each block sits on a scrim that
+                 fades out at the edges; Python sizes it to the text.
+                 A fact the meta does not carry is omitted. background=true:
+                 Kodi otherwise paints a grey box while the clearlogo loads.
                  The shadow keeps the title readable on a bright backdrop. -->
+            <!-- scrim_feather.png is clear at the rim (border 40) and
+                 dark in the middle. These boxes are the largest the text
+                 gets; lib/ui/heroscrim.py pulls them in to the words. -->
+            <control type="image" id="30026">
+                <left>24</left><top>428</top><width>1136</width><height>352</height>
+                <aspectratio>stretch</aspectratio>
+                <texture border="40" colordiffuse="FF07090B">scrim_feather.png</texture>
+            </control>
+            <control type="image" id="30027">
+                <left>1440</left><top>428</top><width>460</width><height>352</height>
+                <aspectratio>stretch</aspectratio>
+                <texture border="40" colordiffuse="FF07090B">scrim_feather.png</texture>
+            </control>
             <control type="image" id="30023">
                 <left>64</left><top>468</top><width>1056</width><height>64</height>
                 <aspectratio align="left" aligny="center">keep</aspectratio>

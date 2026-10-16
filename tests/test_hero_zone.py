@@ -8,7 +8,7 @@ Library the fanart fills the screen from the top. A vertical fade is
 opaque by the row band, and a solid plate covers that band, so the art
 never runs behind the rows. The title (or the clearlogo) sits on the
 left, just above the row, and the description sits directly under it.
-Ratings sit in the right quarter, over a full-height fade. The picture
+Ratings sit in the right quarter. The picture
 is shown whole (`keep`), letterboxed on the black plate, and the text
 ends on the row.
 
@@ -32,9 +32,12 @@ The title and the description sit in the lower part of that hero, just
 above the row, not under the header. The description is six lines in a
 column 55% of the screen wide (1056px). A two-line box under the header
 clipped the plot at the top and at the right edge. Ratings share that
-lower band, in the right quarter. The vertical fade starts at y=0,
-clear, so the header is on the same ramp instead of a lighter strip
-with a hard edge under it.
+lower band, in the right quarter. Each of those two text blocks has a
+scrim (scrim_feather.png) whose rim fades to clear; the image is the
+largest the text gets, and Python pulls it in to the words. The
+vertical fade starts at y=0 and stays clear through that text, so the
+header is not on a lighter strip and the title is not sitting in a
+dark rectangle. It is opaque by the row.
 """
 import os
 import xml.etree.ElementTree as ET
@@ -317,12 +320,51 @@ def test_showcase_is_one_row_under_the_backdrop():
         assert opaque_at <= row_top, name
 
 
-def test_hero_fades_are_smooth_full_height_ramps():
-    """The right fade is clear on the left and the same on every row.
+def _scrim_controls(root):
+    return [
+        el for el in root.iter('control')
+        if el.get('type') == 'image' and _texture_name(el) == 'scrim_feather.png'
+    ]
 
-    The file it replaced was already dark on its left edge and only a
-    few pixels tall, so the ratings sat in a hard-edged box at the top.
-    The vertical fade starts clear, so there is no step under the header.
+
+def test_hero_scrims_are_feathered_and_smaller_than_the_screen():
+    """The backing behind the title and the ratings fades at the rim.
+
+    A solid rectangle there read as a hard-edged block. The texture's
+    border is the unscaled fade, and neither image covers the screen
+    or the right quarter top to bottom.
+    """
+    names = list(_ROWS) + list(_SHOWCASE)
+    for name in names:
+        root = _root(name)
+        scrims = _scrim_controls(root)
+        assert [el.get('id') for el in scrims] == ['30026', '30027'], name
+        left, right = scrims
+        for el in scrims:
+            texture = el.find('texture')
+            assert (texture.get('border') or '') == '40', name
+            assert _px(el, 'width') < 1400, name
+            assert _px(el, 'height') < 500, name
+        assert _px(left, 'left') < 200, name
+        assert _px(right, 'left') >= 1400, name
+        assert _px(right, 'width') <= 520, name
+        controls = list(root.iter('control'))
+        title = _by_id(root, '30020') if name in _ROWS else _showcase_title(root)
+        assert controls.index(left) < controls.index(title), name
+        assert controls.index(right) < controls.index(title), name
+        band_top = _ROWS[name]['band'][0] if name in _ROWS else 740
+        # The rim may cross the row. The box itself is the text plus that rim.
+        assert _px(left, 'top') + _px(left, 'height') <= band_top + 48, name
+        assert _px(right, 'top') + _px(right, 'height') <= band_top + 48, name
+
+
+def test_hero_fades_are_smooth_full_height_ramps():
+    """The right fade is a light vignette, clear on the left.
+
+    The file it replaced reached black, so the ratings sat in a
+    hard-edged rectangle. The vertical fade stays clear through the
+    hero text and is opaque by the row, so the title is not in a
+    dark slab and there is no step under the header.
     """
     import pytest
     pytest.importorskip('PIL')
@@ -334,7 +376,8 @@ def test_hero_fades_are_smooth_full_height_ramps():
     assert height >= _SCREEN and width >= 64
     pixels = side.load()
     assert pixels[0, height // 2][3] <= 8
-    assert pixels[width - 1, height // 2][3] >= 250
+    # A vignette, not a black plate. 255 was the rectangle.
+    assert 60 <= pixels[width - 1, height // 2][3] <= 120
     assert abs(pixels[width // 2, 0][3] - pixels[width // 2, height - 1][3]) <= 2
     previous = pixels[0, height // 2][3]
     for x in range(width):
@@ -347,6 +390,8 @@ def test_hero_fades_are_smooth_full_height_ramps():
     assert down_h >= 128
     column = down.load()
     assert column[down_w // 2, 0][3] <= 8
+    # Still clear where the title sits, about 40% down the ramp.
+    assert column[down_w // 2, int(0.40 * (down_h - 1))][3] <= 8
     hold = int(round(0.75 * (down_h - 1)))
     assert column[down_w // 2, hold][3] >= 250
     assert column[down_w // 2, down_h - 1][3] >= 250
@@ -355,3 +400,16 @@ def test_hero_fades_are_smooth_full_height_ramps():
         alpha = column[down_w // 2, y][3]
         assert previous - 1 <= alpha <= previous + 8
         previous = alpha
+
+    scrim = Image.open(os.path.join(media, 'scrim_feather.png')).convert('RGBA')
+    sw, sh = scrim.size
+    assert sw >= 80 and sh >= 80
+    sp = scrim.load()
+    assert sp[0, sh // 2][3] <= 8
+    assert sp[sw // 2, 0][3] <= 8
+    assert sp[0, 0][3] <= 8
+    assert sp[sw // 2, sh // 2][3] >= 180
+    # Just inside the unscaled rim the center is already dark, so white
+    # text on it still reads, and the outer pixel has faded out.
+    assert sp[sw // 2, 8][3] <= 80
+    assert sp[sw // 2, 36][3] >= 160

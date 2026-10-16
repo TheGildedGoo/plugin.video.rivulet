@@ -13,6 +13,7 @@
     <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote stremio-server-go streaming server, and optionally sync your addon collection with your Stremio account.</description>
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
     <news>v0.30.1.rev12:
+- Fix: the dark boxes behind the title and the ratings are gone. A soft scrim sits behind the words and fades out at the edges.
 - Fix: the title and the description sit just above the posters. The description wraps to several lines and stays on the left side of the picture.
 - Fix: ratings sit on the right, level with the description. The dark fade behind them covers the full height of the screen.
 - Fix: the fade into the posters no longer has a hard edge under the header.

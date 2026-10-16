@@ -866,10 +866,20 @@ def paint_hero(window):
     try:
         window.setProperty('HeroLogo', logo)
         window.getControl(HERO_LOGO).setImage(logo)
-        window.getControl(HERO_TITLE).setLabel(_fit_hero_title(title or label))
+        fitted = _fit_hero_title(title or label)
+        window.getControl(HERO_TITLE).setLabel(fitted)
         window.getControl(HERO_META).setText(meta)
         window.getControl(HERO_PLOT).setText(plot)
         window.getControl(BACKGROUND).setImage(fanart or addon_fanart())
+        # Same strings the labels just got. The scrim cannot ask the
+        # textbox how tall it is yet: Kodi measures that on the next frame.
+        from lib.ui.heroscrim import place_hero_scrims
+
+        place_hero_scrims(
+            window,
+            'hub' if window.__class__.__name__ == 'HubWindow' else 'home',
+            fitted, plot, meta, bool(logo),
+        )
     except Exception:
         pass
 
