@@ -32,12 +32,12 @@ The title and the description sit in the lower part of that hero, just
 above the row, not under the header. The description is six lines in a
 column 55% of the screen wide (1056px). A two-line box under the header
 clipped the plot at the top and at the right edge. Ratings share that
-lower band, in the right quarter. Each of those two text blocks has a
-scrim (scrim_feather.png) whose rim fades to clear; the image is the
-largest the text gets, and Python pulls it in to the words. The
-vertical fade starts at y=0 and stays clear through that text, so the
-header is not on a lighter strip and the title is not sitting in a
-dark rectangle. It is opaque by the row.
+lower band, in the right quarter. Both sit on one black bar
+(hero_bar.png) across the screen, just above the row. The bar's top
+64 pixels fade into the picture. Python shortens the bar when the
+text is short and keeps its bottom on the row. The vertical fade
+starts at y=0 and stays clear through that text, so the header is
+not on a lighter strip. It is opaque by the row.
 """
 import os
 import xml.etree.ElementTree as ET
@@ -320,42 +320,40 @@ def test_showcase_is_one_row_under_the_backdrop():
         assert opaque_at <= row_top, name
 
 
-def _scrim_controls(root):
-    return [
+def _bar_control(root):
+    found = [
         el for el in root.iter('control')
-        if el.get('type') == 'image' and _texture_name(el) == 'scrim_feather.png'
+        if el.get('type') == 'image' and _texture_name(el) == 'hero_bar.png'
     ]
+    assert len(found) == 1
+    return found[0]
 
 
-def test_hero_scrims_are_feathered_and_smaller_than_the_screen():
-    """The backing behind the title and the ratings fades at the rim.
+def test_hero_bar_spans_the_screen_and_ends_on_the_row():
+    """One bar, full width, bottom on the poster row, fade above the words.
 
-    A solid rectangle there read as a hard-edged block. The texture's
-    border is the unscaled fade, and neither image covers the screen
-    or the right quarter top to bottom.
+    Two floating boxes read as holes in the picture. The texture's top
+    border is the unscaled fade, so stretching the bar does not draw a
+    hard line under the backdrop.
     """
     names = list(_ROWS) + list(_SHOWCASE)
     for name in names:
         root = _root(name)
-        scrims = _scrim_controls(root)
-        assert [el.get('id') for el in scrims] == ['30026', '30027'], name
-        left, right = scrims
-        for el in scrims:
-            texture = el.find('texture')
-            assert (texture.get('border') or '') == '40', name
-            assert _px(el, 'width') < 1400, name
-            assert _px(el, 'height') < 500, name
-        assert _px(left, 'left') < 200, name
-        assert _px(right, 'left') >= 1400, name
-        assert _px(right, 'width') <= 520, name
-        controls = list(root.iter('control'))
-        title = _by_id(root, '30020') if name in _ROWS else _showcase_title(root)
-        assert controls.index(left) < controls.index(title), name
-        assert controls.index(right) < controls.index(title), name
+        assert root.find(".//control[@id='30027']") is None, name
+        bar = _bar_control(root)
+        assert bar.get('id') == '30026', name
+        texture = bar.find('texture')
+        assert (texture.get('border') or '') == '0,64,0,8', name
+        assert _px(bar, 'left') == 0, name
+        assert _px(bar, 'width') == 1920, name
         band_top = _ROWS[name]['band'][0] if name in _ROWS else 740
-        # The rim may cross the row. The box itself is the text plus that rim.
-        assert _px(left, 'top') + _px(left, 'height') <= band_top + 48, name
-        assert _px(right, 'top') + _px(right, 'height') <= band_top + 48, name
+        assert _px(bar, 'top') + _px(bar, 'height') == band_top, name
+        controls = list(root.iter('control'))
+        title = _by_id(root, '30020')
+        assert controls.index(bar) < controls.index(title), name
+        # The fade starts above the words. The solid part is the text.
+        assert _px(bar, 'top') < _px(title, 'top'), name
+        assert _px(title, 'top') - _px(bar, 'top') == 64, name
 
 
 def test_hero_fades_are_smooth_full_height_ramps():
@@ -401,15 +399,21 @@ def test_hero_fades_are_smooth_full_height_ramps():
         assert previous - 1 <= alpha <= previous + 8
         previous = alpha
 
-    scrim = Image.open(os.path.join(media, 'scrim_feather.png')).convert('RGBA')
-    sw, sh = scrim.size
-    assert sw >= 80 and sh >= 80
-    sp = scrim.load()
-    assert sp[0, sh // 2][3] <= 8
+    bar = Image.open(os.path.join(media, 'hero_bar.png')).convert('RGBA')
+    bw, bh = bar.size
+    assert bw >= 8 and bh > 64
+    bp = bar.load()
+    assert bp[bw // 2, 0][3] <= 8
+    assert bp[bw // 2, 63][3] >= 250
+    assert bp[bw // 2, bh - 1][3] >= 250
+    previous = bp[bw // 2, 0][3]
+    for y in range(bh):
+        alpha = bp[bw // 2, y][3]
+        assert previous - 1 <= alpha
+        previous = alpha
+
+    shade = Image.open(os.path.join(media, 'card_shade.png')).convert('RGBA')
+    sw, sh = shade.size
+    sp = shade.load()
     assert sp[sw // 2, 0][3] <= 8
-    assert sp[0, 0][3] <= 8
-    assert sp[sw // 2, sh // 2][3] >= 180
-    # Just inside the unscaled rim the center is already dark, so white
-    # text on it still reads, and the outer pixel has faded out.
-    assert sp[sw // 2, 8][3] <= 80
-    assert sp[sw // 2, 36][3] >= 160
+    assert sp[sw // 2, sh - 1][3] >= 160

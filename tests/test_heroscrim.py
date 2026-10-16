@@ -1,24 +1,23 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
-"""The hero scrims hug the words instead of a fixed rectangle.
+"""The hero bar is one full-width plate, as tall as the words.
 
 Kodi measures a textbox on the next frame and will not paint a texture
-at that size, so the scrim is computed from the string the label shows.
-A short title stays narrow. A wrapped plot uses the column, because
-that is the width the text wraps to. Ratings stay as wide as their
-longest line.
+at that size, so the bar is computed from the string the label shows.
+A short plot sits lower, on a shorter bar. A full plot keeps the skin
+bar, whose bottom is the poster row. The top 64 pixels are the fade.
 """
 from lib.ui.heroscrim import (
-    FEATHER,
-    LEFT_SCRIM,
-    RIGHT_SCRIM,
+    ANCHORS,
+    BAR,
+    FADE,
     block_size,
-    place_hero_scrims,
+    place_hero_bar,
     text_width,
 )
 
 
-class _Scrim:
+class _Box:
     def __init__(self):
         self.visible = True
         self.x = None
@@ -42,10 +41,14 @@ class _Scrim:
 
 class _Window:
     def __init__(self):
-        self.controls = {LEFT_SCRIM: _Scrim(), RIGHT_SCRIM: _Scrim()}
+        self.controls = {}
 
     def getControl(self, control_id):
-        return self.controls[control_id]
+        box = self.controls.get(control_id)
+        if box is None:
+            box = _Box()
+            self.controls[control_id] = box
+        return box
 
 
 def test_a_short_title_does_not_use_the_column():
@@ -73,8 +76,7 @@ def test_ratings_hug_the_longest_line():
     width, height = block_size('IMDb 8.1\n2024\n2h 15m', 25, 32, 380, 8)
     assert height == 96
     assert width < 200
-    # A line that does not fit the quarter uses the quarter, not a
-    # scrim wider than the text box.
+    # A line that does not fit the quarter uses the quarter.
     wide, tall = block_size(
         'Drama, Adventure, Science Fiction, Thriller', 25, 32, 380, 8,
     )
@@ -88,31 +90,61 @@ def test_markup_is_not_counted_as_letters():
     assert marked == plain
 
 
-def test_place_pulls_both_scrims_in_to_a_short_title():
+def test_a_short_plot_sits_lower_on_a_shorter_bar():
+    """One plot line and two rating lines. The stack ends on the row."""
     window = _Window()
-    place_hero_scrims(window, 'home', 'Dune', 'A quiet film.', 'IMDb 8.1\n2024', False)
-    left = window.controls[LEFT_SCRIM]
-    right = window.controls[RIGHT_SCRIM]
-    assert left.visible and right.visible
-    # Full left stack is 1056 + 80 of feather. A short title is narrower.
-    assert left.width < 1056
-    assert left.height < 64 + 8 + 200 + 2 * FEATHER
-    # The ratings box in the skin is 380 by 272. Two short lines are not.
-    assert right.width < 380 + 2 * FEATHER
-    assert right.height < 272
-    assert right.x + right.width == 1860 + FEATHER
-    assert left.x == 64 - FEATHER
+    place_hero_bar(window, 'home', 'Dune', 'A quiet film.', 'IMDb 8.1\n2024', False)
+    bar = window.controls[BAR]
+    assert bar.visible
+    assert bar.x == 0 and bar.width == 1920
+    assert bar.y == 506
+    assert bar.height == 186
+    assert bar.y + bar.height == ANCHORS['home']['band']
+    assert window.controls[30020].y == 570
+    assert window.controls[30020].height == 64
+    assert window.controls[30023].y == 570
+    assert window.controls[30022].y == 642
+    assert window.controls[30022].height == 50
+    assert window.controls[30021].y == 570
+    assert window.controls[30021].height == 64
+    # The fade is above the words, not a hard edge through them.
+    assert window.controls[30020].y - bar.y == FADE
 
 
-def test_an_empty_hero_hides_the_scrims():
+def test_a_full_plot_keeps_the_skin_bar():
+    plot = ' '.join(['discovery'] * 90)
+    _width, height = block_size(plot, 30, 30, 1056, 6)
+    assert height == 180
     window = _Window()
-    place_hero_scrims(window, 'home', '', '', '', False)
-    assert window.controls[LEFT_SCRIM].visible is False
-    assert window.controls[RIGHT_SCRIM].visible is False
+    place_hero_bar(window, 'home', 'Dune', plot, 'IMDb 8.1', False)
+    bar = window.controls[BAR]
+    assert bar.y == 356
+    assert bar.height == 336
+    assert bar.y + bar.height == 692
+    assert window.controls[30020].y == 420
+    assert window.controls[30022].height == 200
+
+
+def test_a_grid_caption_is_part_of_the_stack():
+    window = _Window()
+    place_hero_bar(
+        window, 'grid', 'Dune', 'A quiet film.', '', False, '42% watched',
+    )
+    bar = window.controls[BAR]
+    assert bar.y + bar.height == ANCHORS['grid']['band']
+    assert window.controls[30025].height == 32
+    assert window.controls[30025].y + window.controls[30025].height == 684
+
+
+def test_an_empty_hero_hides_the_bar():
+    window = _Window()
+    place_hero_bar(window, 'home', '', '', '', False)
+    assert window.controls[BAR].visible is False
+    assert window.controls[30020].y is None
 
 
 def test_estimates_cover_noto_sans():
-    """The scrim is at least as wide as the face Kodi draws."""
+    """The estimate is at least as wide as the face Kodi draws."""
     import os
 
     import pytest

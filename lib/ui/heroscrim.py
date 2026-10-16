@@ -1,38 +1,34 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""Size the two hero scrims from the label text.
+"""Size the one hero bar from the label text.
 
-The dark rectangles behind the title and the ratings were the full-width
-fade and the right-quarter fade. Those stay, but only as a light vignette
-and a ramp into the poster row. The contrast is a scrim image
-(``scrim_feather.png``, 9-slice border 40) behind each text block.
+The title, the description, and the ratings sit on a single black bar
+across the bottom of the hero, just above the poster row. The bar's
+texture (``hero_bar.png``) fades over its top 64 pixels and is solid
+below that, so the top edge does not cut the picture. Python shortens
+the bar when the text is short and keeps its bottom on the row.
 
-Kodi 19 cannot point that texture at the text. A textbox's auto height is
-measured on the next frame and the control draws no background, so reading
-``getHeight()`` in the same call as ``setText()`` returns the previous
-title. A button snugs its width to one line and keeps the height it was
-given. A grouplist reports a smaller size than it clips to, so an image
-child still paints the max rectangle. The scrim is therefore sized here,
-from the same string the label is about to show.
+Kodi 19 cannot size that texture from the textbox. A textbox's auto
+height is measured on the next frame, and reading ``getHeight()`` in
+the same call as ``setText()`` returns the previous title. The height
+is therefore computed here, from the same string the label shows.
 
-Advances are a little wider than Noto Sans (the Estuary face these fonts
-map to) so the scrim covers the glyphs. A wrapped paragraph fills the
-column, because that is the width Kodi wraps to. A ratings line does not:
-those are already one fact per line, and the scrim hugs the longest one.
+Advances are a little wider than Noto Sans (the Estuary face these
+fonts map to). A wrapped paragraph fills the column, because that is
+the width Kodi wraps to.
 """
 import re
 
-#: Must match ``border="40"`` on the scrim texture. The image is this
-#: much larger than the text on every side, and that rim fades to clear.
-FEATHER = 40
-LEFT_SCRIM = 30026
-RIGHT_SCRIM = 30027
+#: Must match ``border="0,64,0,8"`` on the bar. Those top 64 pixels are
+#: the unscaled fade; the rest of the control stretches as solid black.
+FADE = 64
+BAR = 30026
 
 _MARKUP = re.compile(r'\[/?(?:B|I|COLOR[^\]]*)\]', re.IGNORECASE)
 
 # Fractions of the font size. Tuned above Noto Sans Regular so a bold
-# title and a wide capital still land inside the scrim. A short label
+# title and a wide capital still land inside the column. A short label
 # stays well under the column; see tests/test_heroscrim.py.
 _NARROW = frozenset("ijlI.,:;'`|!")
 _WIDE = frozenset('mwMW@%&')
@@ -139,121 +135,137 @@ def block_size(text, font_px, line_px, max_width, max_lines, bold=False):
     return width, len(shown) * line_px
 
 
-# Geometry of the text controls, not the scrim. The scrim grows by FEATHER.
-# title_h / plot_line are the line boxes the skin already uses.
-_SHARED_META = {
-    'meta_right': 1860,
+# title_top is the highest the text sits (a full plot). A shorter plot
+# moves down so the stack still ends on `band`, the poster row.
+# plot_max is the skin's textbox. plot_inset is the slack that box keeps
+# so Kodi's textbox padding does not clip a line. Six lines of font13
+# are 180, and the box is 200, so the inset is 20.
+_SHARED = {
+    'meta_left': 1480,
     'meta_w': 380,
     'meta_font': 25,
     'meta_line': 32,
     'meta_lines': 8,
+    'gap': 8,
+    'text_w': 1056,
+    'plot_inset': 20,
+    'caption_h': 32,
+    'caption_gap': 8,
 }
 ANCHORS = {
     'home': {
-        'left': 64, 'title_top': 420, 'title_h': 64, 'title_font': 37,
-        'title_bold': False, 'gap': 8, 'plot_top': 492, 'plot_font': 30,
-        'plot_line': 30, 'plot_lines': 6, 'text_w': 1056, 'meta_top': 420,
+        'left': 64, 'title_top': 420, 'band': 692, 'title_h': 64,
+        'title_id': 30020, 'logo_id': 30023, 'plot_id': 30022,
+        'plot_font': 30, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 200,
+        'meta_id': 30021, 'meta_max': 272, 'caption_id': None,
     },
     'hub': {
-        'left': 64, 'title_top': 468, 'title_h': 64, 'title_font': 37,
-        'title_bold': False, 'gap': 8, 'plot_top': 540, 'plot_font': 30,
-        'plot_line': 30, 'plot_lines': 6, 'text_w': 1056, 'meta_top': 468,
+        'left': 64, 'title_top': 468, 'band': 740, 'title_h': 64,
+        'title_id': 30020, 'logo_id': 30023, 'plot_id': 30022,
+        'plot_font': 30, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 200,
+        'meta_id': 30021, 'meta_max': 272, 'caption_id': None,
     },
     'grid': {
-        'left': 96, 'title_top': 372, 'title_h': 64, 'title_font': 37,
-        'title_bold': False, 'gap': 8, 'plot_top': 444, 'plot_font': 30,
-        'plot_line': 30, 'plot_lines': 6, 'text_w': 1056, 'meta_top': 372,
+        'left': 96, 'title_top': 372, 'band': 684, 'title_h': 64,
+        'title_id': 30020, 'logo_id': None, 'plot_id': 30024,
+        'plot_font': 30, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 200,
+        'meta_id': 30021, 'meta_max': 312, 'caption_id': 30025,
     },
     'showcase': {
-        'left': 96, 'title_top': 460, 'title_h': 92, 'title_font': 60,
-        'title_bold': True, 'gap': 8, 'plot_top': 560, 'plot_font': 27,
-        'plot_line': 30, 'plot_lines': 6, 'text_w': 1056, 'meta_top': 460,
+        'left': 96, 'title_top': 460, 'band': 740, 'title_h': 92,
+        'title_id': 30020, 'logo_id': None, 'plot_id': 30022,
+        'plot_font': 27, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 180,
+        'meta_id': 30021, 'meta_max': 280, 'caption_id': None,
     },
 }
 for _spec in ANCHORS.values():
-    _spec.update(_SHARED_META)
+    _spec.update(_SHARED)
 
 
-def _left_box(spec, title, plot, logo):
-    title_w = 0
-    title_h = 0
-    if logo:
-        title_w = spec['text_w']
-        title_h = spec['title_h']
-    else:
-        title_w, title_lines = block_size(
-            title, spec['title_font'], spec['title_h'], spec['text_w'], 1,
-            bold=spec['title_bold'],
-        )
-        if title_lines:
-            title_h = spec['title_h']
-            title_w = title_w or spec['text_w']
-    plot_w, plot_h = block_size(
+def _stack(spec, title, plot, meta, logo, caption):
+    """``(title_h, plot_h, caption_h, left_h, meta_h)`` for this text.
+
+    A clearlogo keeps the title band: its pixels are not known here.
+    An empty block is 0, so the bar does not reserve a blank row.
+    """
+    title_h = spec['title_h'] if (logo or _plain(title).strip()) else 0
+    _plot_w, plot_lines = block_size(
         plot, spec['plot_font'], spec['plot_line'], spec['text_w'],
         spec['plot_lines'],
     )
-    if title_h and plot_h:
-        return spec['left'], spec['title_top'], max(title_w, plot_w), (
-            title_h + spec['gap'] + plot_h
-        )
+    plot_h = 0
+    if plot_lines:
+        plot_h = min(spec['plot_max'], plot_lines + spec['plot_inset'])
+    caption_h = spec['caption_h'] if _plain(caption).strip() else 0
+    left = 0
     if title_h:
-        return spec['left'], spec['title_top'], title_w, title_h
+        left += title_h
     if plot_h:
-        return spec['left'], spec['plot_top'], plot_w, plot_h
-    return None
-
-
-def _right_box(spec, meta):
-    width, height = block_size(
+        if left:
+            left += spec['gap']
+        left += plot_h
+    if caption_h:
+        if left:
+            left += spec['caption_gap']
+        left += caption_h
+    _meta_w, meta_h = block_size(
         meta, spec['meta_font'], spec['meta_line'], spec['meta_w'],
         spec['meta_lines'],
     )
-    if not height:
-        return None
-    return spec['meta_right'], spec['meta_top'], width, height
+    if meta_h > spec['meta_max']:
+        meta_h = spec['meta_max']
+    return title_h, plot_h, caption_h, left, meta_h
 
 
-def _move(control, x, y, width, height):
-    if width <= 0 or height <= 0:
-        control.setVisible(False)
+def _shift(control, x, y, height):
+    """Move a text control. Width stays the skin's column."""
+    if control is None or height <= 0:
         return
-    if x < 0:
-        x = 0
-    if y < 0:
-        y = 0
     control.setPosition(int(x), int(y))
-    control.setWidth(int(width))
     control.setHeight(int(height))
-    control.setVisible(True)
 
 
-def place_hero_scrims(window, kind, title, plot, meta, logo=False):
-    """Move the two scrim images so they hug this title's text.
+def place_hero_bar(window, kind, title, plot, meta, logo=False, caption=''):
+    """Put the title, the plot, and the ratings on one bar.
 
-    ``kind`` is ``home``, ``hub``, ``grid``, or ``showcase``. ``logo``
-    keeps the title band at the full column: a clearlogo's pixels are
-    not known here, and a white one needs the backing.
+    The bar's bottom is the poster row. A short plot moves the text
+    down onto a shorter bar. The top 64 pixels are the fade, above the
+    words. ``kind`` is ``home``, ``hub``, ``grid``, or ``showcase``.
     """
     spec = ANCHORS[kind]
-    left = _left_box(spec, title, plot, logo)
-    right = _right_box(spec, meta)
-    left_control = window.getControl(LEFT_SCRIM)
-    right_control = window.getControl(RIGHT_SCRIM)
-    if left is None:
-        left_control.setVisible(False)
-    else:
-        x, y, width, height = left
-        _move(
-            left_control,
-            x - FEATHER, y - FEATHER,
-            width + 2 * FEATHER, height + 2 * FEATHER,
-        )
-    if right is None:
-        right_control.setVisible(False)
-    else:
-        edge, y, width, height = right
-        _move(
-            right_control,
-            edge - width - FEATHER, y - FEATHER,
-            width + 2 * FEATHER, height + 2 * FEATHER,
-        )
+    title_h, plot_h, caption_h, left_h, meta_h = _stack(
+        spec, title, plot, meta, logo, caption,
+    )
+    content = left_h if left_h > meta_h else meta_h
+    bar = window.getControl(BAR)
+    if content <= 0:
+        bar.setVisible(False)
+        return
+    text_top = spec['title_top']
+    room = spec['band'] - text_top
+    if content < room:
+        text_top += room - content
+    bar_top = text_top - FADE
+    if bar_top < 0:
+        bar_top = 0
+    bar.setPosition(0, int(bar_top))
+    bar.setWidth(1920)
+    bar.setHeight(int(spec['band'] - bar_top))
+    bar.setVisible(True)
+
+    y = text_top
+    if title_h:
+        _shift(window.getControl(spec['title_id']), spec['left'], y, title_h)
+        if spec['logo_id'] is not None:
+            _shift(window.getControl(spec['logo_id']), spec['left'], y, title_h)
+        y += title_h
+    if plot_h:
+        if title_h:
+            y += spec['gap']
+        _shift(window.getControl(spec['plot_id']), spec['left'], y, plot_h)
+        y += plot_h
+    if caption_h and spec['caption_id'] is not None:
+        y += spec['caption_gap']
+        _shift(window.getControl(spec['caption_id']), spec['left'], y, caption_h)
+    if meta_h:
+        _shift(window.getControl(spec['meta_id']), spec['meta_left'], text_top, meta_h)

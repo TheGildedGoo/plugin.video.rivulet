@@ -561,25 +561,25 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         apply_to_property(focused, self.metas[index], 'meta_line')
 
     def _place_scrims(self, focused):
-        """Pull the feathered backing in to this poster's words.
+        """Size the hero bar to this poster's words.
 
         The hero labels are ``$INFO`` bindings, so their height is not
-        known until Kodi lays them out. The scrim is sized from the same
-        strings, in this call, or a short plot keeps the previous rectangle.
+        known until Kodi lays them out. The bar is sized from the same
+        strings, in this call, or a short plot keeps the previous slab.
         """
         if focused is None:
             return
-        from lib.ui.heroscrim import place_hero_scrims
+        from lib.ui.heroscrim import place_hero_bar
 
         try:
-            place_hero_scrims(
+            place_hero_bar(
                 self, 'showcase',
                 focused.getLabel() or '',
                 focused.getProperty('plot') or '',
                 focused.getProperty('meta_line') or '',
                 False,
             )
-        except Exception:  # noqa: BLE001 - a scrim miss must not break the remote
+        except Exception:  # noqa: BLE001 - a bar miss must not break the remote
             pass
 
     def _apply_enriched(self):
