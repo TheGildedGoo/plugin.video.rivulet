@@ -31,7 +31,7 @@ from lib.stremio.ratings import (
 _FAIL_SECONDS = 60
 _lock = threading.Lock()
 _inflight = set()
-_failed_until = {}
+_failed_until = {}  # type: dict
 _cache = None
 _cache_path = ''
 

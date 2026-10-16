@@ -50,7 +50,11 @@ def test_rev2_art_is_a_full_opacity_rounded_rect_mask():
         text = path.read_text(encoding='utf-8')
         if 'round_mask.png' in text or 'round_fill.png' in text or 'round_frame.png' in text:
             offenders.append('%s still uses the oval mask' % path.name)
-        for tag in re.findall(r'<texture\b[^>]*>', text):
+        for tag, body in re.findall(r'(<texture\b[^>]*>)([^<]*)</texture>', text):
+            # A tinted shade over a card (New Episodes) is not art: the
+            # mask only rounds its corners, and the tint is the shade.
+            if body.strip() == 'card_shade.png':
+                continue
             # ``colordiffuse`` contains the letters "diffuse"; only a real
             # diffuse mask attribute is the oval bug.
             if re.search(r'(^|\s)diffuse=', tag) and (

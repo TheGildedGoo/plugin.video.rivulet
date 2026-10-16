@@ -877,7 +877,10 @@ class QrSegment:
 
 # ---- Private helper class ----
 
-class _BitBuffer(list[int]):
+# Plain `list`, not upstream's `list[int]`: a base class is evaluated at
+# import time, and Kodi 19's Python 3.8 cannot subscript `list`, so the
+# whole pairing screen failed to import there.
+class _BitBuffer(list):
 	"""An appendable sequence of bits (0s and 1s). Mainly used by QrSegment."""
 	
 	def append_bits(self, val: int, n: int) -> None:
