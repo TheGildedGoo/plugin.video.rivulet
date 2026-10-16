@@ -52,11 +52,6 @@
                 <showonepage>false</showonepage>
                 <orientation>vertical</orientation>
             </control>
-            <control type="label">
-                <left>96</left><top>968</top><width>800</width><height>36</height>
-                <font>Mono26</font><textcolor>57EEF3F6</textcolor>
-                <label>[COLOR FF38BDF8]OK[/COLOR] $ADDON[plugin.video.revrivulet 30209]   [COLOR FF38BDF8]BACK[/COLOR] $ADDON[plugin.video.revrivulet 30210]</label>
-            </control>
         </control>
     </controls>
 </window>

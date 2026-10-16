@@ -866,10 +866,20 @@ def paint_hero(window):
     try:
         window.setProperty('HeroLogo', logo)
         window.getControl(HERO_LOGO).setImage(logo)
-        window.getControl(HERO_TITLE).setLabel(_fit_hero_title(title or label))
+        fitted = _fit_hero_title(title or label)
+        window.getControl(HERO_TITLE).setLabel(fitted)
         window.getControl(HERO_META).setText(meta)
         window.getControl(HERO_PLOT).setText(plot)
         window.getControl(BACKGROUND).setImage(fanart or addon_fanart())
+        # Same strings the labels just got. The scrim cannot ask the
+        # textbox how tall it is yet: Kodi measures that on the next frame.
+        from lib.ui.heroscrim import place_hero_scrims
+
+        place_hero_scrims(
+            window,
+            'hub' if window.__class__.__name__ == 'HubWindow' else 'home',
+            fitted, plot, meta, bool(logo),
+        )
     except Exception:
         pass
 
@@ -1321,6 +1331,10 @@ def _notify_if_updated(store):
     recorded yet, so that first call only seeds the current version and
     stays silent.
 
+    The toast is silent. Kodi's notification chime is what played every
+    time the addon was opened after a sideload, and opening the addon
+    must not ding.
+
     Best-effort: `store` I/O failing here must never stop the home screen
     from opening.
     """
@@ -1336,7 +1350,7 @@ def _notify_if_updated(store):
             return
         store.set_last_seen_version(current)
         if last_seen is not None:
-            notify(L(30184) % current)
+            notify(L(30184) % current, sound=False)
     except Exception as exc:
         log('homewindow: update-notification check failed: %r' % (exc,), xbmc.LOGWARNING)
 

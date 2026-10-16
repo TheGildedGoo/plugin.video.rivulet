@@ -269,6 +269,9 @@ def test_empty_hub_closes_and_notifies(load_hub, monkeypatch):
 
     assert win.closed is True
     assert ctx.env.notifications
+    # Movies / Series / Other land here when the category is empty.
+    # The message stays. The notification chime does not.
+    assert ctx.env.notification_sounds == [False]
 
 
 def test_hub_bar_is_right_aligned_and_posters_have_a_focus_frame():

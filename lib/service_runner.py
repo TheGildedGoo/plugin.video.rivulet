@@ -1672,15 +1672,21 @@ def main():
         xbmc.log(f"[{ADDON_ID}] {message}", level)
 
     def notify(string_id, error=False):
+        # These fire while Kodi is starting (binary missing, download,
+        # unsupported device). The text stays. The notification chime
+        # does not: startup must not ding.
         if error:
             xbmcgui.Dialog().notification(
                 addon.getAddonInfo("name"),
                 addon.getLocalizedString(string_id),
                 xbmcgui.NOTIFICATION_ERROR,
+                sound=False,
             )
         else:
             xbmcgui.Dialog().notification(
-                addon.getAddonInfo("name"), addon.getLocalizedString(string_id),
+                addon.getAddonInfo("name"),
+                addon.getLocalizedString(string_id),
+                sound=False,
             )
 
     def _launch_addon_ui():

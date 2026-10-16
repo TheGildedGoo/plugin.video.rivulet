@@ -19,13 +19,17 @@
                  picture. The plate behind this image is already black, so
                  a backdrop that is not 16:9 letterboxes instead. -->
             <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
-            <!-- fade_h.png is clear on the left and black on the right,
-                 so this is the right quarter (x=1440) with no flip. -->
-            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><texture colordiffuse="E60A0D12">fade_h.png</texture></control>
-            <!-- fade_v.png is opaque only from about 75% of its height.
-                 320 + 0.75*496 = 692, the top of the one visible row.
-                 The solid plate under it keeps the art off that row. -->
-            <control type="image"><left>0</left><top>320</top><width>1920</width><height>496</height><texture colordiffuse="FF0A0D12">fade_v.png</texture></control>
+            <!-- fade_h.png is a light vignette: clear on the left, only
+                 partly dark on the right, the same on every row. The
+                 ratings sit on the scrim, not in a black rectangle. -->
+            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><aspectratio>stretch</aspectratio><texture colordiffuse="E60A0D12">fade_h.png</texture></control>
+            <!-- fade_v.png stays clear through the hero text and is
+                 opaque from about 75% of its height. It starts at y=0
+                 so there is no step under the header. 0.75*923 = 692,
+                 the row. A ramp that was already dark behind the title
+                 read as a hard-edged block. The plate keeps the art
+                 off the row. -->
+            <control type="image"><left>0</left><top>0</top><width>1920</width><height>923</height><aspectratio>stretch</aspectratio><texture colordiffuse="FF0A0D12">fade_v.png</texture></control>
             <control type="image"><left>0</left><top>692</top><width>1920</width><height>388</height><texture colordiffuse="FF0A0D12">white.png</texture></control>
 
             <control type="image"><left>64</left><top>22</top><width>48</width><height>48</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
@@ -68,37 +72,51 @@
                 </focusedlayout>
             </control>
 
-            <!-- Hero. The title and the clearlogo share one 64px band on
-                 the left (font37 is 37, so 64 is the max height). The
-                 description is the next control, directly under the title:
-                 two lines of font13 (30). Ratings are a textbox in the
-                 right quarter, over the fade, filled from Python. A fact
-                 the meta does not carry is omitted. background=true: Kodi
-                 otherwise paints a grey box while the clearlogo loads,
-                 and again when the file is missing. The shadow keeps the
-                 title readable on a bright backdrop now that the left
-                 side of the picture is no longer covered. -->
+            <!-- Hero. Title and clearlogo share one 64px band (font37 is
+                 37). The description is the next control, directly under
+                 the title: six lines of font13 (30) in a 200px box, 55%
+                 of the screen (1056px), so a plot wraps instead of
+                 clipping off the right edge. The stack ends on the row
+                 at y=692. Ratings are the textbox in the right quarter,
+                 level with that stack. Each block sits on a scrim that
+                 fades out at the edges; Python sizes it to the text.
+                 A fact the meta does not carry is omitted. background=true:
+                 Kodi otherwise paints a grey box while the clearlogo loads.
+                 The shadow keeps the title readable on a bright backdrop. -->
+            <!-- scrim_feather.png is clear at the rim (border 40) and
+                 dark in the middle. These boxes are the largest the text
+                 gets; lib/ui/heroscrim.py pulls them in to the words. -->
+            <control type="image" id="30026">
+                <left>24</left><top>380</top><width>1136</width><height>352</height>
+                <aspectratio>stretch</aspectratio>
+                <texture border="40" colordiffuse="FF0A0D12">scrim_feather.png</texture>
+            </control>
+            <control type="image" id="30027">
+                <left>1440</left><top>380</top><width>460</width><height>352</height>
+                <aspectratio>stretch</aspectratio>
+                <texture border="40" colordiffuse="FF0A0D12">scrim_feather.png</texture>
+            </control>
             <control type="image" id="30023">
-                <left>64</left><top>172</top><width>780</width><height>64</height>
+                <left>64</left><top>420</top><width>1056</width><height>64</height>
                 <aspectratio align="left" aligny="center">keep</aspectratio>
                 <texture background="true"></texture>
                 <visible>!String.IsEmpty(Window.Property(HeroLogo))</visible>
             </control>
             <control type="label" id="30020">
-                <left>64</left><top>172</top><width>1200</width><height>64</height>
+                <left>64</left><top>420</top><width>1056</width><height>64</height>
                 <font>font37</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
                 <wrapmultiline>false</wrapmultiline>
                 <label></label>
                 <visible>String.IsEmpty(Window.Property(HeroLogo))</visible>
             </control>
             <control type="textbox" id="30022">
-                <left>64</left><top>244</top><width>1200</width><height>64</height>
+                <left>64</left><top>492</top><width>1056</width><height>200</height>
                 <font>font13</font><textcolor>F2EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor>
                 <autoscroll delay="2000" time="4000" repeat="6000">true</autoscroll>
                 <label></label>
             </control>
             <control type="textbox" id="30021">
-                <left>1480</left><top>172</top><width>380</width><height>224</height>
+                <left>1480</left><top>420</top><width>380</width><height>272</height>
                 <font>font12</font><textcolor>FFFFFFFF</textcolor><align>right</align>
                 <label></label>
             </control>
@@ -120,9 +138,6 @@
 <control type="group"><left>0</left><top>0</top><width>1800</width><height>388</height><visible>!String.IsEmpty(Window.Property(shelf_continue))</visible><control type="label" id="30140"><left>16</left><top>0</top><width>800</width><height>32</height><font>font12</font><textcolor>99EEF3F6</textcolor><aligny>center</aligny><label></label><visible>!String.IsEmpty(Window.Property(shelf_continue))</visible></control><control type="panel" id="30040"><left>0</left><top>32</top><width>1800</width><height>268</height><orientation>horizontal</orientation><onleft>30040</onleft><onright>30040</onright><onup>30010</onup><ondown>30041</ondown><scrolltime tween="cubic" easing="out">240</scrolltime><preloaditems>24</preloaditems><visible>!String.IsEmpty(Window.Property(shelf_continue))</visible><itemlayout width="420" height="268"><control type="image"><left>12</left><top>8</top><width>392</width><height>220</height><texture diffuse="rv_mask_392x220.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>scale</aspectratio></control><control type="label"><left>12</left><top>232</top><width>392</width><height>28</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control></itemlayout><focusedlayout width="420" height="268"><control type="image"><left>12</left><top>8</top><width>392</width><height>220</height><texture diffuse="rv_mask_392x220.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>scale</aspectratio></control><control type="image"><left>12</left><top>8</top><width>392</width><height>220</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture></control><control type="label"><left>12</left><top>232</top><width>392</width><height>28</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control></focusedlayout></control></control><control type="group"><left>0</left><top>0</top><width>1800</width><height>388</height><visible>!String.IsEmpty(Window.Property(shelf_library))</visible><control type="label" id="30141"><left>16</left><top>0</top><width>800</width><height>32</height><font>font12</font><textcolor>99EEF3F6</textcolor><aligny>center</aligny><label></label><visible>!String.IsEmpty(Window.Property(shelf_library))</visible></control><control type="panel" id="30041"><left>0</left><top>32</top><width>1800</width><height>356</height><orientation>horizontal</orientation><onleft>30041</onleft><onright>30041</onright><onup>30040</onup><ondown>30042</ondown><scrolltime tween="cubic" easing="out">240</scrolltime><preloaditems>24</preloaditems><visible>!String.IsEmpty(Window.Property(shelf_library))</visible><itemlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control></itemlayout><focusedlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control></focusedlayout></control></control><control type="group"><left>0</left><top>0</top><width>1800</width><height>388</height><visible>!String.IsEmpty(Window.Property(shelf_movies))</visible><control type="label" id="30142"><left>16</left><top>0</top><width>800</width><height>32</height><font>font12</font><textcolor>99EEF3F6</textcolor><aligny>center</aligny><label></label><visible>!String.IsEmpty(Window.Property(shelf_movies))</visible></control><control type="panel" id="30042"><left>0</left><top>32</top><width>1800</width><height>356</height><orientation>horizontal</orientation><onleft>30042</onleft><onright>30042</onright><onup>30041</onup><ondown>30043</ondown><scrolltime tween="cubic" easing="out">240</scrolltime><preloaditems>24</preloaditems><visible>!String.IsEmpty(Window.Property(shelf_movies))</visible><itemlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control></itemlayout><focusedlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control></focusedlayout></control></control><control type="group"><left>0</left><top>0</top><width>1800</width><height>388</height><visible>!String.IsEmpty(Window.Property(shelf_series))</visible><control type="label" id="30143"><left>16</left><top>0</top><width>800</width><height>32</height><font>font12</font><textcolor>99EEF3F6</textcolor><aligny>center</aligny><label></label><visible>!String.IsEmpty(Window.Property(shelf_series))</visible></control><control type="panel" id="30043"><left>0</left><top>32</top><width>1800</width><height>356</height><orientation>horizontal</orientation><onleft>30043</onleft><onright>30043</onright><onup>30042</onup><ondown>30044</ondown><scrolltime tween="cubic" easing="out">240</scrolltime><preloaditems>24</preloaditems><visible>!String.IsEmpty(Window.Property(shelf_series))</visible><itemlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control></itemlayout><focusedlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control></focusedlayout></control></control><control type="group"><left>0</left><top>0</top><width>1800</width><height>388</height><visible>!String.IsEmpty(Window.Property(shelf_anime))</visible><control type="label" id="30144"><left>16</left><top>0</top><width>800</width><height>32</height><font>font12</font><textcolor>99EEF3F6</textcolor><aligny>center</aligny><label></label><visible>!String.IsEmpty(Window.Property(shelf_anime))</visible></control><control type="panel" id="30044"><left>0</left><top>32</top><width>1800</width><height>356</height><orientation>horizontal</orientation><onleft>30044</onleft><onright>30044</onright><onup>30043</onup><ondown>30045</ondown><scrolltime tween="cubic" easing="out">240</scrolltime><preloaditems>24</preloaditems><visible>!String.IsEmpty(Window.Property(shelf_anime))</visible><itemlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control></itemlayout><focusedlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control></focusedlayout></control></control><control type="group"><left>0</left><top>0</top><width>1800</width><height>388</height><visible>!String.IsEmpty(Window.Property(shelf_other))</visible><control type="label" id="30145"><left>16</left><top>0</top><width>800</width><height>32</height><font>font12</font><textcolor>99EEF3F6</textcolor><aligny>center</aligny><label></label><visible>!String.IsEmpty(Window.Property(shelf_other))</visible></control><control type="panel" id="30045"><left>0</left><top>32</top><width>1800</width><height>356</height><orientation>horizontal</orientation><onleft>30045</onleft><onright>30045</onright><onup>30044</onup><ondown>30040</ondown><scrolltime tween="cubic" easing="out">240</scrolltime><preloaditems>24</preloaditems><visible>!String.IsEmpty(Window.Property(shelf_other))</visible><itemlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>A6EEF3F6</textcolor><label>$INFO[ListItem.Label]</label></control></itemlayout><focusedlayout width="220" height="356"><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture diffuse="rv_mask_200x300.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture><aspectratio>keep</aspectratio></control><control type="image"><left>10</left><top>0</top><width>200</width><height>300</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture></control><control type="label"><left>10</left><top>316</top><width>200</width><height>28</height><font>font12</font><textcolor>FFFFFFFF</textcolor><label>[B]$INFO[ListItem.Label][/B]</label></control></focusedlayout></control></control>
             </control>
 
-            <control type="label"><left>64</left><top>360</top><width>900</width><height>28</height><font>Mono26</font><textcolor>57EEF3F6</textcolor><aligny>center</aligny>
-                <label>[COLOR FFFFFFFF]OK[/COLOR] $ADDON[plugin.video.revrivulet 30209]     [COLOR FFFFFFFF]BACK[/COLOR] $ADDON[plugin.video.revrivulet 30211]</label>
-            </control>
         </control>
     </controls>
 </window>

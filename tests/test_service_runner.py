@@ -760,6 +760,8 @@ def test_main_embedded_enabled_binary_missing_auto_downloads_then_starts(monkeyp
     heading, _message, icon, _time = setup_notifications[0]
     assert heading == 'RevRivulet'
     assert icon is None  # informational notification, not the error icon
+    # Service startup toasts (download, missing binary) must not chime.
+    assert ctx.env.notification_sounds == [False]
 
     # First iteration: download succeeds, so the loop rechecks almost
     # immediately instead of waiting out a full missing-binary cycle.

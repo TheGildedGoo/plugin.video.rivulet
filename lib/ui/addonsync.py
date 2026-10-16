@@ -146,7 +146,7 @@ def schedule_account_pull(store, window=None):
             log('addonsync: home pull failed: %r' % (exc,), xbmc.LOGWARNING)
             if exc.is_auth_error:
                 store.set_auth(None)
-                notify(L(30035))
+                notify(L(30035), sound=False)
             return
         except Exception as exc:
             log('addonsync: home pull failed: %r' % (exc,), xbmc.LOGWARNING)
@@ -175,7 +175,7 @@ def pull_if_due(store):
         log('addonsync: addons pull failed: %r' % (exc,), xbmc.LOGWARNING)
         if exc.is_auth_error:
             store.set_auth(None)
-            notify(L(30035))
+            notify(L(30035), sound=False)
         return False
     except Exception as exc:
         import xbmc

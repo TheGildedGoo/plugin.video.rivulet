@@ -171,7 +171,7 @@ def _safe_listing(view):
             return view(*args, **kwargs)
         except Exception as exc:  # noqa: BLE001 - last-resort guard for a Kodi directory
             log('views.%s failed: %r' % (view.__name__, exc), xbmc.LOGERROR)
-            notify(str(exc) or view.__name__)
+            notify(str(exc) or view.__name__, sound=False)
             xbmcplugin.endOfDirectory(router.ADDON_HANDLE, succeeded=False)
     return wrapper
 
@@ -632,7 +632,7 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
         message = message % _MAX_CATALOG_PAGES
     except TypeError:
         pass  # a catalog without the %d placeholder: show it verbatim
-    notify(message)
+    notify(message, sound=False)
 
 
 def fetch_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest=None):

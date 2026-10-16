@@ -258,7 +258,7 @@ class CatalogPickerWindow(BaseWindow):
         transport_url, manifest, catalog = focused
         options = catalog_extra_options(catalog, 'genre')
         if not options:
-            notify(L(30030))
+            notify(L(30030), sound=False)
             return
         choice = dialogs.choose(L(30194), [L(30198)] + options)
         if choice < 0:
@@ -325,14 +325,14 @@ class CatalogPickerWindow(BaseWindow):
             metas = run_cancellable(lambda: next(pages, []), L(30033))
         except AddonError as exc:
             log('catalogpicker: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGERROR)
-            notify(L(30032))
+            notify(L(30032), sound=False)
             return
         if metas is CANCELLED:
             log('catalogpicker: %s (%s) load cancelled by the user' % (catalog_name, ctype), xbmc.LOGINFO)
             return
         if not metas:
             log('catalogpicker: %s (%s) returned no results' % (catalog_name, ctype), xbmc.LOGINFO)
-            notify(L(30030))
+            notify(L(30030), sound=False)
             return
 
         log('catalogpicker: opening coverflow (%d results, paging in background)' % len(metas), xbmc.LOGINFO)
@@ -341,7 +341,7 @@ class CatalogPickerWindow(BaseWindow):
             selected = open_showcase(metas, catalog_title=catalog_title, more_pages=pages)
         except Exception as exc:  # a skin/UI failure must surface, not vanish
             log('catalogpicker: coverflow failed to open: %r' % (exc,), xbmc.LOGERROR)
-            notify(L(30032))
+            notify(L(30032), sound=False)
             return
         if not selected:
             return
@@ -376,7 +376,7 @@ class CatalogPickerWindow(BaseWindow):
         except Exception as exc:  # a skin/UI failure must surface, not vanish
             import xbmc
             log('catalogpicker: new-episodes grid failed to open: %r' % (exc,), xbmc.LOGERROR)
-            notify(L(30032))
+            notify(L(30032), sound=False)
             return
         if not selected:
             return
@@ -533,7 +533,7 @@ def open_catalog_picker(types=None, heading=''):
         catalogs = [c for c in catalogs if _base_type(c[2].get('type')) in wanted]
     catalogs = _reachable_catalogs(catalogs)
     if not catalogs:
-        notify(L(30030))
+        notify(L(30030), sound=False)
         return False
     catalogs = _sort_catalogs(catalogs)
 
@@ -563,7 +563,7 @@ def open_catalog_picker(types=None, heading=''):
         return win.start(catalogs, heading, new_episode_items=new_episode_items)
     except Exception as exc:  # a skin/UI failure must surface, not vanish
         log('catalogpicker: window failed to open: %r' % (exc,), xbmc.LOGERROR)
-        notify(L(30032))
+        notify(L(30032), sound=False)
         return False
     finally:
         # A normal return means CatalogPickerWindow already closed itself

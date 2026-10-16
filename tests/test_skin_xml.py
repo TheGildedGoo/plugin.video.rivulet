@@ -351,10 +351,9 @@ _WORD_RE = re.compile(r'[A-Za-z]+')
 
 #: Literal English words this skin may ship un-substituted. `RevRivulet` is
 #: the brand wordmark, never translated in any locale. `OK`/`BACK` label
-#: the remote-control keys themselves (as in "[OK] select  [BACK] back"),
-#: not sentence content - the action verb beside each is already routed
-#: through `$ADDON[...]` (ids 30209/30210/30223/30224/30225/...); the key
-#: caption is left as-is the way a keyboard's own key legends are.
+#: the remote-control keys themselves on the playback dialogs (cancel,
+#: skip), not sentence content. The browse-screen "OK select / BACK exit"
+#: line is gone; those string ids must not come back in the skin.
 _ALLOWED_LITERAL_WORDS = frozenset({'RevRivulet', 'OK', 'BACK'})
 
 
@@ -391,6 +390,18 @@ def test_bare_english_label_is_rejected_regression(tmp_path):
     words = _literal_words('Sources')
     assert words == ['Sources']
     assert 'Sources' not in _ALLOWED_LITERAL_WORDS
+
+
+def test_browse_screens_omit_the_ok_back_hint():
+    """The OK select / BACK exit line is gone from every window.
+
+    Playback dialogs still say what BACK does there (cancel, skip).
+    Those strings are 30223-30225, not this hint.
+    """
+    for path in _skin_files():
+        text = _read(path)
+        for string_id in ('30209', '30210', '30211'):
+            assert string_id not in text, '%s still shows string %s' % (path, string_id)
 
 
 def test_allowed_literal_words_survive_substitution_stripping_regression(tmp_path):
