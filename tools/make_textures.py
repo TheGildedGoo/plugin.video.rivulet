@@ -69,6 +69,57 @@ def _gradient(width, height, horizontal, start, end):
     return image
 
 
+def _fade_h(width=480, height=1080):
+    """Clear on the left, black on the right, the same ramp on every row.
+
+    The file this replaced was 1075x8 and already about 60% opaque on
+    its left edge, so the right quarter read as a hard-edged box that
+    only showed against the bright top of the picture. This one is the
+    control's own 480x1080, transparent at x=0.
+    """
+    image = Image.new('RGBA', (width, height))
+    pixels = image.load()
+    last = width - 1
+    for x in range(width):
+        t = x / float(last)
+        t = t * t * (3 - 2 * t)
+        color = (255, 255, 255, int(round(255 * t)))
+        for y in range(height):
+            pixels[x, y] = color
+    return image
+
+
+def _fade_v(width=8, height=1080):
+    """Clear at the top, opaque from 75% of the height down.
+
+    The file this replaced started near alpha 140, so the top of
+    whatever control drew it was a hard line and a lighter strip.
+    Alpha 0 at y=0 lets that control start at the top of the screen.
+    Windows size the control so this 75% point meets the poster row.
+    """
+    image = Image.new('RGBA', (width, height))
+    pixels = image.load()
+    hold = int(round(0.75 * (height - 1)))
+    for y in range(height):
+        if y >= hold:
+            alpha = 255
+        else:
+            t = y / float(hold) if hold else 1.0
+            t = t * t * (3 - 2 * t)
+            alpha = int(round(255 * t))
+        color = (255, 255, 255, alpha)
+        for x in range(width):
+            pixels[x, y] = color
+    return image
+
+
+def write_hero_fades():
+    """Write fade_h.png and fade_v.png. Run from the repo root."""
+    os.makedirs(MEDIA, exist_ok=True)
+    _fade_h().save(os.path.join(MEDIA, 'fade_h.png'), optimize=True)
+    _fade_v().save(os.path.join(MEDIA, 'fade_v.png'), optimize=True)
+
+
 def _switch(on):
     image = Image.new('RGBA', (72 * SS, 40 * SS), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
@@ -257,6 +308,7 @@ def main():
     # Sizes the skin builder asks for. Running this file alone still
     # produces the poster and landscape masks the home rows use.
     write_assets(((200, 300), (392, 220), (340, 510)))
+    write_hero_fades()
 
 
 if __name__ == '__main__':

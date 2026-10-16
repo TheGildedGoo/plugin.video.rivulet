@@ -6,10 +6,11 @@ Kodi scales 1920x1080 skin space onto whatever display the box is
 plugged into, so these numbers are the layout. On Home, the hubs, and
 Library the fanart fills the screen from the top. A vertical fade is
 opaque by the row band, and a solid plate covers that band, so the art
-never runs behind the rows. The title (or the clearlogo) sits on the left, and the description
-sits directly under it. Ratings sit in the right quarter, over a
-fade. The picture is shown whole (`keep`), letterboxed on the black
-plate, and the text ends above the band.
+never runs behind the rows. The title (or the clearlogo) sits on the
+left, just above the row, and the description sits directly under it.
+Ratings sit in the right quarter, over a full-height fade. The picture
+is shown whole (`keep`), letterboxed on the black plate, and the text
+ends on the row.
 
 The focused row is the only row on screen, pinned to the bottom edge.
 Home's row is 388px (a 32px heading plus the 356px poster panel), the
@@ -26,6 +27,14 @@ one fixedlist with focusposition 0 and a height of exactly one row.
 A catalog, decade, or search list is the same idea with one horizontal
 row of titles: Down and Up step a viewport of that row, and the hero
 is bound to the focused item.
+
+The title and the description sit in the lower part of that hero, just
+above the row, not under the header. The description is six lines in a
+column 55% of the screen wide (1056px). A two-line box under the header
+clipped the plot at the top and at the right edge. Ratings share that
+lower band, in the right quarter. The vertical fade starts at y=0,
+clear, so the header is on the same ramp instead of a lighter strip
+with a hard edge under it.
 """
 import os
 import xml.etree.ElementTree as ET
@@ -37,46 +46,50 @@ _SKIN = os.path.join(
 # One row, sitting on y=1080. Poster and focus-frame sizes are unchanged.
 _SCREEN = 1080
 
-# font13 is 30. Two lines fit in 64 and a third (90) does not.
-# font27 is 27. Three lines fit in 96 and a fourth (108) does not.
+# font13 is 30. Six lines need 180; the box is 200 so a textbox inset
+# does not clip the first or last line, and a seventh (210) does not fit.
+# font27 is 27. Six lines need 162; the box is 180, and a seventh (189)
+# does not fit.
+# 1056 is 55% of 1920. The column stays left of the right-quarter fade.
+_TEXT_WIDTH = 1056
 _ROWS = {
     'HomeWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
-        'rows': '30001', 'pills': '30010', 'lines': 2, 'font': 30, 'title_h': 64,
+        'rows': '30001', 'pills': '30010', 'lines': 6, 'font': 30, 'title_h': 64,
         'kind': 'grouplist', 'band': (692, 388),
     },
     'Rev2HomeWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
-        'rows': '30001', 'pills': '30010', 'lines': 2, 'font': 30, 'title_h': 64,
+        'rows': '30001', 'pills': '30010', 'lines': 6, 'font': 30, 'title_h': 64,
         'kind': 'grouplist', 'band': (692, 388),
     },
     'HubWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
-        'rows': '31000', 'lines': 2, 'font': 30, 'title_h': 64,
+        'rows': '31000', 'lines': 6, 'font': 30, 'title_h': 64,
         'kind': 'fixedlist', 'band': (740, 340),
     },
     'Rev2HubWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
-        'rows': '31000', 'lines': 2, 'font': 30, 'title_h': 64,
+        'rows': '31000', 'lines': 6, 'font': 30, 'title_h': 64,
         'kind': 'fixedlist', 'band': (740, 340),
     },
     'GridWindow.xml': {
-        'title': '30020', 'meta': '30021', 'plot': '30024',
-        'rows': '30001', 'lines': 2, 'font': 30, 'title_h': 64,
+        'title': '30020', 'meta': '30021', 'plot': '30024', 'caption': '30025',
+        'rows': '30001', 'lines': 6, 'font': 30, 'title_h': 64,
         'kind': 'grouplist', 'band': (684, 396),
     },
     'Rev2GridWindow.xml': {
-        'title': '30020', 'meta': '30021', 'plot': '30024',
-        'rows': '30001', 'lines': 2, 'font': 30, 'title_h': 64,
+        'title': '30020', 'meta': '30021', 'plot': '30024', 'caption': '30025',
+        'rows': '30001', 'lines': 6, 'font': 30, 'title_h': 64,
         'kind': 'grouplist', 'band': (684, 396),
     },
 }
 _SHOWCASE = {
-    'ShowcaseWindow.xml': {'rows': '30002', 'lines': 3, 'font': 27, 'title_h': 92},
-    'Rev2ShowcaseWindow.xml': {'rows': '30002', 'lines': 3, 'font': 27, 'title_h': 92},
+    'ShowcaseWindow.xml': {'rows': '30002', 'lines': 6, 'font': 27, 'title_h': 92},
+    'Rev2ShowcaseWindow.xml': {'rows': '30002', 'lines': 6, 'font': 27, 'title_h': 92},
 }
-# The top third, which Showcase still uses.
-_ZONE_BOTTOM = 360
+# Below the header. A title back up at y=172 is the clipped layout.
+_HERO_TEXT_TOP = 360
 
 
 def _root(name):
@@ -130,18 +143,23 @@ def _assert_text_stack(name, title, meta, plot, spec):
     plot_top, plot_h = _px(plot, 'top'), _px(plot, 'height')
     meta_left, meta_w = _px(meta, 'left'), _px(meta, 'width')
     assert title_h == spec['title_h'], name
+    assert title_top >= _HERO_TEXT_TOP, name
     assert plot_top >= title_top + title_h, name
     assert plot_top <= title_top + title_h + 16, name
-    # Two (or three) lines of the face it uses. The next line does not fit.
+    # Six lines of the face it uses. The next line does not fit.
     assert spec['font'] * spec['lines'] <= plot_h < spec['font'] * (spec['lines'] + 1), name
     scroll = plot.find('autoscroll')
     assert scroll is not None and (scroll.text or '').strip() == 'true', name
     assert (title.findtext('wrapmultiline') or '').strip() == 'false', name
+    assert _px(title, 'width') == _TEXT_WIDTH, name
+    assert _px(plot, 'width') == _TEXT_WIDTH, name
+    assert _px(title, 'left') == _px(plot, 'left'), name
     assert _px(title, 'left') + _px(title, 'width') <= 1440, name
     assert _px(plot, 'left') + _px(plot, 'width') <= 1440, name
     assert meta_left >= 1440, name
-    assert meta_left + meta_w <= 1920, name
-    assert _px(meta, 'top') <= title_top + 8, name
+    assert meta_left + meta_w <= 1880, name
+    assert abs(_px(meta, 'top') - title_top) <= 8, name
+    assert _px(meta, 'top') + _px(meta, 'height') <= 1080, name
     assert _px(meta, 'height') >= 160, name
     return plot_top + plot_h, title_top, title_h
 
@@ -162,6 +180,7 @@ def _assert_full_backdrop(name, root):
     assert len(side) == 1, name
     fade = side[0]
     assert _px(fade, 'left') == 1440, name
+    assert _px(fade, 'top') == 0, name
     assert _px(fade, 'width') == 480, name
     assert _px(fade, 'height') == _SCREEN, name
 
@@ -180,9 +199,11 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
         ]
         assert len(fades) == 1, name
         fade = fades[0]
-        # fade_v.png reaches alpha 255 at about 75% of its height and
-        # stays there. That point has to be at or above the row band.
-        opaque_at = _px(fade, 'top') + int(0.75 * _px(fade, 'height'))
+        # The ramp starts at the top of the screen. A control that began
+        # lower left a lighter strip behind the header and a hard edge.
+        # fade_v.png reaches alpha 255 at about 75% of its height.
+        assert _px(fade, 'top') == 0, name
+        opaque_at = int(0.75 * _px(fade, 'height'))
         assert opaque_at <= band_top, name
 
         plates = [
@@ -201,7 +222,23 @@ def test_focused_row_is_pinned_in_the_lower_band_over_full_screen_fanart():
         meta = _by_id(root, spec['meta'])
         plot = _by_id(root, spec['plot'])
         plot_bottom, title_top, title_h = _assert_text_stack(name, title, meta, plot, spec)
-        assert plot_bottom <= _ZONE_BOTTOM, name
+        caption_id = spec.get('caption')
+        if caption_id:
+            caption = _by_id(root, caption_id)
+            caption_top = _px(caption, 'top')
+            caption_bottom = caption_top + _px(caption, 'height')
+            assert caption_top >= plot_bottom, name
+            assert caption_top <= plot_bottom + 16, name
+            assert _px(caption, 'width') == _TEXT_WIDTH, name
+            assert caption_bottom <= band_top, name
+            assert band_top - caption_bottom <= 8, name
+            stack_bottom = caption_bottom
+        else:
+            assert plot_bottom <= band_top, name
+            assert band_top - plot_bottom <= 8, name
+            stack_bottom = plot_bottom
+        assert _px(meta, 'top') + _px(meta, 'height') <= band_top + 8, name
+        assert stack_bottom <= band_top, name
 
         rows = _by_id(root, spec['rows'])
         row_top, row_h = _px(rows, 'top'), _px(rows, 'height')
@@ -260,7 +297,8 @@ def test_showcase_is_one_row_under_the_backdrop():
         rows = _by_id(root, spec['rows'])
         plot_bottom, _title_top, _title_h = _assert_text_stack(name, title, meta, plot, spec)
         row_top, row_h = _px(rows, 'top'), _px(rows, 'height')
-        assert plot_bottom <= _ZONE_BOTTOM, name
+        assert plot_bottom <= row_top, name
+        assert row_top - plot_bottom <= 8, name
         assert row_top == 740 and row_h == 340, name
         assert row_top + row_h == _SCREEN, name
         assert row_top >= plot_bottom, name
@@ -274,5 +312,46 @@ def test_showcase_is_one_row_under_the_backdrop():
             if el.get('type') == 'image' and _texture_name(el) == 'fade_v.png'
         ]
         assert len(fades) == 1, name
-        opaque_at = _px(fades[0], 'top') + int(0.75 * _px(fades[0], 'height'))
+        assert _px(fades[0], 'top') == 0, name
+        opaque_at = int(0.75 * _px(fades[0], 'height'))
         assert opaque_at <= row_top, name
+
+
+def test_hero_fades_are_smooth_full_height_ramps():
+    """The right fade is clear on the left and the same on every row.
+
+    The file it replaced was already dark on its left edge and only a
+    few pixels tall, so the ratings sat in a hard-edged box at the top.
+    The vertical fade starts clear, so there is no step under the header.
+    """
+    import pytest
+    pytest.importorskip('PIL')
+    from PIL import Image
+
+    media = os.path.join(os.path.dirname(_SKIN), 'media')
+    side = Image.open(os.path.join(media, 'fade_h.png')).convert('RGBA')
+    width, height = side.size
+    assert height >= _SCREEN and width >= 64
+    pixels = side.load()
+    assert pixels[0, height // 2][3] <= 8
+    assert pixels[width - 1, height // 2][3] >= 250
+    assert abs(pixels[width // 2, 0][3] - pixels[width // 2, height - 1][3]) <= 2
+    previous = pixels[0, height // 2][3]
+    for x in range(width):
+        alpha = pixels[x, height // 2][3]
+        assert previous - 1 <= alpha <= previous + 8
+        previous = alpha
+
+    down = Image.open(os.path.join(media, 'fade_v.png')).convert('RGBA')
+    down_w, down_h = down.size
+    assert down_h >= 128
+    column = down.load()
+    assert column[down_w // 2, 0][3] <= 8
+    hold = int(round(0.75 * (down_h - 1)))
+    assert column[down_w // 2, hold][3] >= 250
+    assert column[down_w // 2, down_h - 1][3] >= 250
+    previous = column[down_w // 2, 0][3]
+    for y in range(down_h):
+        alpha = column[down_w // 2, y][3]
+        assert previous - 1 <= alpha <= previous + 8
+        previous = alpha
