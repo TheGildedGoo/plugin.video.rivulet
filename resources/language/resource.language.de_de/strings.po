@@ -1149,3 +1149,55 @@ msgstr "OMDb-API-Schlüssel (omdbapi.com/apikey.aspx)"
 msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
 msgstr "MDBList-API-Schlüssel (mdblist.com/preferences/)"
+
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "Bewertungsschlüssel vom Telefon koppeln"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Einen Schlüssel koppeln"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Öffne diese Seite auf dem Telefon und füge den Schlüssel ein. Er gilt 3 Minuten."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Schlüssel gespeichert"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "Koppeln konnte nicht starten. Der Fernseher braucht ein Netzwerk."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Dieser Code ist abgelaufen. Versuch es erneut."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Speichern"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Gespeichert. Du kannst diese Seite schließen."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Dieser Code stimmt nicht."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Gib einen Schlüssel ein."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Bereits gespeichert."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Dieser Schlüssel ist zu lang."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "Der Schlüssel konnte nicht gespeichert werden."

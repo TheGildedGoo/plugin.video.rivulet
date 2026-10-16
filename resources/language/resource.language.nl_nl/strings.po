@@ -1149,3 +1149,55 @@ msgstr "OMDb API-sleutel (omdbapi.com/apikey.aspx)"
 msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
 msgstr "MDBList API-sleutel (mdblist.com/preferences/)"
+
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "Beoordelingssleutel koppelen via telefoon"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Een sleutel koppelen"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Open deze pagina op de telefoon en plak de sleutel. Hij werkt 3 minuten."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Sleutel opgeslagen"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "Koppelen kon niet starten. De tv heeft een netwerk nodig."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Deze code is verlopen. Probeer het opnieuw."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Opslaan"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Opgeslagen. Je kunt deze pagina sluiten."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Deze code komt niet overeen."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Voer een sleutel in."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Al opgeslagen."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Deze sleutel is te lang."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "De sleutel kon niet worden opgeslagen."

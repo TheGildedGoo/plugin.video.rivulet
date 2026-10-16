@@ -1149,3 +1149,55 @@ msgstr "OMDb API anahtarı (omdbapi.com/apikey.aspx)"
 msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
 msgstr "MDBList API anahtarı (mdblist.com/preferences/)"
+
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "Puan anahtarını telefondan eşle"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Bir anahtar eşle"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve anahtarı yapıştır. 3 dakika geçerlidir."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Anahtar kaydedildi"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "Eşleme başlayamadı. TV'nin bir ağa ihtiyacı var."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Bu kodun süresi doldu. Yeniden dene."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Kaydet"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Kaydedildi. Bu sayfayı kapatabilirsin."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Bu kod eşleşmiyor."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Bir anahtar gir."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Zaten kaydedildi."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Bu anahtar çok uzun."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "Anahtar kaydedilemedi."
