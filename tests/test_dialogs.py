@@ -479,3 +479,24 @@ def test_getcontrol_raises_non_existent_control_for_an_undeclared_id(load_dialog
 
     with pytest.raises(RuntimeError, match='Non-Existent Control'):
         window.getControl(99999)
+
+
+def test_busy_spinner_fades_in_late_so_a_cache_hit_does_not_flash():
+    """#8: a load that finishes in ~100ms closed the spinner while its
+    78% plate was already on screen. The fade now waits, so only a load
+    that is still running after 350ms dims the screen. A WindowOpen delay
+    does not drop input (only a closing animation does)."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'resources', 'skins', 'Default', '1080i', 'BusyDialog.xml',
+    )
+    root = ET.parse(path).getroot()
+    opens = [a for a in root.iter('animation') if a.get('type') == 'WindowOpen']
+    assert len(opens) == 1
+    fade = opens[0].find('effect')
+    assert fade.get('type') == 'fade'
+    assert int(fade.get('delay')) >= 300
+    assert not [a for a in root.iter('animation') if a.get('type') == 'WindowClose']
