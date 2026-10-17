@@ -95,6 +95,11 @@ _CLICKABLE = frozenset(
     + tuple(list_id for _action, list_id, _label in _SHELVES)
 )
 
+#: Every poster row, in screen order.
+_SHELF_IDS = (CONTINUE_SHELF, LIBRARY_SHELF) + tuple(
+    list_id for _action, list_id, _label in _SHELVES
+)
+
 _BUTTON_ACTIONS = {
     BTN_SEARCH: 'search',
     BTN_ADDONS: 'addons',
@@ -843,6 +848,7 @@ def _restore_place(window, place):
         control.selectItem(target)
     if _focusable(window, focus):
         window.setFocusId(focus)
+        _note_focus(window)
     else:
         _focus_first(window)
 
@@ -904,24 +910,36 @@ def _offer_library(window, item):
         refresh_library_row(window)
 
 
+def _note_focus(window):
+    """Remember where the remote is, so the next Up can tell a dead end
+    from a move (`HomeWindow.onAction`)."""
+    try:
+        window._last_focus = window.getFocusId()
+    except Exception:
+        window._last_focus = None
+
+
 def _focus_first(window):
     """Land on the first row that actually has posters, else the chips,
     else Settings. An empty hidden row must not take the remote."""
-    for control_id, prop in (
-        (CONTINUE_SHELF, 'shelf_continue'),
-        (LIBRARY_SHELF, 'shelf_library'),
-    ):
-        if window.getProperty(prop):
-            window.setFocusId(control_id)
+    try:
+        for control_id, prop in (
+            (CONTINUE_SHELF, 'shelf_continue'),
+            (LIBRARY_SHELF, 'shelf_library'),
+        ):
+            if window.getProperty(prop):
+                window.setFocusId(control_id)
+                return
+        if window.getControl(BROWSE_LIST).size():
+            window.setFocusId(BROWSE_LIST)
             return
-    if window.getControl(BROWSE_LIST).size():
-        window.setFocusId(BROWSE_LIST)
-        return
-    for _action, list_id, _label in _SHELVES:
-        if window.getProperty('shelf_%s' % _action):
-            window.setFocusId(list_id)
-            return
-    window.setFocusId(BTN_SETTINGS)
+        for _action, list_id, _label in _SHELVES:
+            if window.getProperty('shelf_%s' % _action):
+                window.setFocusId(list_id)
+                return
+        window.setFocusId(BTN_SETTINGS)
+    finally:
+        _note_focus(window)
 
 
 def _status_text(auth):
@@ -1399,18 +1417,23 @@ class HomeWindow(BaseWindow):
             if focus in _CLICKABLE and focus != BROWSE_LIST:
                 _offer_library(self, self.getControl(focus).getSelectedItem())
             return
-        # The pills are the Down target of the top bar. With no types
-        # installed that list is hidden, and a hidden target does not
-        # take focus, so Down would stick on Settings.
-        if action_id == 4 and not self.getControl(BROWSE_LIST).size():
-            if self.getFocusId() in _BUTTON_ACTIONS or self.getFocusId() == TOOLS_LIST:
-                _focus_first(self)
+        # The header is one row (#23): the pills on the left, the tools on
+        # the right, and a row's Up lands on the pills. With no types
+        # installed the pills are hidden, so that Up has nowhere to go.
+        # Kodi has already moved (or not) by the time this runs: an Up
+        # that left the remote on the shelf it started on was that dead
+        # end, and goes to the tools instead.
+        focus = self.getFocusId()
+        if action_id == 3 and focus == getattr(self, '_last_focus', None) and focus in _SHELF_IDS:
+            if not self.getControl(BROWSE_LIST).size():
+                self.setFocusId(TOOLS_LIST)
         # Right is what walks a shelf. Load the next posters before the
         # hero is painted, so the cell the remote just reached already
         # has a title.
         if action_id == 2:
             _maybe_extend_focused_shelf(self)
         paint_hero(self)
+        _note_focus(self)
 
     @gated_input
     def onClick(self, control_id):

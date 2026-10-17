@@ -40,30 +40,38 @@
             <control type="image"><left>0</left><top>0</top><width>1920</width><height>923</height><aspectratio>stretch</aspectratio><texture colordiffuse="FF07090B">fade_v.png</texture></control>
             <control type="image"><left>0</left><top>692</top><width>1920</width><height>388</height><texture colordiffuse="FF07090B">white.png</texture></control>
 
-            <control type="image"><left>64</left><top>22</top><width>48</width><height>48</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
-            <control type="label"><left>124</left><top>16</top><width>360</width><height>52</height><font>font37</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny><label>[B]RevRivulet[/B]</label></control>
+            <control type="image"><left>64</left><top>42</top><width>48</width><height>48</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
+            <control type="label"><left>124</left><top>36</top><width>360</width><height>52</height><font>font37</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny><label>[B]RevRivulet[/B]</label></control>
             <control type="label" id="30005">
-                <left>64</left><top>68</top><width>760</width><height>28</height><font>font12</font><textcolor>C8EEF3F6</textcolor><aligny>center</aligny>
+                <left>64</left><top>86</top><width>760</width><height>28</height><font>font12</font><textcolor>C8EEF3F6</textcolor><aligny>center</aligny>
                 <label></label>
             </control>
-            <!-- Search, Add-ons, Settings, and Sign in when this profile has no login. Right-aligned so Settings stays the rightmost. pill_fill.png is a 9-slice capsule. -->
+            <!-- One focusable header row (#23): the type pills on the left,
+                 Sign in (signed out only), Search, Add-ons and Settings on the
+                 right, level with them. Left from the first tool crosses to the
+                 pills, Right from the last pill crosses here; Settings stays the
+                 rightmost and Right stops on it. The wordmark line above is not
+                 focusable. Both sit 36px or more off the top edge (#7).
+                 pill_fill.png is a 9-slice capsule. -->
             <control type="grouplist" id="30011">
-                <left>640</left><top>16</top><width>1216</width><height>64</height>
+                <left>960</left><top>128</top><width>896</width><height>56</height>
                 <orientation>horizontal</orientation>
                 <align>right</align>
                 <itemgap>12</itemgap>
-                <onleft>30011</onleft><onright>30011</onright>
-                <onup>30011</onup><ondown>30010</ondown>
+                <onleft>30010</onleft><onright>30072</onright>
+                <onup>30011</onup><ondown>30001</ondown>
                 <scrolltime tween="cubic" easing="out">180</scrolltime>
-<control type="button" id="30073"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30427]</label><ondown>30010</ondown><onup>30011</onup><visible>!String.IsEmpty(Window.Property(HomeSignedOut))</visible></control><control type="button" id="30070"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30001]</label><ondown>30010</ondown><onup>30011</onup></control><control type="button" id="30071"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30003]</label><ondown>30010</ondown><onup>30011</onup></control><control type="button" id="30072"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30004]</label><ondown>30010</ondown><onup>30011</onup></control>
+<control type="button" id="30073"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30427]</label><ondown>30001</ondown><onup>30011</onup><visible>!String.IsEmpty(Window.Property(HomeSignedOut))</visible></control><control type="button" id="30070"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30001]</label><ondown>30001</ondown><onup>30011</onup></control><control type="button" id="30071"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30003]</label><ondown>30001</ondown><onup>30011</onup></control><control type="button" id="30072"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30004]</label><ondown>30001</ondown><onup>30011</onup></control>
             </control>
 
-            <!-- Type pills. Fixed under the top bar, not inside the scrolling rows. -->
+            <!-- Type pills: the left half of the header row, not inside the
+                 scrolling rows. 900px holds all four. Up has nowhere to go;
+                 with no pills, Python sends Up from the first row to the tools. -->
             <control type="list" id="30010">
-                <left>48</left><top>100</top><width>1600</width><height>64</height>
+                <left>48</left><top>124</top><width>900</width><height>64</height>
                 <orientation>horizontal</orientation>
-                <onleft>30010</onleft><onright>30010</onright>
-                <onup>30011</onup><ondown>30001</ondown>
+                <onleft>30010</onleft><onright>30011</onright>
+                <onup>30010</onup><ondown>30001</ondown>
                 <scrolltime tween="cubic" easing="out">180</scrolltime>
                 <visible>!String.IsEmpty(Window.Property(HomeBrowse))</visible>
                 <itemlayout width="220" height="64">
@@ -72,10 +80,20 @@
                         <label>$INFO[ListItem.Label]</label>
                     </control>
                 </itemlayout>
+                <!-- Kodi draws focusedlayout on the selected pill whether or not
+                     the list has the remote. On a shared header row a white pill
+                     here beside a focused tool read as two places at once, so the
+                     filled pill is gated to real focus. -->
                 <focusedlayout width="220" height="64">
-                    <control type="image"><left>8</left><top>4</top><width>204</width><height>56</height><texture border="28" colordiffuse="FFFFFFFF">pill_fill.png</texture></control>
+                    <control type="image"><left>8</left><top>4</top><width>204</width><height>56</height><texture border="28" colordiffuse="FFFFFFFF">pill_fill.png</texture><visible>Control.HasFocus(30010)</visible></control>
                     <control type="label"><left>8</left><top>4</top><width>204</width><height>56</height><font>font13</font><textcolor>FF07090B</textcolor><align>center</align><aligny>center</aligny>
                         <label>[B]$INFO[ListItem.Label][/B]</label>
+                        <visible>Control.HasFocus(30010)</visible>
+                    </control>
+                    <control type="image"><left>8</left><top>4</top><width>204</width><height>56</height><texture border="28" colordiffuse="14FFFFFF">pill_fill.png</texture><visible>!Control.HasFocus(30010)</visible></control>
+                    <control type="label"><left>8</left><top>4</top><width>204</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><align>center</align><aligny>center</aligny>
+                        <label>$INFO[ListItem.Label]</label>
+                        <visible>!Control.HasFocus(30010)</visible>
                     </control>
                 </focusedlayout>
             </control>

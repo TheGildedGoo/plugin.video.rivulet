@@ -1501,8 +1501,19 @@ def test_home_lists_declare_a_visible_focus_and_navigation():
     assert first[0] == '30140' and first[1] == '30040'
     assert rows.find(".//control[@id='30010']") is None
     pills = root.find(".//control[@id='30010']")
-    assert (pills.findtext('onup') or '').strip() == '30011'
+    # One header row (#23): Right off the last pill crosses to the tools,
+    # Left off the first tool crosses back, Up from the pills stays put,
+    # and Down from either goes to the rows. Settings is where Right stops.
+    assert (pills.findtext('onup') or '').strip() == '30010'
+    assert (pills.findtext('onright') or '').strip() == '30011'
     assert (pills.findtext('ondown') or '').strip() == '30001'
+    assert (bar.findtext('onleft') or '').strip() == '30010'
+    assert (bar.findtext('onright') or '').strip() == '30072'
+    assert (bar.findtext('ondown') or '').strip() == '30001'
+    assert int(bar.findtext('top')) == int(pills.findtext('top')) + 4
+    assert int(pills.findtext('left')) + int(pills.findtext('width')) <= int(bar.findtext('left'))
+    # Off the top edge (#7).
+    assert int(pills.findtext('top')) >= 100
     assert (rows.findtext('onup') or '').strip() == '30010'
     blob = ET.tostring(root, encoding='unicode')
     assert 'mask_poster.png' in blob and 'mask_land.png' in blob
@@ -2002,3 +2013,24 @@ def test_tmdb_original_art_is_asked_for_at_the_drawn_size(load_homewindow):
     })
     assert bare.getProperty('thumbnail') == 'https://image.tmdb.org/t/p/w342/a.jpg'
     assert bare.getProperty('fanart') == 'https://image.tmdb.org/t/p/w780/a.jpg'
+
+
+
+def test_up_from_the_first_row_reaches_the_tools_when_there_are_no_pills(load_homewindow, monkeypatch):
+    """#23: a row's Up lands on the type pills. With no types installed
+    they are hidden, so Kodi leaves the remote where it was; Home sends
+    that dead-end Up to the tools. An Up that did move is left alone."""
+    ctx = load_homewindow()
+    import xbmcgui
+    _patch_library(monkeypatch, ctx, [{
+        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
+    }])
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}, addons=[]))
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.onInit()
+    assert win.getControl(ctx.homewindow.BROWSE_LIST).size() == 0
+    assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
+
+    win.onAction(xbmcgui.Action(3))
+
+    assert win.getFocusId() == ctx.homewindow.TOOLS_LIST

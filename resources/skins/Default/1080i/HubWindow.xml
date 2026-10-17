@@ -34,18 +34,21 @@
             <control type="image"><left>0</left><top>0</top><width>1920</width><height>987</height><aspectratio>stretch</aspectratio><texture colordiffuse="FF07090B">fade_v.png</texture></control>
             <control type="image"><left>0</left><top>740</top><width>1920</width><height>340</height><texture colordiffuse="FF07090B">white.png</texture></control>
 
-            <control type="image"><left>64</left><top>22</top><width>48</width><height>48</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
-            <control type="label"><left>124</left><top>16</top><width>360</width><height>52</height><font>font37</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny><label>[B]RevRivulet[/B]</label></control>
+            <control type="image"><left>64</left><top>42</top><width>48</width><height>48</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
+            <control type="label"><left>124</left><top>36</top><width>360</width><height>52</height><font>font37</font><textcolor>FFEEF3F6</textcolor><aligny>center</aligny><label>[B]RevRivulet[/B]</label></control>
             <control type="label" id="30005">
-                <left>64</left><top>68</top><width>760</width><height>28</height><font>font12</font><textcolor>C8EEF3F6</textcolor><aligny>center</aligny>
+                <left>64</left><top>86</top><width>760</width><height>28</height><font>font12</font><textcolor>C8EEF3F6</textcolor><aligny>center</aligny>
                 <label></label>
             </control>
+            <!-- The tools sit where Home's do (#23): right half of the
+                 header row, under the wordmark line. Left and Right stop at
+                 the ends instead of wrapping. -->
             <control type="grouplist" id="30011">
-                <left>640</left><top>16</top><width>1216</width><height>64</height>
+                <left>960</left><top>128</top><width>896</width><height>56</height>
                 <orientation>horizontal</orientation>
                 <align>right</align>
                 <itemgap>12</itemgap>
-                <onleft>30011</onleft><onright>30011</onright>
+                <onleft>30073</onleft><onright>30072</onright>
                 <onup>30011</onup><ondown>31000</ondown>
                 <scrolltime tween="cubic" easing="out">180</scrolltime>
 <control type="button" id="30073"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30427]</label><ondown>31000</ondown><onup>30011</onup><visible>!String.IsEmpty(Window.Property(HomeSignedOut))</visible></control><control type="button" id="30070"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30001]</label><ondown>31000</ondown><onup>30011</onup></control><control type="button" id="30071"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30003]</label><ondown>31000</ondown><onup>30011</onup></control><control type="button" id="30072"><width>210</width><height>56</height><font>font13</font><textcolor>99EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny><texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus><label>$ADDON[plugin.video.revrivulet 30004]</label><ondown>31000</ondown><onup>30011</onup></control>
