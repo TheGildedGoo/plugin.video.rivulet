@@ -18,11 +18,11 @@ asked repaints its hero with it. Nothing here blocks the remote.
 import threading
 
 #: url -> True (an image), False (missing or not an image). Absent: not asked.
-_STATE = {}
-_PENDING = []
+_STATE = {}  # type: dict
+_PENDING = []  # type: list
 _LOCK = threading.Lock()
 _WAKE = threading.Event()
-_WORKER = []
+_WORKER = []  # type: list
 #: Per request. A slow host just means the text title stays a while.
 TIMEOUT_SECONDS = 4.0
 #: At most this many URLs wait; older asks are dropped first (the remote
