@@ -215,6 +215,8 @@ def test_new_episodes_builds_a_metahub_still_when_the_video_has_none():
         'type': 'series', 'id': 'tt1', 'video_id': 's1e2', 'season': 1, 'episode': 2,
         'released': PAST, 'name': 'A Show', 'title': 'Next', 'label': 'S1E2 \u00b7 Next',
         'overview': '', 'poster': still, 'background': still,
+        # The show rides along for the hero; its episode list does not.
+        'show': {'name': 'A Show', 'poster': 'poster.jpg', 'background': 'bg.jpg'},
     }]
 
 

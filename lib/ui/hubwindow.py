@@ -32,9 +32,9 @@ onto `p0`..`p3` with `layout` `land`. HubWindow.xml paints
 `$INFO[ListItem.Property(pN)]` through `mask_land.png` for that row
 and through `mask_poster.png` for every other row (`p0`..`p7`).
 It does not read `ListItem.Art`. A 2:3 slot letterboxed the still.
-The hero title is the episode label (`S1E3 · Title`) and the hero
-plot is the episode overview. The series clearlogo is left off that
-row: the skin hides the title whenever `HeroLogo` is set.
+The hero is the show's (backdrop, clearlogo, title), not the still
+blown up; the first facts line is the episode label (`S1E3 · Title`)
+and the plot is the episode overview.
 
 This module does not change playback, the player, or the Stremio client.
 """
@@ -208,7 +208,7 @@ def _episode_descriptor(store, types):
     known: this does not fetch a catalog page."""
     from lib.ui.catalogpicker import _SERIES_SCREEN_TYPES, _new_episode_items
     from lib.ui.compat import L, setting_bool
-    from lib.ui.homewindow import _poster_item
+    from lib.ui.homewindow import _poster_item, apply_episode_hero
 
     if frozenset(types) != _SERIES_SCREEN_TYPES:
         return None
@@ -220,13 +220,12 @@ def _episode_descriptor(store, types):
     posters = []
     kept = []
     for index, episode in enumerate(episodes[:SHELF_CAP]):
-        # `name` is what `_poster_item` writes into `hero_title`. For
-        # this row that has to be the episode (`S1E3 · Title`), not the
-        # series. The series name moves to `hero_meta`, the right-quarter panel.
-        # No logo: HubWindow.xml hides the title while HeroLogo is set,
-        # and the series clearlogo would put the show's name back.
+        # The card is the episode still; the hero is the show's own
+        # (backdrop, clearlogo, title) with `S1E3 · Title` as the first
+        # facts line (`homewindow.apply_episode_hero`). The still blown
+        # up to the hero looked bad.
         item = _poster_item({
-            'name': episode.get('label') or episode.get('name'),
+            'name': episode.get('name') or episode.get('label'),
             'type': episode.get('type'),
             'id': episode.get('id'),
             'poster': episode.get('poster'),
@@ -234,10 +233,10 @@ def _episode_descriptor(store, types):
             'description': episode.get('overview') or '',
         })
         show = episode.get('name') or ''
-        if show and episode.get('label'):
-            item.setProperty('hero_meta', escape_label(show))
-            # The panel is the series name, not the show's ratings.
-            item.setProperty('hero_facts', '')
+        apply_episode_hero(
+            item, episode.get('show') or {'name': show}, episode.get('label') or '',
+            episode.get('overview') or '',
+        )
         item.setProperty('episode_index', str(index))
         # The card overlay, not the hero. The hero still reads the
         # episode label and the show name the way it always has.

@@ -432,11 +432,17 @@ def test_new_episodes_row_paints_the_cinemeta_still_the_skin_reads(load_hub, mon
     assert row_item.getProperty('layout') == 'land'
     assert row_item.getProperty('p0') == still
     assert meta['poster'] not in row_item.getProperty('p0')
-    assert row_item.getProperty('hero_title') == 'S1E3 \u00b7 Lord Snow'
-    assert row_item.getProperty('hero_meta') == 'Game of Thrones'
+    # The hero is the show's: its name, clearlogo and backdrop. The
+    # episode is the first facts line; the still stays on the card only.
+    from lib.ui.urlutil import sized_image
+    assert row_item.getProperty('hero_title') == 'Game of Thrones'
+    assert row_item.getProperty('hero_meta').split('\n')[0] == 'S1E3 \u00b7 Lord Snow'
     assert row_item.getProperty('hero_plot').startswith('Jon impresses Tyrion')
-    assert row_item.getProperty('hero_logo') == ''
-    assert row_item.getProperty('fanart') == still
+    assert row_item.getProperty('hero_logo') == (meta.get('logo') or '')
+    assert row_item.getProperty('fanart') == sized_image(meta['background'], 'backdrop')
+    assert row_item.getProperty('fanart') != still
+    assert row_item.getProperty('hero_fill') == ''
+    assert row_item.getProperty('hero_facts') == ''
     assert row_item.getProperty('show0') == 'Game of Thrones'
     assert row_item.getProperty('code0') == 'S:1 E:3'
     assert row_item.getProperty('div1') == ''
@@ -504,8 +510,8 @@ def test_episode_cards_group_a_show_and_split_the_next(load_hub, monkeypatch):
     assert row.getProperty('div2') == '1'
     assert row.getProperty('div3') == '1'
     assert row.getProperty('code3') == ''
-    assert row.getProperty('hero_title') == 'S1E1 · One'
-    assert row.getProperty('hero_meta') == 'Alpha'
+    assert row.getProperty('hero_title') == 'Alpha'
+    assert row.getProperty('hero_meta').split('\n')[0] == 'S1E1 · One'
     ctx.hubwindow._apply_posters(row, desc['posters'], 0, '')
     assert row.getProperty('show0') == ''
     assert row.getProperty('code0') == ''
