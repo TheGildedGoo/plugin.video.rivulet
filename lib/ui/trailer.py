@@ -7,8 +7,8 @@ Stremio metas carry trailers as YouTube ids: Cinemeta's
 (``[{"source": <id>, "type": "Trailer"}]``). The streaming server turns
 a ``ytId`` into a playable stream at ``/yt/<id>`` (`ServerClient.
 resolve_stream`), which is how Stremio itself plays them: no YouTube API
-key. When the server is not answering, Kodi's YouTube add-on is the
-fallback, if it is installed.
+key. It is used when a probe shows it answers with video; Kodi's YouTube
+add-on is next, if it is installed.
 
 A trailer is not a title being watched: it records no progress, makes
 no Continue entry and starts no Up next. The screens close for it the
@@ -23,9 +23,9 @@ _YT_ID = re.compile(r'^[A-Za-z0-9_-]{6,20}$')
 _YOUTUBE_ADDON = 'plugin.video.youtube'
 #: Seconds to wait for the streaming server's first bytes of a trailer.
 PROBE_SECONDS = 6.0
-#: A trailer that has not started by then is given up on, so the screens
-#: come back quickly instead of after a feature's 45 seconds.
-START_TIMEOUT_SECONDS = 15.0
+#: A route whose clock has not moved by then is stopped and the next one
+#: tried. The YouTube add-on through inputstream.adaptive can take a while.
+START_TIMEOUT_SECONDS = 20.0
 
 
 def trailer_id(meta):
@@ -99,11 +99,22 @@ def _youtube_addon_url(yt):
     return 'plugin://%s/play/?video_id=%s' % (_YOUTUBE_ADDON, yt)
 
 
+def trailer_urls(yt, server_url=None):
+    """Where to play `yt` from, best first: the streaming server's ``/yt``
+    route when a probe shows it answers with video (a plain stream Kodi
+    plays without help), then Kodi's YouTube add-on when it is installed.
+    `server_url` is a probe already made (``''``: it failed)."""
+    url = _server_url(yt) if server_url is None else server_url
+    if url:
+        yield url
+    url = _youtube_addon_url(yt)
+    if url:
+        yield url
+
+
 def trailer_url(yt):
-    """Where to play `yt` from: Kodi's YouTube add-on when it is
-    installed (it plays YouTube reliably), else the streaming server's
-    ``/yt`` route when that answers with video, else ``''``."""
-    return _youtube_addon_url(yt) or _server_url(yt)
+    """The first of `trailer_urls(yt)`, or ``''``."""
+    return next(iter(trailer_urls(yt)), '')
 
 
 def _full_meta(meta, stype, sid):
@@ -122,35 +133,138 @@ def _full_meta(meta, stype, sid):
 
 
 def play_trailer(meta, stype='', sid=''):
-    """Play the trailer of `meta`, blocking until it stops. True when one played."""
+    """Play the trailer of `meta`, blocking until it stops. True when one played.
+
+    The screens stay up, with a spinner, until the trailer is actually
+    running: the player's clock has to move. Only then do they close and
+    the video goes full screen. A route that does not get going within
+    `START_TIMEOUT_SECONDS` (the YouTube add-on stuck on its loading
+    circle, a black screen) is stopped and the next one is tried; when
+    none plays the user is told and stays where they were. rev18 closed
+    the screens first, so a stalled trailer left Kodi's Videos window
+    with a black player behind it.
+    """
     import xbmc
     import xbmcgui
 
     from lib.ui.compat import L, log, notify
-    from lib.ui.uicommon import close_windows_for_playback, end_player_phase
 
     full = _full_meta(meta if isinstance(meta, dict) else {}, stype, sid)
     yt = trailer_id(full)
     if not yt:
         notify(L(30497))
         return False
-    url = trailer_url(yt)
-    if not url:
-        _offer_youtube_addon(L, notify)
-        return False
     name = (full or {}).get('name') or ''
-    item = xbmcgui.ListItem(label=('%s – %s' % (name, L(30499))) if name else L(30499))
-    item.setPath(url)
-    log('trailer: playing %s' % yt, xbmc.LOGINFO)
+    label = ('%s – %s' % (name, L(30499))) if name else L(30499)
+    from lib.ui.uicommon import CANCELLED, run_cancellable
+
+    server = run_cancellable(lambda: _server_url(yt), label)
+    if server is CANCELLED:
+        return False
+    tried = 0
+    for url in trailer_urls(yt, server or ''):
+        tried += 1
+        item = xbmcgui.ListItem(label=label, path=url)
+        log('trailer: trying %s via %s' % (yt, url.split('?')[0]), xbmc.LOGINFO)
+        outcome = _start(url, item, label)
+        if outcome == 'rolling':
+            _watch()
+            return True
+        if outcome in ('cancelled', 'abort'):
+            return False
+        log('trailer: %s did not start via %s' % (yt, url.split('?')[0]), xbmc.LOGWARNING)
+    if not tried:
+        _offer_youtube_addon(L, notify)
+    else:
+        notify(L(30510))
+    return False
+
+
+def _start(url, item, heading):
+    """Start `url` and wait, under a spinner, for its clock to move.
+
+    ``'rolling'``, ``'stalled'`` (stopped again), ``'cancelled'`` (Back
+    on the spinner; stopped) or ``'abort'`` (Kodi is quitting)."""
+    import xbmc
+
+    from lib.ui.uicommon import CANCELLED, busy_dialog, wait_cancellable
+
+    player = xbmc.Player()
+    monitor = xbmc.Monitor()
+    try:
+        player.play(url, item)
+    except Exception:
+        return 'stalled'
+    with busy_dialog(heading) as dialog:
+        result = wait_cancellable(lambda: _wait_rolling(player, monitor), dialog, monitor)
+    if result == 'rolling':
+        return 'rolling'
+    _stop(player, monitor)
+    if result is CANCELLED:
+        return 'abort' if monitor.abortRequested() else 'cancelled'
+    return result if result == 'abort' else 'stalled'
+
+
+def _wait_rolling(player, monitor, timeout=None, tick=0.25):
+    """``'rolling'`` once the player's clock moves, ``'stalled'`` after
+    `timeout` seconds without that, ``'abort'`` on Kodi shutdown."""
+    import time
+
+    deadline = time.time() + (START_TIMEOUT_SECONDS if timeout is None else timeout)
+    first = None
+    while time.time() < deadline:
+        if monitor.waitForAbort(tick):
+            return 'abort'
+        try:
+            if not player.isPlayingVideo():
+                continue
+            now = player.getTime()
+        except Exception:
+            continue
+        if first is None:
+            first = now
+        elif now > first + 0.2:
+            return 'rolling'
+    return 'stalled'
+
+
+def _stop(player, monitor, wait=5.0):
+    """Stop a trailer that never got going, and let the player close."""
+    try:
+        if player.isPlaying():
+            player.stop()
+    except Exception:
+        return
+    waited = 0.0
+    while waited < wait:
+        try:
+            if not player.isPlaying():
+                return
+        except Exception:
+            return
+        if monitor.waitForAbort(0.25):
+            return
+        waited += 0.25
+
+
+def _watch():
+    """The trailer is running: close the screens, go full screen, and
+    wait for it to stop. The screens reopen where they were."""
+    import xbmc
+
+    from lib.ui.uicommon import close_windows_for_playback, end_player_phase
+
     close_windows_for_playback()
     try:
-        xbmc.Player().play(url, item)
+        # Kodi refuses to switch to the video while a dialog is up, so the
+        # switch it tried at start was turned down. Ask again now.
+        if not xbmc.getCondVisibility('Window.IsActive(fullscreenvideo)'):
+            xbmc.executebuiltin('ActivateWindow(fullscreenvideo)')
         from lib.ui.streamswindow import _wait_for_playback_end
 
         _wait_for_playback_end(start_timeout=START_TIMEOUT_SECONDS)
     finally:
         end_player_phase()
-    return True
 
 
 def _offer_youtube_addon(L, notify):
