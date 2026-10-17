@@ -947,12 +947,12 @@ def _button(window, action):
 
 def _offer_library(window):
     from lib.ui.homewindow import refresh_library_row
-    from lib.ui.libraryaction import meta_from_item, offer
+    from lib.ui.libraryaction import meta_from_item, poster_menu
 
     meta = meta_from_item(_current_poster(window))
     if meta is None:
         return
-    if offer(meta):
+    if poster_menu(meta):
         refresh_library_row(window)
 
 

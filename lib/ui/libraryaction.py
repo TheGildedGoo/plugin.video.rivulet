@@ -81,7 +81,6 @@ def offer(meta):
     """One-row menu: Add when the title is not in the library, Remove
     when it is. Returns `'added'`, `'removed'`, or None. The toast is
     the same copy the title page uses (`#30297` / `#30298`)."""
-    from lib import library
     from lib.ui import dialogs
     from lib.ui.compat import L, notify
     from lib.ui.dependencies import get_store
@@ -102,6 +101,49 @@ def offer(meta):
     picked = dialogs.choose(meta.get('name') or meta.get('id') or '', [label])
     if picked != 0:
         return None
+    return _write(auth, meta, in_library)
+
+
+def poster_menu(meta):
+    """The menu key on a Home or hub poster: the library row, then Trailer.
+
+    Signed out, or when the library lookup fails, the menu still offers
+    the trailer. Returns what `offer` does: `'added'`, `'removed'` or
+    None (a trailer, or nothing picked).
+    """
+    from lib.ui import dialogs
+    from lib.ui.compat import L
+    from lib.ui.dependencies import get_store
+    from lib.ui.uicommon import CANCELLED
+
+    auth = get_store().get_auth()
+    rows = []
+    in_library = None
+    if auth:
+        item, lookup_ok = _lookup(auth, meta.get('id'))
+        if item is CANCELLED:
+            return None
+        if lookup_ok:
+            in_library = bool(item) and not item.get('removed')
+            rows.append(L(30294) if in_library else L(30293))
+    rows.append(L(30499))
+    picked = dialogs.choose(meta.get('name') or meta.get('id') or '', rows)
+    if picked is None or picked < 0 or picked >= len(rows):
+        return None
+    if picked == len(rows) - 1:
+        from lib.ui.trailer import play_trailer
+
+        play_trailer(meta, meta.get('type') or '', meta.get('id') or '')
+        return None
+    return _write(auth, meta, in_library)
+
+
+def _write(auth, meta, in_library):
+    """Add or remove `meta` from the account's library, with the toast."""
+    from lib import library
+    from lib.ui.compat import L, notify
+    from lib.ui.uicommon import CANCELLED
+
     # Pull again at the moment of the write. The menu lookup can be
     # seconds old, and a fresh `library_add_payload` would replace
     # another client's `state` with a blank one.

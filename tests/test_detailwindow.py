@@ -933,7 +933,7 @@ def test_context_menu_rows_offer_add_and_mark_watched_when_not_in_library(load_d
 
     win._open_context_menu()
 
-    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295'])]
+    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295', 'STR30499'])]
 
 
 def test_context_menu_rows_offer_remove_and_mark_unwatched_when_already_in_library_and_watched(
@@ -949,7 +949,7 @@ def test_context_menu_rows_offer_remove_and_mark_unwatched_when_already_in_libra
 
     win._open_context_menu()
 
-    assert captured == [('Breaking Bad', ['STR30196', 'STR30294', 'STR30296'])]
+    assert captured == [('Breaking Bad', ['STR30196', 'STR30294', 'STR30296', 'STR30499'])]
 
 
 def test_context_menu_removed_record_still_offers_add_not_remove(load_detailwindow, monkeypatch):
@@ -967,7 +967,7 @@ def test_context_menu_removed_record_still_offers_add_not_remove(load_detailwind
 
     win._open_context_menu()
 
-    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295'])]
+    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295', 'STR30499'])]
 
 
 def test_context_menu_cancelled_menu_does_nothing(load_detailwindow, monkeypatch):
@@ -1109,7 +1109,7 @@ def test_context_menu_lookup_failure_still_offers_default_wording_without_crashi
 
     win._open_context_menu()
 
-    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295'])]
+    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295', 'STR30499'])]
 
 
 def test_context_menu_add_after_lookup_failure_notifies_and_performs_no_write(load_detailwindow, monkeypatch):
@@ -1968,3 +1968,21 @@ def test_the_options_pill_opens_the_menu_without_a_menu_key(load_detailwindow, m
     assert (seasons.findtext('onup') or '').strip() == '30009'
     # The episode list's Up goes through the (possibly hidden) season tabs.
     assert (root.find(".//control[@id='30002']").findtext('onup') or '').strip() == '30007'
+
+
+def test_context_menu_last_row_plays_the_trailer(load_detailwindow, monkeypatch):
+    """The trailer is the menu's last row, so the rows a remote already
+    knows (cast, library, watched) keep their place."""
+    ctx = load_detailwindow()
+    win = _make_window(ctx.detailwindow)
+    win.meta = {'id': 'tt0903747', 'type': 'series', 'name': 'Breaking Bad'}
+    monkeypatch.setattr(win, '_current_library_state', lambda: (None, None, True))
+    import lib.ui.dialogs as dialogs
+    monkeypatch.setattr(dialogs, 'choose', lambda heading, rows: 3)
+    import lib.ui.trailer as trailer
+    played = []
+    monkeypatch.setattr(trailer, 'play_trailer', lambda meta, stype='', sid='': played.append((stype, sid)))
+
+    win._open_context_menu()
+
+    assert played == [('series', 'tt0903747')]

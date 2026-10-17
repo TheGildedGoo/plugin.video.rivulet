@@ -1027,12 +1027,12 @@ def _open_child(window, opener):
 
 def _offer_library(window, item):
     """Menu button on a poster. A chip or a notice has nothing to save."""
-    from lib.ui.libraryaction import meta_from_item, offer
+    from lib.ui.libraryaction import meta_from_item, poster_menu
 
     meta = meta_from_item(item)
     if meta is None:
         return
-    if offer(meta):
+    if poster_menu(meta):
         refresh_library_row(window)
 
 

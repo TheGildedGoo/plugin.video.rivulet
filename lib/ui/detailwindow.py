@@ -702,6 +702,8 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             L(30196),
             L(30294) if in_library else L(30293),
             L(30296) if watched else L(30295),
+            # Last, so the rows a remote already knows keep their place.
+            L(30499),
         ]
         picked = dialogs.choose(self.meta.get('name') or self.meta.get('id') or '', rows)
         if picked == 0:
@@ -710,6 +712,16 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             self._toggle_library(auth, item, add=not in_library, lookup_ok=lookup_ok)
         elif picked == 2:
             self._toggle_watched(auth, item, watched=not watched, lookup_ok=lookup_ok)
+        elif picked == 3:
+            self._play_trailer()
+
+    def _play_trailer(self):
+        """The show's trailer (lib/ui/trailer.py). The episode list comes
+        back where it was when the trailer stops."""
+        from lib.ui.trailer import play_trailer
+
+        meta = self.meta if isinstance(self.meta, dict) else {}
+        play_trailer(meta, meta.get('type') or self.stype, meta.get('id') or '')
 
     def _current_library_state(self):
         """`(auth, item, lookup_ok)` for `self.meta` -- `auth` is

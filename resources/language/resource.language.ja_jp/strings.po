@@ -1309,3 +1309,19 @@ msgstr "ホーム"
 msgctxt "#30496"
 msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
 msgstr "背景画像が画面いっぱいに表示されて黒へフェードし、タイトルのロゴがタイトルになり、選択中のカードに白い枠が付きます。まずホームから。ほかの画面も順次対応します。"
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "このタイトルには予告編がありません。"
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "予告編を再生できません。ストリーミングサーバーを起動するか、Kodi の YouTube アドオンをインストールしてください。"
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "予告編"
+
+msgctxt "#30500"
+msgid "Library"
+msgstr "ライブラリ"
