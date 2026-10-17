@@ -1361,3 +1361,7 @@ msgstr "Welkom"
 msgctxt "#30509"
 msgid "Search for movies, shows and more. Pick letters, or use your phone."
 msgstr "Zoek films, series en meer. Kies letters of gebruik je telefoon."
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "De trailer startte niet. Speel een willekeurige video af in de YouTube-add-on van Kodi om die te controleren."

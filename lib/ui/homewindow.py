@@ -1380,6 +1380,65 @@ def _write_meta_onto(item, meta, keep_label=False):
     item.setProperty('meta_state', 'done')
 
 
+def episode_label_for(meta, video_id):
+    """``(label, overview)`` for `video_id` (``tt..:1:3``): ``S1E3 ·
+    Title``, the title and overview from the series meta's videos when it
+    has them. ``('', '')`` for anything that is not an episode id."""
+    from lib.newepisodes import _episode_label
+
+    if not isinstance(video_id, str) or not video_id:
+        return '', ''
+    show, season, episode = (video_id.rsplit(':', 2) + ['', ''])[:3]
+    if not (show and season.isdigit() and episode.isdigit()):
+        return '', ''
+    title = overview = ''
+    videos = meta.get('videos') if isinstance(meta, dict) else None
+    for video in videos or []:
+        if isinstance(video, dict) and video.get('id') == video_id:
+            title = str(video.get('title') or video.get('name') or '').strip()
+            overview = str(video.get('overview') or video.get('description') or '').strip()
+            break
+    return _episode_label(int(season), int(episode), title), overview
+
+
+def apply_episode_hero(item, show, label, overview=''):
+    """The hero for an episode card: the show's own hero, with the
+    episode on top of the facts.
+
+    The card keeps the episode still; the hero does not blow it up. The
+    backdrop, clearlogo and title are the show's (its poster full-bleed
+    when it has no backdrop), the first facts line is ``S1E3 · Title``,
+    then the show's year, runtime and genres, and the plot is the
+    episode's overview when there is one.
+    """
+    from lib.ui.uicommon import escape_label
+    from lib.ui.urlutil import sized_image
+
+    show = show if isinstance(show, dict) else {}
+    background = show.get('background') or ''
+    poster = show.get('poster') or ''
+    if isinstance(background, str) and background:
+        item.setProperty('fanart', sized_image(background, 'backdrop'))
+        item.setProperty('hero_fill', '')
+    elif isinstance(poster, str) and poster:
+        item.setProperty('fanart', sized_image(poster, 'fill'))
+        item.setProperty('hero_fill', '1')
+    item.setProperty('hero_logo', show.get('logo') or '')
+    name = show.get('name') or ''
+    if name:
+        item.setProperty('hero_title', escape_label(name))
+    lines = [label] if label else []
+    panel = _hero_meta_text(show)
+    if panel:
+        lines.append(panel)
+    item.setProperty('hero_meta', escape_label('\n'.join(lines)))
+    # The panel is written whole here; the ratings overlay would rebuild
+    # it from the show's scores and drop the episode line.
+    item.setProperty('hero_facts', '')
+    item.setProperty('hero_plot', escape_label(_truncate(overview or show.get('description') or '', 280)))
+    item.setProperty('hero_runtime', _runtime_minutes(show))
+
+
 def _apply_library_meta(window):
     """Write fetched library metas onto their posters. UI thread only."""
     with _library_meta_lock(window):
@@ -1413,6 +1472,9 @@ def _apply_library_meta(window):
                 _write_meta_onto(item, meta, keep_label=(shelf == CONTINUE_SHELF))
                 if shelf == CONTINUE_SHELF:
                     _fill_continue_card(item, meta)
+                    label, overview = episode_label_for(meta, item.getProperty('video_id'))
+                    if label:
+                        apply_episode_hero(item, meta, label, overview)
             else:
                 item.setProperty('needs_meta', '')
                 item.setProperty('meta_state', 'done')
@@ -1825,9 +1887,16 @@ def _continue_item(entry):
     }
     # Progress records carry a name and a poster, not a description:
     # fetch the meta on focus, the way Library does, so the hero reads
-    # the same on every row.
-    if not entry.get('description') and entry.get('id') and entry.get('type'):
+    # the same on every row. An episode always asks: its hero is the
+    # show's (backdrop, logo) with the episode line on top.
+    episode = bool(code)
+    if (episode or not entry.get('description')) and entry.get('id') and entry.get('type'):
         props['needs_meta'] = '1'
+    if episode and not entry.get('background'):
+        # Until the show's meta lands, no picture beats the record's
+        # poster blown up to the hero: that can be the episode still.
+        props['fanart'] = ''
+        props['hero_fill'] = ''
     band = entry.get('band')
     if band:
         props['band'] = str(band)

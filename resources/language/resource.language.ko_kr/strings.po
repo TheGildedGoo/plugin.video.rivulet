@@ -1361,3 +1361,7 @@ msgstr "환영합니다"
 msgctxt "#30509"
 msgid "Search for movies, shows and more. Pick letters, or use your phone."
 msgstr "영화, 시리즈 등을 검색하세요. 글자를 고르거나 휴대폰을 사용하세요."
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "예고편이 시작되지 않았습니다. Kodi의 YouTube 애드온에서 아무 동영상이나 재생해 확인하세요."

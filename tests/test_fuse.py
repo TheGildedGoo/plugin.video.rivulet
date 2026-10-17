@@ -501,6 +501,57 @@ def test_continue_cards_fetch_their_meta_and_fill_the_hero(load_homewindow):
     assert item.getProperty('meta_state') == 'done'
 
 
+def test_a_continue_episode_takes_the_shows_hero_not_its_still(load_homewindow):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    import xbmcgui
+
+    from lib.ui.urlutil import sized_image
+
+    item = hw._continue_item({
+        'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones',
+        'poster': 'https://img/still.jpg', 'description': 'already here',
+        'video_id': 'tt0944947:1:3',
+    })
+    # An episode always asks for the show, and does not blow its
+    # record's picture up to the hero while it waits.
+    assert item.getProperty('needs_meta') == '1'
+    assert item.getProperty('fanart') == ''
+    assert item.getProperty('hero_fill') == ''
+    assert 'tt0944947/1/3' in item.getProperty('land')  # the card keeps the still
+
+    win = hw.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(hw.CONTINUE_SHELF).addItems([item])
+    win.getControl(hw.LIBRARY_SHELF).addItems([xbmcgui.ListItem('other')])
+    win._library_meta_ready = [('series', 'tt0944947', {
+        'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones',
+        'description': 'Nine noble families.', 'background': 'https://img/got_bg.jpg',
+        'logo': 'https://img/got_logo.png', 'releaseInfo': '2011-2019',
+        'videos': [{'id': 'tt0944947:1:3', 'season': 1, 'episode': 3,
+                    'title': 'Lord Snow', 'overview': 'Jon impresses Tyrion.'}],
+    })]
+    hw._apply_library_meta(win)
+
+    assert item.getProperty('fanart') == sized_image('https://img/got_bg.jpg', 'backdrop')
+    assert item.getProperty('hero_fill') == ''
+    assert item.getProperty('hero_logo') == 'https://img/got_logo.png'
+    assert item.getProperty('hero_title') == 'Game of Thrones'
+    lines = item.getProperty('hero_meta').split('\n')
+    assert lines[0] == 'S1E3 \u00b7 Lord Snow'
+    assert '2011' in item.getProperty('hero_meta')
+    assert item.getProperty('hero_plot') == 'Jon impresses Tyrion.'
+    assert 'tt0944947/1/3' in item.getProperty('land')
+
+
+def test_episode_label_for_reads_the_show_videos(load_homewindow):
+    hw = load_homewindow().homewindow
+    meta = {'videos': [{'id': 'tt1:2:5', 'name': 'Five', 'description': 'Plot.'}]}
+    assert hw.episode_label_for(meta, 'tt1:2:5') == ('S2E5 \u00b7 Five', 'Plot.')
+    assert hw.episode_label_for(meta, 'tt1:2:6') == ('S2E6', '')
+    assert hw.episode_label_for(meta, 'tt1') == ('', '')
+    assert hw.episode_label_for(meta, None) == ('', '')
+
+
 def test_a_failed_meta_fetch_is_tried_again_later(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     hw = ctx.homewindow
