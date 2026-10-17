@@ -1293,3 +1293,19 @@ msgstr "لم يستجب هذا الكتالوج."
 msgctxt "#30492"
 msgid "Options"
 msgstr "خيارات"
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr "مظهر جديد (تجريبي)"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "ينتهي في %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "الرئيسية"
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr "تملأ الخلفية الشاشة وتتلاشى إلى الأسود، ويصبح شعار العنوان هو العنوان، وتحصل البطاقة المحددة على حلقة بيضاء. الصفحة الرئيسية أولاً؛ وتتبعها الشاشات الأخرى."

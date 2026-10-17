@@ -410,6 +410,113 @@ def write_assets(mask_sizes):
     return written
 
 
+# --- Fuse look (lib/ui/fuse.py) -------------------------------------------
+
+def _ramp(points, span):
+    """Alpha at each of `span` steps along piecewise smoothstep `points`.
+
+    `points` are ``(position 0..1, alpha 0..255)`` in order.
+    """
+    values = []
+    for index in range(span):
+        x = index / (span - 1)
+        alpha = points[-1][1]
+        for (x0, a0), (x1, a1) in zip(points, points[1:]):
+            if x0 <= x <= x1:
+                t = 0.0 if x1 == x0 else (x - x0) / (x1 - x0)
+                t = t * t * (3 - 2 * t)
+                alpha = a0 + (a1 - a0) * t
+                break
+        values.append(int(round(alpha)))
+    return values
+
+
+def _fade(points, span, horizontal, thickness=8):
+    """Black with an alpha ramp: the Fuse fades are drawn colour-true."""
+    size = (span, thickness) if horizontal else (thickness, span)
+    image = Image.new('RGBA', size)
+    for index, alpha in enumerate(_ramp(points, span)):
+        box = (index, 0, index + 1, thickness) if horizontal else (0, index, thickness, index + 1)
+        image.paste((0, 0, 0, alpha), box)
+    return image
+
+
+#: Left fade: dark under the title and plot, clear past two thirds of
+#: the width, so the picture shows to the right of the text.
+FUSE_FADE_LEFT = ((0.0, 235), (0.34, 168), (0.66, 0), (1.0, 0))
+#: Bottom fade, top to bottom: clear through the picture, solid from the
+#: row band (y=656 of 1080, 0.607) down, so posters never sit on art.
+FUSE_FADE_BOTTOM = ((0.0, 0), (0.33, 0), (0.5, 150), (0.607, 255), (1.0, 255))
+#: A light shade behind the date and clock at the top edge.
+FUSE_FADE_TOP = ((0.0, 140), (1.0, 0))
+
+
+def _star_points(cx, cy, outer, inner):
+    import math
+    points = []
+    for index in range(10):
+        radius = outer if index % 2 == 0 else inner
+        angle = math.radians(-90 + index * 36)
+        points.append((cx + math.cos(angle) * radius, cy + math.sin(angle) * radius))
+    return points
+
+
+def _stars(half_stars, size=28, gap=5):
+    """Five stars, `half_stars` of ten lit. Unlit is white at 30%."""
+    width = size * 5 + gap * 4
+    lit = Image.new('RGBA', (width * SS, size * SS), (0, 0, 0, 0))
+    dim = Image.new('RGBA', (width * SS, size * SS), (0, 0, 0, 0))
+    for index in range(5):
+        cx = (index * (size + gap) + size / 2) * SS
+        cy = (size / 2 + 1) * SS
+        points = _star_points(cx, cy, size / 2 * SS, size / 2 * 0.45 * SS)
+        ImageDraw.Draw(lit).polygon(points, fill=WHITE)
+        ImageDraw.Draw(dim).polygon(points, fill=(255, 255, 255, 77))
+    # Lit up to the half-star boundary, dim after it.
+    full, half = divmod(half_stars, 2)
+    cut = int(min(width, full * (size + gap) + (size / 2 if half else 0)) * SS)
+    out = dim.copy()
+    if cut:
+        out.paste(lit.crop((0, 0, cut, size * SS)), (0, 0))
+    return out.resize((width, size), Image.LANCZOS)
+
+
+def _fuse_icon(draw_fn, focused):
+    """64px icon button face. Idle: a white glyph (the skin dims it).
+    Focused: a white disc with the glyph cut out in near-black."""
+    glyph = Image.new('RGBA', (64 * SS, 64 * SS), (0, 0, 0, 0))
+    draw_fn(ImageDraw.Draw(glyph), SS)
+    if not focused:
+        return glyph.resize((64, 64), Image.LANCZOS)
+    face = Image.new('RGBA', (64 * SS, 64 * SS), (0, 0, 0, 0))
+    ImageDraw.Draw(face).ellipse((0, 0, 64 * SS - 1, 64 * SS - 1), fill=WHITE)
+    ink = Image.new('RGBA', face.size, (7, 9, 11, 255))
+    face.paste(ink, (0, 0), glyph.split()[3])
+    return face.resize((64, 64), Image.LANCZOS)
+
+
+def write_fuse_assets():
+    """Fades, the focus ring, star strips and icon faces for the Fuse look."""
+    os.makedirs(MEDIA, exist_ok=True)
+    out = {
+        'fuse_fade_left.png': _fade(FUSE_FADE_LEFT, 960, True),
+        'fuse_fade_bottom.png': _fade(FUSE_FADE_BOTTOM, 540, False),
+        'fuse_fade_top.png': _fade(FUSE_FADE_TOP, 64, False),
+        # Drawn 9-slice with border=24: radius 20 outside a 12px card
+        # corner, 5px of white, so the ring is concentric with the art.
+        'fuse_ring.png': _rrect(64, 64, 20, stroke=5),
+    }
+    for half in range(11):
+        out['fuse_stars_%02d.png' % half] = _stars(half)
+    for name, fn in (('search', _search), ('addons', _addons), ('settings', _settings)):
+        out['fuse_icon_%s.png' % name] = _fuse_icon(fn, False)
+        out['fuse_icon_%s_focus.png' % name] = _fuse_icon(fn, True)
+    for name, image in out.items():
+        path = os.path.join(MEDIA, name)
+        image.save(path, optimize=True)
+        print('wrote', path)
+
+
 def main():
     # Sizes the skin builder asks for. Running this file alone still
     # produces the poster and landscape masks the home rows use.
@@ -417,6 +524,7 @@ def main():
     write_hero_fades()
     write_scrim()
     write_hero_bar()
+    write_fuse_assets()
 
 
 if __name__ == '__main__':

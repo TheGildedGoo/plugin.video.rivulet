@@ -1293,3 +1293,19 @@ msgstr "Этот каталог не ответил."
 msgctxt "#30492"
 msgid "Options"
 msgstr "Параметры"
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr "Новый вид (бета)"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "Закончится в %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "Главная"
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr "Фон заполняет экран и уходит в чёрный, логотип становится заголовком, а выбранная карточка получает белую рамку. Сначала главный экран, остальные экраны появятся позже."

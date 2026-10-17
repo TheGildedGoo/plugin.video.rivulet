@@ -300,9 +300,17 @@ def open_window(window_cls, xml_name, *args, **kwargs):
     Rev2Rivulet loads ``Rev2`` plus the same filename. The window class
     is unchanged, so stream retry and stop-return keep their controls.
     """
+    from lib.ui.rev2 import is_rev2
     from lib.ui.rev2.skin import skin_for
     xml_name = skin_for(xml_name)
-    return window_cls(xml_name, addon_skin_path(), 'Default', '1080i', *args, **kwargs)
+    if not is_rev2():
+        from lib.ui.fuse import skin_for as fuse_skin_for
+        xml_name = fuse_skin_for(xml_name)
+    window = window_cls(xml_name, addon_skin_path(), 'Default', '1080i', *args, **kwargs)
+    # Which file this window was built from: the Fuse look paints a few
+    # controls only its files have (lib/ui/fuse.py).
+    window._skin_xml = xml_name
+    return window
 
 
 # --- UI phases ---------------------------------------------------------------
