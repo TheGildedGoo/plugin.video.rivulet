@@ -16,10 +16,10 @@
                  a type-filtered screen, "RevRivulet / DISCOVER" when unfiltered.
                  A skin <label> would be overwritten by that setLabel() anyway,
                  so the default lives in the Python rather than here. -->
-            <control type="label" id="30006"><left>150</left><top>60</top><width>700</width><height>34</height><font>font10</font><textcolor>4DEEF3F6</textcolor>
+            <control type="label" id="30006"><left>150</left><top>60</top><width>700</width><height>34</height><font>font12</font><textcolor>99EEF3F6</textcolor>
                 <label></label>
             </control>
-            <control type="label"><right>96</right><top>60</top><width>450</width><height>34</height><font>font10</font><textcolor>80EEF3F6</textcolor><align>right</align>
+            <control type="label"><right>96</right><top>60</top><width>450</width><height>34</height><font>font12</font><textcolor>B3EEF3F6</textcolor><align>right</align>
                 <label>$INFO[Container(30002).CurrentItem]/$INFO[Container(30002).NumItems]</label>
             </control>
             <control type="list" id="30002">
@@ -30,7 +30,7 @@
                     <control type="label"><left>32</left><top>24</top><width>1664</width><height>36</height><font>font13</font><textcolor>C7EEF3F6</textcolor>
                         <label>$INFO[ListItem.Label]</label>
                     </control>
-                    <control type="label"><left>32</left><top>66</top><width>1664</width><height>30</height><font>font10</font><textcolor>6BEEF3F6</textcolor>
+                    <control type="label"><left>32</left><top>66</top><width>1664</width><height>30</height><font>font12</font><textcolor>B3EEF3F6</textcolor>
                         <label>$INFO[ListItem.Label2]</label>
                     </control>
                 </itemlayout>
@@ -40,7 +40,7 @@
                     <control type="label"><left>32</left><top>24</top><width>1664</width><height>36</height><font>font13</font><textcolor>FFFFFFFF</textcolor>
                         <label>[B]$INFO[ListItem.Label][/B]</label>
                     </control>
-                    <control type="label"><left>32</left><top>66</top><width>1664</width><height>30</height><font>font10</font><textcolor>B3EEF3F6</textcolor>
+                    <control type="label"><left>32</left><top>66</top><width>1664</width><height>30</height><font>font12</font><textcolor>D9EEF3F6</textcolor>
                         <label>$INFO[ListItem.Label2]</label>
                     </control>
                 </focusedlayout>

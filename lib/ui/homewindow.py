@@ -394,7 +394,9 @@ def _set_shelf(window, list_id, label_id, prop, heading, items):
     control.reset()
     if items:
         control.addItems(items)
-    window.getControl(label_id).setLabel(heading if items else '')
+    # Bold and brighter than before (#11): with one row on screen the
+    # heading is the only wayfinding, and font12 at 60% white read faint.
+    window.getControl(label_id).setLabel('[B]%s[/B]' % heading if items and heading else '')
     window.setProperty(prop, '1' if items else '')
 
 

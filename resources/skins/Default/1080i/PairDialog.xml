@@ -44,7 +44,7 @@
             </control>
             <control type="textbox" id="30393">
                 <left>900</left><top>450</top><width>600</width><height>150</height>
-                <font>font12</font><textcolor>99EEF3F6</textcolor>
+                <font>font12</font><textcolor>B3EEF3F6</textcolor>
             </control>
 
             <control type="image"><left>900</left><top>640</top><width>320</width><height>1</height><texture colordiffuse="38FFFFFF">white.png</texture><visible>!Control.HasFocus(30395)</visible></control>

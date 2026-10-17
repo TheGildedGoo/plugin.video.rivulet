@@ -144,11 +144,13 @@ def block_size(text, font_px, line_px, max_width, max_lines, bold=False):
 # plot_max is the skin's textbox. plot_inset is the slack that box keeps
 # so Kodi's textbox padding does not clip a line. Six lines of font13
 # are 180, and the box is 200, so the inset is 20.
+# The ratings panel is font13 (30) since #11; font12 at 25px was the
+# smallest text a viewer was asked to read. 38 keeps font12's line ratio.
 _SHARED = {
     'meta_left': 1480,
     'meta_w': 380,
-    'meta_font': 25,
-    'meta_line': 32,
+    'meta_font': 30,
+    'meta_line': 38,
     'meta_lines': 8,
     'gap': 8,
     'text_w': 1056,

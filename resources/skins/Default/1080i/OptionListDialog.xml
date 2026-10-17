@@ -34,7 +34,7 @@
                     <control type="label"><left>32</left><top>14</top><width>664</width><height>34</height><font>font13</font><textcolor>D9EEF3F6</textcolor>
                         <label>$INFO[ListItem.Label]</label>
                     </control>
-                    <control type="label"><left>32</left><top>48</top><width>664</width><height>24</height><font>font12</font><textcolor>66EEF3F6</textcolor>
+                    <control type="label"><left>32</left><top>48</top><width>664</width><height>24</height><font>font12</font><textcolor>B3EEF3F6</textcolor>
                         <label>$INFO[ListItem.Label2]</label>
                         <visible>!String.IsEmpty(ListItem.Label2)</visible>
                     </control>
@@ -45,7 +45,7 @@
                     <control type="label"><left>32</left><top>14</top><width>664</width><height>34</height><font>font13</font><textcolor>FFEEF3F6</textcolor>
                         <label>$INFO[ListItem.Label]</label>
                     </control>
-                    <control type="label"><left>32</left><top>48</top><width>664</width><height>24</height><font>font12</font><textcolor>99EEF3F6</textcolor>
+                    <control type="label"><left>32</left><top>48</top><width>664</width><height>24</height><font>font12</font><textcolor>D9EEF3F6</textcolor>
                         <label>$INFO[ListItem.Label2]</label>
                         <visible>!String.IsEmpty(ListItem.Label2)</visible>
                     </control>

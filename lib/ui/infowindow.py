@@ -232,8 +232,11 @@ def _item_properties(meta):
 #: The header wordmark's separator, at the design's rgba(238,243,246,.18) -
 #: not one of the addon's named text tints (those stop at .2/33), computed
 #: the same way here.
-_HEADER_SEPARATOR_COLOR = '2EEEF3F6'
-_HEADER_TITLE_COLOR = '9EEEF3F6'
+#: Brighter than they were (#11): the catalog title is the page's name,
+#: and 18%/62% white read as decoration at ten feet.
+_HEADER_WORDMARK_COLOR = '99EEF3F6'
+_HEADER_SEPARATOR_COLOR = '80EEF3F6'
+_HEADER_TITLE_COLOR = 'D9EEF3F6'
 
 
 def _header_label(catalog_title=None):
@@ -246,10 +249,11 @@ def _header_label(catalog_title=None):
     Pure helper - no xbmc - so it is trivially unit-testable on its own.
     """
     if not catalog_title:
-        return '[COLOR 57EEF3F6]%s[/COLOR]' % WORDMARK
+        return '[COLOR %s]%s[/COLOR]' % (_HEADER_WORDMARK_COLOR, WORDMARK)
     return (
-        '[COLOR 57EEF3F6]%s[/COLOR] [COLOR %s]/[/COLOR] [COLOR %s]%s[/COLOR]'
-        % (WORDMARK, _HEADER_SEPARATOR_COLOR, _HEADER_TITLE_COLOR, catalog_title.upper())
+        '[COLOR %s]%s[/COLOR] [COLOR %s]/[/COLOR] [COLOR %s]%s[/COLOR]'
+        % (_HEADER_WORDMARK_COLOR, WORDMARK, _HEADER_SEPARATOR_COLOR, _HEADER_TITLE_COLOR,
+           catalog_title.upper())
     )
 
 

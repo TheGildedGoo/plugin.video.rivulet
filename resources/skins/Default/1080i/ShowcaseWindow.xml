@@ -44,11 +44,11 @@
                  Window property) to "RevRivulet" alone, or "RevRivulet /
                  <CATALOG>" once open_showcase() is handed a catalog_title -
                  see infowindow.py's `_header_label()`. -->
-            <control type="label" id="30100"><left>112</left><top>48</top><width>760</width><height>36</height><font>font10</font><aligny>center</aligny>
-                <label>[COLOR 57EEF3F6]RevRivulet[/COLOR]</label>
+            <control type="label" id="30100"><left>112</left><top>48</top><width>760</width><height>36</height><font>font12</font><aligny>center</aligny>
+                <label>[COLOR 99EEF3F6]RevRivulet[/COLOR]</label>
             </control>
             <control type="label"><right>128</right><top>48</top><width>140</width><height>36</height><font>Mono26</font><align>right</align><aligny>center</aligny>
-                <label>[COLOR 80EEF3F6]$INFO[Container(30002).CurrentItem][/COLOR][COLOR 47EEF3F6]/$INFO[Container(30002).NumItems][/COLOR]</label>
+                <label>[COLOR B3EEF3F6]$INFO[Container(30002).CurrentItem][/COLOR][COLOR 99EEF3F6]/$INFO[Container(30002).NumItems][/COLOR]</label>
             </control>
             <control type="button" id="30003">
                 <left>1806</left><top>41</top><width>50</width><height>50</height><aligny>center</aligny><align>center</align>
@@ -93,7 +93,7 @@
                  Tomatoes score is absent rather than blank. font12
                  (NotoSans): the panel names IMDb, and NotoMono has no
                  star glyph. -->
-            <control type="textbox" id="30021"><left>1480</left><top>372</top><width>380</width><height>280</height><font>font12</font><textcolor>FFFFFFFF</textcolor><align>right</align>
+            <control type="textbox" id="30021"><left>1480</left><top>372</top><width>380</width><height>280</height><font>font13</font><textcolor>FFFFFFFF</textcolor><align>right</align>
                 <label>$INFO[ListItem.Property(meta_line)]</label>
                 <visible>!String.IsEmpty(ListItem.Property(meta_line))</visible>
             </control>
