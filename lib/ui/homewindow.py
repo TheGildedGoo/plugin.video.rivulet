@@ -1591,14 +1591,49 @@ def _open_signin(window):
     _after_child(window)
 
 
+def _continue_card(entry):
+    """``(wide picture, "S:1 E:2")`` for a Continue card (#9).
+
+    The card is 16:9; the poster scaled into it was a slice through the
+    middle of the poster. An episode with a Cinemeta id uses that
+    episode's still (the picture the New Episodes cards use), anything
+    else its backdrop. ``""`` when there is neither: the skin then shows
+    the poster whole on the plate.
+    """
+    from lib.newepisodes import episode_still_url
+    from lib.ui.urlutil import sized_image
+
+    land = ''
+    code = ''
+    video_id = entry.get('video_id')
+    if isinstance(video_id, str) and video_id:
+        show, season, episode = (video_id.rsplit(':', 2) + ['', ''])[:3]
+        if show and season.isdigit() and episode.isdigit():
+            code = 'S:%d E:%d' % (int(season), int(episode))
+            land = episode_still_url(show, int(season), int(episode))
+    if not land:
+        background = entry.get('background') or ''
+        land = sized_image(background, 'backdrop') if isinstance(background, str) else ''
+    return land, code
+
+
 def _continue_item(entry):
     """A Continue poster. Carries the resume fields the dialog reads.
 
     Catalog and Library posters stay on `_poster_item` alone: those
     clicks still open the page, and the skin ignores unknown properties.
+    The card itself is wide art with the show and the episode written
+    bottom-left, the way the New Episodes cards read (#9).
     """
+    from lib.ui.uicommon import escape_label
+
     item = _poster_item(entry)
-    props = {}
+    land, code = _continue_card(entry)
+    props = {
+        'land': land,
+        'card_show': escape_label(entry.get('name') or ''),
+        'card_code': code,
+    }
     band = entry.get('band')
     if band:
         props['band'] = str(band)
@@ -1609,8 +1644,7 @@ def _continue_item(entry):
         value = entry.get(key)
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             props[key] = str(int(value))
-    if props:
-        item.setProperties(props)
+    item.setProperties(props)
     return item
 
 

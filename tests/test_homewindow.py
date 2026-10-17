@@ -2176,3 +2176,54 @@ def test_a_card_without_art_shows_its_title_on_the_plate():
                 and any('String.IsEmpty(ListItem.Property(p%d))' % slot == (v.text or '') for v in el.findall('visible'))
             ]
             assert len(titles) >= 1, (layout, slot)
+
+
+def test_continue_cards_are_wide_art_with_the_show_and_episode(load_homewindow):
+    """#9: a Continue card is 16:9. The poster scaled into it was a slice
+    through the middle. It now uses the episode still (Cinemeta ids) or
+    the backdrop, and writes the show and S:1 E:2 bottom-left."""
+    ctx = load_homewindow()
+    episode = ctx.homewindow._continue_item({
+        'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones',
+        'poster': 'p.jpg', 'background': 'b.jpg', 'video_id': 'tt0944947:2:5',
+    })
+    assert episode.getProperty('land') == 'https://episodes.metahub.space/tt0944947/2/5/w780.jpg'
+    assert episode.getProperty('card_show') == 'Game of Thrones'
+    assert episode.getProperty('card_code') == 'S:2 E:5'
+    assert episode.getProperty('video_id') == 'tt0944947:2:5'
+
+    movie = ctx.homewindow._continue_item({
+        'id': 'tt1', 'type': 'movie', 'name': 'Dune', 'poster': 'p.jpg',
+        'background': 'https://image.tmdb.org/t/p/original/b.jpg',
+    })
+    assert movie.getProperty('land') == 'https://image.tmdb.org/t/p/w1280/b.jpg'
+    assert movie.getProperty('card_code') == ''
+    assert movie.getProperty('card_show') == 'Dune'
+
+    bare = ctx.homewindow._continue_item({
+        'id': 'kitsu:1', 'type': 'series', 'name': 'Show', 'poster': 'p.jpg', 'video_id': 'kitsu:1:4',
+    })
+    # No Cinemeta still for a non-imdb id and no backdrop: the skin shows
+    # the poster whole on the plate.
+    assert bare.getProperty('land') == ''
+
+
+def test_continue_card_skin_layers_the_poster_under_the_wide_art():
+    import os
+    import xml.etree.ElementTree as ET
+
+    path = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i', 'HomeWindow.xml')
+    panel = ET.parse(path).getroot().find(".//control[@id='30040']")
+    for layout in ('itemlayout', 'focusedlayout'):
+        controls = panel.find(layout).findall('control')
+        textures = [(el.findtext('texture') or '').strip() for el in controls]
+        poster = textures.index('$INFO[ListItem.Property(thumbnail)]')
+        land = textures.index('$INFO[ListItem.Property(land)]')
+        assert poster < land
+        assert (controls[poster].findtext('aspectratio') or '').strip() == 'keep'
+        assert (controls[land].findtext('aspectratio') or '').strip() == 'scale'
+        labels = [el.findtext('label') or '' for el in controls if el.get('type') == 'label']
+        assert any('card_show' in text for text in labels)
+        assert any('card_code' in text for text in labels)
+        # Nothing hangs under the card any more.
+        assert not [el for el in controls if el.get('type') == 'label' and (el.findtext('top') or '') == '232']
