@@ -34,6 +34,12 @@ DEFAULT_MAX_AGE = 15 * 60
 DEFAULT_STALE_REVALIDATE = 3600
 DEFAULT_STALE_ERROR = 3600
 
+#: How old a page may be and still paint a first screen, when the caller
+#: asks for it (``allow_expired``) and revalidates at once. Past the
+#: stale windows above (about two hours) the first open of an evening was
+#: a cold fetch for every row (#13). A day covers that and no more.
+EXPIRED_SERVE_SECONDS = 24 * 3600
+
 _DESCRIPTION_LIMIT = 280
 
 _SLIM_FIELDS = (
@@ -176,8 +182,13 @@ class PageCache:
         if isinstance(entries, dict):
             self._entries = entries
 
-    def lookup(self, key, now=None):
-        """``('fresh'|'stale'|'miss', metas or None)``."""
+    def lookup(self, key, now=None, allow_expired=False):
+        """``('fresh'|'stale'|'expired'|'miss', metas or None)``.
+
+        ``expired`` is only answered with ``allow_expired``: a page past
+        its stale windows but younger than `EXPIRED_SERVE_SECONDS`, for a
+        caller that paints it and revalidates straight away.
+        """
         moment = self._now() if now is None else now
         with self._lock:
             entry = self._entries.get(key)
@@ -195,6 +206,8 @@ class PageCache:
                 return 'fresh', metas
             if age < fresh_for + revalidate_for + error_for:
                 return 'stale', metas
+            if allow_expired and age < EXPIRED_SERVE_SECONDS:
+                return 'expired', metas
             return 'miss', None
 
     def store(self, key, metas, hints=None, now=None):
@@ -228,8 +241,10 @@ class PageCache:
 
     def save(self):
         """One rewrite of the whole file."""
+        # A copy: json.dumps runs outside the lock, and a revalidation
+        # storing a page meanwhile must not resize the dict it walks.
         with self._lock:
-            payload = {'entries': self._entries}
+            payload = {'entries': dict(self._entries)}
         directory = os.path.dirname(self.path)
         if directory and not os.path.isdir(directory):
             os.makedirs(directory)

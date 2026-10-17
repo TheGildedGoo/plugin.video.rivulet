@@ -2249,3 +2249,21 @@ def test_any_poster_only_title_fills_the_hero_on_home_and_the_hubs(load_homewind
     hub = ET.parse(os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i', 'HubWindow.xml')).getroot()
     fill = hub.find(".//control[@id='30028']")
     assert fill is not None and (fill.findtext('aspectratio') or '').strip() == 'scale'
+
+
+def test_home_fetches_every_row_at_once(load_homewindow, monkeypatch):
+    """#13: rows were fetched one after another, so opening Home cost the
+    sum of every addon's answer. Two rows that each wait for the other to
+    start only finish if they run together."""
+    ctx = load_homewindow()
+    barrier = threading.Barrier(2, timeout=2)
+
+    def _shelf(addons, types):
+        barrier.wait()
+        return {'metas': [{'id': sorted(types)[0], 'type': 'movie', 'name': 'x'}]}
+
+    monkeypatch.setattr(ctx.homewindow, '_open_shelf', _shelf)
+    pages, more = ctx.homewindow._catalog_pages([], {'movies': frozenset({'movie'}), 'series': frozenset({'series'})})
+
+    assert pages['movies'][0]['id'] == 'movie'
+    assert pages['series'][0]['id'] == 'series'

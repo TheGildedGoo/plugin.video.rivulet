@@ -629,16 +629,37 @@ def _enabled_shelf_types(addons):
     return enabled
 
 
+#: Home's own bound on its first-screen fetches (the library read plus
+#: one page per row). Every fan-out point bounds its own pool on these
+#: low-power boxes; see AGENTS.md before sharing it with another one.
+_MAX_HOME_WORKERS = 4
+
+
 def _catalog_pages(addons, enabled):
     """First screen per enabled shelf, and the state that appends the rest.
 
     `pages` is what the row draws now. `more` is what `_pull_more` walks
-    when the remote nears the end. One request per shelf at open.
+    when the remote nears the end. One request per shelf at open, all at
+    once (#13): the rows used to be fetched one after another, so opening
+    Home cost the sum of every addon's answer instead of the slowest one.
     """
+    from concurrent.futures import ThreadPoolExecutor
+
     pages = {}
     more = {}
-    for action, types in enabled.items():
-        shelf = _open_shelf(addons, types)
+    actions = list(enabled.items())
+    shelves = []
+    if len(actions) > 1:
+        with ThreadPoolExecutor(max_workers=_MAX_HOME_WORKERS) as pool:
+            futures = [(action, pool.submit(_open_shelf, addons, types)) for action, types in actions]
+            for action, future in futures:
+                try:
+                    shelves.append((action, future.result()))
+                except Exception:
+                    shelves.append((action, None))
+    else:
+        shelves = [(action, _open_shelf(addons, types)) for action, types in actions]
+    for action, shelf in shelves:
         if shelf is None:
             pages[action] = []
             more[action] = None
@@ -671,8 +692,16 @@ def _load_rows(window, store, addons, auth):
         return window._continue_items, window._library_items, window._catalog_pages, enabled
 
     def _load():
-        library_entries = _fetch_library(store, auth)
-        pages, more = _catalog_pages(addons, enabled)
+        # The library read and every row's first page run together, and
+        # catalog_pages.json is written once at the end (#13).
+        from concurrent.futures import ThreadPoolExecutor
+
+        from lib.ui.catalogpages import deferred_saves
+
+        with deferred_saves(), ThreadPoolExecutor(max_workers=1) as reader:
+            library = reader.submit(_fetch_library, store, auth)
+            pages, more = _catalog_pages(addons, enabled)
+            library_entries = library.result()
         return (
             _played_posters(store, library_entries),
             _library_posters(auth, library_entries),

@@ -765,3 +765,29 @@ def test_a_landscape_catalog_uses_the_wide_row(load_hub, monkeypatch):
     )
     ctx.hubwindow._load_posters(poster_desc)
     assert not poster_desc.get('layout')
+
+
+def test_new_episodes_and_the_first_rows_are_fetched_together(load_hub, monkeypatch):
+    """#13: the Series hub waited for New Episodes (a meta per followed
+    show) before fetching any catalog row."""
+    ctx = load_hub()
+    barrier = threading.Barrier(2, timeout=2)
+
+    def _episodes(store, types):
+        barrier.wait()
+        return None
+
+    def _page(transport, manifest, catalog, extra=None):
+        barrier.wait()
+        return [{'id': 'pop1', 'name': 'Popular', 'type': 'series', 'poster': 'p'}]
+
+    monkeypatch.setattr(ctx.hubwindow, '_episode_descriptor', _episodes)
+    monkeypatch.setattr(ctx.homewindow, '_one_catalog_page', _page)
+    addons = [{'transportUrl': 'https://a/manifest.json', 'manifest': {'catalogs': [
+        {'type': 'series', 'id': 'pop', 'name': 'Popular'},
+    ]}}]
+
+    descs, episodes = ctx.hubwindow._build(_Store(), addons, frozenset({'series', 'tv'}))
+
+    assert [desc['heading'] for desc in descs] == ['Popular']
+    assert episodes == []

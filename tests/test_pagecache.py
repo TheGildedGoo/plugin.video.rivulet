@@ -129,3 +129,40 @@ def test_budget_drops_the_oldest_pages(tmp_path):
     assert cache._encoded_size() <= BUDGET_BYTES
     newest = cache_key('t', 'movie', 'c79')
     assert newest in cache._entries
+
+
+def test_an_expired_page_is_served_only_when_asked_and_only_for_a_day(tmp_path):
+    """#13: past the stale windows (about two hours) the first open of an
+    evening fetched every row cold. A caller that repaints from the cache
+    and revalidates at once may take a page up to a day old."""
+    from lib.stremio.pagecache import EXPIRED_SERVE_SECONDS
+
+    clock = {'now': 0.0}
+    cache = PageCache(str(tmp_path / 'catalog_pages.json'), clock=lambda: clock['now'])
+    key = cache_key('t', 'movie', 'top', None)
+    cache.store(key, [_meta(1)], {'cacheMaxAge': 10, 'staleRevalidate': 10, 'staleError': 10})
+    clock['now'] = 31
+    assert cache.lookup(key)[0] == 'miss'
+    state, metas = cache.lookup(key, allow_expired=True)
+    assert state == 'expired' and metas[0]['id'] == 'tt1'
+    clock['now'] = EXPIRED_SERVE_SECONDS
+    assert cache.lookup(key, allow_expired=True)[0] == 'miss'
+
+
+def test_save_copies_the_entries_it_writes(tmp_path, monkeypatch):
+    """A revalidation storing a page while another thread saves must not
+    resize the dict json.dumps is walking."""
+    import lib.stremio.pagecache as pagecache
+
+    cache = PageCache(str(tmp_path / 'catalog_pages.json'), clock=lambda: 10)
+    cache.store(cache_key('t', 'movie', 'a', None), [_meta(1)], {})
+    real_write = pagecache._atomic_write
+
+    def _write(path, payload):
+        cache.store(cache_key('t', 'movie', 'b', None), [_meta(2)], {})
+        real_write(path, payload)
+
+    monkeypatch.setattr(pagecache, '_atomic_write', _write)
+    cache.save()
+    with open(str(tmp_path / 'catalog_pages.json')) as handle:
+        assert list(json.load(handle)['entries']) == [cache_key('t', 'movie', 'a', None)]

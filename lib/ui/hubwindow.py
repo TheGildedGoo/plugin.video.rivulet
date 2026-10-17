@@ -363,17 +363,40 @@ def _extend_row(desc):
     return posters
 
 
-def _fill_prefix(descs, limit):
+#: The hub's own bound on its first-screen fetches (see AGENTS.md: every
+#: fan-out point keeps its own pool on these low-power boxes).
+_MAX_HUB_WORKERS = 4
+
+
+def _fill_prefix(descs, limit, pool=None):
     """Fetch from the front until `limit` rows have posters, dropping
-    empty catalogs. Later rows stay unloaded."""
+    empty catalogs. Later rows stay unloaded.
+
+    With `pool`, each round fetches every row it still needs at once
+    (#13); they used to be fetched one after another. Rows keep their
+    order either way.
+    """
     index = 0
     filled = 0
     while index < len(descs) and filled < limit:
-        if not _load_posters(descs[index]):
-            del descs[index]
-            continue
-        filled += 1
-        index += 1
+        batch = descs[index:index + (limit - filled)]
+        if pool is not None and len(batch) > 1:
+            futures = [pool.submit(_load_posters, desc) for desc in batch if desc.get('posters') is None]
+            for future in futures:
+                try:
+                    future.result()
+                except Exception:
+                    pass
+        for desc in batch:
+            try:
+                posters = _load_posters(desc)
+            except Exception:
+                posters = []
+            if not posters:
+                descs.remove(desc)
+                continue
+            filled += 1
+            index += 1
     return descs
 
 
@@ -868,14 +891,28 @@ class HubWindow(BaseWindow):
 
 def _build(store, addons, types):
     """Descriptors plus the first screenful of posters, and the episode
-    list the New Episodes row indexes into."""
+    list the New Episodes row indexes into.
+
+    New Episodes (a meta fetch per followed series) and the first catalog
+    rows are fetched together, and catalog_pages.json is written once
+    (#13). The screen waits for the slower of the two, not their sum.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from lib.ui.catalogpages import deferred_saves
+
     descs = _descriptors(addons, types)
-    episode = _episode_descriptor(store, types)
+    with deferred_saves(), ThreadPoolExecutor(max_workers=_MAX_HUB_WORKERS) as pool:
+        pending_episode = pool.submit(_episode_descriptor, store, types)
+        _fill_prefix(descs, _INITIAL_ROWS, pool)
+        try:
+            episode = pending_episode.result()
+        except Exception:
+            episode = None
     episodes = []
     if episode is not None:
         episodes = episode.pop('episodes')
         descs.insert(0, episode)
-    _fill_prefix(descs, _INITIAL_ROWS)
     return descs, episodes
 
 
