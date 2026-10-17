@@ -1337,3 +1337,7 @@ msgstr "Обновить кэш"
 msgctxt "#30503"
 msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
 msgstr "Удаляет сохранённые страницы каталогов, сведения, оценки и проверки логотипов, чтобы следующие экраны заново запросили дополнения. Аккаунт, дополнения и прогресс сохраняются."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Трейлеры воспроизводятся через дополнение YouTube для Kodi. Установить его сейчас?"

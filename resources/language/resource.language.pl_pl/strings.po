@@ -1337,3 +1337,7 @@ msgstr "Odśwież dane w pamięci podręcznej"
 msgctxt "#30503"
 msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
 msgstr "Zapomina zapisane strony katalogów, szczegóły, oceny i sprawdzenia logo, aby kolejne ekrany ponownie odpytały dodatki. Konto, dodatki i postęp pozostają."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Zwiastuny odtwarza dodatek YouTube dla Kodi. Zainstalować go teraz?"

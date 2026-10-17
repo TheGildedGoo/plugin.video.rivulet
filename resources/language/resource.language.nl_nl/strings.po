@@ -1337,3 +1337,7 @@ msgstr "Gecachte gegevens vernieuwen"
 msgctxt "#30503"
 msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
 msgstr "Vergeet opgeslagen cataloguspagina's, titelgegevens, beoordelingen en logocontroles, zodat de volgende schermen je add-ons opnieuw vragen. Je account, add-ons en voortgang blijven."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Trailers spelen via de YouTube-add-on van Kodi. Nu installeren?"

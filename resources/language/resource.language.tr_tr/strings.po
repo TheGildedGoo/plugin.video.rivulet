@@ -1337,3 +1337,7 @@ msgstr "Önbelleği yenile"
 msgctxt "#30503"
 msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
 msgstr "Kayıtlı katalog sayfalarını, ayrıntıları, puanları ve logo kontrollerini unutur; sonraki ekranlar eklentilere yeniden sorar. Hesabınız, eklentileriniz ve ilerlemeniz kalır."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Fragmanlar Kodi'nin YouTube eklentisiyle oynatılır. Şimdi yüklensin mi?"

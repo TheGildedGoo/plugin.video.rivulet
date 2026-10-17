@@ -1337,3 +1337,7 @@ msgstr "Atualizar dados em cache"
 msgctxt "#30503"
 msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
 msgstr "Esquece páginas de catálogo, detalhes, avaliações e verificações de logotipo salvos, para que as próximas telas consultem seus complementos de novo. Sua conta, complementos e progresso ficam."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Os trailers tocam pelo complemento do YouTube do Kodi. Instalar agora?"

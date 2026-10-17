@@ -1337,3 +1337,7 @@ msgstr "캐시 데이터 새로 고침"
 msgctxt "#30503"
 msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
 msgstr "저장된 카탈로그 페이지, 작품 정보, 평점, 로고 확인 결과를 지워 다음 화면에서 애드온에 다시 요청합니다. 계정, 애드온, 시청 기록은 유지됩니다."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "예고편은 Kodi의 YouTube 애드온으로 재생됩니다. 지금 설치할까요?"

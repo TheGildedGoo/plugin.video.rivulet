@@ -1337,3 +1337,7 @@ msgstr "Zwischenspeicher aktualisieren"
 msgctxt "#30503"
 msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
 msgstr "Vergisst gespeicherte Katalogseiten, Titeldetails, Bewertungen und Logo-Prüfungen, damit die nächsten Bildschirme deine Add-ons neu fragen. Konto, Add-ons und Fortschritt bleiben."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Trailer laufen über das YouTube-Add-on von Kodi. Jetzt installieren?"

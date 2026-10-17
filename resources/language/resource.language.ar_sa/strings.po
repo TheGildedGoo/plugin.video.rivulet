@@ -1337,3 +1337,7 @@ msgstr "تحديث البيانات المخزنة"
 msgctxt "#30503"
 msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
 msgstr "ينسى صفحات الكتالوج والتفاصيل والتقييمات وفحوص الشعارات المحفوظة، لتطلبها الشاشات التالية من الإضافات من جديد. يبقى حسابك وإضافاتك وتقدمك."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "تُشغَّل الإعلانات عبر إضافة YouTube في Kodi. هل تريد تثبيتها الآن؟"

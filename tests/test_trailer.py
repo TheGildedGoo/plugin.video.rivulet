@@ -33,13 +33,30 @@ def test_no_usable_trailer(trailer, meta):
     assert trailer.trailer.trailer_id(meta) == ''
 
 
-def test_the_server_is_tried_before_the_youtube_addon(trailer, monkeypatch):
+def test_the_youtube_addon_is_preferred_then_the_server(trailer, monkeypatch):
+    monkeypatch.setattr(trailer.trailer, '_youtube_addon_url', lambda yt: 'plugin://plugin.video.youtube/play/?video_id=%s' % yt)
     monkeypatch.setattr(trailer.trailer, '_server_url', lambda yt: 'http://127.0.0.1:11470/yt/%s' % yt)
+    assert trailer.trailer.trailer_url('abcdefghijk').startswith('plugin://plugin.video.youtube/')
+
+    monkeypatch.setattr(trailer.trailer, '_youtube_addon_url', lambda yt: '')
     assert trailer.trailer.trailer_url('abcdefghijk') == 'http://127.0.0.1:11470/yt/abcdefghijk'
 
-    monkeypatch.setattr(trailer.trailer, '_server_url', lambda yt: '')
-    monkeypatch.setattr(trailer.trailer, '_youtube_addon_url', lambda yt: 'plugin://plugin.video.youtube/play/?video_id=%s' % yt)
-    assert trailer.trailer.trailer_url('abcdefghijk').startswith('plugin://plugin.video.youtube/')
+
+def test_a_server_url_that_does_not_play_is_not_used(trailer, monkeypatch):
+    import lib.ui.player as player
+
+    class _Server:
+        def is_available(self):
+            return True
+
+        def resolve_stream(self, stream):
+            return 'http://127.0.0.1:11470/yt/%s' % stream['ytId']
+
+    monkeypatch.setattr(player, '_server_client', lambda: _Server())
+    monkeypatch.setattr(trailer.trailer, '_plays', lambda url: False)
+    assert trailer.trailer._server_url('abcdefghijk') == ''
+    monkeypatch.setattr(trailer.trailer, '_plays', lambda url: True)
+    assert trailer.trailer._server_url('abcdefghijk').endswith('/yt/abcdefghijk')
 
 
 def test_no_trailer_tells_the_viewer_and_plays_nothing(trailer, monkeypatch):
@@ -48,11 +65,15 @@ def test_no_trailer_tells_the_viewer_and_plays_nothing(trailer, monkeypatch):
     assert trailer.env.notifications[-1][1] == 'STR30497'
 
 
-def test_nowhere_to_play_it_says_so(trailer, monkeypatch):
+def test_nowhere_to_play_it_offers_the_youtube_addon(trailer, monkeypatch):
     monkeypatch.setattr(trailer.trailer, '_full_meta', lambda meta, stype, sid: meta)
     monkeypatch.setattr(trailer.trailer, 'trailer_url', lambda yt: '')
+    import lib.ui.dialogs as dialogs
+    asked = []
+    monkeypatch.setattr(dialogs, 'confirm', lambda heading, body, yes, no: asked.append(body) or True)
     assert trailer.trailer.play_trailer({'trailers': [{'source': 'abcdefghijk'}]}) is False
-    assert trailer.env.notifications[-1][1] == 'STR30498'
+    assert asked == ['STR30504']
+    assert 'InstallAddon(plugin.video.youtube)' in trailer.env.executed_builtins
 
 
 @pytest.fixture

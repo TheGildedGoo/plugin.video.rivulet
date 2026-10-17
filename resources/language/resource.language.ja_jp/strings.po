@@ -1337,3 +1337,7 @@ msgstr "キャッシュを更新"
 msgctxt "#30503"
 msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
 msgstr "保存済みのカタログページ、作品情報、評価、ロゴの確認結果を消去し、次の画面でアドオンに再取得させます。アカウント、アドオン、視聴状況はそのままです。"
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "予告編は Kodi の YouTube アドオンで再生します。今すぐインストールしますか？"
