@@ -1287,8 +1287,8 @@ msgid "Try again"
 msgstr "Réessayer"
 
 msgctxt "#30491"
-msgid "This catalog did not answer. Press OK to try again."
-msgstr "Ce catalogue n'a pas répondu. Appuyez sur OK pour réessayer."
+msgid "This catalog did not answer."
+msgstr "Ce catalogue n'a pas répondu."
 
 msgctxt "#30492"
 msgid "Options"

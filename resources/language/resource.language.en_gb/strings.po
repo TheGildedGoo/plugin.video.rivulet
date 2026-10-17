@@ -1287,7 +1287,7 @@ msgid "Try again"
 msgstr ""
 
 msgctxt "#30491"
-msgid "This catalog did not answer. Press OK to try again."
+msgid "This catalog did not answer."
 msgstr ""
 
 msgctxt "#30492"
