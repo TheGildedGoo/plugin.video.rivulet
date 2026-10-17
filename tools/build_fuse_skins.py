@@ -15,8 +15,8 @@ import sys
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join('resources', 'skins', 'Default', '1080i')
 
-BAND = 560          # top of the row band
-VIEW_H = 520        # band to the bottom edge: one row per viewport
+BAND = 630          # top of the row band
+VIEW_H = 450        # band to the bottom edge: one row per viewport
 CARD_TOP = 72       # inside a row: heading 44, line at 50, cards at 72
 POSTER = (200, 300)
 LAND = (392, 220)
@@ -147,14 +147,14 @@ def hero(bound=False):
     plot_text = '$INFO[Container(30002).ListItem.Property(plot)]' if bound else ''
     return '\n'.join([
         '<!-- Hero, stacked up from the row by lib/ui/fuse.py: the logo (or the title), stars and facts, the plot (three lines at most), the scores. -->',
-        ctl('image', box(80, 210, 1000, 120) + '<aspectratio align="left" aligny="bottom">keep</aspectratio><texture background="true"></texture>' +
+        ctl('image', box(80, 280, 1000, 120) + '<aspectratio align="left" aligny="bottom">keep</aspectratio><texture background="true"></texture>' +
             vis('!String.IsEmpty(Window.Property(HeroLogo))'), 30023),
-        ctl('label', box(80, 250, 1100, 80) + '<font>font45</font><textcolor>FFEDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><wrapmultiline>false</wrapmultiline><label>%s</label>' % title_text +
+        ctl('label', box(80, 320, 1100, 80) + '<font>font45</font><textcolor>FFEDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><wrapmultiline>false</wrapmultiline><label>%s</label>' % title_text +
             vis('String.IsEmpty(Window.Property(HeroLogo))'), 30020),
-        ctl('image', box(80, 352, 150, 28) + '<aspectratio>keep</aspectratio><texture></texture>', 30027),
-        ctl('label', box(246, 346, 1200, 40) + '<font>font13</font><textcolor>E6EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><label></label>', 30024),
-        ctl('textbox', box(80, 396, 920, 110) + '<font>font13</font><textcolor>C7EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><autoscroll delay="3000" time="4000" repeat="6000">true</autoscroll><label>%s</label>' % plot_text, 30022),
-        ctl('label', box(80, 480, 1400, 40) + '<font>font13</font><textcolor>E6EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><label></label>', 30025),
+        ctl('image', box(80, 422, 150, 28) + '<aspectratio>keep</aspectratio><texture></texture>', 30027),
+        ctl('label', box(246, 416, 1200, 40) + '<font>font13</font><textcolor>E6EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><label></label>', 30024),
+        ctl('textbox', box(80, 466, 920, 110) + '<font>font13</font><textcolor>C7EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><autoscroll delay="3000" time="4000" repeat="6000">true</autoscroll><label>%s</label>' % plot_text, 30022),
+        ctl('label', box(80, 550, 1400, 40) + '<font>font13</font><textcolor>E6EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><label></label>', 30025),
     ]) + '\n'
 
 
@@ -483,8 +483,10 @@ def detail_row(focused):
         parts.append(image(1162, 41, 26, 26, 'fuse_check.png', conds=conds + ('String.IsEqual(ListItem.Property(watched),1)',),
                            attrs=' colordiffuse="%s"' % tick))
         parts.append(label(1196, 30, 100, 46, '$INFO[ListItem.Property(runtime)]', color=soft, conds=conds))
+        # The focused row's plot scrolls up through the rest of it.
+        scroll = '<autoscroll delay="2500" time="3000" repeat="5000">true</autoscroll>' if tone == 'dark' else ''
         parts.append(ctl('textbox', box(336, 82, 950, 72) +
-                         '<font>font12</font><textcolor>%s</textcolor><label>$INFO[ListItem.Property(plot)]</label>' % soft + vis(*conds)))
+                         '<font>font12</font><textcolor>%s</textcolor>%s<label>$INFO[ListItem.Property(plot)]</label>' % (soft, scroll) + vis(*conds)))
     return ''.join(parts)
 
 

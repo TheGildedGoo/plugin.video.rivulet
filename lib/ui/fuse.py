@@ -30,13 +30,13 @@ HERO_FACTS = 30024   # label: year • runtime • genres
 HERO_SCORES = 30025  # label: IMDb 7.4   RT 88%   Ends at 22:28
 HERO_STARS = 30027   # image: fuse_stars_00..10.png
 
-#: The hero stack, bottom-up from the row band (y=560, 40px above it).
+#: The hero stack, bottom-up from the row band (y=630, 40px above it).
 #: Pixels at 1080p. The
 #: plot is font13: 30px a line in Kodi's measure (heroscrim), three
 #: lines at most, plus the inset a textbox keeps so a line is not clipped.
 _STACK = {
     'left': 80,
-    'bottom': 520,
+    'bottom': 590,
     'title_h': 120,
     'text_title_h': 80,
     'facts_h': 40,

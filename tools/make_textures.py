@@ -445,8 +445,8 @@ def _fade(points, span, horizontal, thickness=8):
 #: the width, so the picture shows to the right of the text.
 FUSE_FADE_LEFT = ((0.0, 235), (0.34, 168), (0.66, 0), (1.0, 0))
 #: Bottom fade, top to bottom: clear through the picture, solid from the
-#: row band (y=656 of 1080, 0.607) down, so posters never sit on art.
-FUSE_FADE_BOTTOM = ((0.0, 0), (0.33, 0), (0.5, 150), (0.607, 255), (1.0, 255))
+#: row band (y=630 of 1080, 0.583) down, so posters never sit on art.
+FUSE_FADE_BOTTOM = ((0.0, 0), (0.36, 0), (0.52, 150), (0.583, 255), (1.0, 255))
 #: A light shade behind the date and clock at the top edge.
 FUSE_FADE_TOP = ((0.0, 140), (1.0, 0))
 
