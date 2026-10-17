@@ -177,12 +177,12 @@ msgid "Preferred subtitle language"
 msgstr "Tercih edilen altyazı dili"
 
 msgctxt "#30060"
-msgid "Download stremio-server binary"
-msgstr "stremio-server ikili dosyasını indir"
+msgid "Download rivulet-engine binary"
+msgstr "rivulet-engine ikili dosyasını indir"
 
 msgctxt "#30061"
-msgid "Downloading stremio-server"
-msgstr "stremio-server indiriliyor"
+msgid "Downloading rivulet-engine"
+msgstr "rivulet-engine indiriliyor"
 
 msgctxt "#30062"
 msgid "Server binary installed (%s)"

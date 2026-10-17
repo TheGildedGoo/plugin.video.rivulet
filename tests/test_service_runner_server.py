@@ -458,7 +458,7 @@ def fake_popen(monkeypatch):
 
 def _server_process(tmp_path, server_url='http://127.0.0.1:9090', extra_env=None):
     return service_runner.ServerProcess(
-        '/opt/bin/stremio-server', server_url,
+        '/opt/bin/rivulet-engine', server_url,
         str(tmp_path / 'server'), str(tmp_path / 'server.log'), extra_env=extra_env,
     )
 
@@ -472,7 +472,7 @@ def test_start_spawns_popen_with_argv_env_and_opens_log_for_append(fake_popen, t
 
     assert len(fake_popen) == 1
     call = fake_popen[0]
-    assert call['argv'] == ['/opt/bin/stremio-server']
+    assert call['argv'] == ['/opt/bin/rivulet-engine']
     assert call['kwargs']['env']['APP_PATH'] == str(tmp_path / 'server')
     assert call['kwargs']['env']['HTTP_PORT'] == '9090'
     assert call['kwargs']['stderr'] == subprocess.STDOUT
@@ -510,7 +510,7 @@ class _FakeStartupInfo:
 
 
 def test_start_forwards_no_window_kwargs_on_windows(monkeypatch, fake_popen, tmp_path):
-    """Issue #30: stremio-server.exe is a console-subsystem Go binary;
+    """Issue #30: rivulet-engine.exe is a console-subsystem Go binary;
     spawned from Kodi (a GUI process with no console), Windows allocates
     it a fresh console window. Closing that window sends
     CTRL_CLOSE_EVENT, killing the child, which the supervisor above then
@@ -526,7 +526,7 @@ def test_start_forwards_no_window_kwargs_on_windows(monkeypatch, fake_popen, tmp
     sp.start()
 
     call = fake_popen[0]
-    assert call['argv'] == ['/opt/bin/stremio-server']
+    assert call['argv'] == ['/opt/bin/rivulet-engine']
     assert call['kwargs']['env']['APP_PATH'] == str(tmp_path / 'server')
     assert call['kwargs']['env']['HTTP_PORT'] == '9090'
     assert call['kwargs']['stderr'] == subprocess.STDOUT
@@ -891,7 +891,7 @@ def test_stop_escalates_to_kill_after_graceful_wait_times_out(fake_popen, tmp_pa
     sp = _server_process(tmp_path)
     sp.start()
     fake_proc = fake_popen[0]['proc']
-    fake_proc._wait_results = [subprocess.TimeoutExpired(cmd='stremio-server', timeout=3.0)]
+    fake_proc._wait_results = [subprocess.TimeoutExpired(cmd='rivulet-engine', timeout=3.0)]
 
     sp.stop(grace=3.0)
 
@@ -914,7 +914,7 @@ def test_stop_reaps_already_exited_child_without_terminate_or_kill(fake_popen, t
 
 
 def test_stop_default_grace_outlasts_the_servers_5s_http_drain(fake_popen, tmp_path):
-    """stremio-server-go drains its listeners for 5s on SIGTERM before it
+    """rivulet-engine drains its listeners for 5s on SIGTERM before it
     closes the torrent client, so with a stream open it exits ~5.02s after the
     signal (measured). A 5.0s default grace SIGKILLed it inside that window."""
     sp = _server_process(tmp_path)
@@ -999,8 +999,8 @@ def test_stop_propagates_second_post_kill_timeout_but_still_closes_log(fake_pope
     sp.start()
     fake_proc = fake_popen[0]['proc']
     fake_proc._wait_results = [
-        subprocess.TimeoutExpired(cmd='stremio-server', timeout=3.0),
-        subprocess.TimeoutExpired(cmd='stremio-server', timeout=3.0),
+        subprocess.TimeoutExpired(cmd='rivulet-engine', timeout=3.0),
+        subprocess.TimeoutExpired(cmd='rivulet-engine', timeout=3.0),
     ]
     log_fh = sp._log_fh
 

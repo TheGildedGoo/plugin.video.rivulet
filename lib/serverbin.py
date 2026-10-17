@@ -1,21 +1,21 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""Downloads and installs the stremio-server-go binary from GitHub releases.
+"""Downloads and installs the rivulet-engine binary from GitHub releases.
 
 Pure Python (no Kodi imports) so this module can be exercised directly with
 plain python3. lib/service_runner.py's resolve_binary() looks for the
-binary at install_dir()'s pick -- ``<addon_data_dir>/bin/stremio-server``
+binary at install_dir()'s pick -- ``<addon_data_dir>/bin/rivulet-engine``
 (``.exe`` on Windows) everywhere except Android, where addon_data lives on
 a noexec mount and install_dir() instead picks one of android_bin_dirs()'s
 app-private ``/data`` locations -- install_binary() targets that exact
 same install_dir() location.
 
-Asset naming follows M0Rf30/stremio-server-go's .goreleaser.yml
+Asset naming follows rivulet-kodi/rivulet-engine's .goreleaser.yml
 `archives.name_template`:
-    stremio-server_{Os-titlecased}_{arch}[v{goarm}].{tar.gz|zip}
-e.g. stremio-server_Linux_x86_64.tar.gz, stremio-server_Windows_arm64.zip,
-stremio-server_Linux_armv7.tar.gz. Download URLs and asset names are
+    rivulet-engine_{Os-titlecased}_{arch}[v{goarm}].{tar.gz|zip}
+e.g. rivulet-engine_Linux_x86_64.tar.gz, rivulet-engine_Windows_arm64.zip,
+rivulet-engine_Linux_armv7.tar.gz. Download URLs and asset names are
 derived deterministically from GITHUB_REPO/SERVER_TAG/asset-name -- this
 module never queries the "latest release" API or a same-release
 checksums.txt at runtime; see PINNED_SHA256 below for why.
@@ -38,12 +38,12 @@ except ImportError:  # pragma: no cover - exercised only without the dependency
 
 from lib import procflags
 
-GITHUB_REPO = "M0Rf30/stremio-server-go"
-SERVER_TAG = "v0.23.0"
+GITHUB_REPO = "rivulet-kodi/rivulet-engine"
+SERVER_TAG = "v0.26.0"
 USER_AGENT = "plugin.video.rivulet"
 
-BINARY_NAME = "stremio-server"
-#: The optional stremio-server-go c-shared library build (cmd/libstremio),
+BINARY_NAME = "rivulet-engine"
+#: The optional rivulet-engine c-shared library build (cmd/librivulet-engine),
 #: packaged inside the same Android release archives as
 #: BINARY_NAME for c-shared library mode (see lib.libserver.LibraryServer)
 #: -- the SELinux-*enforcing* Android fallback for devices where
@@ -51,7 +51,7 @@ BINARY_NAME = "stremio-server"
 #: UnsupportedPlatformError's docstring). Every other platform's archive
 #: simply lacks this member; see _extract_library_companion()/
 #: resolve_library() for why that is never an error.
-LIBRARY_NAME = "libstremio-server.so"
+LIBRARY_NAME = "librivulet-engine.so"
 PART_SUFFIX = ".part"
 DOWNLOAD_CHUNK_SIZE = 64 * 1024
 REQUEST_TIMEOUT = 30
@@ -72,8 +72,8 @@ TAG_STAMP_NAME = ".server-tag"
 #: Enough for any plausible tag; a bound so a corrupt/huge stamp file can
 #: never be slurped whole.
 TAG_STAMP_READ_LIMIT = 64
-# SHA-256 digests for every stremio-server-go SERVER_TAG release asset,
-# computed locally from the downloaded v0.23.0 assets on 2026-10-09 and
+# SHA-256 digests for every rivulet-engine SERVER_TAG release asset,
+# computed locally from the downloaded v0.26.0 assets on 2026-10-17 and
 # cross-checked against that release's checksums.txt (they agree), then
 # committed here instead of being re-fetched at runtime. Pinning matters
 # because:
@@ -88,7 +88,7 @@ TAG_STAMP_READ_LIMIT = 64
 #    server is a deliberate, auditable decision, not an unattended fetch.
 #
 # The Android arm64/armv7 rows arrived with v0.12.1, x86_64/i386 with
-# v0.19.0 (all re-verified for v0.23.0), and are what make an
+# v0.19.0 (all re-verified for v0.26.0), and are what make an
 # on-device server viable at all: unlike the Linux rows (pure-Go, static)
 # they are cgo builds linked against bionic, verified from the published
 # artifacts as `ELF pie executable ... dynamically linked` with NEEDED
@@ -98,21 +98,21 @@ TAG_STAMP_READ_LIMIT = 64
 # lookup fails ("nothing resolved"), while a libc++_shared.so dependency
 # (what these builds NEEDed before `-static-libstdc++`) cannot be
 # satisfied by a binary with no APK to bundle it in. Since v0.16.1 the same
-# Android archives also carry libstremio-server.so (c-shared, same NEEDED
+# Android archives also carry librivulet-engine.so (c-shared, same NEEDED
 # set) for library mode; the archive digest covers it. Re-check both
 # whenever SERVER_TAG moves.
 PINNED_SHA256 = {
-    ("Android", "arm64"): "334ed124c62e9a60d083769ccd5d18c38f09fe2ec1b24c970b719805732b1ca9",
-    ("Android", "armv7"): "9a9da64218f2e1d812018dd8309da9392bf2a3193978247046578465e6d71c95",
-    ("Android", "i386"): "9c9aaa47e11af6ab7f736f8dfc1007a054d2d338dba96fc467d46b910a2918fd",
-    ("Android", "x86_64"): "26d8484cb126a45feb6f2dd80a4d41b136b2d46a29b4e00882c7417a13c4b399",
-    ("Darwin", "arm64"): "a79529931dcbecd221250ffac105bb85942436dbc56c25dd86eaacbb519704a9",
-    ("Darwin", "x86_64"): "19b3bc525986cd2b16fc38ce0dd39ebd2b03f04c14887f408a5a6cdaa424a61b",
-    ("Linux", "arm64"): "6dd0b125085d754d1ccf7b7c20ea79a4bf188418930a64dd4fdac03cb54aedd4",
-    ("Linux", "armv7"): "604de325d7086d00121cb481c94134f066ddf41e57f83d37e7d7eec0cd5ca73d",
-    ("Linux", "x86_64"): "35dc1177ae79cd1ccca8a02fe1dad3c11c1b08c974fe5852894e2e0920cb5797",
-    ("Windows", "arm64"): "ed017c4513c8202de357d34394144edf0bddb1a66f972f2c56970b97c7611a19",
-    ("Windows", "x86_64"): "514b16c7fae430aef5f091cf5e4a32b5fb45f3fceb0c4c1355f5a8f69d9a9b83",
+    ("Android", "arm64"): "eb0aea3c5dddc541e0641ceee4450f2a30beb87570ee2d01fb90d66f53afa8da",
+    ("Android", "armv7"): "929f250930e0a830e2e51f87dc960a8275c144ed5874a025f3f97cc622bcf2c2",
+    ("Android", "i386"): "27a2e991c8b107ab64c2eddc361f6a680f2710ff808f90cf0c5857858976c08a",
+    ("Android", "x86_64"): "0e13cfdfb5c47cb86a05f6246af698c7ad5ad5c0ff46b4ebfab98ec5db72fdb4",
+    ("Darwin", "arm64"): "b7a4f448628eb4b8d66cf755cab74ae0f60fc52ae3c7ec49ca3bf3d75ddcee59",
+    ("Darwin", "x86_64"): "bb562087bb6a060b4fdb1b8c3c7b414e695f8c4841667eac7f8b6f69d63e31b7",
+    ("Linux", "arm64"): "ee5cde1e52864bdecf4ed240e85f4c4fd5575db00667f6045d4756ec34acb935",
+    ("Linux", "armv7"): "da4384f151cc29b98b6f796129b9e28c431e175170c12ab9bfa6a9eaa39327bf",
+    ("Linux", "x86_64"): "8d9136ed70fc5beebe086e107c4c93e22b28b400a22cfffd9a7fd0dbf26c4e76",
+    ("Windows", "arm64"): "2f1c15ba9d56960ce04edc3f48d6a31d5787e5dbf24074d8a0c6b353e4a9e622",
+    ("Windows", "x86_64"): "37798695b49a0cd5c3e311774a38acf07035099e87a6754636d80234a47e193e",
 }
 
 
@@ -342,7 +342,7 @@ def install_dir(profile_dir, addon_id):
 
 
 def resolve_library(dest_dir):
-    """Return the path to the optional libstremio-server.so companion
+    """Return the path to the optional librivulet-engine.so companion
     install_binary() may have extracted into `dest_dir` (the exact same
     directory install_dir() picks -- see lib.libserver.LibraryServer and
     _extract_library_companion()), or None when it isn't there.
@@ -360,7 +360,7 @@ def resolve_library(dest_dir):
 def _asset_name(os_name, arch):
     """Return the goreleaser archive name for (os_name, arch)."""
     ext = "zip" if os_name == "Windows" else "tar.gz"
-    return "stremio-server_%s_%s.%s" % (os_name, arch, ext)
+    return "rivulet-engine_%s_%s.%s" % (os_name, arch, ext)
 
 
 def _asset_download_url(asset_name):
@@ -539,7 +539,7 @@ def _extract_binary(archive_path, asset_name, target_name, dest_path):
 
 
 def _extract_library_companion(archive_path, asset_name, dest_dir):
-    """Best-effort extraction of the optional libstremio-server.so
+    """Best-effort extraction of the optional librivulet-engine.so
     companion (see LIBRARY_NAME's docstring) from the archive already
     downloaded for the executable, straight into `dest_dir` -- the exact
     directory resolve_library() later looks in.
@@ -602,10 +602,10 @@ def verify_executable(path):
 
 
 def install_binary(dest_dir, progress_cb=None):
-    """Download+install the stremio-server-go binary matching this platform.
+    """Download+install the rivulet-engine binary matching this platform.
 
     Returns the final binary path (matching lib.service_runner.resolve_binary's
-    ``<addon_data_dir>/bin/stremio-server[.exe]`` bundled-binary lookup).
+    ``<addon_data_dir>/bin/rivulet-engine[.exe]`` bundled-binary lookup).
     `progress_cb(done_bytes, total_bytes)` is called for every chunk written
     during the archive download (total_bytes is None when the response
     doesn't advertise a Content-Length); it may raise (e.g. DownloadError
@@ -630,7 +630,7 @@ def install_binary(dest_dir, progress_cb=None):
     A successful install records SERVER_TAG via `_write_tag_stamp` so a
     later release bump can tell this binary is out of date.
 
-    The optional libstremio-server.so companion (see LIBRARY_NAME's and
+    The optional librivulet-engine.so companion (see LIBRARY_NAME's and
     _extract_library_companion()'s docstrings) is extracted right after
     the checksum passes, independent of whatever happens to the
     executable below -- including when verify_executable() goes on to

@@ -558,14 +558,14 @@ def test_server_download_success_notifies_with_path_and_closes_dialog(load_route
         calls.append(dest_dir)
         progress_cb(0, 0)      # total falsy -> percent forced to 0
         progress_cb(150, 100)  # over 100% -> clamped via min(percent, 100)
-        return os.path.join(dest_dir, 'stremio-server')
+        return os.path.join(dest_dir, 'rivulet-engine')
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
 
     ctx.router.run()
 
     assert os.path.basename(calls[0]) == 'bin'
-    expected_path = os.path.join(calls[0], 'stremio-server')
+    expected_path = os.path.join(calls[0], 'rivulet-engine')
     assert progress.created == [('STR30061', '')]
     assert progress.updated == [(0, 'STR30061'), (100, 'STR30061')]
     assert progress.closed == 1
@@ -634,7 +634,7 @@ def test_server_download_download_error_notifies_and_logs_error(load_router, mon
 
     def fake_install_binary(dest_dir, progress_cb=None):
         progress_cb(10, 100)
-        raise serverbin.DownloadError('checksum mismatch for stremio-server_Linux_x86_64.tar.gz')
+        raise serverbin.DownloadError('checksum mismatch for rivulet-engine_Linux_x86_64.tar.gz')
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
     xbmc_mod = sys.modules['xbmc']
@@ -665,7 +665,7 @@ def test_server_download_user_cancel_mid_download_notifies_download_error(load_r
 
     def fake_install_binary(dest_dir, progress_cb=None):
         progress_cb(10, 100)  # real progress_cb sees iscanceled()=True and raises
-        return os.path.join(dest_dir, 'stremio-server')  # never reached
+        return os.path.join(dest_dir, 'rivulet-engine')  # never reached
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
 

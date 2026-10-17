@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """Tests for lib.serverenv: the loopback-by-default listen address for the
-embedded stremio-server-go (which, unset, listens unauthenticated on every
+embedded rivulet-engine (which, unset, listens unauthenticated on every
 interface)."""
 import pytest
 

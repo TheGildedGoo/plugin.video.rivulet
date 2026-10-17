@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""Tests for lib.serverbin (stremio-server-go binary download/install).
+"""Tests for lib.serverbin (rivulet-engine binary download/install).
 
 Asset names/URLs are derived deterministically from GITHUB_REPO/SERVER_TAG;
 expected SHA-256 digests come from the PINNED_SHA256 table committed in
@@ -178,44 +178,44 @@ def test_platform_key_macos_arm64_is_not_mistaken_for_apple_mobile(monkeypatch):
 
 # --- PINNED_SHA256 / select_asset -------------------------------------------
 
-# Exact digests reviewed against the v0.23.0 GitHub release: computed
+# Exact digests reviewed against the v0.26.0 GitHub release: computed
 # locally from the downloaded assets and cross-checked against that
 # release's checksums.txt. Any drift here (wrong tag, tampered digest,
 # added/removed platform) must be a deliberate, reviewed edit to
 # lib/serverbin.py.
 EXPECTED_PINNED_SHA256 = {
-    ("Android", "arm64"): "334ed124c62e9a60d083769ccd5d18c38f09fe2ec1b24c970b719805732b1ca9",
-    ("Android", "armv7"): "9a9da64218f2e1d812018dd8309da9392bf2a3193978247046578465e6d71c95",
-    ("Android", "i386"): "9c9aaa47e11af6ab7f736f8dfc1007a054d2d338dba96fc467d46b910a2918fd",
-    ("Android", "x86_64"): "26d8484cb126a45feb6f2dd80a4d41b136b2d46a29b4e00882c7417a13c4b399",
-    ("Darwin", "arm64"): "a79529931dcbecd221250ffac105bb85942436dbc56c25dd86eaacbb519704a9",
-    ("Darwin", "x86_64"): "19b3bc525986cd2b16fc38ce0dd39ebd2b03f04c14887f408a5a6cdaa424a61b",
-    ("Linux", "arm64"): "6dd0b125085d754d1ccf7b7c20ea79a4bf188418930a64dd4fdac03cb54aedd4",
-    ("Linux", "armv7"): "604de325d7086d00121cb481c94134f066ddf41e57f83d37e7d7eec0cd5ca73d",
-    ("Linux", "x86_64"): "35dc1177ae79cd1ccca8a02fe1dad3c11c1b08c974fe5852894e2e0920cb5797",
-    ("Windows", "arm64"): "ed017c4513c8202de357d34394144edf0bddb1a66f972f2c56970b97c7611a19",
-    ("Windows", "x86_64"): "514b16c7fae430aef5f091cf5e4a32b5fb45f3fceb0c4c1355f5a8f69d9a9b83",
+    ("Android", "arm64"): "eb0aea3c5dddc541e0641ceee4450f2a30beb87570ee2d01fb90d66f53afa8da",
+    ("Android", "armv7"): "929f250930e0a830e2e51f87dc960a8275c144ed5874a025f3f97cc622bcf2c2",
+    ("Android", "i386"): "27a2e991c8b107ab64c2eddc361f6a680f2710ff808f90cf0c5857858976c08a",
+    ("Android", "x86_64"): "0e13cfdfb5c47cb86a05f6246af698c7ad5ad5c0ff46b4ebfab98ec5db72fdb4",
+    ("Darwin", "arm64"): "b7a4f448628eb4b8d66cf755cab74ae0f60fc52ae3c7ec49ca3bf3d75ddcee59",
+    ("Darwin", "x86_64"): "bb562087bb6a060b4fdb1b8c3c7b414e695f8c4841667eac7f8b6f69d63e31b7",
+    ("Linux", "arm64"): "ee5cde1e52864bdecf4ed240e85f4c4fd5575db00667f6045d4756ec34acb935",
+    ("Linux", "armv7"): "da4384f151cc29b98b6f796129b9e28c431e175170c12ab9bfa6a9eaa39327bf",
+    ("Linux", "x86_64"): "8d9136ed70fc5beebe086e107c4c93e22b28b400a22cfffd9a7fd0dbf26c4e76",
+    ("Windows", "arm64"): "2f1c15ba9d56960ce04edc3f48d6a31d5787e5dbf24074d8a0c6b353e4a9e622",
+    ("Windows", "x86_64"): "37798695b49a0cd5c3e311774a38acf07035099e87a6754636d80234a47e193e",
 }
 
 
-def test_server_tag_is_pinned_to_v0_20_1():
-    assert SERVER_TAG == "v0.23.0"
+def test_server_tag_is_pinned_to_v0_26_0():
+    assert SERVER_TAG == "v0.26.0"
 
 
-def test_pinned_sha256_table_matches_reviewed_v0_20_1_digests_exactly():
+def test_pinned_sha256_table_matches_reviewed_v0_26_0_digests_exactly():
     assert PINNED_SHA256 == EXPECTED_PINNED_SHA256
 
 
 @pytest.mark.parametrize("os_name,arch,expected_name", [
-    ("Linux", "x86_64", "stremio-server_Linux_x86_64.tar.gz"),
-    ("Linux", "arm64", "stremio-server_Linux_arm64.tar.gz"),
-    ("Linux", "armv7", "stremio-server_Linux_armv7.tar.gz"),
-    ("Darwin", "x86_64", "stremio-server_Darwin_x86_64.tar.gz"),
-    ("Darwin", "arm64", "stremio-server_Darwin_arm64.tar.gz"),
-    ("Windows", "x86_64", "stremio-server_Windows_x86_64.zip"),
-    ("Windows", "arm64", "stremio-server_Windows_arm64.zip"),
-    ("Android", "armv7", "stremio-server_Android_armv7.tar.gz"),
-    ("Android", "arm64", "stremio-server_Android_arm64.tar.gz"),
+    ("Linux", "x86_64", "rivulet-engine_Linux_x86_64.tar.gz"),
+    ("Linux", "arm64", "rivulet-engine_Linux_arm64.tar.gz"),
+    ("Linux", "armv7", "rivulet-engine_Linux_armv7.tar.gz"),
+    ("Darwin", "x86_64", "rivulet-engine_Darwin_x86_64.tar.gz"),
+    ("Darwin", "arm64", "rivulet-engine_Darwin_arm64.tar.gz"),
+    ("Windows", "x86_64", "rivulet-engine_Windows_x86_64.zip"),
+    ("Windows", "arm64", "rivulet-engine_Windows_arm64.zip"),
+    ("Android", "armv7", "rivulet-engine_Android_armv7.tar.gz"),
+    ("Android", "arm64", "rivulet-engine_Android_arm64.tar.gz"),
 ])
 def test_select_asset_returns_deterministic_name_url_and_pinned_digest(
         os_name, arch, expected_name):
@@ -223,7 +223,7 @@ def test_select_asset_returns_deterministic_name_url_and_pinned_digest(
     assert asset is not None
     assert asset["name"] == expected_name
     assert asset["url"] == (
-        "https://github.com/%s/releases/download/v0.23.0/%s" % (GITHUB_REPO, expected_name))
+        "https://github.com/%s/releases/download/v0.26.0/%s" % (GITHUB_REPO, expected_name))
     assert asset["sha256"] == EXPECTED_PINNED_SHA256[(os_name, arch)]
 
 
@@ -257,7 +257,7 @@ def test_select_asset_prefers_the_pinned_android_row_over_the_linux_fallback():
     Android."""
     for arch in ("armv7", "arm64", "x86_64", "i386"):
         asset = select_asset("Android", arch)
-        assert asset["name"] == "stremio-server_Android_%s.tar.gz" % arch
+        assert asset["name"] == "rivulet-engine_Android_%s.tar.gz" % arch
         assert asset["sha256"] == EXPECTED_PINNED_SHA256[("Android", arch)]
         if ("Linux", arch) in PINNED_SHA256:
             assert asset != select_asset("Linux", arch)
@@ -301,8 +301,8 @@ def test_install_binary_downloads_verifies_pinned_checksum_and_installs(
         tmp_path, monkeypatch, fake_requests):
     _set_platform(monkeypatch, "Linux", "x86_64")
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
-    binary_content = b"#!/bin/sh\necho fake-stremio-server\n"
-    archive_bytes = _make_tar_gz({"stremio-server": binary_content})
+    binary_content = b"#!/bin/sh\necho fake-rivulet-engine\n"
+    archive_bytes = _make_tar_gz({"rivulet-engine": binary_content})
     correct_checksum = hashlib.sha256(archive_bytes).hexdigest()
     monkeypatch.setitem(PINNED_SHA256, ("Linux", "x86_64"), correct_checksum)
 
@@ -313,7 +313,7 @@ def test_install_binary_downloads_verifies_pinned_checksum_and_installs(
     result_path = install_binary(
         str(tmp_path), progress_cb=lambda done, total: progress_calls.append((done, total)))
 
-    assert result_path == str(tmp_path / "stremio-server")
+    assert result_path == str(tmp_path / "rivulet-engine")
     assert os.path.isfile(result_path)
     with open(result_path, "rb") as fh:
         assert fh.read() == binary_content
@@ -322,7 +322,7 @@ def test_install_binary_downloads_verifies_pinned_checksum_and_installs(
     assert progress_calls[-1][1] == len(archive_bytes)
     assert len(fake_requests.calls) == 1
     assert fake_requests.calls[0]["url"] == (
-        "https://github.com/%s/releases/download/v0.23.0/stremio-server_Linux_x86_64.tar.gz"
+        "https://github.com/%s/releases/download/v0.26.0/rivulet-engine_Linux_x86_64.tar.gz"
         % GITHUB_REPO)
     assert not (tmp_path / ".stremio-server.part").exists()
     assert not os.path.exists(result_path + ".part")
@@ -333,7 +333,7 @@ def test_install_binary_finds_binary_nested_in_a_safe_subdirectory(
     _set_platform(monkeypatch, "Linux", "x86_64")
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
     binary_content = b"nested-binary"
-    archive_bytes = _make_tar_gz({"dist/stremio-server": binary_content})
+    archive_bytes = _make_tar_gz({"dist/rivulet-engine": binary_content})
     correct_checksum = hashlib.sha256(archive_bytes).hexdigest()
     monkeypatch.setitem(PINNED_SHA256, ("Linux", "x86_64"), correct_checksum)
 
@@ -351,7 +351,7 @@ def test_install_binary_checksum_mismatch_raises_download_error_and_cleans_up(
     """The archive is downloaded, but its digest doesn't match the pinned
     value -- refuse to install and leave no partial files behind."""
     _set_platform(monkeypatch, "Linux", "x86_64")
-    archive_bytes = _make_tar_gz({"stremio-server": b"binary-content"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"binary-content"})
     monkeypatch.setitem(PINNED_SHA256, ("Linux", "x86_64"), "0" * 64)
 
     fake_requests.queue_get(_StreamResponse(archive_bytes))
@@ -360,12 +360,12 @@ def test_install_binary_checksum_mismatch_raises_download_error_and_cleans_up(
         install_binary(str(tmp_path))
 
     assert not (tmp_path / ".stremio-server.part").exists()
-    assert not (tmp_path / "stremio-server").exists()
+    assert not (tmp_path / "rivulet-engine").exists()
 
 
 def test_install_binary_rejects_path_traversal_member_names(tmp_path, monkeypatch, fake_requests):
     _set_platform(monkeypatch, "Linux", "x86_64")
-    archive_bytes = _make_tar_gz({"../stremio-server": b"malicious-payload"})
+    archive_bytes = _make_tar_gz({"../rivulet-engine": b"malicious-payload"})
     correct_checksum = hashlib.sha256(archive_bytes).hexdigest()
     monkeypatch.setitem(PINNED_SHA256, ("Linux", "x86_64"), correct_checksum)
 
@@ -374,7 +374,7 @@ def test_install_binary_rejects_path_traversal_member_names(tmp_path, monkeypatc
     with pytest.raises(DownloadError, match="missing"):
         install_binary(str(tmp_path))
 
-    assert not (tmp_path / "stremio-server").exists()
+    assert not (tmp_path / "rivulet-engine").exists()
     assert not (tmp_path / ".stremio-server.part").exists()
 
 
@@ -421,15 +421,15 @@ def test_install_binary_still_installs_on_macos_arm64(tmp_path, monkeypatch, fak
     desktop macOS, whose Darwin/arm64 asset is pinned and supported."""
     _set_platform(monkeypatch, "Darwin", "arm64", sys_platform="darwin")
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
-    archive_bytes = _make_tar_gz({"stremio-server": b"macos-binary"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"macos-binary"})
     monkeypatch.setitem(
         PINNED_SHA256, ("Darwin", "arm64"), hashlib.sha256(archive_bytes).hexdigest())
     fake_requests.queue_get(_StreamResponse(archive_bytes))
 
     result_path = install_binary(str(tmp_path))
 
-    assert result_path == str(tmp_path / "stremio-server")
-    assert fake_requests.calls[0]["url"].endswith("stremio-server_Darwin_arm64.tar.gz")
+    assert result_path == str(tmp_path / "rivulet-engine")
+    assert fake_requests.calls[0]["url"].endswith("rivulet-engine_Darwin_arm64.tar.gz")
 
 
 def test_no_asset_error_is_a_download_error_subclass():
@@ -439,7 +439,7 @@ def test_no_asset_error_is_a_download_error_subclass():
 def test_install_binary_progress_cb_exception_aborts_and_cleans_up_partial_file(
         tmp_path, monkeypatch, fake_requests):
     _set_platform(monkeypatch, "Linux", "x86_64")
-    archive_bytes = _make_tar_gz({"stremio-server": b"some-bytes"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"some-bytes"})
     correct_checksum = hashlib.sha256(archive_bytes).hexdigest()
     monkeypatch.setitem(PINNED_SHA256, ("Linux", "x86_64"), correct_checksum)
 
@@ -536,20 +536,20 @@ def test_install_binary_on_android_downloads_and_installs_instead_of_refusing(
     mechanisms that can still make that attempt fail on some devices."""
     _set_platform(monkeypatch, "Linux", "arm64", android_root="/system")
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
-    archive_bytes = _make_tar_gz({"stremio-server": b"binary"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"binary"})
     monkeypatch.setitem(
         PINNED_SHA256, ("Android", "arm64"), hashlib.sha256(archive_bytes).hexdigest())
     fake_requests.queue_get(_StreamResponse(archive_bytes))
 
     result_path = install_binary(str(tmp_path))
 
-    assert result_path == str(tmp_path / "stremio-server")
+    assert result_path == str(tmp_path / "rivulet-engine")
     assert os.path.isfile(result_path)
     assert len(fake_requests.calls) == 1
     # The archive downloaded is the pinned Android (cgo/bionic) asset, not
     # the pure-Go Linux row select_asset() only falls back to for an arch
     # upstream builds no Android binary for.
-    assert fake_requests.calls[0]["url"].endswith("stremio-server_Android_arm64.tar.gz")
+    assert fake_requests.calls[0]["url"].endswith("rivulet-engine_Android_arm64.tar.gz")
 
 
 def test_install_binary_on_android_raises_unsupported_platform_error_when_exec_fails(
@@ -565,7 +565,7 @@ def test_install_binary_on_android_raises_unsupported_platform_error_when_exec_f
         raise OSError(13, "Permission denied")
 
     monkeypatch.setattr(subprocess, "run", _raise)
-    archive_bytes = _make_tar_gz({"stremio-server": b"binary"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"binary"})
     monkeypatch.setitem(
         PINNED_SHA256, ("Android", "arm64"), hashlib.sha256(archive_bytes).hexdigest())
     fake_requests.queue_get(_StreamResponse(archive_bytes))
@@ -574,7 +574,7 @@ def test_install_binary_on_android_raises_unsupported_platform_error_when_exec_f
         install_binary(str(tmp_path))
 
     assert len(fake_requests.calls) == 1
-    final_path = tmp_path / "stremio-server"
+    final_path = tmp_path / "rivulet-engine"
     assert final_path.exists()
     assert stat.S_IMODE(os.stat(str(final_path)).st_mode) == 0o755
     assert serverbin.installed_tag(str(tmp_path)) is None
@@ -590,7 +590,7 @@ def test_verify_executable_raises_unsupported_platform_error_on_os_error(monkeyp
     monkeypatch.setattr(subprocess, "run", _raise)
 
     with pytest.raises(UnsupportedPlatformError):
-        verify_executable("/fake/path/stremio-server")
+        verify_executable("/fake/path/rivulet-engine")
 
 
 def test_verify_executable_tolerates_nonzero_exit_status(monkeypatch):
@@ -599,16 +599,16 @@ def test_verify_executable_tolerates_nonzero_exit_status(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _Completed())
 
-    verify_executable("/fake/path/stremio-server")  # must not raise
+    verify_executable("/fake/path/rivulet-engine")  # must not raise
 
 
 def test_verify_executable_tolerates_timeout(monkeypatch):
     def _timeout(*args, **kwargs):
-        raise subprocess.TimeoutExpired(cmd="stremio-server", timeout=15)
+        raise subprocess.TimeoutExpired(cmd="rivulet-engine", timeout=15)
 
     monkeypatch.setattr(subprocess, "run", _timeout)
 
-    verify_executable("/fake/path/stremio-server")  # must not raise
+    verify_executable("/fake/path/rivulet-engine")  # must not raise
 
 
 class _FakeStartupInfo:
@@ -640,7 +640,7 @@ def test_verify_executable_forwards_no_window_kwargs_on_windows_only(monkeypatch
     # Pin the POSIX branch rather than inheriting the host's os.name, so this
     # half keeps testing POSIX behaviour when the suite runs ON Windows.
     monkeypatch.setattr(serverbin.procflags.os, "name", "posix")
-    verify_executable("/fake/path/stremio-server")
+    verify_executable("/fake/path/rivulet-engine")
     posix_args, posix_kwargs = calls[0]
     assert "creationflags" not in posix_kwargs
     assert "startupinfo" not in posix_kwargs
@@ -649,10 +649,10 @@ def test_verify_executable_forwards_no_window_kwargs_on_windows_only(monkeypatch
     monkeypatch.setattr(
         serverbin.procflags.subprocess, "STARTUPINFO", _FakeStartupInfo, raising=False)
 
-    verify_executable("/fake/path/stremio-server")
+    verify_executable("/fake/path/rivulet-engine")
     win_args, win_kwargs = calls[1]
 
-    assert win_args == posix_args == (["/fake/path/stremio-server", "version"],)
+    assert win_args == posix_args == (["/fake/path/rivulet-engine", "version"],)
     assert win_kwargs["stdout"] == posix_kwargs["stdout"] == subprocess.DEVNULL
     assert win_kwargs["stderr"] == posix_kwargs["stderr"] == subprocess.DEVNULL
     assert win_kwargs["check"] == posix_kwargs["check"] is False
@@ -668,7 +668,7 @@ def _install_ok(tmp_path, monkeypatch, fake_requests):
     """Drive one successful install_binary() into `tmp_path`."""
     _set_platform(monkeypatch, "Linux", "x86_64")
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
-    archive_bytes = _make_tar_gz({"stremio-server": b"binary"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"binary"})
     monkeypatch.setitem(
         PINNED_SHA256, ("Linux", "x86_64"), hashlib.sha256(archive_bytes).hexdigest())
     fake_requests.queue_get(_StreamResponse(archive_bytes))
@@ -721,14 +721,14 @@ def test_install_binary_keeps_a_working_binary_when_the_new_one_fails_verificati
     so a replacement that cannot be exec'd must not clobber it -- the
     caller's "keep the installed one" fallback would otherwise hand back a
     path pointing at the broken new file."""
-    existing = tmp_path / "stremio-server"
+    existing = tmp_path / "rivulet-engine"
     existing.write_bytes(b"the-binary-that-works")
     (tmp_path / serverbin.TAG_STAMP_NAME).write_text("v0.9.0")
 
     _set_platform(monkeypatch, "Linux", "x86_64")
     monkeypatch.setattr(
         subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(OSError("ENOEXEC")))
-    archive_bytes = _make_tar_gz({"stremio-server": b"the-broken-new-binary"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"the-broken-new-binary"})
     monkeypatch.setitem(
         PINNED_SHA256, ("Linux", "x86_64"), hashlib.sha256(archive_bytes).hexdigest())
     fake_requests.queue_get(_StreamResponse(archive_bytes))
@@ -737,7 +737,7 @@ def test_install_binary_keeps_a_working_binary_when_the_new_one_fails_verificati
         install_binary(str(tmp_path))
 
     assert existing.read_bytes() == b"the-binary-that-works"
-    assert not (tmp_path / "stremio-server.part").exists()
+    assert not (tmp_path / "rivulet-engine.part").exists()
     # The stamp still describes what is actually installed.
     assert serverbin.installed_tag(str(tmp_path)) == "v0.9.0"
 
@@ -752,7 +752,7 @@ def test_install_binary_promotes_an_unverifiable_binary_when_nothing_was_install
     _set_platform(monkeypatch, "Linux", "x86_64")
     monkeypatch.setattr(
         subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(OSError("EACCES")))
-    archive_bytes = _make_tar_gz({"stremio-server": b"unverifiable"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"unverifiable"})
     monkeypatch.setitem(
         PINNED_SHA256, ("Linux", "x86_64"), hashlib.sha256(archive_bytes).hexdigest())
     fake_requests.queue_get(_StreamResponse(archive_bytes))
@@ -760,7 +760,7 @@ def test_install_binary_promotes_an_unverifiable_binary_when_nothing_was_install
     with pytest.raises(UnsupportedPlatformError):
         install_binary(str(tmp_path))
 
-    assert (tmp_path / "stremio-server").read_bytes() == b"unverifiable"
+    assert (tmp_path / "rivulet-engine").read_bytes() == b"unverifiable"
     assert serverbin.installed_tag(str(tmp_path)) is None
 
 
@@ -782,7 +782,7 @@ def test_install_binary_does_not_stamp_a_refused_download(tmp_path, monkeypatch,
     claiming SERVER_TAG is installed."""
     _set_platform(monkeypatch, "Linux", "x86_64")
     monkeypatch.setitem(PINNED_SHA256, ("Linux", "x86_64"), "0" * 64)
-    fake_requests.queue_get(_StreamResponse(_make_tar_gz({"stremio-server": b"binary"})))
+    fake_requests.queue_get(_StreamResponse(_make_tar_gz({"rivulet-engine": b"binary"})))
 
     with pytest.raises(DownloadError):
         install_binary(str(tmp_path))
@@ -859,7 +859,7 @@ def test_install_dir_falls_back_to_plain_bin_when_no_android_candidate_usable(mo
     assert serverbin.install_dir(profile_dir, "plugin.video.rivulet") == os.path.join(profile_dir, "bin")
 
 
-# --- libstremio-server.so companion (c-shared library mode) ----------------
+# --- librivulet-engine.so companion (c-shared library mode) ----------------
 
 
 def test_resolve_library_returns_none_when_absent(tmp_path):
@@ -874,14 +874,14 @@ def test_resolve_library_returns_path_when_present(tmp_path):
 
 def test_install_binary_extracts_companion_library_when_present_in_archive(
         tmp_path, monkeypatch, fake_requests):
-    """The Android archives ship libstremio-server.so alongside the
+    """The Android archives ship librivulet-engine.so alongside the
     executable (see LIBRARY_NAME's docstring) -- install_binary() must
     extract it too, so lib.libserver.LibraryServer has something to load
     without a separate download."""
     _set_platform(monkeypatch, "Linux", "arm64", android_root="/system")
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
     lib_content = b"fake-elf-shared-object"
-    archive_bytes = _make_tar_gz({"stremio-server": b"binary", "libstremio-server.so": lib_content})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"binary", "librivulet-engine.so": lib_content})
     monkeypatch.setitem(
         PINNED_SHA256, ("Android", "arm64"), hashlib.sha256(archive_bytes).hexdigest())
     fake_requests.queue_get(_StreamResponse(archive_bytes))
@@ -897,11 +897,11 @@ def test_install_binary_extracts_companion_library_when_present_in_archive(
 
 def test_install_binary_tolerates_a_missing_companion_library(tmp_path, monkeypatch, fake_requests):
     """Every non-Android archive (and pre-library-mode Android ones) simply
-    lacks libstremio-server.so -- must not be treated as a broken
+    lacks librivulet-engine.so -- must not be treated as a broken
     install."""
     _set_platform(monkeypatch, "Linux", "x86_64")
     monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
-    archive_bytes = _make_tar_gz({"stremio-server": b"binary"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"binary"})
     monkeypatch.setitem(PINNED_SHA256, ("Linux", "x86_64"), hashlib.sha256(archive_bytes).hexdigest())
     fake_requests.queue_get(_StreamResponse(archive_bytes))
 
@@ -926,7 +926,7 @@ def test_install_binary_extracts_companion_library_even_when_exec_verification_f
 
     monkeypatch.setattr(subprocess, "run", _raise)
     lib_content = b"fake-elf-shared-object"
-    archive_bytes = _make_tar_gz({"stremio-server": b"binary", "libstremio-server.so": lib_content})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"binary", "librivulet-engine.so": lib_content})
     monkeypatch.setitem(
         PINNED_SHA256, ("Android", "arm64"), hashlib.sha256(archive_bytes).hexdigest())
     fake_requests.queue_get(_StreamResponse(archive_bytes))
@@ -946,7 +946,7 @@ def test_install_binary_checksum_mismatch_also_skips_the_companion_library(
     library companion included -- _extract_library_companion() is only
     ever reached after the checksum check passes."""
     _set_platform(monkeypatch, "Linux", "arm64", android_root="/system")
-    archive_bytes = _make_tar_gz({"stremio-server": b"binary", "libstremio-server.so": b"lib"})
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"binary", "librivulet-engine.so": b"lib"})
     monkeypatch.setitem(PINNED_SHA256, ("Android", "arm64"), "0" * 64)
     fake_requests.queue_get(_StreamResponse(archive_bytes))
 

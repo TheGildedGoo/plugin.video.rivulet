@@ -93,7 +93,7 @@ def run():
 
 
 def _download_server_binary():
-    """Action 'server_download': fetch+install the stremio-server-go binary
+    """Action 'server_download': fetch+install the rivulet-engine binary
     into the location lib.service_runner.resolve_binary() already searches
     (serverbin.install_dir()'s pick -- the Android app-private bin dir when
     applicable, else the plain addon_data bin dir).

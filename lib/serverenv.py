@@ -6,7 +6,7 @@
 
 Pure (no `xbmc*`, no network): importable and testable with plain python3.
 
-Why this module exists: stremio-server-go has no authentication - it is a
+Why this module exists: rivulet-engine has no authentication - it is a
 localhost-trust service - and when `BIND_ADDRESS` is unset it listens on
 EVERY interface (`internal/app/app.go`: "no BIND_ADDRESS set; the
 unauthenticated API is reachable from every network interface", for both the
@@ -19,7 +19,7 @@ configured `server_url` says that is where clients will connect, and steps
 aside in every case where LAN reachability is deliberate.
 """
 
-#: Env var stremio-server-go reads for the listen address (main.go/app.go).
+#: Env var rivulet-engine reads for the listen address (main.go/app.go).
 BIND_ADDRESS_ENV = "BIND_ADDRESS"
 
 #: `server_url` hostnames that mean "this machine" without being an IP

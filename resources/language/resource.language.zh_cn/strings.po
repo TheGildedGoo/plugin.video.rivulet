@@ -177,12 +177,12 @@ msgid "Preferred subtitle language"
 msgstr "首选字幕语言"
 
 msgctxt "#30060"
-msgid "Download stremio-server binary"
-msgstr "下载 stremio-server 可执行文件"
+msgid "Download rivulet-engine binary"
+msgstr "下载 rivulet-engine 可执行文件"
 
 msgctxt "#30061"
-msgid "Downloading stremio-server"
-msgstr "正在下载 stremio-server"
+msgid "Downloading rivulet-engine"
+msgstr "正在下载 rivulet-engine"
 
 msgctxt "#30062"
 msgid "Server binary installed (%s)"
