@@ -11,6 +11,7 @@ lib.ui.router.
 """
 import base64
 import json
+import re
 import zlib
 from urllib.parse import urlencode
 
@@ -102,3 +103,44 @@ def decode_stream(token):
         return json.loads(payload.decode('utf-8'))
     except (ValueError, TypeError, zlib.error):
         return {}
+
+
+#: TMDB serves every size of an image from one path: ``/t/p/<size>/<file>``.
+#: Catalogs built on TMDB often hand out ``original``, a multi-megabyte
+#: file, for art the skin draws a fraction of that size. Kodi downloads
+#: the whole file before it can scale it down.
+_TMDB_IMAGE = re.compile(r'^(https?://image\.tmdb\.org/t/p/)([A-Za-z0-9_]+)(/.+)$', re.IGNORECASE)
+
+#: Widest size each use needs. A row poster is 200px wide (w342 covers
+#: the 340px detail poster too); a backdrop is the 1920px hero, which the
+#: fade and the bar cover below y=420 (w1280); a poster that fills the
+#: hero for want of a backdrop is scaled to the screen (w780).
+_TMDB_WIDTH = {'poster': 342, 'backdrop': 1280, 'fill': 780}
+
+
+def sized_image(url, kind):
+    """`url` at the TMDB size `kind` needs, or `url` unchanged.
+
+    Only ``image.tmdb.org`` paths are rewritten, and only downward: an
+    ``original`` or a ``w`` size wider than the use is replaced, a
+    smaller one is kept (asking for a larger file would not sharpen it).
+    `kind` is ``poster``, ``backdrop`` or ``fill``. Anything that is not
+    a string comes back as ``''``.
+    """
+    if not isinstance(url, str):
+        return ''
+    width = _TMDB_WIDTH.get(kind)
+    match = _TMDB_IMAGE.match(url) if width else None
+    if match is None:
+        return url
+    size = match.group(2).lower()
+    if size == 'original':
+        wanted = True
+    elif size.startswith('w') and size[1:].isdigit():
+        wanted = int(size[1:]) > width
+    else:
+        # h632 and friends are height-bound sizes; leave them alone.
+        wanted = False
+    if not wanted:
+        return url
+    return '%sw%d%s' % (match.group(1), width, match.group(3))

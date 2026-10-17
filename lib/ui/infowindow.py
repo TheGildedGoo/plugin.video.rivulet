@@ -196,9 +196,19 @@ def _item_properties(meta):
     art = resolve_art(None, meta)
     rating = meta.get('imdbRating')
     runtime = meta.get('runtime')
+    from lib.ui.urlutil import sized_image
+
+    fanart = art.get('fanart') or ''
+    if fanart and fanart == meta.get('background'):
+        fanart = sized_image(fanart, 'backdrop')
+    elif not fanart:
+        # A logo stands in for a missing backdrop as it is; a poster
+        # standing in is scaled to the screen, so it gets the larger size.
+        fanart = sized_image(poster or '', 'fill')
     props = {
-        'thumbnail': art.get('thumb') or logo or '',
-        'fanart': art.get('fanart') or poster or '',
+        # TMDB `original` art is megabytes for a 200px card (#18).
+        'thumbnail': sized_image(art.get('thumb') or logo or '', 'poster'),
+        'fanart': fanart,
         'genre': escape_label(', '.join(meta.get('genres') or [])),
         'rating': str(rating) if rating not in (None, '') else '',
         'plot': escape_label(meta.get('description') or ''),

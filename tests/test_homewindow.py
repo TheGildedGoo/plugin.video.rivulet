@@ -1958,3 +1958,23 @@ def test_a_sign_in_rebuilds_the_rows_for_the_new_account(load_homewindow, monkey
     ctx.homewindow._open_signin(win)
 
     assert len(builds) == 1 and builds[0] is not None
+
+
+def test_tmdb_original_art_is_asked_for_at_the_drawn_size(load_homewindow):
+    """#18: a 200px card and the 1920px hero do not need TMDB `original`."""
+    ctx = load_homewindow()
+    item = ctx.homewindow._poster_item({
+        'id': 'tt1', 'type': 'movie', 'name': 'Dune',
+        'poster': 'https://image.tmdb.org/t/p/original/p.jpg',
+        'background': 'https://image.tmdb.org/t/p/original/b.jpg',
+    })
+    assert item.getProperty('thumbnail') == 'https://image.tmdb.org/t/p/w342/p.jpg'
+    assert item.getProperty('fanart') == 'https://image.tmdb.org/t/p/w1280/b.jpg'
+    # No backdrop: the poster stands in for the hero and is scaled to the
+    # screen, so it is fetched larger than the card.
+    bare = ctx.homewindow._poster_item({
+        'id': 'tt2', 'type': 'movie', 'name': 'Arrival',
+        'poster': 'https://image.tmdb.org/t/p/original/a.jpg',
+    })
+    assert bare.getProperty('thumbnail') == 'https://image.tmdb.org/t/p/w342/a.jpg'
+    assert bare.getProperty('fanart') == 'https://image.tmdb.org/t/p/w780/a.jpg'

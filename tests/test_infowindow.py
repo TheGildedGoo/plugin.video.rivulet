@@ -1897,3 +1897,20 @@ def test_start_with_more_pages_spawns_the_paging_worker(load_infowindow, monkeyp
     win.start([_make_meta('tt1', 'One')], more_pages=pages)
 
     assert spawned == [pages]
+
+
+def test_coverflow_asks_tmdb_for_the_drawn_size():
+    """#18: the coverflow's cards and hero do not download TMDB `original`."""
+    with install_kodi_stubs(reload=('lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.infowindow')) as ctx:
+        props = ctx.infowindow._item_properties({
+            'id': 'tt1', 'type': 'movie', 'name': 'Dune',
+            'poster': 'https://image.tmdb.org/t/p/original/p.jpg',
+            'background': 'https://image.tmdb.org/t/p/original/b.jpg',
+        })
+        assert props['thumbnail'] == 'https://image.tmdb.org/t/p/w342/p.jpg'
+        assert props['fanart'] == 'https://image.tmdb.org/t/p/w1280/b.jpg'
+        poster_only = ctx.infowindow._item_properties({
+            'id': 'tt2', 'type': 'movie', 'name': 'Arrival',
+            'poster': 'https://image.tmdb.org/t/p/original/a.jpg',
+        })
+        assert poster_only['fanart'] == 'https://image.tmdb.org/t/p/w780/a.jpg'

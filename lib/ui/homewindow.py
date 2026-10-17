@@ -246,14 +246,16 @@ def _poster_item(meta, action='', sparse=False):
     """
     from lib.stremio.ratings import panel_facts
     from lib.ui.uicommon import escape_label
+    from lib.ui.urlutil import sized_image
 
     name = meta.get('name') or ''
     background = meta.get('background') or ''
     poster = meta.get('poster') or ''
     item = xbmcgui.ListItem(escape_label(name))
     item.setProperties({
-        'thumbnail': poster,
-        'fanart': background or poster,
+        # TMDB `original` art is megabytes for a 200px card (#18).
+        'thumbnail': sized_image(poster, 'poster'),
+        'fanart': sized_image(background, 'backdrop') if background else sized_image(poster, 'fill'),
         'hero_logo': meta.get('logo') or '',
         'hero_title': escape_label(name),
         'hero_meta': escape_label(_hero_meta_text(meta)),
@@ -1183,8 +1185,10 @@ def _write_meta_onto(item, meta):
     background = merged.get('background') or ''
     poster = merged.get('poster') or item.getProperty('thumbnail') or ''
     if not background and poster:
+        from lib.ui.urlutil import sized_image
+
         fresh.setProperty('hero_fill', '1')
-        fresh.setProperty('fanart', poster)
+        fresh.setProperty('fanart', sized_image(poster, 'fill'))
     fresh.setProperty('needs_meta', '')
     for key in _HERO_PROPS:
         item.setProperty(key, fresh.getProperty(key))
