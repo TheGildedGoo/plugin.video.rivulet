@@ -1273,3 +1273,11 @@ msgstr "검색할 내용을 입력하세요."
 msgctxt "#30487"
 msgid "That search is too long."
 msgstr "검색어가 너무 깁니다."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "로그인됨"
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr "로그인한 계정"

@@ -926,14 +926,17 @@ def _focus_first(window):
 
 def _status_text(auth):
     """Home's top status line. Both states are prefixed with a
-    `[COLOR]`-tinted dot (font12 is NotoSans and covers U+25CF)."""
+    `[COLOR]`-tinted dot (font12 is NotoSans and covers U+25CF).
+
+    Signed in reads "Signed in", not the account's address: Home is on a
+    shared TV, often with guests on the sofa (#19). The address stays in
+    Settings > Account (`account_user`, kept current by `_build`).
+    """
     from lib.ui.compat import L
 
     if not auth:
         return '[COLOR 57EEF3F6]\u25cf[/COLOR] %s' % L(30190)
-    user = auth.get('user') or {}
-    text = L(30022) % (user.get('email') or user.get('name') or '?')
-    return '[COLOR FF38BDF8]\u25cf[/COLOR] %s' % text
+    return '[COLOR FF38BDF8]\u25cf[/COLOR] %s' % L(30488)
 
 
 def _fit_hero_title(text):
@@ -1357,6 +1360,10 @@ class HomeWindow(BaseWindow):
         self.setProperty('HomeBrowse', '1' if browse else '')
         self.setProperty('HomeSignedOut', '' if auth else '1')
         self.getControl(STATUS_LABEL).setLabel(_status_text(auth))
+        # Settings > Account shows who is signed in; Home no longer does.
+        from lib.ui.compat import account_name, set_setting_if_changed
+
+        set_setting_if_changed('account_user', account_name(auth))
         show_continue = setting_bool('home_show_mystuff', True)
         _fill_shelves(self, store, addons, auth, show_continue)
         if place is None:

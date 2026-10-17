@@ -1273,3 +1273,11 @@ msgstr "Digite algo para buscar."
 msgctxt "#30487"
 msgid "That search is too long."
 msgstr "Essa busca é longa demais."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Conectado"
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr "Conectado como"

@@ -312,21 +312,43 @@ def test_menu_items_hides_other_row_its_setting_turns_off(load_homewindow):
 # ---------------------------------------------------------------------------
 
 
-def test_status_text_reports_email_when_authenticated_with_email(load_homewindow):
-    ctx = load_homewindow(localized={30022: 'Logged in as %s'})
+def test_status_text_says_signed_in_without_the_address(load_homewindow):
+    """#19: Home is a shared TV. The address is not on the screen; it is
+    in Settings > Account."""
+    ctx = load_homewindow(localized={30488: 'Signed in'})
 
     text = ctx.homewindow._status_text({'authKey': 'x', 'user': {'email': 'me@example.com', 'name': 'Me'}})
 
-    assert text == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as me@example.com'
-    assert 'Logged in as me@example.com' in text
+    assert text == '[COLOR FF38BDF8]\u25cf[/COLOR] Signed in'
+    assert 'me@example.com' not in text
+    assert 'Me' not in text.replace('[COLOR', '')
 
 
-def test_status_text_falls_back_to_name_when_email_is_absent(load_homewindow):
-    ctx = load_homewindow(localized={30022: 'Logged in as %s'})
+def test_home_keeps_the_signed_in_address_in_settings(load_homewindow, monkeypatch):
+    """The address moves to the read-only Account setting, refreshed on
+    each Home paint and cleared when signed out. An unchanged value is not
+    written again (Kodi rewrites the whole settings file per write)."""
+    ctx = load_homewindow(localized={30488: 'Signed in'})
+    _patch_library(monkeypatch, ctx, [])
+    auth = {'authKey': 'x', 'user': {'email': 'me@example.com'}}
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=auth))
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    writes = []
+    real_set = ctx.compat.ADDON.setSetting
 
-    text = ctx.homewindow._status_text({'authKey': 'x', 'user': {'name': 'Me'}})
+    def _set(key, value):
+        writes.append((key, value))
+        return real_set(key, value)
 
-    assert text == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as Me'
+    monkeypatch.setattr(ctx.compat.ADDON, 'setSetting', _set)
+    win.onInit()
+    assert ctx.compat.ADDON.getSetting('account_user') == 'me@example.com'
+    assert writes.count(('account_user', 'me@example.com')) == 1
+    win._build()
+    assert writes.count(('account_user', 'me@example.com')) == 1
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    win._build()
+    assert ctx.compat.ADDON.getSetting('account_user') == ''
 
 
 def test_status_text_reports_not_logged_in_when_auth_is_none(load_homewindow):
@@ -369,7 +391,7 @@ def test_oninit_shows_the_library_row_when_authenticated(load_homewindow, monkey
     assert win.getControl(ctx.homewindow.BACKGROUND).image == 's'
     assert win.getProperty('HeroFill') == '1'
     assert win.getControl(ctx.homewindow.HERO_FILL).image == 's'
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as ?'
+    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] STR30488'
     assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
 
 
@@ -471,8 +493,8 @@ def test_oninit_hides_library_row_when_not_authenticated(load_homewindow, monkey
     assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR 57EEF3F6]\u25cf[/COLOR] STR30190'
 
 
-def test_oninit_sets_status_label_to_email_when_authenticated_with_email(load_homewindow, monkeypatch):
-    ctx = load_homewindow(localized={30022: 'Logged in as %s'})
+def test_oninit_status_label_says_signed_in_and_settings_hold_the_email(load_homewindow, monkeypatch):
+    ctx = load_homewindow(localized={30488: 'Signed in'})
     auth = {'authKey': 'x', 'user': {'email': 'me@example.com', 'name': 'Me'}}
     _patch_library(monkeypatch, ctx)
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=auth))
@@ -480,11 +502,12 @@ def test_oninit_sets_status_label_to_email_when_authenticated_with_email(load_ho
 
     win.onInit()
 
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as me@example.com'
+    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Signed in'
+    assert ctx.compat.ADDON.getSetting('account_user') == 'me@example.com'
 
 
-def test_oninit_sets_status_label_to_name_when_email_is_absent(load_homewindow, monkeypatch):
-    ctx = load_homewindow(localized={30022: 'Logged in as %s'})
+def test_oninit_settings_fall_back_to_the_name_when_email_is_absent(load_homewindow, monkeypatch):
+    ctx = load_homewindow(localized={30488: 'Signed in'})
     auth = {'authKey': 'x', 'user': {'name': 'Me'}}
     _patch_library(monkeypatch, ctx)
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=auth))
@@ -492,7 +515,8 @@ def test_oninit_sets_status_label_to_name_when_email_is_absent(load_homewindow, 
 
     win.onInit()
 
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as Me'
+    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Signed in'
+    assert ctx.compat.ADDON.getSetting('account_user') == 'Me'
 
 
 def test_oninit_omits_type_row_supplied_only_by_a_disabled_addon(load_homewindow, monkeypatch):

@@ -1273,3 +1273,11 @@ msgstr "検索する言葉を入力してください。"
 msgctxt "#30487"
 msgid "That search is too long."
 msgstr "この検索語は長すぎます。"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "サインイン済み"
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr "サインイン中のアカウント"

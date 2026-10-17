@@ -944,6 +944,7 @@ def login():
 
     store = get_store()
     store.set_auth(result)
+    compat.set_setting_if_changed('account_user', compat.account_name(result))
 
     try:
         remote_addons = api.addon_collection_get(result.get('authKey'))
@@ -1010,4 +1011,5 @@ def logout():
         log('views.logout: %r' % (exc,), xbmc.LOGERROR)
 
     store.set_auth(None)
+    compat.set_setting_if_changed('account_user', '')
     _finish_action(handle)

@@ -1273,3 +1273,11 @@ msgstr "Aramak için bir şey yaz."
 msgctxt "#30487"
 msgid "That search is too long."
 msgstr "Bu arama çok uzun."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Oturum açık"
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr "Oturum açan hesap"

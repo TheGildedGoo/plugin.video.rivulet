@@ -600,6 +600,20 @@
         </category>
         <category id="account" label="30105">
             <group id="1">
+                <!-- Read-only: who is signed in. Home's status line only says
+                     "Signed in" (a shared TV); the address lives here. Python
+                     keeps it current (compat.set_setting_if_changed). -->
+                <setting id="account_user" type="string" label="30489">
+                    <level>0</level>
+                    <default></default>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <enable>false</enable>
+                    <control type="edit" format="string">
+                        <heading>30489</heading>
+                    </control>
+                </setting>
                 <setting id="login" type="action" label="30020">
                     <level>0</level>
                     <data>RunPlugin(plugin://plugin.video.revrivulet/?action=login)</data>

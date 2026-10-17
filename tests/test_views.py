@@ -1896,3 +1896,23 @@ def test_get_api_resolves_and_caches_a_single_stremio_api_instance():
         assert ctx.dependencies.get_api() is ctx.dependencies.get_api()
         assert isinstance(ctx.dependencies.get_api(), _CountingApi)
         assert _CountingApi.instances == 1
+
+
+def test_login_and_logout_keep_the_account_setting_current(load_views, monkeypatch):
+    """#19: Settings > Account shows who is signed in (Home no longer does)."""
+    ctx = load_views(localized={30022: 'Logged in as %s'})
+    monkeypatch.setattr(ctx.views.dialogs, 'choose', lambda heading, rows: 0)
+    views = ctx.views
+    store = FakeStore()
+    login_result = {'authKey': 'abc123', 'user': {'email': 'me@example.com'}}
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, FakeStremioAPI(addon_collection_result=[]))
+    import lib.ui.pairwindow as pairwindow
+
+    monkeypatch.setattr(pairwindow, 'link_sign_in', lambda api=None: login_result)
+    views.login()
+    assert ctx.compat.ADDON.getSetting('account_user') == 'me@example.com'
+
+    _stub_confirm(monkeypatch, ctx, True)
+    views.logout()
+    assert ctx.compat.ADDON.getSetting('account_user') == ''

@@ -1273,3 +1273,11 @@ msgstr "请输入要搜索的内容。"
 msgctxt "#30487"
 msgid "That search is too long."
 msgstr "搜索内容太长。"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "已登录"
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr "当前登录账号"

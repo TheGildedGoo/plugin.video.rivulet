@@ -1273,3 +1273,11 @@ msgstr "Введите, что искать."
 msgctxt "#30487"
 msgid "That search is too long."
 msgstr "Запрос слишком длинный."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Вход выполнен"
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr "Вход выполнен как"
