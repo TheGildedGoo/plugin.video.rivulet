@@ -67,17 +67,17 @@ def bind_address_overlay(server_url, extra_env=None, base_env=None):
       an explicit choice always wins;
     - `server_url` is not a loopback address: the user is addressing this
       server over the network, so it has to listen there;
-    - `STREMIO_ENABLE_DLNA` is `true`: DLNA/casting renderers fetch media from
+    - `RIVULET_ENABLE_DLNA` is `true`: DLNA/casting renderers fetch media from
       the server over the LAN;
-    - `STREMIO_PROXY_PUBLIC_URL` is set: a public proxy URL means other hosts
+    - `RIVULET_PROXY_PUBLIC_URL` is set: a public proxy URL means other hosts
       are meant to reach `/proxy`.
     """
     extra_env = extra_env or {}
     if extra_env.get(BIND_ADDRESS_ENV) or (base_env or {}).get(BIND_ADDRESS_ENV):
         return {}
-    if str(extra_env.get("STREMIO_ENABLE_DLNA", "")).lower() == "true":
+    if str(extra_env.get("RIVULET_ENABLE_DLNA", "")).lower() == "true":
         return {}
-    if extra_env.get("STREMIO_PROXY_PUBLIC_URL"):
+    if extra_env.get("RIVULET_PROXY_PUBLIC_URL"):
         return {}
     host = loopback_host(server_url)
     if host is None:

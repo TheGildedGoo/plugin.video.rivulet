@@ -150,14 +150,14 @@ def test_load_library_wraps_a_dlopen_oserror(monkeypatch):
 def test_build_env_pins_app_path_and_http_port_and_overlays_extra_env():
     server = LibraryServer(
         "/fake/librivulet-engine.so", "http://127.0.0.1:9999", "/app", "/log",
-        extra_env={"STREMIO_DISABLE_TRACKERS": "true"},
+        extra_env={"RIVULET_DISABLE_TRACKERS": "true"},
     )
     env = server.build_env()
     assert env == {
         "APP_PATH": "/app",
         "HTTP_PORT": "9999",
         "BIND_ADDRESS": "127.0.0.1",  # loopback server_url -> loopback listeners (lib.serverenv)
-        "STREMIO_DISABLE_TRACKERS": "true",
+        "RIVULET_DISABLE_TRACKERS": "true",
     }
 
 
@@ -220,7 +220,7 @@ def test_library_server_start_poll_stop_full_lifecycle(monkeypatch, tmp_path):
     log_path = str(tmp_path / "server.log")
     server = LibraryServer(
         "/fake/librivulet-engine.so", "http://127.0.0.1:11470", app_path, log_path,
-        extra_env={"STREMIO_DISABLE_TRACKERS": "true"},
+        extra_env={"RIVULET_DISABLE_TRACKERS": "true"},
     )
 
     server.start()
@@ -232,7 +232,7 @@ def test_library_server_start_poll_stop_full_lifecycle(monkeypatch, tmp_path):
 
     log_path_arg, env_json_arg = fake.ServerStart.calls[0]
     assert log_path_arg == log_path.encode("utf-8")
-    assert b'"STREMIO_DISABLE_TRACKERS": "true"' in env_json_arg
+    assert b'"RIVULET_DISABLE_TRACKERS": "true"' in env_json_arg
 
     server.stop()
     assert fake.ServerStop.call_count == 1

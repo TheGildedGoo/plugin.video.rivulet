@@ -17,7 +17,7 @@ Launch interface verified against ~/rivulet-kodi/rivulet-engine @ cmd/rivulet-en
     reads is exposed as its own Kodi setting via
     EXTRA_ENV_SETTINGS/extra_env_from_settings below instead of being pinned.)
   - Logging goes to os.Stderr via internal/logging (logging.go:28-29), text or
-    json per STREMIO_LOG_FORMAT/STREMIO_LOG_LEVEL -- there is no built-in log
+    json per RIVULET_LOG_FORMAT/RIVULET_LOG_LEVEL -- there is no built-in log
     file, so this module captures the child's stdout+stderr into a file itself.
   - Shutdown is graceful: main.go:387-412 listens for os.Interrupt/SIGTERM and
     calls http.Server.Shutdown with a 5s timeout per listener. Popen.terminate()
@@ -187,35 +187,35 @@ AUTOLOAD_READY_TIMEOUT = 60.0
 #   'bool'        - always forwarded as 'true'/'false'.
 EXTRA_ENV_SETTINGS = (
     ("bt_listen_port", "BT_LISTEN_PORT", "int"),
-    ("peers_per_torrent", "STREMIO_PEERS_PER_TORRENT", "int"),
-    ("torrent_idle_timeout", "STREMIO_TORRENT_IDLE_TIMEOUT", "int"),
-    ("bt_encryption", "STREMIO_BT_ENCRYPTION", "string"),
-    ("bt_anonymous", "STREMIO_BT_ANONYMOUS", "bool"),
-    ("disable_trackers", "STREMIO_DISABLE_TRACKERS", "bool"),
-    ("bt_proxy", "STREMIO_BT_PROXY", "string"),
-    ("disable_webtorrent", "STREMIO_DISABLE_WEBTORRENT", "bool"),
-    ("trackers_max", "STREMIO_TRACKERS_MAX", "int"),
-    ("trackers_url", "STREMIO_TRACKERS_URL", "string"),
-    ("dht_bootstrap", "STREMIO_DHT_BOOTSTRAP", "string"),
-    ("memory_cache_size_mb", "STREMIO_MEMORY_CACHE_SIZE", "mb_to_bytes"),
-    ("mem_limit_mb", "STREMIO_MEM_LIMIT", "mb_to_bytes"),
-    ("proxy_prebuffer", "STREMIO_PROXY_PREBUFFER", "int"),
-    ("proxy_seg_cache_ttl", "STREMIO_PROXY_SEG_CACHE_TTL", "int"),
-    ("proxy_password", "STREMIO_PROXY_PASSWORD", "string"),
-    ("proxy_ip_acl", "STREMIO_PROXY_IP_ACL", "string"),
-    ("proxy_public_url", "STREMIO_PROXY_PUBLIC_URL", "string"),
-    ("proxy_upstream", "STREMIO_PROXY_UPSTREAM", "string"),
-    ("proxy_secret", "STREMIO_PROXY_SECRET", "string"),
-    ("enable_dlna", "STREMIO_ENABLE_DLNA", "bool"),
-    ("local_imdb", "STREMIO_LOCAL_IMDB", "bool"),
-    ("metadata_url", "STREMIO_METADATA_URL", "string"),
-    ("bitmagnet_url", "STREMIO_BITMAGNET_URL", "string"),
-    ("torznab_url", "STREMIO_TORZNAB_URL", "string"),
-    ("torznab_apikey", "STREMIO_TORZNAB_APIKEY", "string"),
+    ("peers_per_torrent", "RIVULET_PEERS_PER_TORRENT", "int"),
+    ("torrent_idle_timeout", "RIVULET_TORRENT_IDLE_TIMEOUT", "int"),
+    ("bt_encryption", "RIVULET_BT_ENCRYPTION", "string"),
+    ("bt_anonymous", "RIVULET_BT_ANONYMOUS", "bool"),
+    ("disable_trackers", "RIVULET_DISABLE_TRACKERS", "bool"),
+    ("bt_proxy", "RIVULET_BT_PROXY", "string"),
+    ("disable_webtorrent", "RIVULET_DISABLE_WEBTORRENT", "bool"),
+    ("trackers_max", "RIVULET_TRACKERS_MAX", "int"),
+    ("trackers_url", "RIVULET_TRACKERS_URL", "string"),
+    ("dht_bootstrap", "RIVULET_DHT_BOOTSTRAP", "string"),
+    ("memory_cache_size_mb", "RIVULET_MEMORY_CACHE_SIZE", "mb_to_bytes"),
+    ("mem_limit_mb", "RIVULET_MEM_LIMIT", "mb_to_bytes"),
+    ("proxy_prebuffer", "RIVULET_PROXY_PREBUFFER", "int"),
+    ("proxy_seg_cache_ttl", "RIVULET_PROXY_SEG_CACHE_TTL", "int"),
+    ("proxy_password", "RIVULET_PROXY_PASSWORD", "string"),
+    ("proxy_ip_acl", "RIVULET_PROXY_IP_ACL", "string"),
+    ("proxy_public_url", "RIVULET_PROXY_PUBLIC_URL", "string"),
+    ("proxy_upstream", "RIVULET_PROXY_UPSTREAM", "string"),
+    ("proxy_secret", "RIVULET_PROXY_SECRET", "string"),
+    ("enable_dlna", "RIVULET_ENABLE_DLNA", "bool"),
+    ("local_imdb", "RIVULET_LOCAL_IMDB", "bool"),
+    ("metadata_url", "RIVULET_METADATA_URL", "string"),
+    ("bitmagnet_url", "RIVULET_BITMAGNET_URL", "string"),
+    ("torznab_url", "RIVULET_TORZNAB_URL", "string"),
+    ("torznab_apikey", "RIVULET_TORZNAB_APIKEY", "string"),
     ("web_ui_location", "WEB_UI_LOCATION", "string"),
     ("https_port", "HTTPS_PORT", "int"),
-    ("pprof_addr", "STREMIO_PPROF", "string"),
-    ("cert_authkey", "STREMIO_CERT_AUTHKEY", "string"),
+    ("pprof_addr", "RIVULET_PPROF", "string"),
+    ("cert_authkey", "RIVULET_CERT_AUTHKEY", "string"),
 )
 
 #: settings.xml's <default> for `server_enable` plus every EXTRA_ENV_SETTINGS

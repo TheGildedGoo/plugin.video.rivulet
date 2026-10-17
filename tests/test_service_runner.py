@@ -1543,7 +1543,7 @@ def test_main_onsettingschanged_extra_env_setting_change_triggers_restart(monkey
     assert len(spawned) == 2
     old_proc, new_proc = spawned
     assert old_proc.stop_calls == 1  # stopped by the restart, not by shutdown
-    assert new_proc.extra_env.get('STREMIO_DISABLE_TRACKERS') == 'true'
+    assert new_proc.extra_env.get('RIVULET_DISABLE_TRACKERS') == 'true'
     assert new_proc.stop_calls == 1  # then stopped again by the final shutdown path
 
     restart_logs = [msg for msg, _level in ctx.env.log_calls if 'settings changed, restarting' in msg]

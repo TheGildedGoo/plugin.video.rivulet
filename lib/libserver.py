@@ -22,7 +22,7 @@ same Android release archives -- see ``lib.serverbin.LIBRARY_NAME``):
     int ServerStart(char* logPath, char* envJSON)
         BLOCKING until the server stops. envJSON is a JSON object of the
         same env vars the executable reads (APP_PATH, HTTP_PORT,
-        STREMIO_*, ...). Logs are appended to logPath. Returns 0 on a
+        RIVULET_*, ...). Logs are appended to logPath. Returns 0 on a
         clean stop, 1 on an init error, 2 if already running.
     int ServerStop(void)
         Graceful shutdown (5s internal timeout). Returns 0; safe to call

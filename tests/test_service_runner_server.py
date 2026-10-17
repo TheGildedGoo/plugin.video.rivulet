@@ -349,7 +349,7 @@ def test_import_does_not_pull_in_urllib_request_or_http_client():
 
 def test_extra_env_from_settings_forwards_truthy_string_value():
     env = service_runner.extra_env_from_settings({'bt_proxy': 'socks5://127.0.0.1:9050'})
-    assert env == {'STREMIO_BT_PROXY': 'socks5://127.0.0.1:9050'}
+    assert env == {'RIVULET_BT_PROXY': 'socks5://127.0.0.1:9050'}
 
 
 def test_extra_env_from_settings_omits_falsy_string_value():
@@ -373,13 +373,13 @@ def test_extra_env_from_settings_int_always_forwarded_including_zero(port):
 @pytest.mark.parametrize('mb,expected_bytes', [(0, 0), (256, 256 * 1024 * 1024)])
 def test_extra_env_from_settings_mb_to_bytes_multiplies_correctly(mb, expected_bytes):
     env = service_runner.extra_env_from_settings({'memory_cache_size_mb': mb})
-    assert env == {'STREMIO_MEMORY_CACHE_SIZE': str(expected_bytes)}
+    assert env == {'RIVULET_MEMORY_CACHE_SIZE': str(expected_bytes)}
 
 
 @pytest.mark.parametrize('value,expected', [(True, 'true'), (False, 'false')])
 def test_extra_env_from_settings_bool_always_forwarded_as_true_false_string(value, expected):
     env = service_runner.extra_env_from_settings({'bt_anonymous': value})
-    assert env == {'STREMIO_BT_ANONYMOUS': expected}
+    assert env == {'RIVULET_BT_ANONYMOUS': expected}
 
 
 def test_extra_env_from_settings_combines_multiple_kinds_and_ignores_absent_rows():
@@ -395,8 +395,8 @@ def test_extra_env_from_settings_combines_multiple_kinds_and_ignores_absent_rows
     env = service_runner.extra_env_from_settings(values)
     assert env == {
         'BT_LISTEN_PORT': '6900',
-        'STREMIO_DISABLE_TRACKERS': 'true',
-        'STREMIO_MEMORY_CACHE_SIZE': str(512 * 1024 * 1024),
+        'RIVULET_DISABLE_TRACKERS': 'true',
+        'RIVULET_MEMORY_CACHE_SIZE': str(512 * 1024 * 1024),
     }
 
 
@@ -548,14 +548,14 @@ def test_build_env_does_not_mutate_the_real_process_environment(tmp_path):
 
 def test_build_env_overlays_extra_env_passed_at_construction(tmp_path):
     sp = _server_process(tmp_path, extra_env={
-        'STREMIO_BT_ANONYMOUS': 'true', 'BT_LISTEN_PORT': '6900',
+        'RIVULET_BT_ANONYMOUS': 'true', 'BT_LISTEN_PORT': '6900',
     })
     env = sp.build_env()
     assert env['APP_PATH'] == str(tmp_path / 'server')
     assert env['HTTP_PORT'] == '9090'
-    assert env['STREMIO_BT_ANONYMOUS'] == 'true'
+    assert env['RIVULET_BT_ANONYMOUS'] == 'true'
     assert env['BT_LISTEN_PORT'] == '6900'
-    assert 'STREMIO_BT_ANONYMOUS' not in os.environ
+    assert 'RIVULET_BT_ANONYMOUS' not in os.environ
 
 
 def test_build_env_binds_loopback_when_server_url_is_loopback(tmp_path, monkeypatch):
@@ -576,7 +576,7 @@ def test_build_env_does_not_pin_loopback_for_a_lan_server_url(tmp_path, monkeypa
 
 def test_build_env_keeps_lan_reachability_when_dlna_is_enabled(tmp_path, monkeypatch):
     monkeypatch.delenv('BIND_ADDRESS', raising=False)
-    env = _server_process(tmp_path, extra_env={'STREMIO_ENABLE_DLNA': 'true'}).build_env()
+    env = _server_process(tmp_path, extra_env={'RIVULET_ENABLE_DLNA': 'true'}).build_env()
     assert 'BIND_ADDRESS' not in env
 
 
