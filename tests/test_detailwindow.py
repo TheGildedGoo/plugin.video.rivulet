@@ -1941,3 +1941,30 @@ def test_open_detail_lands_on_local_progress(load_detailwindow, monkeypatch):
     ctx.detailwindow.open_detail('series', 'tt9')
 
     assert captured['start'] == (None, 'tt9:1:2')
+
+
+def test_the_options_pill_opens_the_menu_without_a_menu_key(load_detailwindow, monkeypatch):
+    """#15: Cast & crew, Library and Watched lived only behind the menu key,
+    which many CEC remotes do not have. The Options pill opens the same
+    menu; Up from the season tabs (or from the list when there are none)
+    reaches it."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    ctx = load_detailwindow()
+    win = _make_window(ctx.detailwindow)
+    opened = []
+    monkeypatch.setattr(type(win), '_open_context_menu', lambda self: opened.append(True))
+
+    win.onClick(ctx.detailwindow.OPTIONS)
+
+    assert opened == [True]
+    skin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'resources', 'skins', 'Default', '1080i')
+    root = ET.parse(os.path.join(skin, 'DetailWindow.xml')).getroot()
+    pill = root.find(".//control[@id='30009']")
+    assert pill.get('type') == 'button'
+    assert (pill.findtext('ondown') or '').strip() == '30007'
+    seasons = root.find(".//control[@id='30007']")
+    assert (seasons.findtext('onup') or '').strip() == '30009'
+    # The episode list's Up goes through the (possibly hidden) season tabs.
+    assert (root.find(".//control[@id='30002']").findtext('onup') or '').strip() == '30007'

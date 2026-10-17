@@ -1289,3 +1289,7 @@ msgstr "أعد المحاولة"
 msgctxt "#30491"
 msgid "This catalog did not answer. Press OK to try again."
 msgstr "لم يستجب هذا الكتالوج. اضغط OK للمحاولة مرة أخرى."
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "خيارات"

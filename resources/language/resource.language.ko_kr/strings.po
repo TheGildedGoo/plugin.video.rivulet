@@ -1289,3 +1289,7 @@ msgstr "다시 시도"
 msgctxt "#30491"
 msgid "This catalog did not answer. Press OK to try again."
 msgstr "이 카탈로그가 응답하지 않았습니다. 다시 시도하려면 OK를 누르세요."
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "옵션"

@@ -1289,3 +1289,7 @@ msgstr "再試行"
 msgctxt "#30491"
 msgid "This catalog did not answer. Press OK to try again."
 msgstr "このカタログから応答がありません。OKを押して再試行してください。"
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "オプション"

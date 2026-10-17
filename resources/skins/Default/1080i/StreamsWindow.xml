@@ -21,6 +21,19 @@
             <control type="image"><left>96</left><top>64</top><width>34</width><height>34</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
             <control type="label"><left>150</left><top>64</top><width>300</width><height>34</height><font>font12</font><textcolor>99EEF3F6</textcolor><aligny>center</aligny><label>RevRivulet</label></control>
 
+            <!-- Options (#15): what the menu key opens, for remotes without
+                 one. Up from the top of the list (or the season tabs) lands
+                 here; Down goes back. Styled like Home's tool pills. -->
+            <control type="button" id="30009">
+                <left>1604</left><top>52</top><width>220</width><height>56</height>
+                <font>font13</font><textcolor>B3EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor>
+                <align>center</align><aligny>center</aligny>
+                <texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus>
+                <texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus>
+                <label>$ADDON[plugin.video.revrivulet 30492]</label>
+                <onup>30009</onup><onleft>30009</onleft><onright>30009</onright><ondown>30002</ondown>
+            </control>
+
             <control type="image" id="30004">
                 <left>96</left><top>150</top><width>340</width><height>510</height>
                 <texture></texture><aspectratio>scale</aspectratio>
@@ -76,6 +89,7 @@
             <control type="list" id="30002">
                 <left>512</left><top>228</top><width>1312</width><height>708</height>
                 <onleft>30002</onleft><onright>30002</onright>
+                <onup>30009</onup>
                 <pagecontrol>30006</pagecontrol>
                 <itemlayout height="118">
                     <control type="image"><width>1312</width><height>1</height><texture colordiffuse="12FFFFFF">white.png</texture></control>

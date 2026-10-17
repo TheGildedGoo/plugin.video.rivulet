@@ -54,6 +54,8 @@ POSTER = 30004
 HEADING = 30005
 LIST = 30002
 SEASON_BAR = 30007
+#: The Options pill (#15): the context menu for remotes with no menu key.
+OPTIONS = 30009
 
 #: Right-aligned "N EPISODES" readout for the season the episode list
 #: (LIST) is currently showing - a plain window label DetailWindow sets
@@ -896,6 +898,9 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
 
     @gated_input
     def onClick(self, control_id):
+        if control_id == OPTIONS:
+            self._open_context_menu()
+            return
         if control_id == SEASON_BAR:
             self._sync_season_from_bar()
             self.setFocusId(LIST)

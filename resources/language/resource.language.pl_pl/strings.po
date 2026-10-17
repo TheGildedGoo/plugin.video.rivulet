@@ -1289,3 +1289,7 @@ msgstr "Spróbuj ponownie"
 msgctxt "#30491"
 msgid "This catalog did not answer. Press OK to try again."
 msgstr "Ten katalog nie odpowiedział. Naciśnij OK, aby spróbować ponownie."
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Opcje"

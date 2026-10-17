@@ -1289,3 +1289,7 @@ msgstr "Повторить"
 msgctxt "#30491"
 msgid "This catalog did not answer. Press OK to try again."
 msgstr "Этот каталог не ответил. Нажмите OK, чтобы повторить."
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Параметры"

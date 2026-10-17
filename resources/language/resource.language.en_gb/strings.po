@@ -1289,3 +1289,7 @@ msgstr ""
 msgctxt "#30491"
 msgid "This catalog did not answer. Press OK to try again."
 msgstr ""
+
+msgctxt "#30492"
+msgid "Options"
+msgstr ""
