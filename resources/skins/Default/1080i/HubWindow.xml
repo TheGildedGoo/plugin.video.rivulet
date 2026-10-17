@@ -24,11 +24,11 @@
             <!-- keep, not scale: scale fills the frame and crops the
                  picture. The plate behind this image is already black, so
                  a backdrop that is not 16:9 letterboxes instead. -->
-            <control type="image" id="30000"><width>1920</width><height>1080</height><fadetime>200</fadetime><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio><visible>String.IsEmpty(Window.Property(HeroFill))</visible></control>
+            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio><visible>String.IsEmpty(Window.Property(HeroFill))</visible></control>
             <!-- scale, not keep: a title with no backdrop shows its poster
                  scaled to cover the frame instead of a narrow pillarbox in
                  the middle of the screen (#21). -->
-            <control type="image" id="30028"><width>1920</width><height>1080</height><fadetime>200</fadetime><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">scale</aspectratio><visible>!String.IsEmpty(Window.Property(HeroFill))</visible></control>
+            <control type="image" id="30028"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">scale</aspectratio><visible>!String.IsEmpty(Window.Property(HeroFill))</visible></control>
             <!-- fade_h.png is a light vignette: clear on the left, only
                  partly dark on the right, the same on every row. The
                  ratings sit on the bar at the bottom of the picture. -->

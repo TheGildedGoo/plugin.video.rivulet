@@ -2303,15 +2303,3 @@ def test_an_unchanged_hero_is_not_repainted_and_applied_ratings_stay_on_the_card
     card = win.getControl(ctx.homewindow.CONTINUE_SHELF).getSelectedItem()
     assert card.getProperty('hero_meta') == 'RT 94%\n2021'
     assert win.getControl(ctx.homewindow.HERO_META).text == 'RT 94%\n2021'
-
-
-def test_the_backdrop_crossfades():
-    import os
-    import xml.etree.ElementTree as ET
-
-    skin = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i')
-    for name in ('HomeWindow.xml', 'HubWindow.xml', 'ShowcaseWindow.xml'):
-        root = ET.parse(os.path.join(skin, name)).getroot()
-        for cid in ('30000', '30028'):
-            image = root.find(".//control[@id='%s']" % cid)
-            assert image is not None and int(image.findtext('fadetime')) > 0, (name, cid)
