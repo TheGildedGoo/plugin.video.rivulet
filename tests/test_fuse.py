@@ -474,3 +474,48 @@ def test_an_uncached_logo_is_asked_about_and_shown_once_its_host_answers(load_ho
 
     logocheck.remember(url, True)
     assert ctx.homewindow._logo_known_good(url) is True
+
+
+# --- Continue reads like every other row ----------------------------------------
+
+def test_continue_cards_fetch_their_meta_and_fill_the_hero(load_homewindow):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    import xbmcgui
+
+    item = hw._continue_item({'id': 'tt1', 'type': 'movie', 'name': 'Dune', 'poster': 'p.jpg'})
+    assert item.getProperty('needs_meta') == '1'
+    win = hw.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(hw.CONTINUE_SHELF).addItems([item])
+    win.getControl(hw.LIBRARY_SHELF).addItems([xbmcgui.ListItem('other')])
+    win._library_meta_ready = [('movie', 'tt1', {
+        'id': 'tt1', 'type': 'movie', 'name': 'Dune: Part One', 'description': 'A desert.',
+        'background': 'https://img/b.jpg',
+    })]
+
+    hw._apply_library_meta(win)
+
+    assert item.getProperty('hero_plot') == 'A desert.'
+    assert item.getProperty('land') == 'https://img/b.jpg'
+    assert item.getLabel() == 'Dune'  # the card keeps the name it was started as
+    assert item.getProperty('meta_state') == 'done'
+
+
+def test_a_failed_meta_fetch_is_tried_again_later(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    item = hw._poster_item({'id': 'tt1', 'type': 'movie', 'name': 'Dune'}, sparse=True)
+    win = hw.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(hw.LIBRARY_SHELF).addItems([item])
+    win._library_meta_ready = [('movie', 'tt1', None)]
+    hw._apply_library_meta(win)
+    assert item.getProperty('meta_state').startswith('failed:')
+
+    started = []
+    monkeypatch.setattr(hw.threading, 'Thread', lambda **kw: type('T', (), {'start': lambda self: started.append(1)})())
+    hw._schedule_library_meta(win, item)
+    assert started == []  # too soon
+    import time as _time
+    item.setProperty('meta_state', 'failed:%d' % int(_time.time() - 60))
+    hw._schedule_library_meta(win, item)
+    assert started == [1]

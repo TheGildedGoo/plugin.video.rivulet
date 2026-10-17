@@ -1246,6 +1246,10 @@ def _fetch_library_meta(stype, sid):
     return _fetch_meta(stype, sid)
 
 
+#: Seconds before a failed library/Continue meta fetch is tried again.
+_META_RETRY_SECONDS = 20.0
+
+
 def _library_meta_lock(window):
     lock = getattr(window, '_library_meta_lock', None)
     if lock is None:
@@ -1267,6 +1271,16 @@ def _schedule_library_meta(window, item):
     state = item.getProperty('meta_state')
     if state in ('loading', 'done'):
         return
+    if state.startswith('failed:'):
+        # A fetch that failed (timeout, addon down) is asked again after
+        # a pause, not left blank for the session.
+        import time
+        try:
+            failed_at = float(state.split(':', 1)[1])
+        except ValueError:
+            failed_at = 0.0
+        if time.time() - failed_at < _META_RETRY_SECONDS:
+            return
     stype = item.getProperty('stype')
     sid = item.getProperty('sid')
     if not stype or not sid:
@@ -1312,7 +1326,7 @@ _HERO_PROPS = (
 )
 
 
-def _write_meta_onto(item, meta):
+def _write_meta_onto(item, meta, keep_label=False):
     """Copy a fetched meta onto the poster that is already on the row.
 
     Rebuilding the list would send the cursor home. The card keeps its
@@ -1340,7 +1354,8 @@ def _write_meta_onto(item, meta):
     for key in _HERO_PROPS:
         item.setProperty(key, fresh.getProperty(key))
     label = fresh.getLabel()
-    if label:
+    # A Continue card keeps its own label (the show it was started as).
+    if label and not keep_label:
         item.setLabel(label)
     item.setProperty('meta_state', 'done')
 
@@ -1352,24 +1367,46 @@ def _apply_library_meta(window):
         window._library_meta_ready = []
     if not ready:
         return
-    try:
-        control = window.getControl(LIBRARY_SHELF)
-        items = [control.getListItem(index) for index in range(control.size())]
-    except Exception:
-        return
+    import time
+
+    items = []
+    # Library records and Continue entries both arrive without a
+    # description; both rows get the same hero once the meta lands.
+    for shelf in (LIBRARY_SHELF, CONTINUE_SHELF):
+        try:
+            control = window.getControl(shelf)
+            items.extend((shelf, control.getListItem(index)) for index in range(control.size()))
+        except Exception:
+            continue
     for stype, sid, meta in ready:
-        for item in items:
+        for shelf, item in items:
             if item.getProperty('stype') != stype or item.getProperty('sid') != sid:
+                continue
+            if meta is None:
+                item.setProperty('meta_state', 'failed:%d' % int(time.time()))
                 continue
             useful = isinstance(meta, dict) and (
                 meta.get('name') or meta.get('background')
                 or meta.get('description') or meta.get('poster')
             )
             if useful:
-                _write_meta_onto(item, meta)
+                _write_meta_onto(item, meta, keep_label=(shelf == CONTINUE_SHELF))
+                if shelf == CONTINUE_SHELF:
+                    _fill_continue_card(item, meta)
             else:
                 item.setProperty('needs_meta', '')
                 item.setProperty('meta_state', 'done')
+
+
+def _fill_continue_card(item, meta):
+    """A Continue card with no wide picture takes the fetched backdrop."""
+    if item.getProperty('land'):
+        return
+    background = meta.get('background') if isinstance(meta, dict) else ''
+    if isinstance(background, str) and background:
+        from lib.ui.urlutil import sized_image
+
+        item.setProperty('land', sized_image(background, 'backdrop'))
 
 
 def _upcoming_facts(window, count=2):
@@ -1764,6 +1801,11 @@ def _continue_item(entry):
         'card_show': escape_label(entry.get('name') or ''),
         'card_code': code,
     }
+    # Progress records carry a name and a poster, not a description:
+    # fetch the meta on focus, the way Library does, so the hero reads
+    # the same on every row.
+    if not entry.get('description') and entry.get('id') and entry.get('type'):
+        props['needs_meta'] = '1'
     band = entry.get('band')
     if band:
         props['band'] = str(band)
