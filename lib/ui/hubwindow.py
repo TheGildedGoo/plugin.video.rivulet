@@ -820,6 +820,7 @@ class HubWindow(BaseWindow):
         store = get_store()
         auth = store.get_auth()
         self.getControl(BACKGROUND).setImage(addon_fanart())
+        self._hero_painted = None
         # The page title, level with the tools (#20).
         self.getControl(STATUS_LABEL).setLabel('[B]%s[/B]' % escape_label((self.heading or '').upper()))
         self.setProperty('HomeSignedOut', '' if auth else '1')

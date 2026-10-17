@@ -2267,3 +2267,48 @@ def test_home_fetches_every_row_at_once(load_homewindow, monkeypatch):
 
     assert pages['movies'][0]['id'] == 'movie'
     assert pages['series'][0]['id'] == 'series'
+
+
+def test_an_unchanged_hero_is_not_repainted_and_applied_ratings_stay_on_the_card(load_homewindow, monkeypatch):
+    """#17: every action repaints the hero (worker noops, a key that did not
+    move). An unchanged hero now costs nothing, and scores merged from the
+    ratings cache are kept on the card instead of being merged again."""
+    ctx = load_homewindow()
+    import xbmcgui
+
+    import lib.ui.heroscrim as heroscrim
+    import lib.ui.ratingsched as ratingsched
+
+    placed = []
+    real_place = heroscrim.place_hero_bar
+    monkeypatch.setattr(heroscrim, 'place_hero_bar', lambda *a, **k: placed.append(a[1]) or real_place(*a, **k))
+    overlays = []
+
+    def _overlay(facts, fallback, upcoming=None):
+        overlays.append(fallback)
+        return 'RT 94%\n' + fallback
+
+    monkeypatch.setattr(ratingsched, 'overlay_text', _overlay)
+    win = _hero_with_facts(ctx, {'imdb_id': 'tt0111161'})
+
+    win.onAction(xbmcgui.Action(1))
+    win.onAction(xbmcgui.Action(0))
+    win.onAction(xbmcgui.Action(0))
+
+    assert placed == ['home']
+    assert overlays == ['2021']
+    card = win.getControl(ctx.homewindow.CONTINUE_SHELF).getSelectedItem()
+    assert card.getProperty('hero_meta') == 'RT 94%\n2021'
+    assert win.getControl(ctx.homewindow.HERO_META).text == 'RT 94%\n2021'
+
+
+def test_the_backdrop_crossfades():
+    import os
+    import xml.etree.ElementTree as ET
+
+    skin = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i')
+    for name in ('HomeWindow.xml', 'HubWindow.xml', 'ShowcaseWindow.xml'):
+        root = ET.parse(os.path.join(skin, name)).getroot()
+        for cid in ('30000', '30028'):
+            image = root.find(".//control[@id='%s']" % cid)
+            assert image is not None and int(image.findtext('fadetime')) > 0, (name, cid)

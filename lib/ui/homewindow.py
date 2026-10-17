@@ -1494,7 +1494,7 @@ def paint_hero(window, item=None):
         return
     meta = item.getProperty('hero_meta') or ''
     facts_raw = item.getProperty('hero_facts') or ''
-    if facts_raw:
+    if facts_raw and item.getProperty('facts_done') != '1':
         # A ratings key rebuilds this from the cached scores. No key, or
         # a cache miss, leaves the catalog line alone and returns at once.
         from lib.ui.ratingsched import overlay_text
@@ -1504,13 +1504,27 @@ def paint_hero(window, item=None):
         except ValueError:
             facts = None
         if isinstance(facts, dict):
-            meta = overlay_text(facts, meta, _upcoming_facts(window))
+            overlaid = overlay_text(facts, meta, _upcoming_facts(window))
+            if overlaid != meta:
+                # Scores applied: keep the result on the card, so the next
+                # paint of this title skips the decode and the merge (#17).
+                item.setProperty('hero_meta', overlaid)
+                item.setProperty('facts_done', '1')
+            meta = overlaid
     plot = item.getProperty('hero_plot') or item.getProperty('subtitle') or ''
     fanart = item.getProperty('fanart') or ''
     wanted_logo = item.getProperty('hero_logo') or ''
     # The text title stays up until Kodi has loaded the logo once (#10).
     logo = wanted_logo if _logo_known_good(wanted_logo) else ''
     _warm_logos(window, ([wanted_logo] if wanted_logo and not logo else []) + _upcoming_logos(window))
+    fill = item.getProperty('hero_fill') == '1' and bool(fanart)
+    # Every action repaints (worker noops, mouse moves, a key that did not
+    # move). An unchanged hero is a dozen boundary crossings and a bar
+    # re-measure for nothing (#17).
+    painted = (title or label, meta, plot, fanart, fill, logo)
+    if painted == getattr(window, '_hero_painted', None):
+        return
+    window._hero_painted = painted
     try:
         window.setProperty('HeroLogo', logo)
         window.getControl(HERO_LOGO).setImage(logo)
@@ -1519,7 +1533,6 @@ def paint_hero(window, item=None):
         window.getControl(HERO_META).setText(meta)
         window.getControl(HERO_PLOT).setText(plot)
         image = fanart or addon_fanart()
-        fill = item.getProperty('hero_fill') == '1' and bool(fanart)
         # HeroFill shows the scale plate and hides the letterboxed one.
         # A real backdrop clears it, so the picture is shown whole.
         window.setProperty('HeroFill', '1' if fill else '')
@@ -1556,6 +1569,7 @@ class HomeWindow(BaseWindow):
 
         store = get_store()
         auth = store.get_auth()
+        self._hero_painted = None
         if place is None:
             self.getControl(BACKGROUND).setImage(addon_fanart())
         addons = store.get_enabled_addons()
