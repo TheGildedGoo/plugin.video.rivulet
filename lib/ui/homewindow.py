@@ -1653,13 +1653,14 @@ class HomeWindow(BaseWindow):
 def _open_signin(window):
     """The existing sign-in dialog, then a refresh of this window.
 
-    `views.login()` writes auth.json in this addon's profile. The new
+    `views.sign_in()` writes auth.json in this addon's profile. The new
     auth key changes Home's signature, so `_after_child` rebuilds the
-    rows for it and keeps the remote where it was.
+    rows for it and keeps the remote where it was. Not `views.login()`:
+    that ends a plugin handle, and Home has none to end (#22).
     """
-    from lib.ui.views import login
+    from lib.ui.views import sign_in
 
-    login()
+    sign_in()
     _after_child(window)
 
 

@@ -150,6 +150,16 @@ def test_publish_ships_revrivulet_only_and_a_two_link_index(tmp_path):
     addon_xml = plain.read('plugin.video.revrivulet/addon.xml').decode('utf-8')
     assert 'plugin.video.revrivulet' in addon_xml
     assert 'plugin.video.rev2rivulet' not in addon_xml
+    # #22: RevRivulet's zip carries no Rev2 skins or Rev2-only textures,
+    # and keeps everything its own windows and the rev2 switch need.
+    names = plain.namelist()
+    plain.close()
+    skin = 'plugin.video.revrivulet/resources/skins/Default/'
+    assert not [name for name in names if name.startswith(skin + '1080i/Rev2')]
+    assert not [name for name in names if name.startswith(skin + 'media/rv_')]
+    assert skin + '1080i/HomeWindow.xml' in names
+    assert skin + 'media/mask_poster.png' in names
+    assert 'plugin.video.revrivulet/lib/ui/rev2/skin.py' in names
 
 
 def test_search_sheet_appends_a_letter_and_settings_toggle_a_bool():

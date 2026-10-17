@@ -938,8 +938,9 @@ def _button(window, action):
         ADDON.openSettings()
         return
     if action == 'signin':
-        from lib.ui.views import login
-        login()
+        # sign_in, not login: a hub has no plugin handle to end (#22).
+        from lib.ui.views import sign_in
+        sign_in()
         window._descs = None
         window.onInit()
 

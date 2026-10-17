@@ -921,13 +921,28 @@ def _typed_login(api):
 
 
 def login():
+    """The Settings "Sign in" action: `sign_in()`, then end the plugin call.
+
+    Only a RunPlugin call owns a directory handle to end. Home and the
+    hubs are windows and call `sign_in()` directly (#22): ending the
+    long-spent handle from there logged an error and refreshed whatever
+    container sat under the window.
+    """
+    handle = router.ADDON_HANDLE
+    result = sign_in()
+    _finish_action(handle, refresh=bool(result))
+
+
+def sign_in():
     """Sign in: approve a code on a phone, or type email and password.
 
     The phone way is Stremio's own code sign-in; nothing is typed on the
     TV and no password crosses the network here. The keyboard stays for
     anyone who prefers it (phone remote apps can type into it).
+
+    The auth result once the account is stored, else None. Touches no
+    plugin handle.
     """
-    handle = router.ADDON_HANDLE
     api = StremioAPI()
     picked = dialogs.choose(L(30427), [L(30480), L(30481)])
     if picked == 0:
@@ -939,8 +954,7 @@ def login():
     else:
         result = None
     if not result:
-        _finish_action(handle, refresh=False)
-        return
+        return None
 
     store = get_store()
     store.set_auth(result)
@@ -991,7 +1005,7 @@ def login():
 
     user = result.get('user') or {}
     notify(L(30022) % (user.get('email') or user.get('name') or ''))
-    _finish_action(handle)
+    return result
 
 
 def logout():

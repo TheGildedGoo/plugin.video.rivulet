@@ -1164,7 +1164,9 @@ def test_onclick_library_signin_poster_opens_login(load_homewindow, monkeypatch)
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
 
     import lib.ui.views as views
-    monkeypatch.setattr(views, 'login', lambda: calls.append('login'))
+    monkeypatch.setattr(views, 'sign_in', lambda: calls.append('login'))
+    # Home never ends a plugin handle (#22): login() would.
+    monkeypatch.setattr(views, 'login', lambda: calls.append('handle'))
     import xbmcgui
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
     item = xbmcgui.ListItem('Sign in')
@@ -1985,10 +1987,11 @@ def test_a_sign_in_rebuilds_the_rows_for_the_new_account(load_homewindow, monkey
     monkeypatch.setattr(win, '_build', lambda place=None: (builds.append(place), real_build(place=place)))
     import lib.ui.views as views
 
-    def fake_login():
+    def fake_sign_in():
         store._auth = {'authKey': 'other', 'user': {'email': 'x@y.z'}}
+        return store._auth
 
-    monkeypatch.setattr(views, 'login', fake_login)
+    monkeypatch.setattr(views, 'sign_in', fake_sign_in)
 
     ctx.homewindow._open_signin(win)
 

@@ -1309,6 +1309,31 @@ def test_login_with_the_phone_stores_the_account_without_the_keyboard(load_views
     assert 'Container.Refresh' in ctx.env.executed_builtins
 
 
+def test_sign_in_from_a_window_ends_no_plugin_handle(load_views, monkeypatch):
+    """#22: Home and the hubs call sign_in(). It stores the account and
+    returns it, and leaves the long-spent plugin handle alone: no
+    endOfDirectory, no Container.Refresh under the window."""
+    ctx = load_views(localized={30022: 'Logged in as %s'})
+    monkeypatch.setattr(ctx.views.dialogs, 'choose', lambda heading, rows: 0)
+    views = ctx.views
+    store = FakeStore()
+    login_result = {'authKey': 'abc123', 'user': {'email': 'me@example.com'}}
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, FakeStremioAPI(addon_collection_result=[]))
+    import lib.ui.pairwindow as pairwindow
+
+    monkeypatch.setattr(pairwindow, 'link_sign_in', lambda api=None: login_result)
+
+    assert views.sign_in() == login_result
+    assert store.auth_set_calls == [login_result]
+    assert ctx.env.end_of_directory == []
+    assert 'Container.Refresh' not in ctx.env.executed_builtins
+
+    monkeypatch.setattr(pairwindow, 'link_sign_in', lambda api=None: None)
+    assert views.sign_in() is None
+    assert ctx.env.end_of_directory == []
+
+
 def test_login_with_the_phone_backed_out_stores_nothing(load_views, monkeypatch):
     ctx = load_views()
     monkeypatch.setattr(ctx.views.dialogs, 'choose', lambda heading, rows: 0)
