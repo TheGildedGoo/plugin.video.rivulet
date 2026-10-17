@@ -35,7 +35,6 @@ account.
 - [Features](#features)
 - [Screenshots](#screenshots)
 - [Install](#install)
-- [Auto-updates](#auto-updates)
 - [Streaming server](#streaming-server)
 - [Development](#development)
 
@@ -82,40 +81,45 @@ Rivulet's custom UI:
 
 ## Install
 
+Kodi 19 or later. If this is your first non-official add-on, enable
+**Settings → System → Add-ons → Unknown sources** once.
+
+**Recommended (updates itself):**
+
 1. Download
-   [`plugin.video.rivulet.zip`](https://rivulet-kodi.github.io/plugin.video.rivulet/plugin.video.rivulet.zip)
-   — that URL always serves the current release. (Per-version zips are on the
-   [releases page](https://github.com/rivulet-kodi/plugin.video.rivulet/releases/latest).)
-2. In Kodi: **Settings → Add-ons → Install from zip file** and pick the
-   downloaded zip.
-3. Open **Rivulet** from the Videos section of the home screen.
+   [`repository.rivulet.zip`](https://rivulet-kodi.github.io/plugin.video.rivulet/repository.rivulet.zip)
+   — that URL always serves the current release, and you only need it once.
+2. **Settings → Add-ons → Install from zip file** and pick the zip.
+3. **Install from repository → Rivulet Repository → Video add-ons →
+   Rivulet → Install.** Kodi then offers future releases like any other
+   repository add-on.
 
-## Auto-updates
+**Fewest clicks (no auto-updates):** download
+[`plugin.video.rivulet.zip`](https://rivulet-kodi.github.io/plugin.video.rivulet/plugin.video.rivulet.zip),
+install it with **Install from zip file**, and open **Rivulet** from
+**Add-ons → Video add-ons**. Per-version zips are on the
+[releases page](https://github.com/rivulet-kodi/plugin.video.rivulet/releases/latest).
 
-Instead of re-downloading and reinstalling a zip for every release, install
-the repository once — no separate download needed, useful on set-top boxes
-(e.g. Nvidia Shield):
+**Can't browse to a downloaded zip** (set-top boxes, TVs)? Add
+`https://rivulet-kodi.github.io/plugin.video.rivulet/` under
+**Settings → File manager → Add source**, then choose either zip above via
+**Install from zip file → Rivulet**. Kodi fetches it itself.
 
-1. **Settings → File manager → Add source**, enter
-   `https://rivulet-kodi.github.io/plugin.video.rivulet/` as the path, and
-   give it a name (e.g. `Rivulet`).
-2. **Settings → Add-ons → Install from zip file → Rivulet →
-   `repository.rivulet.zip`** (or descend into `repository.rivulet/` for the
-   versioned filename).
-3. From then on, Kodi offers Rivulet — and its future updates — from
-   **Settings → Add-ons → Install from repository → Rivulet Repository**,
-   with automatic update checks like any other Kodi repo.
+Prefer version-less URLs when linking people to the add-on: a
+`repository.rivulet-1.0.0.zip` style link breaks silently as soon as the
+next release ships. The repository is served from GitHub Pages, published by
+`.github/workflows/repo.yml` on every `v*` tag push.
 
-Alternatively, download
-[`repository.rivulet.zip`](https://rivulet-kodi.github.io/plugin.video.rivulet/repository.rivulet.zip)
-directly and install it the same way as step 2 above (**Install from zip
-file**) without adding a source. Prefer these version-less URLs when linking
-people to the addon: a `repository.rivulet-1.0.0.zip` style link breaks
-silently as soon as the next release ships.
+### First launch
 
-The repository is served from GitHub Pages at
-[rivulet-kodi.github.io/plugin.video.rivulet](https://rivulet-kodi.github.io/plugin.video.rivulet/),
-published by `.github/workflows/repo.yml` on every `v*` tag push.
+Nothing needs configuring to start. The embedded streaming server is on by
+default and the background service downloads the right `rivulet-engine`
+build for your device on first start. Optionally:
+
+- **Settings → Account → Log in**, then **Sync add-ons** to pull your
+  Stremio collection. Without an account, add add-ons from a manifest URL
+  in the in-app add-on manager.
+- **Settings → Subtitles**: set your language code (default `en`).
 
 ## Streaming server
 
