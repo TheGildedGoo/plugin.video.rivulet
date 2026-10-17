@@ -98,20 +98,20 @@
             <!-- Full-screen fanart, shown whole (keep letterboxes on the
                  black plate; scale would crop it). The fade covers the
                  right quarter. The row band below is a solid plate. -->
-            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
+            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF07090B">white.png</texture></control>
             <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
             <!-- fade_h.png is a light vignette: clear on the left, only
                  partly dark on the right, the same on every row. The
                  ratings sit on the bar at the bottom of the picture. -->
-            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><aspectratio>stretch</aspectratio><texture colordiffuse="E60A0C0E">fade_h.png</texture></control>
+            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><aspectratio>stretch</aspectratio><texture colordiffuse="E607090B">fade_h.png</texture></control>
             <!-- fade_v.png stays clear through the hero text and is
                  opaque from about 75% of its height. It starts at y=0
                  so there is no step under the header. 0.75*912 = 684,
                  the row. A ramp that was already dark behind the title
                  read as a hard-edged block. The plate keeps the art
                  off the row. -->
-            <control type="image"><left>0</left><top>0</top><width>1920</width><height>912</height><aspectratio>stretch</aspectratio><texture colordiffuse="FF0A0C0E">fade_v.png</texture></control>
-            <control type="image"><left>0</left><top>684</top><width>1920</width><height>396</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
+            <control type="image"><left>0</left><top>0</top><width>1920</width><height>912</height><aspectratio>stretch</aspectratio><texture colordiffuse="FF07090B">fade_v.png</texture></control>
+            <control type="image"><left>0</left><top>684</top><width>1920</width><height>396</height><texture colordiffuse="FF07090B">white.png</texture></control>
 
             <!-- Set at runtime by GridWindow: "RevRivulet / CONTINUE". -->
             <control type="image"><left>96</left><top>60</top><width>34</width><height>34</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
@@ -132,7 +132,7 @@
             <control type="image" id="30026">
                 <left>0</left><top>308</top><width>1920</width><height>376</height>
                 <aspectratio>stretch</aspectratio>
-                <texture border="0,64,0,8" colordiffuse="FF0A0C0E">hero_bar.png</texture>
+                <texture border="0,64,0,8" colordiffuse="FF07090B">hero_bar.png</texture>
             </control>
             <control type="label" id="30020"><left>96</left><top>372</top><width>1056</width><height>64</height><font>font37</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
                 <wrapmultiline>false</wrapmultiline>

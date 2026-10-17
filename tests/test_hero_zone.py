@@ -13,9 +13,12 @@ is shown whole (`keep`), letterboxed on the black plate, and the text
 ends on the row.
 
 The focused row is the only row on screen, pinned to the bottom edge.
-Home's row is 388px (a 32px heading plus the 356px poster panel), the
-hubs' row is the existing 340px catalog item, and Library's row is
-396px (a 32px header plus the 364px panel). A 300px poster plus its
+Home's row is 388px (a 32px heading plus the 356px poster panel). The
+hubs and the coverflow use the same 388px band, so moving between them
+does not move the hero, and every poster ends at y=1024, clear of the
+bottom edge (#7, #14). Library's row is 396px (a 32px header plus the
+364px panel). The Rev2 test skins keep the 740px band they were built
+with; they are not published. A 300px poster plus its
 heading does not fit in a literal quarter of 1080 without clipping the
 focus frame, so the band is one card tall instead. Home and Library
 pin it by making every row group exactly as tall as the viewport and
@@ -71,7 +74,7 @@ _ROWS = {
     'HubWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
         'rows': '31000', 'lines': 6, 'font': 30, 'title_h': 64,
-        'kind': 'fixedlist', 'band': (740, 340), 'gap': 40,
+        'kind': 'fixedlist', 'band': (692, 388), 'gap': 40,
     },
     'Rev2HubWindow.xml': {
         'title': '30020', 'logo': '30023', 'meta': '30021', 'plot': '30022',
@@ -90,8 +93,12 @@ _ROWS = {
     },
 }
 _SHOWCASE = {
-    'ShowcaseWindow.xml': {'rows': '30002', 'lines': 6, 'font': 27, 'title_h': 92},
-    'Rev2ShowcaseWindow.xml': {'rows': '30002', 'lines': 6, 'font': 27, 'title_h': 92},
+    'ShowcaseWindow.xml': {
+        'rows': '30002', 'lines': 6, 'font': 27, 'title_h': 92, 'band': (692, 388), 'gap': 40,
+    },
+    'Rev2ShowcaseWindow.xml': {
+        'rows': '30002', 'lines': 6, 'font': 27, 'title_h': 92, 'band': (740, 340), 'gap': 0,
+    },
 }
 # Below the header. A title back up at y=172 is the clipped layout.
 _HERO_TEXT_TOP = 360
@@ -318,9 +325,20 @@ def test_showcase_is_one_row_under_the_backdrop():
         rows = _by_id(root, spec['rows'])
         plot_bottom, _title_top, _title_h = _assert_text_stack(name, title, meta, plot, spec)
         row_top, row_h = _px(rows, 'top'), _px(rows, 'height')
-        assert plot_bottom <= row_top, name
-        assert row_top - plot_bottom <= 8, name
-        assert row_top == 740 and row_h == 340, name
+        band_top, band_height = spec['band']
+        stack_limit = row_top - spec['gap']
+        assert plot_bottom <= stack_limit, name
+        assert stack_limit - plot_bottom <= 8, name
+        assert row_top == band_top and row_h == band_height, name
+        if spec['gap']:
+            lines = [
+                el for el in root.iter('control')
+                if el.get('type') == 'image' and _texture_name(el) == 'white.png'
+                and (el.findtext('top') or '').strip() == str(band_top)
+                and _px(el, 'height') == 2
+            ]
+            assert len(lines) == 1, name
+            assert (lines[0].find('texture').get('colordiffuse') or '') == 'FF8B949E', name
         assert row_top + row_h == _SCREEN, name
         assert row_top >= plot_bottom, name
         assert (rows.findtext('orientation') or '').strip() == 'horizontal', name
@@ -364,8 +382,9 @@ def test_hero_bar_spans_the_screen_and_ends_on_the_row():
         assert (texture.get('border') or '') == '0,64,0,8', name
         assert _px(bar, 'left') == 0, name
         assert _px(bar, 'width') == 1920, name
-        band_top = _ROWS[name]['band'][0] if name in _ROWS else 740
-        gap = _ROWS[name].get('gap', 0) if name in _ROWS else 0
+        spec = _ROWS[name] if name in _ROWS else _SHOWCASE[name]
+        band_top = spec['band'][0]
+        gap = spec.get('gap', 0)
         assert _px(bar, 'top') + _px(bar, 'height') == band_top - gap, name
         controls = list(root.iter('control'))
         title = _by_id(root, '30020')
