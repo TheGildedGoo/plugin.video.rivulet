@@ -398,6 +398,37 @@ def _set_shelf(window, list_id, label_id, prop, heading, items):
     window.setProperty(prop, '1' if items else '')
 
 
+#: Row panel -> its "row / rows" label at the right end of the heading
+#: (HomeWindow.xml). Only one row is on screen at a time, so the count is
+#: the only cue to how far down the list you are (#20).
+_ROW_COUNTERS = (
+    (CONTINUE_SHELF, 'shelf_continue', 30150),
+    (LIBRARY_SHELF, 'shelf_library', 30151),
+) + tuple(
+    (list_id, 'shelf_%s' % action, 30152 + index)
+    for index, (action, list_id, _label) in enumerate(_SHELVES)
+)
+
+
+def _number_rows(window):
+    """Write "row / rows" on every visible row, in screen order.
+
+    Run after any shelf is filled or emptied: Continue appearing after a
+    first playback shifts every count below it. Count-neutral digits, no
+    word to translate. A window without the labels (a Rev2 skin) skips.
+    """
+    visible = [(prop, counter) for _list_id, prop, counter in _ROW_COUNTERS if window.getProperty(prop)]
+    total = len(visible)
+    shown = {counter: index + 1 for index, (_prop, counter) in enumerate(visible)}
+    for _list_id, _prop, counter in _ROW_COUNTERS:
+        try:
+            label = window.getControl(counter)
+        except Exception:
+            continue
+        index = shown.get(counter)
+        label.setLabel('%d / %d' % (index, total) if index and total > 1 else '')
+
+
 def _state_percent(entry):
     """Percent of a libraryItem's own `state`, or None when the record
     has no usable duration. Same fields `lib.library.merge_playback()`
@@ -668,6 +699,7 @@ def _fill_shelves(window, store, addons, auth, show_continue):
             window, list_id, label_id, 'shelf_%s' % action,
             L(L_FOR_ACTION[action]).upper(), items,
         )
+    _number_rows(window)
     _warm_shelf_posters(window, pages)
 
 
@@ -742,6 +774,7 @@ def _refresh_saved_rows(window, store=None):
         window, LIBRARY_SHELF, 30141, 'shelf_library',
         L(30422).upper(), window._library_items,
     )
+    _number_rows(window)
     _library_dirty = False
     _restore_place(window, place)
 

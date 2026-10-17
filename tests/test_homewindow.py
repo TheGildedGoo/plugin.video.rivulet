@@ -2034,3 +2034,50 @@ def test_up_from_the_first_row_reaches_the_tools_when_there_are_no_pills(load_ho
     win.onAction(xbmcgui.Action(3))
 
     assert win.getFocusId() == ctx.homewindow.TOOLS_LIST
+
+
+def test_each_visible_row_shows_its_place_in_the_list(load_homewindow, monkeypatch):
+    """#20: one row is on screen at a time, so each heading carries
+    "row / rows". Hidden rows are not counted; a lone row shows none."""
+    ctx = load_homewindow()
+    _patch_library(monkeypatch, ctx, [{
+        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
+    }])
+    pages = {
+        'movies': [{'id': 'tt1', 'type': 'movie', 'name': 'One', 'poster': 'p1'}],
+        'series': [{'id': 'tt2', 'type': 'series', 'name': 'Two', 'poster': 'p2'}],
+    }
+    monkeypatch.setattr(ctx.homewindow, '_catalog_pages', lambda addons, enabled: (pages, {}))
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}))
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+
+    win.onInit()
+
+    assert win.getProperty('shelf_continue') == ''
+    assert win.getControl(30150).label == ''
+    assert win.getControl(30151).label == '1 / 3'
+    assert win.getControl(30152).label == '2 / 3'
+    assert win.getControl(30153).label == '3 / 3'
+    assert win.getControl(30154).label == ''
+
+
+def test_down_on_the_last_row_stays_there_and_hubs_count_rows_in_the_skin():
+    """#20: Down from the last Home row used to wrap to Continue. The hub
+    counts its rows from the container, and names itself in the header."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    skin = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i')
+    home = ET.parse(os.path.join(skin, 'HomeWindow.xml')).getroot()
+    last = home.find(".//control[@id='30045']")
+    assert (last.findtext('ondown') or '').strip() == '30045'
+    for counter in range(30150, 30156):
+        label = home.find(".//control[@id='%d']" % counter)
+        assert label is not None and (label.findtext('align') or '').strip() == 'right'
+    hub = ET.parse(os.path.join(skin, 'HubWindow.xml')).getroot()
+    labels = [el.findtext('label') or '' for el in hub.iter('control') if el.get('type') == 'label']
+    assert any('Container(31000).CurrentItem' in text and 'Container(31000).NumItems' in text for text in labels)
+    title = hub.find(".//control[@id='30005']")
+    tools = hub.find(".//control[@id='30011']")
+    assert int(title.findtext('top')) == int(tools.findtext('top'))
+    assert (title.findtext('font') or '').strip() == 'font13'
