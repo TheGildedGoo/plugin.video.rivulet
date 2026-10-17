@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<addons><addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev16" provider-name="M0RF30">
+<addons><addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev17" provider-name="M0RF30">
   <requires>
     <import addon="xbmc.python" version="3.0.0" />
     <import addon="script.module.requests" version="2.22.0" />
@@ -12,7 +12,12 @@
     <summary lang="en_GB">RevRivulet: watch Stremio-protocol catalogs, addons and streams in Kodi. Installs beside official Rivulet.</summary>
     <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote stremio-server-go streaming server, and optionally sync your addon collection with your Stremio account.</description>
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
-    <news>v0.30.1.rev16:
+    <news>v0.30.1.rev17:
+- New: in the new look, Movies, Series, Other and the catalog, decade and search lists look like Home: the full-screen picture, the logo as the title, stars, scores and "Ends at", and the white ring.
+- New: every poster and card has a soft mirror image under it, fading into black.
+- New: in the new look, the episode page lists each episode with its picture, title, air date, a tick once watched, the runtime and the start of the plot. The selected episode sits on a white panel; the show's poster is on the right.
+- New: Trailer. On the episode page (a button, and the Options menu), on the sources screen (Options), and in a poster's menu on Home and the hubs. It plays the YouTube trailer through the streaming server, or Kodi's YouTube add-on when installed.
+v0.30.1.rev16:
 - New: Settings &gt; Home &gt; New look (beta). The backdrop fills the screen and fades to black on the left and at the bottom, with no bar. The title's logo is the title, with stars, year, runtime and genres under it, three lines of the description, then the scores and when the title would end.
 - New: in the new look, Home shows the date, the time and the temperature at the top, the categories as pills, and Search, Add-ons and Settings as icons. The focused card gets a white ring.
 - Note: the new look starts with Home. Movies, Series, Other and the episode page keep the current look for now. Switching the setting reopens Home in the other look.
