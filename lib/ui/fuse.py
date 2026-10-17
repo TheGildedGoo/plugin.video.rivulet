@@ -23,20 +23,21 @@ Kodi skin defines for the standard names (Estuary: Noto Sans).
 import time
 
 #: Screens that have a Fuse file. Grow this as each screen is drawn.
-FUSE_SKINS = frozenset(('HomeWindow.xml',))
+FUSE_SKINS = frozenset(('HomeWindow.xml', 'HubWindow.xml', 'ShowcaseWindow.xml'))
 
 #: Controls only the Fuse files have.
 HERO_FACTS = 30024   # label: year • runtime • genres
 HERO_SCORES = 30025  # label: IMDb 7.4   RT 88%   Ends at 22:28
 HERO_STARS = 30027   # image: fuse_stars_00..10.png
 
-#: The hero stack, bottom-up from the row band. Pixels at 1080p. The
+#: The hero stack, bottom-up from the row band (y=560, 40px above it).
+#: Pixels at 1080p. The
 #: plot is font13: 30px a line in Kodi's measure (heroscrim), three
 #: lines at most, plus the inset a textbox keeps so a line is not clipped.
 _STACK = {
     'left': 80,
-    'bottom': 616,
-    'title_h': 150,
+    'bottom': 520,
+    'title_h': 120,
     'text_title_h': 80,
     'facts_h': 40,
     'scores_h': 40,
@@ -194,3 +195,33 @@ def paint_hero(window, plot, panel_text, runtime_minutes):
     except Exception:
         return
     place_hero(window, plot, bool(facts_line), bool(scores_line), bool(stars))
+
+
+def runtime_minutes(text):
+    """Whole minutes out of a runtime string (``"112 min"``), or ``''``."""
+    from lib.ui.playbackmeta import parse_duration_seconds
+
+    seconds = parse_duration_seconds(text)
+    return str(int(seconds // 60)) if seconds else ''
+
+
+def paint_showcase(window, focused):
+    """The coverflow's hero for `focused`: its labels are bound in the
+    skin, so this sets the logo, the facts and scores, and the stack."""
+    if focused is None:
+        return
+    from lib.ui.homewindow import HERO_LOGO, _logo_known_good, _warm_logos
+
+    wanted = focused.getProperty('logo') or ''
+    logo = wanted if _logo_known_good(wanted) else ''
+    try:
+        if wanted and not logo:
+            _warm_logos(window, [wanted])
+        window.setProperty('HeroLogo', logo)
+        window.getControl(HERO_LOGO).setImage(logo)
+    except Exception:
+        pass
+    paint_hero(
+        window, focused.getProperty('plot') or '', focused.getProperty('meta_line') or '',
+        runtime_minutes(focused.getProperty('runtime')),
+    )

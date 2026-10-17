@@ -496,6 +496,7 @@ def _apply_posters(row_item, posters, col, layout='', start=None):
         row_item.setProperty('hero_logo', poster.getProperty('hero_logo'))
         row_item.setProperty('fanart', poster.getProperty('fanart'))
         row_item.setProperty('hero_fill', poster.getProperty('hero_fill'))
+        row_item.setProperty('hero_runtime', poster.getProperty('hero_runtime'))
         row_item.setProperty('sid', poster.getProperty('sid'))
         row_item.setProperty('stype', poster.getProperty('stype'))
         row_item.setProperty('thumbnail', poster.getProperty('thumbnail'))

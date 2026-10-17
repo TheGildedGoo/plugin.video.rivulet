@@ -495,6 +495,19 @@ def _fuse_icon(draw_fn, focused):
     return face.resize((64, 64), Image.LANCZOS)
 
 
+#: Over a card's mirror image under the row: part-dark at the card's
+#: edge, solid black by the middle, so the reflection fades into the
+#: black under the rows. A plain (unflipped) texture over the flipped
+#: art, so it does not depend on how Kodi orients a diffuse.
+FUSE_REFLECT_FADE = ((0.0, 100), (0.45, 235), (0.65, 255), (1.0, 255))
+
+
+def _panel(size=96, radius=32):
+    """A filled rounded rectangle, drawn 9-slice with border=40: the
+    white plate behind a focused list row (Fuse episode list)."""
+    return _rrect(size, size, radius)
+
+
 def write_fuse_assets():
     """Fades, the focus ring, star strips and icon faces for the Fuse look."""
     os.makedirs(MEDIA, exist_ok=True)
@@ -505,6 +518,9 @@ def write_fuse_assets():
         # Drawn 9-slice with border=24: radius 20 outside a 12px card
         # corner, 5px of white, so the ring is concentric with the art.
         'fuse_ring.png': _rrect(64, 64, 20, stroke=5),
+        'fuse_reflect_fade.png': _fade(FUSE_REFLECT_FADE, 256, False),
+        'fuse_panel.png': _panel(),
+        'fuse_check.png': _icon(_check),
     }
     for half in range(11):
         out['fuse_stars_%02d.png' % half] = _stars(half)

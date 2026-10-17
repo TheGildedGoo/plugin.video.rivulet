@@ -221,6 +221,8 @@ def _item_properties(meta):
         'plot': escape_label(meta.get('description') or ''),
         'year': _year_text(meta),
         'runtime': str(runtime) if runtime not in (None, '') else '',
+        # The Fuse hero's title (lib/ui/fuse.py); the classic one ignores it.
+        'logo': logo or '',
     }
     # Precomposed for the skin: `meta_line` is what the right-quarter
     # panel renders. Built from the raw meta so a Rotten Tomatoes or
@@ -608,6 +610,14 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         """
         if focused is None:
             return
+        from lib.ui import fuse
+
+        if fuse.is_fuse_window(self):
+            try:
+                fuse.paint_showcase(self, focused)
+            except Exception:  # noqa: BLE001 - a hero miss must not break the remote
+                pass
+            return
         from lib.ui.heroscrim import place_hero_bar
 
         try:
@@ -868,9 +878,16 @@ def open_showcase(metas, catalog_title=None, more_pages=None):
     catalog's remaining pages, appended to the strip as they arrive -
     see `ShowcaseWindow.start()` for why they are not waited on."""
     from lib.ui.compat import ADDON
+    from lib.ui.rev2 import is_rev2
     from lib.ui.rev2.skin import skin_for
     path = ADDON.getAddonInfo('path')
-    win = ShowcaseWindow(skin_for('ShowcaseWindow.xml'), path, 'Default', '1080i')
+    xml_name = skin_for('ShowcaseWindow.xml')
+    if not is_rev2():
+        from lib.ui.fuse import skin_for as fuse_skin_for
+        xml_name = fuse_skin_for(xml_name)
+    win = ShowcaseWindow(xml_name, path, 'Default', '1080i')
+    # The Fuse file paints a few controls only it has (lib/ui/fuse.py).
+    win._skin_xml = xml_name
     try:
         return win.start(metas, catalog_title=catalog_title, more_pages=more_pages)
     finally:

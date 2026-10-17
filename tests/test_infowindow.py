@@ -123,6 +123,7 @@ def test_item_properties_full_meta_maps_every_field(load_infowindow):
         'runtime': '132 min',
         'meta_line': 'IMDb 8.4\n2019\n132 min\nAction, Sci-Fi',
         'hero_fill': '',
+        'logo': 'https://x/logo.png',
     }
 
 
@@ -292,7 +293,7 @@ def test_item_properties_missing_fields_are_empty_strings(load_infowindow):
     ctx = load_infowindow()
     assert ctx.infowindow._item_properties({}) == {
         'thumbnail': '', 'fanart': '', 'genre': '', 'rating': '', 'plot': '', 'year': '',
-        'runtime': '', 'meta_line': '', 'hero_fill': '',
+        'runtime': '', 'meta_line': '', 'hero_fill': '', 'logo': '',
     }
 
 
