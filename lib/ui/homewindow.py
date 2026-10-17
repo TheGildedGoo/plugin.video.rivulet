@@ -1444,18 +1444,30 @@ def _logo_known_good(url):
     """
     import time
 
+    from lib.ui import logocheck
+
     if not url:
         return False
+    # Answered over HTTP (lib/ui/logocheck.py): an image, or not there.
+    answered = logocheck.state(url)
+    if answered is not None:
+        return answered
     now = time.monotonic()
     state = _LOGO_STATE.get(url)
     if state is not None and (state[0] or now - state[1] < _LOGO_RECHECK_SECONDS):
         return state[0]
     ok = _texture_cached(url)
     _LOGO_STATE[url] = (ok, now)
+    if ok:
+        logocheck.remember(url, True)
+    else:
+        # Kodi has not drawn it yet: ask its host. The worker repaints
+        # the hero when the logo turns out to be real.
+        logocheck.ask([url])
     return ok
 
 
-def _upcoming_logos(window, count=1):
+def _upcoming_logos(window, count=3):
     """Clearlogos of the next posters on the focused row."""
     logos = []
     try:
@@ -1549,7 +1561,12 @@ def paint_hero(window, item=None):
     wanted_logo = item.getProperty('hero_logo') or ''
     # The text title stays up until Kodi has loaded the logo once (#10).
     logo = wanted_logo if _logo_known_good(wanted_logo) else ''
-    _warm_logos(window, ([wanted_logo] if wanted_logo and not logo else []) + _upcoming_logos(window))
+    upcoming_logos = _upcoming_logos(window)
+    _warm_logos(window, ([wanted_logo] if wanted_logo and not logo else []) + upcoming_logos)
+    # The next titles' logos are checked ahead, so they are ready on arrival.
+    from lib.ui import logocheck
+
+    logocheck.ask(upcoming_logos)
     fill = item.getProperty('hero_fill') == '1' and bool(fanart)
     runtime = item.getProperty('hero_runtime') or ''
     # Every action repaints (worker noops, mouse moves, a key that did not

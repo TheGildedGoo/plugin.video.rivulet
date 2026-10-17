@@ -459,3 +459,18 @@ def test_short_runtime(value, text):
     with install_kodi_stubs(reload=('lib.ui.compat', 'lib.ui.detailwindow')):
         from lib.ui.detailwindow import _short_runtime
         assert _short_runtime(value) == text
+
+
+def test_an_uncached_logo_is_asked_about_and_shown_once_its_host_answers(load_homewindow, monkeypatch):
+    """rev17 showed a logo only when Kodi had already drawn it, so most
+    titles showed text. Now the host is asked, and a yes shows the logo."""
+    ctx = load_homewindow()
+    import lib.ui.logocheck as logocheck
+
+    ctx.env.cached_textures = set()  # Kodi has drawn nothing
+    url = 'https://img/logo.png'
+    assert ctx.homewindow._logo_known_good(url) is False
+    assert url in logocheck.asked
+
+    logocheck.remember(url, True)
+    assert ctx.homewindow._logo_known_good(url) is True
