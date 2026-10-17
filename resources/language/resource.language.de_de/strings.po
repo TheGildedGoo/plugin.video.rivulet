@@ -1341,3 +1341,23 @@ msgstr "Vergisst gespeicherte Katalogseiten, Titeldetails, Bewertungen und Logo-
 msgctxt "#30504"
 msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
 msgstr "Trailer laufen über das YouTube-Add-on von Kodi. Jetzt installieren?"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Per Handy"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Entdecken"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Ergebnisse"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Willkommen"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Suche nach Filmen, Serien und mehr. Wähle Buchstaben oder nimm dein Handy."

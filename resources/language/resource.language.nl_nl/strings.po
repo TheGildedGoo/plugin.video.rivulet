@@ -1341,3 +1341,23 @@ msgstr "Vergeet opgeslagen cataloguspagina's, titelgegevens, beoordelingen en lo
 msgctxt "#30504"
 msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
 msgstr "Trailers spelen via de YouTube-add-on van Kodi. Nu installeren?"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Via telefoon"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Ontdekken"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Resultaten"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Welkom"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Zoek films, series en meer. Kies letters of gebruik je telefoon."

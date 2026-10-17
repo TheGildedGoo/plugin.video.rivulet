@@ -1341,3 +1341,23 @@ msgstr "保存済みのカタログページ、作品情報、評価、ロゴの
 msgctxt "#30504"
 msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
 msgstr "予告編は Kodi の YouTube アドオンで再生します。今すぐインストールしますか？"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "スマホで入力"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "おすすめ"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "検索結果"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "ようこそ"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "映画やドラマなどを検索します。文字を選ぶか、スマホを使ってください。"

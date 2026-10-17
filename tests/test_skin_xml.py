@@ -84,9 +84,9 @@ def test_skin_file_discovery_finds_every_window():
     # 16 RevRivulet windows (including the phone-pairing dialog), a Rev2
     # copy of each, plus the Rev2 search sheet and the Rev2 settings window,
     # plus each screen drawn so far in the Fuse look (lib/ui/fuse.py).
-    from lib.ui.fuse import FUSE_SKINS
+    from lib.ui.fuse import FUSE_ONLY_SKINS, FUSE_SKINS
 
-    expected = 34 + len(FUSE_SKINS)
+    expected = 34 + len(FUSE_SKINS) + len(FUSE_ONLY_SKINS)
     assert len(paths) == expected, 'expected %d window XMLs in %s, found %d: %s' % (
         expected, _SKIN_DIR, len(paths), paths)
 

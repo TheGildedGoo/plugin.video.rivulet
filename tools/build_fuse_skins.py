@@ -4,8 +4,9 @@
 
     python3 tools/build_fuse_skins.py [1080i dir]
 
-Writes FuseHomeWindow.xml, FuseHubWindow.xml, FuseShowcaseWindow.xml and
-FuseDetailWindow.xml. Each declares every control id its classic file
+Writes FuseHomeWindow.xml, FuseHubWindow.xml, FuseShowcaseWindow.xml,
+FuseDetailWindow.xml and FuseSearchWindow.xml (no classic counterpart:
+lib/ui/fusesearch.py drives it). Each declares every control id its classic file
 does, with the classic navigation, so the same window class drives
 either; tests/test_fuse.py checks that. Edit the look here, not in the
 XML, and commit both. Nothing here comes from another skin.
@@ -560,8 +561,76 @@ def detail():
     return head(None) + body + TAIL
 
 
+# --- Search -----------------------------------------------------------------------
+
+def search_row_layout(focused):
+    left, top = 16, 8
+    art = '$INFO[ListItem.Property(thumbnail)]'
+    has_art = '!String.IsEmpty(ListItem.Property(thumbnail))'
+    parts = [image(left, top, POSTER[0], POSTER[1], 'mask_poster.png', conds=('String.IsEmpty(ListItem.Property(thumbnail))',),
+                   attrs=' colordiffuse="FF16191C"'),
+             card(left, top, POSTER, art, 'mask_poster.png', (has_art,), keep=True),
+             label(left + 12, top, 176, POSTER[1], '$INFO[ListItem.Label]', color='E6EDEDED', align='center',
+                   conds=('String.IsEmpty(ListItem.Property(thumbnail))',), extra='<wrapmultiline>true</wrapmultiline>')]
+    if focused:
+        parts.append(ring(left, top, POSTER, ('Control.HasFocus(30215)',)))
+    return ''.join(parts)
+
+
+def search():
+    has_row = '!String.IsEmpty(Window.Property(SearchHasRow))'
+    letters = '''<control type="panel" id="30202">
+                <left>100</left><top>192</top><width>728</width><height>104</height>
+                <orientation>vertical</orientation>
+                <onup>30203</onup><ondown>30215</ondown>
+                <onleft>30202</onleft><onright>30203</onright>
+                <scrolltime>0</scrolltime>
+                <itemlayout width="52" height="52">%s</itemlayout>
+                <focusedlayout width="52" height="52">%s%s%s</focusedlayout>
+            </control>
+''' % (
+        label(0, 0, 52, 52, '$INFO[ListItem.Label]', color='B3EDEDED', align='center'),
+        image(4, 4, 44, 44, 'pill_fill.png', conds=('Control.HasFocus(30202)',), attrs=' border="22" colordiffuse="FFFFFFFF"'),
+        label(0, 0, 52, 52, '[B]$INFO[ListItem.Label][/B]', color='FF07090B', align='center', conds=('Control.HasFocus(30202)',)),
+        label(0, 0, 52, 52, '$INFO[ListItem.Label]', color='B3EDEDED', align='center', conds=('!Control.HasFocus(30202)',)),
+    )
+    phone = ('<control type="button" id="30203"><left>880</left><top>106</top><width>240</width><height>56</height>'
+             '<font>font13</font><textcolor>E6EDEDED</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny>'
+             '<texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="24FFFFFF">pill_fill.png</texturenofocus>'
+             '<label>[B]$ADDON[plugin.video.revrivulet 30505][/B]</label>'
+             '<onup>30203</onup><ondown>30202</ondown><onleft>30202</onleft><onright>30203</onright></control>\n')
+    body = (
+        warm_slots((30098, 30099)) + backdrop() +
+        label(80, 36, 900, 50, '[B]$ADDON[plugin.video.revrivulet 30001][/B]') + '\n' + clock() +
+        '<!-- The search bar: what has been picked so far, and a cursor. -->\n' +
+        image(60, 96, 800, 76, 'pill_fill.png', attrs=' border="38" colordiffuse="FFFFFFFF"') + '\n' +
+        image(80, 106, 56, 56, 'fuse_icon_search.png', attrs=' colordiffuse="FF07090B"') + '\n' +
+        label(146, 96, 690, 76, '', color='FF07090B', cid=30201) + '\n' +
+        phone +
+        '<!-- The alphabet, then space and delete: OK adds the letter. -->\n' + letters +
+        hero() +
+        label(80, BAND, 1200, 44, '', conds=(has_row,), cid=30140) + '\n' +
+        label(1504, BAND, 360, 44, '$INFO[Container(30215).CurrentItem] / $INFO[Container(30215).NumItems]', font='font12',
+              color='B3EDEDED', align='right', conds=(has_row,)) + '\n' +
+        image(80, BAND + 50, 1784, 2, 'white.png', conds=(has_row,), attrs=' colordiffuse="24EDEDED"') + '\n' +
+        '''<control type="panel" id="30215">
+                <left>64</left><top>%d</top><width>1856</width><height>%d</height>
+                <orientation>horizontal</orientation>
+                <onup>30202</onup><ondown>30215</ondown>
+                <onleft>30215</onleft><onright>30215</onright>
+                <scrolltime tween="cubic" easing="out">240</scrolltime>
+                <preloaditems>2</preloaditems>
+                %s
+                <itemlayout width="%d" height="%d">%s</itemlayout>
+                <focusedlayout width="%d" height="%d">%s</focusedlayout>
+            </control>
+''' % (BAND + 64, VIEW_H - 64, vis(has_row), POSTER_STEP, VIEW_H - 64, search_row_layout(False),
+           POSTER_STEP, VIEW_H - 64, search_row_layout(True)))
+    return head(30202) + body + TAIL
+
+
 for name, build in (('FuseHomeWindow.xml', home), ('FuseHubWindow.xml', hub), ('FuseShowcaseWindow.xml', showcase),
-                    ('FuseDetailWindow.xml', detail)):
+                    ('FuseDetailWindow.xml', detail), ('FuseSearchWindow.xml', search)):
     with open(os.path.join(OUT, name), 'w', encoding='utf-8') as handle:
         handle.write(build())
     print('wrote', name)

@@ -1341,3 +1341,23 @@ msgstr ""
 msgctxt "#30504"
 msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
 msgstr ""
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr ""
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr ""
+
+msgctxt "#30507"
+msgid "Results"
+msgstr ""
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr ""
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr ""

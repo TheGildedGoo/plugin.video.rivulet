@@ -1341,3 +1341,23 @@ msgstr "Kayıtlı katalog sayfalarını, ayrıntıları, puanları ve logo kontr
 msgctxt "#30504"
 msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
 msgstr "Fragmanlar Kodi'nin YouTube eklentisiyle oynatılır. Şimdi yüklensin mi?"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Telefonla"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Keşfet"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Sonuçlar"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Hoş geldiniz"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Film, dizi ve daha fazlasını arayın. Harf seçin ya da telefonunuzu kullanın."

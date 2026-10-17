@@ -1341,3 +1341,23 @@ msgstr "Oublie les pages de catalogue, détails, notes et vérifications de logo
 msgctxt "#30504"
 msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
 msgstr "Les bandes-annonces passent par l'extension YouTube de Kodi. L'installer maintenant ?"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Téléphone"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Découvrir"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Résultats"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Bienvenue"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Cherchez des films, des séries et plus. Choisissez des lettres ou utilisez votre téléphone."

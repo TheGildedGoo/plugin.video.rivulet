@@ -1341,3 +1341,23 @@ msgstr "저장된 카탈로그 페이지, 작품 정보, 평점, 로고 확인 �
 msgctxt "#30504"
 msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
 msgstr "예고편은 Kodi의 YouTube 애드온으로 재생됩니다. 지금 설치할까요?"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "휴대폰 사용"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "둘러보기"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "검색 결과"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "환영합니다"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "영화, 시리즈 등을 검색하세요. 글자를 고르거나 휴대폰을 사용하세요."

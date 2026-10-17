@@ -24,6 +24,8 @@ import time
 
 #: Screens that have a Fuse file. Grow this as each screen is drawn.
 FUSE_SKINS = frozenset(('HomeWindow.xml', 'HubWindow.xml', 'ShowcaseWindow.xml', 'DetailWindow.xml'))
+#: Fuse screens with no classic counterpart (their own window class).
+FUSE_ONLY_SKINS = frozenset(('FuseSearchWindow.xml',))
 
 #: Controls only the Fuse files have.
 HERO_FACTS = 30024   # label: year • runtime • genres
@@ -132,16 +134,16 @@ def hero_lines(panel_text, runtime_minutes=None, now=None):
     return texture, facts_line, '      '.join(parts)
 
 
-def _plot_height(plot):
+def _plot_height(plot, s=None):
     from lib.ui.heroscrim import block_size
 
+    s = s or _STACK
     if not (plot or '').strip():
         return 0
     _width, height = block_size(
-        plot, _STACK['plot_font'], _STACK['plot_line'], _STACK['plot_w'],
-        _STACK['plot_lines'],
+        plot, s['plot_font'], s['plot_line'], s['plot_w'], s['plot_lines'],
     )
-    return height + _STACK['plot_inset'] if height else 0
+    return height + s['plot_inset'] if height else 0
 
 
 def _move(window, control_id, x, y, height=None):
@@ -154,7 +156,7 @@ def _move(window, control_id, x, y, height=None):
         pass
 
 
-def place_hero(window, plot, has_facts, has_scores, has_stars):
+def place_hero(window, plot, has_facts, has_scores, has_stars, stack=None):
     """Stack the title, facts, plot and scores up from the row.
 
     A short plot moves everything above it down, so the scores always
@@ -162,8 +164,8 @@ def place_hero(window, plot, has_facts, has_scores, has_stars):
     """
     from lib.ui.homewindow import HERO_LOGO, HERO_PLOT, HERO_TITLE
 
-    s = _STACK
-    plot_h = _plot_height(plot)
+    s = dict(_STACK, **(stack or {}))
+    plot_h = _plot_height(plot, s)
     y = s['bottom']
     if has_scores:
         y -= s['scores_h']
@@ -185,7 +187,7 @@ def place_hero(window, plot, has_facts, has_scores, has_stars):
     _move(window, HERO_TITLE, s['left'], y + s['title_h'] - text_h, text_h)
 
 
-def paint_hero(window, plot, panel_text, runtime_minutes):
+def paint_hero(window, plot, panel_text, runtime_minutes, stack=None):
     """Write the Fuse-only hero controls and place the stack."""
     stars, facts_line, scores_line = hero_lines(panel_text, runtime_minutes)
     try:
@@ -194,7 +196,7 @@ def paint_hero(window, plot, panel_text, runtime_minutes):
         window.getControl(HERO_SCORES).setLabel(scores_line)
     except Exception:
         return
-    place_hero(window, plot, bool(facts_line), bool(scores_line), bool(stars))
+    place_hero(window, plot, bool(facts_line), bool(scores_line), bool(stars), stack)
 
 
 def runtime_minutes(text):
@@ -205,7 +207,7 @@ def runtime_minutes(text):
     return str(int(seconds // 60)) if seconds else ''
 
 
-def paint_showcase(window, focused):
+def paint_showcase(window, focused, stack=None):
     """The coverflow's hero for `focused`: its labels are bound in the
     skin, so this sets the logo, the facts and scores, and the stack."""
     if focused is None:
@@ -223,7 +225,7 @@ def paint_showcase(window, focused):
         pass
     paint_hero(
         window, focused.getProperty('plot') or '', focused.getProperty('meta_line') or '',
-        runtime_minutes(focused.getProperty('runtime')),
+        runtime_minutes(focused.getProperty('runtime')), stack,
     )
 
 
