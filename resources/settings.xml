@@ -10,6 +10,24 @@
                     <default>false</default>
                     <control type="toggle"/>
                 </setting>
+                <!-- Clears the catalog, title and ratings caches and the logo
+                     answers (lib/ui/cacherefresh.py). Home reloads its rows
+                     when Settings closes; cache_generation is how it knows. -->
+                <setting id="refresh_cache" type="action" label="30502" help="30503">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.revrivulet/?action=refresh_cache)</data>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting id="cache_generation" type="string" label="30502" visible="false">
+                    <level>0</level>
+                    <default></default>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30502</heading>
+                    </control>
+                </setting>
                 <setting id="home_show_mystuff" type="boolean" label="30244">
                     <level>0</level>
                     <default>true</default>

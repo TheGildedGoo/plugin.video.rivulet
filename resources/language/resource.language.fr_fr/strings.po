@@ -1325,3 +1325,15 @@ msgstr "Bande-annonce"
 msgctxt "#30500"
 msgid "Library"
 msgstr "Bibliothèque"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Données en cache effacées. L'accueil se recharge quand vous quittez les paramètres."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Actualiser les données en cache"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Oublie les pages de catalogue, détails, notes et vérifications de logos enregistrés, pour que les écrans suivants interrogent à nouveau vos extensions. Votre compte, vos extensions et votre progression restent."

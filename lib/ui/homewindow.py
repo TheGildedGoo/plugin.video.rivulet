@@ -855,6 +855,8 @@ def _refresh_saved_rows(window, store=None):
 _ROW_SETTINGS = (
     'home_show_mystuff', 'home_show_movies', 'home_show_series',
     'home_show_anime', 'home_show_other', 'home_hide_adult', 'content_exclude',
+    # Settings > Refresh cached data bumps this (lib/ui/cacherefresh.py).
+    'cache_generation',
 )
 
 
@@ -977,6 +979,23 @@ def _restyle_if_changed(window):
     return True
 
 
+def _drop_memory_if_refreshed(window):
+    """Settings > Refresh cached data ran in another interpreter: drop
+    this one's copies too before the rows are built again."""
+    from lib.ui.compat import ADDON
+
+    try:
+        generation = ADDON.getSetting('cache_generation') or ''
+    except Exception:
+        return
+    seen = getattr(window, '_cache_generation', None)
+    window._cache_generation = generation
+    if seen is not None and generation != seen:
+        from lib.ui.cacherefresh import clear_memory
+
+        clear_memory()
+
+
 def _after_child(window, played=False):
     """Bring Home up to date once a screen on top of it has closed.
 
@@ -998,6 +1017,7 @@ def _after_child(window, played=False):
     except Exception:
         return
     if signature != getattr(window, '_signature', None) or getattr(window, '_catalog_pages', None) is None:
+        _drop_memory_if_refreshed(window)
         place = _remember_place(window)
         window._row_key = None
         window._catalog_pages = None
@@ -1689,6 +1709,8 @@ class HomeWindow(BaseWindow):
             self._signature = _home_signature(store)
         except Exception:
             self._signature = None
+        # The refresh generation these rows were built under.
+        _drop_memory_if_refreshed(self)
         # After the shelf spinner, not inside it. The 15-minute clock
         # lives in addonsync, so a nested modal closing does not pull
         # on every Back.

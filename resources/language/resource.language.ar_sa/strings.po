@@ -1325,3 +1325,15 @@ msgstr "الإعلان"
 msgctxt "#30500"
 msgid "Library"
 msgstr "المكتبة"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "تم مسح البيانات المخزنة. يُعاد تحميل الصفحة الرئيسية عند مغادرة الإعدادات."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "تحديث البيانات المخزنة"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "ينسى صفحات الكتالوج والتفاصيل والتقييمات وفحوص الشعارات المحفوظة، لتطلبها الشاشات التالية من الإضافات من جديد. يبقى حسابك وإضافاتك وتقدمك."

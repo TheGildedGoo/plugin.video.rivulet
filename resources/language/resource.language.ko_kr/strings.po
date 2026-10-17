@@ -1325,3 +1325,15 @@ msgstr "예고편"
 msgctxt "#30500"
 msgid "Library"
 msgstr "라이브러리"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "캐시된 데이터를 지웠습니다. 설정을 나가면 홈이 다시 로드됩니다."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "캐시 데이터 새로 고침"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "저장된 카탈로그 페이지, 작품 정보, 평점, 로고 확인 결과를 지워 다음 화면에서 애드온에 다시 요청합니다. 계정, 애드온, 시청 기록은 유지됩니다."

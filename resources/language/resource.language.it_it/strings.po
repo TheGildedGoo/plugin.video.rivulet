@@ -1325,3 +1325,15 @@ msgstr "Trailer"
 msgctxt "#30500"
 msgid "Library"
 msgstr "Libreria"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Dati in cache cancellati. La Home si ricarica quando esci dalle impostazioni."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Aggiorna i dati in cache"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Dimentica pagine di catalogo, dettagli, valutazioni e controlli dei loghi salvati, così le schermate successive richiedono di nuovo i dati agli add-on. Account, add-on e progressi restano."

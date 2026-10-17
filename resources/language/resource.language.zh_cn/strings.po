@@ -1325,3 +1325,15 @@ msgstr "预告片"
 msgctxt "#30500"
 msgid "Library"
 msgstr "媒体库"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "已清除缓存数据。离开设置后主页将重新加载。"
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "刷新缓存数据"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "清除已保存的目录页面、影片详情、评分和徽标检查结果，让后续界面重新向插件请求。账户、插件和观看进度保留。"
