@@ -1281,3 +1281,11 @@ msgstr "Connecté"
 msgctxt "#30489"
 msgid "Signed in as"
 msgstr "Connecté en tant que"
+
+msgctxt "#30490"
+msgid "Try again"
+msgstr "Réessayer"
+
+msgctxt "#30491"
+msgid "This catalog did not answer. Press OK to try again."
+msgstr "Ce catalogue n'a pas répondu. Appuyez sur OK pour réessayer."

@@ -1281,3 +1281,11 @@ msgstr "サインイン済み"
 msgctxt "#30489"
 msgid "Signed in as"
 msgstr "サインイン中のアカウント"
+
+msgctxt "#30490"
+msgid "Try again"
+msgstr "再試行"
+
+msgctxt "#30491"
+msgid "This catalog did not answer. Press OK to try again."
+msgstr "このカタログから応答がありません。OKを押して再試行してください。"

@@ -1281,3 +1281,11 @@ msgstr "已登录"
 msgctxt "#30489"
 msgid "Signed in as"
 msgstr "当前登录账号"
+
+msgctxt "#30490"
+msgid "Try again"
+msgstr "重试"
+
+msgctxt "#30491"
+msgid "This catalog did not answer. Press OK to try again."
+msgstr "此目录没有响应。按 OK 重试。"

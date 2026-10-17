@@ -290,6 +290,14 @@ def _more_item(action):
     return item
 
 
+class CatalogUnavailable(Exception):
+    """A catalog's first page failed (timeout, HTTP error, addon error).
+
+    Not the same as an empty catalog: a hub row keeps a Try again card
+    for it instead of disappearing (#16). Already logged when raised.
+    """
+
+
 def _one_catalog_page(transport, manifest, catalog, extra=None):
     """The first page of one catalog, uncut.
 
@@ -297,14 +305,28 @@ def _one_catalog_page(transport, manifest, catalog, extra=None):
     back. The generator is not walked here: the following pages are
     fetched only when the remote nears the end of what is on screen
     (`_pull_more`), so opening Home does not pull a whole catalog.
-    A failed addon yields an empty row rather than taking the screen down.
-    """
-    from lib.ui.catalogpages import cached_first_page
 
+    A failure is logged with the addon's own detail and raised as
+    `CatalogUnavailable`; it used to be swallowed into an empty list,
+    with no log line, so a broken addon's row just vanished (#16).
+    """
+    import xbmc
+
+    from lib.stremio.addons import AddonError, addon_error_detail, safe_url_for_log
+    from lib.ui.catalogpages import cached_first_page
+    from lib.ui.compat import log
+
+    name = (catalog or {}).get('id') if isinstance(catalog, dict) else ''
     try:
         return cached_first_page(transport, manifest, catalog, extra)
-    except Exception:
-        return []
+    except AddonError as exc:
+        log('home: catalog %s failed: %s (%s)' % (
+            name, addon_error_detail(exc), safe_url_for_log(transport or ''),
+        ), xbmc.LOGWARNING)
+        raise CatalogUnavailable(name)
+    except Exception as exc:
+        log('home: catalog %s failed: %r' % (name, exc), xbmc.LOGWARNING)
+        raise CatalogUnavailable(name)
 
 
 def _shelf_page_gen(state):
@@ -378,7 +400,11 @@ def _open_shelf(addons, types):
     for transport, manifest, catalog in iter_catalogs(addons):
         if _base_type(catalog.get('type')) not in types:
             continue
-        metas = _one_catalog_page(transport, manifest, catalog)
+        try:
+            metas = _one_catalog_page(transport, manifest, catalog)
+        except CatalogUnavailable:
+            # Logged already. Home's preview row stays hidden, as before.
+            metas = []
         return {
             'metas': metas,
             'transport': transport,

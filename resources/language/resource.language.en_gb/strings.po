@@ -1281,3 +1281,11 @@ msgstr ""
 msgctxt "#30489"
 msgid "Signed in as"
 msgstr ""
+
+msgctxt "#30490"
+msgid "Try again"
+msgstr ""
+
+msgctxt "#30491"
+msgid "This catalog did not answer. Press OK to try again."
+msgstr ""
