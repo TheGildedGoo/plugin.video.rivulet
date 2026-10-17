@@ -2227,3 +2227,25 @@ def test_continue_card_skin_layers_the_poster_under_the_wide_art():
         assert any('card_code' in text for text in labels)
         # Nothing hangs under the card any more.
         assert not [el for el in controls if el.get('type') == 'label' and (el.findtext('top') or '') == '232']
+
+
+def test_any_poster_only_title_fills_the_hero_on_home_and_the_hubs(load_homewindow):
+    """#21: only library records used to get the full-bleed poster; a
+    catalog title without a backdrop sat as a pillarbox. Hubs carry the
+    same scale plate now."""
+    ctx = load_homewindow()
+    import xbmcgui
+    item = ctx.homewindow._poster_item({'id': 'tt5', 'type': 'movie', 'name': 'Five', 'poster': 'p5.jpg'})
+    assert item.getProperty('hero_fill') == '1'
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(30042).addItems([item])
+    win.setFocusId(30042)
+    win.onAction(xbmcgui.Action(1))
+    assert win.getProperty('HeroFill') == '1'
+    assert win.getControl(ctx.homewindow.HERO_FILL).image == 'p5.jpg'
+
+    import os
+    import xml.etree.ElementTree as ET
+    hub = ET.parse(os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i', 'HubWindow.xml')).getroot()
+    fill = hub.find(".//control[@id='30028']")
+    assert fill is not None and (fill.findtext('aspectratio') or '').strip() == 'scale'

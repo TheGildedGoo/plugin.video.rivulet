@@ -44,6 +44,9 @@ from lib.ui.playbackmeta import resolve_art
 from lib.ui.uicommon import ModalStackWindow, escape_label, gated_input
 
 BACKGROUND = 30000
+#: Full-bleed poster for a title with no backdrop (#21); the keep image
+#: above letterboxes a poster into a narrow column.
+HERO_FILL = 30028
 LOADING = 30001
 SELECT = 30002
 CLOSE = 30003
@@ -199,13 +202,17 @@ def _item_properties(meta):
     from lib.ui.urlutil import sized_image
 
     fanart = art.get('fanart') or ''
+    fill = ''
     if fanart and fanart == meta.get('background'):
         fanart = sized_image(fanart, 'backdrop')
     elif not fanart:
         # A logo stands in for a missing backdrop as it is; a poster
-        # standing in is scaled to the screen, so it gets the larger size.
+        # standing in is scaled to the screen, so it gets the larger size
+        # and the full-bleed plate (#21).
         fanart = sized_image(poster or '', 'fill')
+        fill = '1' if fanart else ''
     props = {
+        'hero_fill': fill,
         # TMDB `original` art is megabytes for a 200px card (#18).
         'thumbnail': sized_image(art.get('thumb') or logo or '', 'poster'),
         'fanart': fanart,
@@ -437,9 +444,10 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         # item.
         control.reset()
         control.addItems(items)
-        background = props_by_index[0].get('fanart', '')
-        self.getControl(BACKGROUND).setImage(background)
-        self._last_background = background
+        first = props_by_index[0]
+        # onInit re-runs on the reopen after playback: paint regardless.
+        self._last_background = None
+        self._set_backdrop(first.get('fanart', ''), first.get('hero_fill') == '1')
         self.getControl(LOADING).setVisible(False)
         self.setFocusId(SELECT)
         # A rebuild discards the ListItems a pending merge was queued
@@ -453,6 +461,21 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             self._enrich_focused(items[0], settle=False)
             self._apply_ratings(items[0])
             self._place_scrims(items[0])
+
+    def _set_backdrop(self, fanart, fill):
+        """Show `fanart` whole, or, for a poster standing in for a missing
+        backdrop, scaled to cover the frame (#21). Skipped when nothing
+        changed: this is the call scrolling feel is most sensitive to."""
+        key = (fanart, bool(fill and fanart))
+        if key == self._last_background:
+            return
+        self._last_background = key
+        self.setProperty('HeroFill', '1' if key[1] else '')
+        self.getControl(BACKGROUND).setImage(fanart)
+        try:
+            self.getControl(HERO_FILL).setImage(fanart if key[1] else '')
+        except Exception:
+            pass
 
     def _page_row(self, direction):
         """Move one viewport of titles. Down is +1, Up is -1.
@@ -489,6 +512,10 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         if self.getFocusId() == SELECT:
             focused = self.getControl(SELECT).getSelectedItem()
             if focused is not None:
+                # The enrich worker's Action(noop) wake-up lands a full
+                # meta's backdrop on the item: drain it first, so this
+                # paint already swaps the poster fill for the real picture.
+                self._apply_enriched()
                 fanart = focused.getProperty('fanart')
                 # Skip the setImage() boundary crossing when focus fired
                 # onAction() but the fanart didn't actually change - e.g.
@@ -497,9 +524,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
                 # focused. This is the call scrolling feel is most
                 # sensitive to: it used to run unconditionally on every
                 # keypress.
-                if fanart != self._last_background:
-                    self.getControl(BACKGROUND).setImage(fanart)
-                    self._last_background = fanart
+                self._set_backdrop(fanart, focused.getProperty('hero_fill') == '1')
                 # Both on the UI thread: drain anything a worker finished
                 # since the last action, then arm a fetch for this item.
                 self._apply_enriched()
@@ -753,6 +778,11 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         ratings = full.get('ratings')
         if not meta.get('ratings') and isinstance(ratings, (dict, list)):
             meta['ratings'] = ratings
+        # A catalog preview with only a poster: the full meta's backdrop
+        # replaces the poster fill once it lands (#21).
+        background = full.get('background')
+        if isinstance(background, str) and background and not meta.get('background'):
+            meta['background'] = background
         props = _item_properties(meta)
         # Hand off to the UI thread rather than touching the ListItem here:
         # it is inside the ControlList the skin renders every frame.
@@ -763,7 +793,7 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             # the sparse one built before the fetch.
             self._enrich_pending[index] = {
                 key: props.get(key, '')
-                for key in ('genre', 'rating', 'plot', 'year', 'meta_line')
+                for key in ('genre', 'rating', 'plot', 'year', 'meta_line', 'fanart', 'hero_fill')
             }
         # ...and wake it, or nothing would apply the queue until the user's
         # next keypress - by which time focus has usually left the item

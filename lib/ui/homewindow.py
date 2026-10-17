@@ -266,7 +266,10 @@ def _poster_item(meta, action='', sparse=False):
         'hero_meta': escape_label(_hero_meta_text(meta)),
         'hero_plot': escape_label(_truncate(meta.get('description') or '', 280)),
         'hero_facts': json.dumps(panel_facts(meta), ensure_ascii=False, separators=(',', ':')),
-        'hero_fill': '1' if sparse and not background and poster else '',
+        # No backdrop: the poster fills the hero (scaled to cover) instead
+        # of standing as a narrow pillarbox in the middle (#21). Library
+        # records used to be the only ones; any catalog title can lack one.
+        'hero_fill': '1' if not background and poster else '',
         'needs_meta': '1' if sparse and meta.get('id') and meta.get('type') and not action else '',
         'action': action,
         'stype': str(meta.get('type') or ''),
