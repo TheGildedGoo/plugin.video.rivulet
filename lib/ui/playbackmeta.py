@@ -408,6 +408,46 @@ def hero_panel_text(meta, runtime_text='', now_word=''):
     return '\n'.join(lines)
 
 
+#: The Fuse hero prints the panel's scores on one line, short names first
+#: (#fuse). The long names stay on the classic panel.
+_FUSE_SCORE_NAMES = (
+    (_IMDB_LABEL, 'IMDb'),
+    (_ROTTEN_LABEL, 'RT'),
+    (_METASCORE_LABEL, 'MC'),
+)
+
+
+def fuse_hero_parts(panel_text):
+    """``(stars, facts, scores)`` from the hero panel text, for the Fuse look.
+
+    `panel_text` is what `hero_panel_text()` (or the ratings overlay)
+    wrote: one fact per line, scores first. `stars` is the IMDb score as
+    half stars, 0-10, or None when there is no IMDb line. `facts` are
+    the other lines (year, runtime, genres) in order. `scores` are
+    ``(short name, value)`` pairs, IMDb first, then RT, then MC. Lines
+    are matched on the label the panel writes; anything else is a fact,
+    so an unknown line is shown rather than dropped.
+    """
+    stars = None
+    found = {}
+    facts = []
+    for raw in str(panel_text or '').split('\n'):
+        line = raw.strip()
+        if not line:
+            continue
+        for label, short in _FUSE_SCORE_NAMES:
+            if line.startswith(label + ' '):
+                found[short] = line[len(label) + 1:].strip()
+                break
+        else:
+            facts.append(line)
+    scores = [(short, found[short]) for _label, short in _FUSE_SCORE_NAMES if found.get(short)]
+    imdb = parse_rating(found.get('IMDb', '').split('/')[0]) if found.get('IMDb') else None
+    if imdb is not None and 0 <= imdb <= 10:
+        stars = int(imdb + 0.5)
+    return stars, facts, scores
+
+
 def parse_rating(value):
     """Best-effort float rating out of a Stremio `imdbRating` value
     (e.g. '7.8'), or None for an unparseable value like 'n/a' - never

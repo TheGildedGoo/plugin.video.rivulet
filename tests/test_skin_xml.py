@@ -82,8 +82,13 @@ def test_skin_file_discovery_finds_every_window():
     nothing would make every rule below pass by scanning zero files."""
     paths = _skin_files()
     # 16 RevRivulet windows (including the phone-pairing dialog), a Rev2
-    # copy of each, plus the Rev2 search sheet and the Rev2 settings window.
-    assert len(paths) == 34, 'expected 34 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
+    # copy of each, plus the Rev2 search sheet and the Rev2 settings window,
+    # plus each screen drawn so far in the Fuse look (lib/ui/fuse.py).
+    from lib.ui.fuse import FUSE_SKINS
+
+    expected = 34 + len(FUSE_SKINS)
+    assert len(paths) == expected, 'expected %d window XMLs in %s, found %d: %s' % (
+        expected, _SKIN_DIR, len(paths), paths)
 
 
 @pytest.mark.parametrize('path', _skin_files(), ids=lambda p: os.path.basename(p))

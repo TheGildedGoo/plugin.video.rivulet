@@ -47,6 +47,7 @@ _DEFAULT_SETTINGS = {
 # to their 'STR<id>' marker.
 _DEFAULT_LOCALIZED = {
     30081: 'buffered %s of %s',
+    30494: 'Ends at %s',
     30082: 'speed %s, %s peers',
     30183: 'Playing %s in %d s',
     30186: 'Searching %s...',

@@ -3,6 +3,13 @@
     <section id="plugin.video.revrivulet">
         <category id="home" label="30219">
             <group id="1">
+                <!-- The Fuse skin set (lib/ui/fuse.py). Home reopens in the
+                     other look when Settings closes. -->
+                <setting id="ui_fuse" type="boolean" label="30493" help="30496">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="home_show_mystuff" type="boolean" label="30244">
                     <level>0</level>
                     <default>true</default>

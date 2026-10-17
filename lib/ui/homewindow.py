@@ -239,6 +239,14 @@ def _hero_meta_text(meta):
     return hero_panel_text(meta, runtime_text=_runtime_text(meta), now_word=L(30234))
 
 
+def _runtime_minutes(meta):
+    """The meta's runtime in whole minutes as a string, or ``''``."""
+    from lib.ui.playbackmeta import parse_duration_seconds
+
+    seconds = parse_duration_seconds(meta.get('runtime')) if isinstance(meta, dict) else None
+    return str(int(seconds // 60)) if seconds else ''
+
+
 def _poster_item(meta, action='', sparse=False):
     """One shelf cell. `action` set means the click opens that menu
     action (Sign in) instead of the title's page.
@@ -266,6 +274,8 @@ def _poster_item(meta, action='', sparse=False):
         'hero_meta': escape_label(_hero_meta_text(meta)),
         'hero_plot': escape_label(_truncate(meta.get('description') or '', 280)),
         'hero_facts': json.dumps(panel_facts(meta), ensure_ascii=False, separators=(',', ':')),
+        # Minutes, for the Fuse hero's "Ends at" (lib/ui/fuse.py).
+        'hero_runtime': _runtime_minutes(meta),
         # No backdrop: the poster fills the hero (scaled to cover) instead
         # of standing as a narrow pillarbox in the middle (#21). Library
         # records used to be the only ones; any catalog title can lack one.
@@ -946,6 +956,27 @@ def _restore_place(window, place):
         _focus_first(window)
 
 
+def _restyle_if_changed(window):
+    """Close Home so `open_home` reopens it in the other look.
+
+    The skin file is chosen when a window opens, so switching the Fuse
+    setting cannot restyle the window that is already up. True when
+    Home is closing for that.
+    """
+    from lib.ui import fuse
+
+    try:
+        wanted = fuse.skin_for('HomeWindow.xml')
+    except Exception:
+        return False
+    current = getattr(window, '_skin_xml', None)
+    if current is None or wanted == current:
+        return False
+    window._restyle = True
+    window.close()
+    return True
+
+
 def _after_child(window, played=False):
     """Bring Home up to date once a screen on top of it has closed.
 
@@ -959,6 +990,8 @@ def _after_child(window, played=False):
     re-reads Continue and Library in place; anything else just repaints.
     """
     window._child_refreshed = True
+    if _restyle_if_changed(window):
+        return
     try:
         store = get_store()
         signature = _home_signature(store)
@@ -1275,7 +1308,7 @@ def _join_library_meta(window):
 
 _HERO_PROPS = (
     'thumbnail', 'fanart', 'hero_logo', 'hero_title', 'hero_meta',
-    'hero_plot', 'hero_facts', 'hero_fill', 'needs_meta', 'stype', 'sid',
+    'hero_plot', 'hero_facts', 'hero_fill', 'hero_runtime', 'needs_meta', 'stype', 'sid',
 )
 
 
@@ -1518,10 +1551,11 @@ def paint_hero(window, item=None):
     logo = wanted_logo if _logo_known_good(wanted_logo) else ''
     _warm_logos(window, ([wanted_logo] if wanted_logo and not logo else []) + _upcoming_logos(window))
     fill = item.getProperty('hero_fill') == '1' and bool(fanart)
+    runtime = item.getProperty('hero_runtime') or ''
     # Every action repaints (worker noops, mouse moves, a key that did not
     # move). An unchanged hero is a dozen boundary crossings and a bar
     # re-measure for nothing (#17).
-    painted = (title or label, meta, plot, fanart, fill, logo)
+    painted = (title or label, meta, plot, fanart, fill, logo, runtime)
     if painted == getattr(window, '_hero_painted', None):
         return
     window._hero_painted = painted
@@ -1538,6 +1572,12 @@ def paint_hero(window, item=None):
         window.setProperty('HeroFill', '1' if fill else '')
         window.getControl(BACKGROUND).setImage(image)
         _set_fill_image(window, image if fill else '')
+        from lib.ui import fuse
+
+        if fuse.is_fuse_window(window):
+            # No bar: the facts and scores lines, stacked up from the row.
+            fuse.paint_hero(window, plot, meta, runtime)
+            return
         # Same strings the labels just got. The bar cannot ask the
         # textbox how tall it is yet: Kodi measures that on the next frame.
         from lib.ui.heroscrim import place_hero_bar
@@ -2124,15 +2164,20 @@ def open_home():
             _notify_if_updated(get_store())
         except Exception as exc:
             log('homewindow: update-notification store unavailable: %r' % (exc,), xbmc.LOGWARNING)
-        win = open_window(HomeWindow, 'HomeWindow.xml')
-        try:
-            win.doModal()
-        except Exception as exc:
-            log('homewindow: HomeWindow failed: %r' % (exc,), xbmc.LOGERROR)
-            raise
-        finally:
+        while True:
+            win = open_window(HomeWindow, 'HomeWindow.xml')
             try:
-                win.close()
-            except Exception:
-                pass
+                win.doModal()
+            except Exception as exc:
+                log('homewindow: HomeWindow failed: %r' % (exc,), xbmc.LOGERROR)
+                raise
+            finally:
+                try:
+                    win.close()
+                except Exception:
+                    pass
+            # Settings switched the look: open again in the other skin file.
+            if not getattr(win, '_restyle', False):
+                break
+            log('homewindow: reopening HomeWindow in the new look', xbmc.LOGINFO)
     log('homewindow: HomeWindow closed', xbmc.LOGINFO)

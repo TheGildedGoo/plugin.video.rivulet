@@ -1293,3 +1293,19 @@ msgstr "Este catálogo no respondió."
 msgctxt "#30492"
 msgid "Options"
 msgstr "Opciones"
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr "Nuevo aspecto (beta)"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "Termina a las %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "Inicio"
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr "La imagen de fondo llena la pantalla y se funde a negro, el logotipo del título es el título y la tarjeta seleccionada lleva un anillo blanco. Primero Inicio; las demás pantallas vendrán después."

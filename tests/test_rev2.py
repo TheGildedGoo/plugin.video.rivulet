@@ -36,7 +36,8 @@ def test_variant_id_selects_the_rev2_skin(monkeypatch):
 def test_every_revrivulet_window_has_a_rev2_skin():
     missing = []
     for path in sorted(_SKIN.glob('*.xml')):
-        if path.name.startswith('Rev2'):
+        # Fuse files are a second look for RevRivulet, not a Rev2 window.
+        if path.name.startswith(('Rev2', 'Fuse')):
             continue
         if not (_SKIN / ('Rev2' + path.name)).is_file():
             missing.append(path.name)
