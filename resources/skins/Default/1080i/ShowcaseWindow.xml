@@ -15,43 +15,47 @@
                  the background image below has a texture to draw - keeps
                  the opening frame dark instead of flashing skin-default
                  white. -->
-            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="E60A0C0E">white.png</texture></control>
+            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="E607090B">white.png</texture></control>
             <!-- Shown whole. scale cropped it, and the old FF8C8C8C
                  multiply dimmed it to 55%. The plate behind is already
                  dark, so a non-16:9 backdrop letterboxes. -->
-            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio></control>
+            <control type="image" id="30000"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">keep</aspectratio><visible>String.IsEmpty(Window.Property(HeroFill))</visible></control>
+            <!-- scale, not keep: a title with no backdrop shows its poster
+                 scaled to cover the frame instead of a narrow pillarbox in
+                 the middle of the screen (#21). -->
+            <control type="image" id="30028"><width>1920</width><height>1080</height><texture background="true" colordiffuse="FFFFFFFF"></texture><aspectratio align="center" aligny="center">scale</aspectratio><visible>!String.IsEmpty(Window.Property(HeroFill))</visible></control>
             <!-- fade_h.png is a light vignette: clear on the left, only
                  partly dark on the right, the same on every row. The
                  ratings sit on the bar at the bottom of the picture. -->
-            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><aspectratio>stretch</aspectratio><texture colordiffuse="E60A0C0E">fade_h.png</texture></control>
+            <control type="image"><left>1440</left><top>0</top><width>480</width><height>1080</height><aspectratio>stretch</aspectratio><texture colordiffuse="E607090B">fade_h.png</texture></control>
             <!-- fade_v.png stays clear through the hero text and is
                  opaque from about 75% of its height. It starts at y=0
-                 so there is no step under the header. 0.75*987 = 740,
-                 the row. A ramp that was already dark behind the title
+                 so there is no step under the header. 0.75*923 = 692,
+                 the row: the band Home and the hubs use (#14). A ramp that was already dark behind the title
                  read as a hard-edged block. The plate keeps the art
                  off the row. -->
-            <control type="image"><left>0</left><top>0</top><width>1920</width><height>987</height><aspectratio>stretch</aspectratio><texture colordiffuse="FF0A0C0E">fade_v.png</texture></control>
-            <control type="image"><left>0</left><top>740</top><width>1920</width><height>340</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
+            <control type="image"><left>0</left><top>0</top><width>1920</width><height>923</height><aspectratio>stretch</aspectratio><texture colordiffuse="FF07090B">fade_v.png</texture></control>
+            <control type="image"><left>0</left><top>692</top><width>1920</width><height>388</height><texture colordiffuse="FF07090B">white.png</texture></control>
             <control type="image" id="30001"><top>200</top><left>810</left><width>300</width><height>10</height><texture>white.png</texture>
                 <animation effect="zoom" pulse="true" center="auto" start="0,100" end="100,100" time="1000" condition="Control.IsVisible(30001)">Conditional</animation>
             </control>
 
             <!-- Header: wordmark, breadcrumb, position counter, close. -->
-            <control type="image"><left>96</left><top>60</top><width>36</width><height>36</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
+            <control type="image"><left>64</left><top>48</top><width>36</width><height>36</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
             <!-- Breadcrumb: ShowcaseWindow.py's onInit() sets this label's
                  text via setLabel() (not an $INFO[] binding - the title is
                  built with inline [COLOR] markup, not a single ListItem/
                  Window property) to "RevRivulet" alone, or "RevRivulet /
                  <CATALOG>" once open_showcase() is handed a catalog_title -
                  see infowindow.py's `_header_label()`. -->
-            <control type="label" id="30100"><left>144</left><top>60</top><width>760</width><height>36</height><font>font10</font><aligny>center</aligny>
-                <label>[COLOR 57EEF3F6]RevRivulet[/COLOR]</label>
+            <control type="label" id="30100"><left>112</left><top>48</top><width>760</width><height>36</height><font>font12</font><aligny>center</aligny>
+                <label>[COLOR 99EEF3F6]RevRivulet[/COLOR]</label>
             </control>
-            <control type="label"><right>190</right><top>60</top><width>140</width><height>36</height><font>Mono26</font><align>right</align><aligny>center</aligny>
-                <label>[COLOR 80EEF3F6]$INFO[Container(30002).CurrentItem][/COLOR][COLOR 47EEF3F6]/$INFO[Container(30002).NumItems][/COLOR]</label>
+            <control type="label"><right>128</right><top>48</top><width>140</width><height>36</height><font>Mono26</font><align>right</align><aligny>center</aligny>
+                <label>[COLOR B3EEF3F6]$INFO[Container(30002).CurrentItem][/COLOR][COLOR 99EEF3F6]/$INFO[Container(30002).NumItems][/COLOR]</label>
             </control>
             <control type="button" id="30003">
-                <left>1774</left><top>53</top><width>50</width><height>50</height><aligny>center</aligny><align>center</align>
+                <left>1806</left><top>41</top><width>50</width><height>50</height><aligny>center</aligny><align>center</align>
                 <texturefocus colordiffuse="FFFFFFFF">close.png</texturefocus>
                 <texturenofocus colordiffuse="73FFFFFF">close.png</texturenofocus>
                 <ondown>30002</ondown>
@@ -61,25 +65,26 @@
                  its line box is taller than the point size, so the
                  control is 92. The description is the next control,
                  directly under it: six lines of font27 (27) inside 55%
-                 of the screen (1056px), ending on the row at y=740.
+                 of the screen (1056px), ending 40px above the row
+                 (y=652), with the hairline the hubs draw at y=692 (#14).
                  Both sit on one black bar across the screen. Its top
                  fades into the picture; Python shortens it when the
                  text is short. -->
             <control type="image" id="30026">
-                <left>0</left><top>396</top><width>1920</width><height>344</height>
+                <left>0</left><top>308</top><width>1920</width><height>344</height>
                 <aspectratio>stretch</aspectratio>
-                <texture border="0,64,0,8" colordiffuse="FF0A0C0E">hero_bar.png</texture>
+                <texture border="0,64,0,8" colordiffuse="FF07090B">hero_bar.png</texture>
             </control>
-            <control type="label" id="30020"><left>96</left><top>460</top><width>1056</width><height>92</height><font>font60</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
+            <control type="label" id="30020"><left>64</left><top>372</top><width>1056</width><height>92</height><font>font60</font><textcolor>FFFFFFFF</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny>
                 <wrapmultiline>false</wrapmultiline>
                 <label>[B]$INFO[ListItem.Label][/B]</label>
             </control>
 
             <!-- Six lines of font27 (27). The rest scrolls. It starts
-                 under the title, not under the ratings, and ends on
-                 the row at y=740. 180px leaves a little slack so Kodi's
+                 under the title, not under the ratings, and ends 40px
+                 above the row (y=652). 180px leaves a little slack so Kodi's
                  textbox inset does not clip the first or last line. -->
-            <control type="textbox" id="30022"><left>96</left><top>560</top><width>1056</width><height>180</height><font>font27</font><textcolor>F2EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor>
+            <control type="textbox" id="30022"><left>64</left><top>472</top><width>1056</width><height>180</height><font>font27</font><textcolor>F2EEF3F6</textcolor><shadowcolor>C8000000</shadowcolor>
                 <label>$INFO[ListItem.Property(plot)]</label>
                 <autoscroll time="3000" delay="3000" repeat="3000">true</autoscroll>
             </control>
@@ -92,37 +97,41 @@
                  Tomatoes score is absent rather than blank. font12
                  (NotoSans): the panel names IMDb, and NotoMono has no
                  star glyph. -->
-            <control type="textbox" id="30021"><left>1480</left><top>460</top><width>380</width><height>280</height><font>font12</font><textcolor>FFFFFFFF</textcolor><align>right</align>
+            <control type="textbox" id="30021"><left>1480</left><top>372</top><width>380</width><height>280</height><font>font13</font><textcolor>FFFFFFFF</textcolor><align>right</align>
                 <label>$INFO[ListItem.Property(meta_line)]</label>
                 <visible>!String.IsEmpty(ListItem.Property(meta_line))</visible>
             </control>
 
             <!-- One row of 220px cells (200px poster). The list is exactly
-                 that row tall, so a second row cannot show. Up and down
+                 that row tall, so a second row cannot show. Posters sit at
+                 y=724..1024, where Home's and the hubs' do (#7, #14). Up and down
                  are handled in Python: they move eight titles, one
                  viewport, and the hero follows the focused item. -->
             <control type="fixedlist" id="30002">
-                <top>740</top><left>48</left><width>1840</width><height>340</height>
+                <top>692</top><left>48</left><width>1840</width><height>388</height>
                 <viewtype>wrap</viewtype><orientation>horizontal</orientation>
                 <scrolltime tween="cubic" easing="out">300</scrolltime>
                 <focusposition>0</focusposition>
                 <onup>30002</onup><ondown>30002</ondown>
-                <itemlayout width="220" height="340">
+                <itemlayout width="220" height="388">
                     <control type="image">
-                        <top>20</top><left>10</left><width>200</width><height>300</height>
+                        <top>32</top><left>10</left><width>200</width><height>300</height>
                         <texture diffuse="mask_poster.png" colordiffuse="B3FFFFFF" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                         <aspectratio align="center" aligny="center">keep</aspectratio>
                     </control>
                 </itemlayout>
-                <focusedlayout width="220" height="340">
+                <focusedlayout width="220" height="388">
                     <control type="image">
-                        <top>20</top><left>10</left><width>200</width><height>300</height>
+                        <top>32</top><left>10</left><width>200</width><height>300</height>
                         <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                         <aspectratio align="center" aligny="center">keep</aspectratio>
                     </control>
-                    <control type="image"><top>20</top><left>10</left><width>200</width><height>300</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture></control>
+                    <control type="image"><top>32</top><left>10</left><width>200</width><height>300</height><texture border="16" colordiffuse="FFFFFFFF">focus_stroke.png</texture><visible>Control.HasFocus(30002)</visible></control>
                 </focusedlayout>
             </control>
+            <!-- Hairline across the top of the row, as on Home and the
+                 hubs. FF8B949E is the New Episodes divider grey. -->
+            <control type="image"><left>0</left><top>692</top><width>1920</width><height>2</height><texture colordiffuse="FF8B949E">white.png</texture></control>
         </control>
     </controls>
 </window>

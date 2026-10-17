@@ -323,7 +323,7 @@ TEXTURES = {
 
 
 def _icons():
-    folder = os.path.join(OUT, 'icons')
+    folder = os.path.join(MEDIA, 'icons')
     os.makedirs(folder, exist_ok=True)
     glyphs = {
         'search.png': _search,

@@ -122,6 +122,7 @@ def test_item_properties_full_meta_maps_every_field(load_infowindow):
         'year': '2019',
         'runtime': '132 min',
         'meta_line': 'IMDb 8.4\n2019\n132 min\nAction, Sci-Fi',
+        'hero_fill': '',
     }
 
 
@@ -291,7 +292,7 @@ def test_item_properties_missing_fields_are_empty_strings(load_infowindow):
     ctx = load_infowindow()
     assert ctx.infowindow._item_properties({}) == {
         'thumbnail': '', 'fanart': '', 'genre': '', 'rating': '', 'plot': '', 'year': '',
-        'runtime': '', 'meta_line': '',
+        'runtime': '', 'meta_line': '', 'hero_fill': '',
     }
 
 
@@ -307,16 +308,16 @@ def test_item_properties_none_meta_is_treated_as_empty(load_infowindow):
 
 def test_header_label_with_no_title_is_bare_rivulet(load_infowindow):
     ctx = load_infowindow()
-    assert ctx.infowindow._header_label() == '[COLOR 57EEF3F6]RevRivulet[/COLOR]'
-    assert ctx.infowindow._header_label(None) == '[COLOR 57EEF3F6]RevRivulet[/COLOR]'
-    assert ctx.infowindow._header_label('') == '[COLOR 57EEF3F6]RevRivulet[/COLOR]'
+    assert ctx.infowindow._header_label() == '[COLOR 99EEF3F6]RevRivulet[/COLOR]'
+    assert ctx.infowindow._header_label(None) == '[COLOR 99EEF3F6]RevRivulet[/COLOR]'
+    assert ctx.infowindow._header_label('') == '[COLOR 99EEF3F6]RevRivulet[/COLOR]'
 
 
 def test_header_label_with_a_title_renders_uppercased_breadcrumb(load_infowindow):
     ctx = load_infowindow()
     assert ctx.infowindow._header_label('Cinemeta \u00b7 Popular Movies') == (
-        '[COLOR 57EEF3F6]RevRivulet[/COLOR] [COLOR 2EEEF3F6]/[/COLOR] '
-        '[COLOR 9EEEF3F6]CINEMETA \u00b7 POPULAR MOVIES[/COLOR]'
+        '[COLOR 99EEF3F6]RevRivulet[/COLOR] [COLOR 80EEF3F6]/[/COLOR] '
+        '[COLOR D9EEF3F6]CINEMETA \u00b7 POPULAR MOVIES[/COLOR]'
     )
 
 
@@ -345,7 +346,7 @@ def test_oninit_builds_items_sets_background_hides_loading_and_focuses_select(lo
     assert win.getControl(infowindow.BACKGROUND).image == 'https://x/bg1.jpg'
     assert win.getControl(infowindow.LOADING).visible is False
     assert win.getFocusId() == infowindow.SELECT
-    assert win.getControl(infowindow.HEADER).label == '[COLOR 57EEF3F6]RevRivulet[/COLOR]'
+    assert win.getControl(infowindow.HEADER).label == '[COLOR 99EEF3F6]RevRivulet[/COLOR]'
 
 
 def test_oninit_sets_breadcrumb_header_when_catalog_title_is_set(load_infowindow):
@@ -358,8 +359,8 @@ def test_oninit_sets_breadcrumb_header_when_catalog_title_is_set(load_infowindow
     win.onInit()
 
     assert win.getControl(infowindow.HEADER).label == (
-        '[COLOR 57EEF3F6]RevRivulet[/COLOR] [COLOR 2EEEF3F6]/[/COLOR] '
-        '[COLOR 9EEEF3F6]CINEMETA \u00b7 POPULAR MOVIES[/COLOR]'
+        '[COLOR 99EEF3F6]RevRivulet[/COLOR] [COLOR 80EEF3F6]/[/COLOR] '
+        '[COLOR D9EEF3F6]CINEMETA \u00b7 POPULAR MOVIES[/COLOR]'
     )
 
 
@@ -990,12 +991,13 @@ def test_enrich_worker_merges_into_metas_and_queues_props(load_infowindow, monke
     # `meta_line` rides along with the individual fields: it is what the
     # hero renders, so a fetch that lands a rating must recompose it or
     # the screen keeps the sparse line built before the fetch.
-    assert win._enrich_pending == {
-        0: {
-            'genre': 'Drama, Thriller', 'rating': '7.9', 'plot': 'A full plot.',
-            'year': '2026', 'meta_line': 'IMDb 7.9\n2026\nDrama, Thriller',
-        },
+    pending = win._enrich_pending[0]
+    assert {key: pending[key] for key in ('genre', 'rating', 'plot', 'year', 'meta_line')} == {
+        'genre': 'Drama, Thriller', 'rating': '7.9', 'plot': 'A full plot.',
+        'year': '2026', 'meta_line': 'IMDb 7.9\n2026\nDrama, Thriller',
     }
+    # The backdrop rides along too (#21): unchanged here, the full meta has none.
+    assert set(pending) == {'genre', 'rating', 'plot', 'year', 'meta_line', 'fanart', 'hero_fill'}
 
 
 def test_enrich_worker_leaves_fields_the_preview_already_had(load_infowindow, monkeypatch):
@@ -1897,3 +1899,44 @@ def test_start_with_more_pages_spawns_the_paging_worker(load_infowindow, monkeyp
     win.start([_make_meta('tt1', 'One')], more_pages=pages)
 
     assert spawned == [pages]
+
+
+def test_coverflow_asks_tmdb_for_the_drawn_size():
+    """#18: the coverflow's cards and hero do not download TMDB `original`."""
+    with install_kodi_stubs(reload=('lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.infowindow')) as ctx:
+        props = ctx.infowindow._item_properties({
+            'id': 'tt1', 'type': 'movie', 'name': 'Dune',
+            'poster': 'https://image.tmdb.org/t/p/original/p.jpg',
+            'background': 'https://image.tmdb.org/t/p/original/b.jpg',
+        })
+        assert props['thumbnail'] == 'https://image.tmdb.org/t/p/w342/p.jpg'
+        assert props['fanart'] == 'https://image.tmdb.org/t/p/w1280/b.jpg'
+        poster_only = ctx.infowindow._item_properties({
+            'id': 'tt2', 'type': 'movie', 'name': 'Arrival',
+            'poster': 'https://image.tmdb.org/t/p/original/a.jpg',
+        })
+        assert poster_only['fanart'] == 'https://image.tmdb.org/t/p/w780/a.jpg'
+
+
+def test_a_poster_only_title_fills_the_hero_until_its_backdrop_lands(load_infowindow):
+    """#21: no backdrop used to leave the poster as a narrow column in the
+    middle of the screen. It now covers the frame (the scale plate), and
+    the full meta's backdrop replaces it when the enrich worker lands."""
+    ctx = load_infowindow()
+    infowindow = ctx.infowindow
+    import xbmcgui
+    win = infowindow.ShowcaseWindow('ShowcaseWindow.xml', '/addon/path', 'Default', '1080i')
+    win.metas = [_make_meta('tt1', 'One', poster='https://x/p1.jpg', description='Plot.')]
+
+    win.onInit()
+
+    assert win.getProperty('HeroFill') == '1'
+    assert win.getControl(infowindow.HERO_FILL).image == 'https://x/p1.jpg'
+    assert win.getControl(infowindow.BACKGROUND).image == 'https://x/p1.jpg'
+
+    win._enrich_pending = {0: {'fanart': 'https://x/bg1.jpg', 'hero_fill': ''}}
+    win.onAction(xbmcgui.Action(0))
+
+    assert win.getProperty('HeroFill') == ''
+    assert win.getControl(infowindow.HERO_FILL).image == ''
+    assert win.getControl(infowindow.BACKGROUND).image == 'https://x/bg1.jpg'

@@ -277,21 +277,65 @@ def _decade_posters(tiles):
     return posters
 
 
+def _retry_item(desc):
+    """The one card a row shows when its catalog did not answer (#16).
+
+    It used to vanish, so a flaky addon's row disappeared until the hub
+    was reopened. OK on this card asks again (`_retry_row`).
+    """
+    from lib.ui.compat import L
+
+    item = xbmcgui.ListItem(L(30490))
+    item.setProperties({
+        'retry': '1',
+        'hero_title': escape_label(desc.get('heading') or ''),
+        'hero_plot': L(30491),
+    })
+    return item
+
+
+def _is_landscape(metas):
+    """True when most of page one says ``posterShape: landscape``.
+
+    Channel and video catalogs publish 16:9 art; a 2:3 slot letterboxed
+    it. Such a row uses the wide New Episodes layout instead (#24).
+    """
+    shapes = [meta.get('posterShape') for meta in (metas or [])[:12] if isinstance(meta, dict)]
+    wide = [shape for shape in shapes if shape == 'landscape']
+    return bool(shapes) and len(wide) * 2 > len(shapes)
+
+
 def _load_posters(desc):
     """The row's first screen. The rest of that page waits on `pending`
     and the pages after it are fetched when the remote nears the end
     (`_extend_row`). A catalog page is not thrown away at 12."""
     if desc.get('posters') is not None:
         return desc['posters']
-    from lib.ui.homewindow import _ROW_INITIAL, _one_catalog_page, _poster_item
+    from lib.ui.homewindow import _ROW_INITIAL, CatalogUnavailable, _one_catalog_page, _poster_item
 
-    metas = _one_catalog_page(
-        desc.get('transport'), desc.get('manifest'), desc.get('catalog'),
-        extra=desc.get('extra'),
-    )
+    try:
+        metas = _one_catalog_page(
+            desc.get('transport'), desc.get('manifest'), desc.get('catalog'),
+            extra=desc.get('extra'),
+        )
+    except CatalogUnavailable:
+        desc['metas'] = []
+        desc['pending'] = []
+        desc['gen'] = None
+        desc['exhausted'] = True
+        desc['failed'] = True
+        desc['posters'] = [_retry_item(desc)]
+        return desc['posters']
+    metas = [meta for meta in (metas or []) if isinstance(meta, dict)]
+    # Page one, whole. A later page resumes `skip` from its length and
+    # treats its ids as seen, without fetching it again.
+    desc['metas'] = metas
     desc['pending'] = metas[_ROW_INITIAL:]
     desc['gen'] = None
     desc['exhausted'] = False
+    desc['failed'] = False
+    if not desc.get('layout') and desc.get('kind') == 'catalog' and _is_landscape(metas):
+        desc['layout'] = 'land'
     desc['posters'] = [_poster_item(meta) for meta in metas[:_ROW_INITIAL]]
     return desc['posters']
 
@@ -319,17 +363,40 @@ def _extend_row(desc):
     return posters
 
 
-def _fill_prefix(descs, limit):
+#: The hub's own bound on its first-screen fetches (see AGENTS.md: every
+#: fan-out point keeps its own pool on these low-power boxes).
+_MAX_HUB_WORKERS = 4
+
+
+def _fill_prefix(descs, limit, pool=None):
     """Fetch from the front until `limit` rows have posters, dropping
-    empty catalogs. Later rows stay unloaded."""
+    empty catalogs. Later rows stay unloaded.
+
+    With `pool`, each round fetches every row it still needs at once
+    (#13); they used to be fetched one after another. Rows keep their
+    order either way.
+    """
     index = 0
     filled = 0
     while index < len(descs) and filled < limit:
-        if not _load_posters(descs[index]):
-            del descs[index]
-            continue
-        filled += 1
-        index += 1
+        batch = descs[index:index + (limit - filled)]
+        if pool is not None and len(batch) > 1:
+            futures = [pool.submit(_load_posters, desc) for desc in batch if desc.get('posters') is None]
+            for future in futures:
+                try:
+                    future.result()
+                except Exception:
+                    pass
+        for desc in batch:
+            try:
+                posters = _load_posters(desc)
+            except Exception:
+                posters = []
+            if not posters:
+                descs.remove(desc)
+                continue
+            filled += 1
+            index += 1
     return descs
 
 
@@ -349,13 +416,34 @@ def _ensure_loaded(descs, index):
     return index
 
 
-def _apply_posters(row_item, posters, col, layout=''):
+def _window_start(col, start, count, slots):
+    """First visible poster for focus `col`, given the window was at `start`.
+
+    The window moves only when the focus would leave it, the way Home's
+    rows scroll (#12). Deriving the start from the column alone slid the
+    whole row on every Left once it had scrolled, with the ring pinned
+    to the right edge.
+    """
+    if count <= 0:
+        return 0
+    if not isinstance(start, int):
+        start = 0 if col < slots else col - slots + 1
+    if col < start:
+        start = col
+    elif col >= start + slots:
+        start = col - slots + 1
+    return max(0, min(start, count - 1))
+
+
+def _apply_posters(row_item, posters, col, layout='', start=None):
     """Copy the visible slice of `posters` onto the row, and the focused
     poster's hero fields so `paint_hero` can read the list item.
 
-    `layout` `land` is the New Episodes row: four 16:9 slots. Anything
-    else is eight posters. Properties past the slot count are cleared
-    so a wide row does not leave a portrait image in `p4`.
+    `layout` `land` is the New Episodes row (and any landscape catalog):
+    four 16:9 slots. Anything else is eight posters. Properties past the
+    slot count are cleared so a wide row does not leave a portrait image
+    in `p4`. `start` is where the row's window was; the window used is
+    returned so the caller can keep it (`desc['start']`).
     """
     slots = LAND_SLOTS if layout == 'land' else VISIBLE_SLOTS
     row_item.setProperty('layout', layout or '')
@@ -365,7 +453,7 @@ def _apply_posters(row_item, posters, col, layout=''):
         start = 0
     else:
         col = max(0, min(col, count - 1))
-        start = 0 if col < slots else col - slots + 1
+        start = _window_start(col, start, count, slots)
     for slot in range(VISIBLE_SLOTS):
         src = start + slot
         if slot < slots and src < count:
@@ -407,11 +495,23 @@ def _apply_posters(row_item, posters, col, layout=''):
         row_item.setProperty('hero_plot', poster.getProperty('hero_plot'))
         row_item.setProperty('hero_logo', poster.getProperty('hero_logo'))
         row_item.setProperty('fanart', poster.getProperty('fanart'))
+        row_item.setProperty('hero_fill', poster.getProperty('hero_fill'))
         row_item.setProperty('sid', poster.getProperty('sid'))
         row_item.setProperty('stype', poster.getProperty('stype'))
         row_item.setProperty('thumbnail', poster.getProperty('thumbnail'))
         row_item.setProperty('episode_index', poster.getProperty('episode_index'))
     row_item.setProperty('col', str(col))
+    return start
+
+
+def _paint_row(item, desc):
+    """`_apply_posters` for one descriptor, keeping its window."""
+    posters = desc.get('posters') or []
+    if not posters:
+        return
+    desc['start'] = _apply_posters(
+        item, posters, desc.get('col') or 0, desc.get('layout') or '', desc.get('start'),
+    )
 
 
 def _paint_list(window, select=None):
@@ -419,9 +519,7 @@ def _paint_list(window, select=None):
     for desc in window._descs:
         item = xbmcgui.ListItem(desc.get('heading') or '')
         item.setProperty('heading', desc.get('heading') or '')
-        posters = desc.get('posters') or []
-        if posters:
-            _apply_posters(item, posters, desc.get('col') or 0, desc.get('layout') or '')
+        _paint_row(item, desc)
         items.append(item)
     control = window.getControl(HUB_LIST)
     control.reset()
@@ -498,44 +596,56 @@ def _extend_needs_network(desc):
     return True
 
 
+def _index_of(window, desc):
+    """Where `desc` is in the list now, or -1. The UI thread drops empty
+    rows while workers run, so an index taken before a fetch can name
+    another row by the time it lands (#16). The descriptor is the key."""
+    for index, candidate in enumerate(window._descs or []):
+        if candidate is desc:
+            return index
+    return -1
+
+
 def _schedule_row_fetch(window, indexes):
     """Fetch ``indexes`` off the GUI thread. The plates stay grey until
     ``_apply_fetched_rows`` runs on the next action.
+
+    The worker is handed the descriptors, not their positions: a row
+    removed meanwhile cannot make a landed page paint under another
+    row's heading.
     """
     inflight = getattr(window, '_row_fetch_inflight', None)
     if inflight is None:
-        window._row_fetch_inflight = set()
+        window._row_fetch_inflight = {}
         window._row_fetch_threads = []
     todo = []
     for index in indexes:
-        if index in window._row_fetch_inflight:
-            continue
         if index < 0 or index >= len(window._descs):
             continue
-        if window._descs[index].get('posters') is not None:
+        desc = window._descs[index]
+        if id(desc) in window._row_fetch_inflight or desc.get('posters') is not None:
             continue
-        todo.append(index)
+        todo.append(desc)
     if not todo:
         return
-    window._row_fetch_inflight.update(todo)
+    for desc in todo:
+        window._row_fetch_inflight[id(desc)] = desc
 
-    def _work(indexes_to_load):
-        loaded = []
-        for index in indexes_to_load:
+    def _work(descs_to_load):
+        for desc in descs_to_load:
             try:
-                if index < len(window._descs) and window._descs[index].get('posters') is None:
-                    _load_posters(window._descs[index])
+                if desc.get('posters') is None:
+                    _load_posters(desc)
             except Exception:
                 pass
-            loaded.append(index)
         with _row_lock(window):
             ready = getattr(window, '_row_fetch_ready', None)
             if ready is None:
-                window._row_fetch_ready = loaded
+                window._row_fetch_ready = list(descs_to_load)
             else:
-                ready.extend(loaded)
-            for index in indexes_to_load:
-                window._row_fetch_inflight.discard(index)
+                ready.extend(descs_to_load)
+            for desc in descs_to_load:
+                window._row_fetch_inflight.pop(id(desc), None)
         try:
             import xbmc
             xbmc.executebuiltin('Action(noop)')
@@ -564,42 +674,49 @@ def _apply_fetched_rows(window):
         return
     index = window.getControl(HUB_LIST).getSelectedPosition()
     removed = False
-    for row in sorted(set(ready), reverse=True):
-        if row < len(window._descs) and window._descs[row].get('posters') == []:
-            del window._descs[row]
-            removed = True
+    for desc in ready:
+        if desc.get('posters') == []:
+            row = _index_of(window, desc)
+            if row >= 0:
+                del window._descs[row]
+                removed = True
     if removed:
         if not window._descs:
             return
         _paint_list(window, select=max(0, min(index, len(window._descs) - 1)))
         window.setFocusId(HUB_LIST)
         return
-    for row in ready:
-        _refresh_row(window, row)
+    for desc in ready:
+        row = _index_of(window, desc)
+        if row >= 0:
+            _refresh_row(window, row)
 
 
 def _schedule_extend(window, index):
     """The next page of one row, off the GUI thread."""
     inflight = getattr(window, '_extend_inflight', None)
     if inflight is None:
-        window._extend_inflight = set()
-    if index in window._extend_inflight:
+        inflight = {}
+        window._extend_inflight = inflight
+    if index < 0 or index >= len(window._descs):
         return
-    window._extend_inflight.add(index)
+    desc = window._descs[index]
+    if id(desc) in inflight:
+        return
+    inflight[id(desc)] = desc
 
     def _work():
         try:
-            if index < len(window._descs):
-                _extend_row(window._descs[index])
+            _extend_row(desc)
         except Exception:
             pass
         with _row_lock(window):
             ready = getattr(window, '_row_fetch_ready', None)
             if ready is None:
-                window._row_fetch_ready = [index]
+                window._row_fetch_ready = [desc]
             else:
-                ready.append(index)
-            window._extend_inflight.discard(index)
+                ready.append(desc)
+            inflight.pop(id(desc), None)
         try:
             import xbmc
             xbmc.executebuiltin('Action(noop)')
@@ -636,7 +753,7 @@ def _move_col(window, delta):
     desc['col'] = col
     item = window.getControl(HUB_LIST).getSelectedItem()
     if item is not None:
-        _apply_posters(item, posters, col, desc.get('layout') or '')
+        _paint_row(item, desc)
 
 
 def _refresh_row(window, index):
@@ -650,9 +767,7 @@ def _refresh_row(window, index):
     desc = window._descs[index]
     item = control.getListItem(index)
     item.setProperty('heading', desc.get('heading') or '')
-    posters = desc.get('posters') or []
-    if posters:
-        _apply_posters(item, posters, desc.get('col') or 0, desc.get('layout') or '')
+    _paint_row(item, desc)
 
 
 def _on_vertical(window):
@@ -705,7 +820,9 @@ class HubWindow(BaseWindow):
         store = get_store()
         auth = store.get_auth()
         self.getControl(BACKGROUND).setImage(addon_fanart())
-        self.getControl(STATUS_LABEL).setLabel((self.heading or '').upper())
+        self._hero_painted = None
+        # The page title, level with the tools (#20).
+        self.getControl(STATUS_LABEL).setLabel('[B]%s[/B]' % escape_label((self.heading or '').upper()))
         self.setProperty('HomeSignedOut', '' if auth else '1')
         if self._descs is None:
             loaded = run_cancellable(
@@ -741,7 +858,7 @@ class HubWindow(BaseWindow):
                 groups.append([])
                 continue
             groups.append(desc.get('posters') or [])
-        request_warm(collect_poster_urls(groups))
+        request_warm(self, collect_poster_urls(groups))
 
     @gated_input
     def onAction(self, action):
@@ -775,14 +892,28 @@ class HubWindow(BaseWindow):
 
 def _build(store, addons, types):
     """Descriptors plus the first screenful of posters, and the episode
-    list the New Episodes row indexes into."""
+    list the New Episodes row indexes into.
+
+    New Episodes (a meta fetch per followed series) and the first catalog
+    rows are fetched together, and catalog_pages.json is written once
+    (#13). The screen waits for the slower of the two, not their sum.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from lib.ui.catalogpages import deferred_saves
+
     descs = _descriptors(addons, types)
-    episode = _episode_descriptor(store, types)
+    with deferred_saves(), ThreadPoolExecutor(max_workers=_MAX_HUB_WORKERS) as pool:
+        pending_episode = pool.submit(_episode_descriptor, store, types)
+        _fill_prefix(descs, _INITIAL_ROWS, pool)
+        try:
+            episode = pending_episode.result()
+        except Exception:
+            episode = None
     episodes = []
     if episode is not None:
         episodes = episode.pop('episodes')
         descs.insert(0, episode)
-    _fill_prefix(descs, _INITIAL_ROWS)
     return descs, episodes
 
 
@@ -807,8 +938,9 @@ def _button(window, action):
         ADDON.openSettings()
         return
     if action == 'signin':
-        from lib.ui.views import login
-        login()
+        # sign_in, not login: a hub has no plugin handle to end (#22).
+        from lib.ui.views import sign_in
+        sign_in()
         window._descs = None
         window.onInit()
 
@@ -824,8 +956,30 @@ def _offer_library(window):
         refresh_library_row(window)
 
 
+def _retry_row(window):
+    """OK on a Try again card: ask the catalog again, off the GUI thread.
+
+    The card's slots clear while the request runs; the noop the worker
+    posts paints the posters, or the card again if it still fails.
+    """
+    index = window.getControl(HUB_LIST).getSelectedPosition()
+    if index < 0 or index >= len(window._descs):
+        return
+    desc = window._descs[index]
+    for key in ('posters', 'gen'):
+        desc[key] = None
+    desc.update({'metas': [], 'pending': [], 'exhausted': False, 'failed': False, 'col': 0, 'start': 0})
+    item = window.getControl(HUB_LIST).getSelectedItem()
+    if item is not None:
+        _apply_posters(item, [], 0, desc.get('layout') or '')
+    _schedule_row_fetch(window, [index])
+
+
 def _activate(window, item):
     if item is None:
+        return
+    if item.getProperty('retry') == '1':
+        _retry_row(window)
         return
     if item.getProperty('decade') != '':
         _open_decade(window, item)

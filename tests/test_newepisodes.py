@@ -302,3 +302,11 @@ def test_mark_seen_of_new_episodes_output_hides_it_from_a_later_new_episodes_cal
     seen = mark_seen({}, first_pass)
     second_pass = new_episodes(series_items, metas, seen, NOW)
     assert second_pass == []
+
+
+def test_episode_still_url_is_the_metahub_still_for_cinemeta_ids_only():
+    from lib.newepisodes import episode_still_url
+
+    assert episode_still_url('tt0944947', 1, 2) == 'https://episodes.metahub.space/tt0944947/1/2/w780.jpg'
+    assert episode_still_url('kitsu:1', 1, 2) == ''
+    assert episode_still_url('tt0944947', 0, 2) == ''

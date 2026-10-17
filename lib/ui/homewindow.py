@@ -95,6 +95,11 @@ _CLICKABLE = frozenset(
     + tuple(list_id for _action, list_id, _label in _SHELVES)
 )
 
+#: Every poster row, in screen order.
+_SHELF_IDS = (CONTINUE_SHELF, LIBRARY_SHELF) + tuple(
+    list_id for _action, list_id, _label in _SHELVES
+)
+
 _BUTTON_ACTIONS = {
     BTN_SEARCH: 'search',
     BTN_ADDONS: 'addons',
@@ -246,20 +251,25 @@ def _poster_item(meta, action='', sparse=False):
     """
     from lib.stremio.ratings import panel_facts
     from lib.ui.uicommon import escape_label
+    from lib.ui.urlutil import sized_image
 
     name = meta.get('name') or ''
     background = meta.get('background') or ''
     poster = meta.get('poster') or ''
     item = xbmcgui.ListItem(escape_label(name))
     item.setProperties({
-        'thumbnail': poster,
-        'fanart': background or poster,
+        # TMDB `original` art is megabytes for a 200px card (#18).
+        'thumbnail': sized_image(poster, 'poster'),
+        'fanart': sized_image(background, 'backdrop') if background else sized_image(poster, 'fill'),
         'hero_logo': meta.get('logo') or '',
         'hero_title': escape_label(name),
         'hero_meta': escape_label(_hero_meta_text(meta)),
         'hero_plot': escape_label(_truncate(meta.get('description') or '', 280)),
         'hero_facts': json.dumps(panel_facts(meta), ensure_ascii=False, separators=(',', ':')),
-        'hero_fill': '1' if sparse and not background and poster else '',
+        # No backdrop: the poster fills the hero (scaled to cover) instead
+        # of standing as a narrow pillarbox in the middle (#21). Library
+        # records used to be the only ones; any catalog title can lack one.
+        'hero_fill': '1' if not background and poster else '',
         'needs_meta': '1' if sparse and meta.get('id') and meta.get('type') and not action else '',
         'action': action,
         'stype': str(meta.get('type') or ''),
@@ -280,6 +290,14 @@ def _more_item(action):
     return item
 
 
+class CatalogUnavailable(Exception):
+    """A catalog's first page failed (timeout, HTTP error, addon error).
+
+    Not the same as an empty catalog: a hub row keeps a Try again card
+    for it instead of disappearing (#16). Already logged when raised.
+    """
+
+
 def _one_catalog_page(transport, manifest, catalog, extra=None):
     """The first page of one catalog, uncut.
 
@@ -287,46 +305,51 @@ def _one_catalog_page(transport, manifest, catalog, extra=None):
     back. The generator is not walked here: the following pages are
     fetched only when the remote nears the end of what is on screen
     (`_pull_more`), so opening Home does not pull a whole catalog.
-    A failed addon yields an empty row rather than taking the screen down.
-    """
-    from lib.ui.catalogpages import cached_first_page
 
+    A failure is logged with the addon's own detail and raised as
+    `CatalogUnavailable`; it used to be swallowed into an empty list,
+    with no log line, so a broken addon's row just vanished (#16).
+    """
+    import xbmc
+
+    from lib.stremio.addons import AddonError, addon_error_detail, safe_url_for_log
+    from lib.ui.catalogpages import cached_first_page
+    from lib.ui.compat import log
+
+    name = (catalog or {}).get('id') if isinstance(catalog, dict) else ''
     try:
         return cached_first_page(transport, manifest, catalog, extra)
-    except Exception:
-        return []
+    except AddonError as exc:
+        log('home: catalog %s failed: %s (%s)' % (
+            name, addon_error_detail(exc), safe_url_for_log(transport or ''),
+        ), xbmc.LOGWARNING)
+        raise CatalogUnavailable(name)
+    except Exception as exc:
+        log('home: catalog %s failed: %r' % (name, exc), xbmc.LOGWARNING)
+        raise CatalogUnavailable(name)
 
 
 def _shelf_page_gen(state):
     """The catalog generator positioned on page 2.
 
     Page 1 is already on the row (and in `state['pending']` when it did
-    not fit). Creating the generator fetches that page again and discards
-    it, which is the only way to resume `skip` without holding the first
-    generator open across the whole session.
+    not fit). The generator starts at `skip` = page one's length, with
+    page one's ids already seen, so page one is not fetched again.
     """
     if not state or not state.get('transport') or not state.get('catalog'):
         return None
     gen = state.get('gen')
     if gen is not None:
         return gen
-    from lib.ui.views import iter_catalog_pages
+    from lib.ui.views import iter_catalog_pages_after
 
     catalog = state['catalog']
-    try:
-        gen = iter_catalog_pages(
-            state['transport'], catalog.get('type'), catalog.get('id'),
-            extra=state.get('extra'), catalog=catalog, manifest=state.get('manifest'),
-        )
-        next(gen)
-    except StopIteration:
-        return None
-    except Exception as exc:
-        if isinstance(exc, AssertionError):
-            raise
-        from lib.ui.compat import log
-        log('home: catalog page resume failed: %r' % (exc,))
-        return None
+    first = [meta for meta in (state.get('metas') or []) if isinstance(meta, dict)]
+    gen = iter_catalog_pages_after(
+        state['transport'], catalog.get('type'), catalog.get('id'),
+        len(first), [meta.get('id') for meta in first],
+        extra=state.get('extra'), catalog=catalog, manifest=state.get('manifest'),
+    )
     state['gen'] = gen
     return gen
 
@@ -377,7 +400,11 @@ def _open_shelf(addons, types):
     for transport, manifest, catalog in iter_catalogs(addons):
         if _base_type(catalog.get('type')) not in types:
             continue
-        metas = _one_catalog_page(transport, manifest, catalog)
+        try:
+            metas = _one_catalog_page(transport, manifest, catalog)
+        except CatalogUnavailable:
+            # Logged already. Home's preview row stays hidden, as before.
+            metas = []
         return {
             'metas': metas,
             'transport': transport,
@@ -396,8 +423,41 @@ def _set_shelf(window, list_id, label_id, prop, heading, items):
     control.reset()
     if items:
         control.addItems(items)
-    window.getControl(label_id).setLabel(heading if items else '')
+    # Bold and brighter than before (#11): with one row on screen the
+    # heading is the only wayfinding, and font12 at 60% white read faint.
+    window.getControl(label_id).setLabel('[B]%s[/B]' % heading if items and heading else '')
     window.setProperty(prop, '1' if items else '')
+
+
+#: Row panel -> its "row / rows" label at the right end of the heading
+#: (HomeWindow.xml). Only one row is on screen at a time, so the count is
+#: the only cue to how far down the list you are (#20).
+_ROW_COUNTERS = (
+    (CONTINUE_SHELF, 'shelf_continue', 30150),
+    (LIBRARY_SHELF, 'shelf_library', 30151),
+) + tuple(
+    (list_id, 'shelf_%s' % action, 30152 + index)
+    for index, (action, list_id, _label) in enumerate(_SHELVES)
+)
+
+
+def _number_rows(window):
+    """Write "row / rows" on every visible row, in screen order.
+
+    Run after any shelf is filled or emptied: Continue appearing after a
+    first playback shifts every count below it. Count-neutral digits, no
+    word to translate. A window without the labels (a Rev2 skin) skips.
+    """
+    visible = [(prop, counter) for _list_id, prop, counter in _ROW_COUNTERS if window.getProperty(prop)]
+    total = len(visible)
+    shown = {counter: index + 1 for index, (_prop, counter) in enumerate(visible)}
+    for _list_id, _prop, counter in _ROW_COUNTERS:
+        try:
+            label = window.getControl(counter)
+        except Exception:
+            continue
+        index = shown.get(counter)
+        label.setLabel('%d / %d' % (index, total) if index and total > 1 else '')
 
 
 def _state_percent(entry):
@@ -569,16 +629,37 @@ def _enabled_shelf_types(addons):
     return enabled
 
 
+#: Home's own bound on its first-screen fetches (the library read plus
+#: one page per row). Every fan-out point bounds its own pool on these
+#: low-power boxes; see AGENTS.md before sharing it with another one.
+_MAX_HOME_WORKERS = 4
+
+
 def _catalog_pages(addons, enabled):
     """First screen per enabled shelf, and the state that appends the rest.
 
     `pages` is what the row draws now. `more` is what `_pull_more` walks
-    when the remote nears the end. One request per shelf at open.
+    when the remote nears the end. One request per shelf at open, all at
+    once (#13): the rows used to be fetched one after another, so opening
+    Home cost the sum of every addon's answer instead of the slowest one.
     """
+    from concurrent.futures import ThreadPoolExecutor
+
     pages = {}
     more = {}
-    for action, types in enabled.items():
-        shelf = _open_shelf(addons, types)
+    actions = list(enabled.items())
+    shelves = []
+    if len(actions) > 1:
+        with ThreadPoolExecutor(max_workers=_MAX_HOME_WORKERS) as pool:
+            futures = [(action, pool.submit(_open_shelf, addons, types)) for action, types in actions]
+            for action, future in futures:
+                try:
+                    shelves.append((action, future.result()))
+                except Exception:
+                    shelves.append((action, None))
+    else:
+        shelves = [(action, _open_shelf(addons, types)) for action, types in actions]
+    for action, shelf in shelves:
         if shelf is None:
             pages[action] = []
             more[action] = None
@@ -611,8 +692,16 @@ def _load_rows(window, store, addons, auth):
         return window._continue_items, window._library_items, window._catalog_pages, enabled
 
     def _load():
-        library_entries = _fetch_library(store, auth)
-        pages, more = _catalog_pages(addons, enabled)
+        # The library read and every row's first page run together, and
+        # catalog_pages.json is written once at the end (#13).
+        from concurrent.futures import ThreadPoolExecutor
+
+        from lib.ui.catalogpages import deferred_saves
+
+        with deferred_saves(), ThreadPoolExecutor(max_workers=1) as reader:
+            library = reader.submit(_fetch_library, store, auth)
+            pages, more = _catalog_pages(addons, enabled)
+            library_entries = library.result()
         return (
             _played_posters(store, library_entries),
             _library_posters(auth, library_entries),
@@ -632,7 +721,7 @@ def _load_rows(window, store, addons, auth):
     return continue_items, library_items, pages, enabled
 
 
-def _warm_shelf_posters(pages):
+def _warm_shelf_posters(window, pages):
     """Poster textures for the first catalog rows, after they are on screen.
 
     Continue and Library are not catalog pages. Backgrounds and logos
@@ -643,7 +732,7 @@ def _warm_shelf_posters(pages):
     groups = []
     for action, _list_id, _label_id in _SHELVES:
         groups.append(pages.get(action) or [])
-    request_warm(collect_poster_urls(groups))
+    request_warm(window, collect_poster_urls(groups))
 
 
 def _fill_shelves(window, store, addons, auth, show_continue):
@@ -670,15 +759,17 @@ def _fill_shelves(window, store, addons, auth, show_continue):
             window, list_id, label_id, 'shelf_%s' % action,
             L(L_FOR_ACTION[action]).upper(), items,
         )
-    _warm_shelf_posters(pages)
+    _number_rows(window)
+    _warm_shelf_posters(window, pages)
 
 
-def _refill_saved_rows(window, store, auth):
+def _refill_saved_rows(window, store, auth, entries=None):
     """Continue and Library from a fresh account read. Catalog pages stay
     as they were: a library write does not change what a catalog returns."""
     from lib.ui.compat import setting_bool
 
-    entries = _fetch_library(store, auth)
+    if entries is None:
+        entries = _fetch_library(store, auth)
     show_continue = setting_bool('home_show_mystuff', True)
     continue_items = _played_posters(store, entries) if show_continue else []
     library_items = _library_posters(auth, entries)
@@ -695,9 +786,10 @@ def mark_library_dirty():
 def refresh_library_row(window):
     """Re-read the account library into Home's Continue and Library rows.
 
-    A hub has no Library row. It marks the cache dirty and Home refills
-    when the hub closes (`onInit` runs again). The read is the same
-    `_fetch_library` Home already uses, not a new API method.
+    A hub has no Library row. It marks the cache dirty, and Home refills
+    when the hub closes (`_after_child`). The read is the same
+    `_fetch_library` Home already uses, not a new API method. The row
+    keeps the poster the remote was on.
     """
     global _library_dirty
 
@@ -706,20 +798,34 @@ def refresh_library_row(window):
     except Exception:
         _library_dirty = True
         return
+    _refresh_saved_rows(window)
+
+
+def _refresh_saved_rows(window, store=None):
+    """Continue and Library from a fresh account read, in place.
+
+    The read runs under the cancellable spinner. Back on it keeps the
+    rows that were there, still marked dirty. Each row then re-selects
+    the title it was on, so the remote does not jump to the first poster.
+    """
+    global _library_dirty
+
     from lib.ui.compat import L
     from lib.ui.uicommon import CANCELLED, run_cancellable
 
+    store = store or get_store()
+
     def _read():
-        store = get_store()
         auth = store.get_auth()
-        return store, auth
+        return auth, _fetch_library(store, auth)
 
     loaded = run_cancellable(_read, L(30033))
     if loaded is CANCELLED or not isinstance(loaded, tuple):
         _library_dirty = True
         return
-    store, auth = loaded
-    _refill_saved_rows(window, store, auth)
+    auth, entries = loaded
+    place = _remember_place(window)
+    _refill_saved_rows(window, store, auth, entries=entries)
     _set_shelf(
         window, CONTINUE_SHELF, 30140, 'shelf_continue',
         L(30241).upper(), window._continue_items,
@@ -728,7 +834,162 @@ def refresh_library_row(window):
         window, LIBRARY_SHELF, 30141, 'shelf_library',
         L(30422).upper(), window._library_items,
     )
+    _number_rows(window)
     _library_dirty = False
+    _restore_place(window, place)
+
+
+#: Settings a Home row is built from. A Settings visit that changes none
+#: of them (and no sign-in, no addon change) leaves the rows, and the
+#: remote's place on them, alone.
+_ROW_SETTINGS = (
+    'home_show_mystuff', 'home_show_movies', 'home_show_series',
+    'home_show_anime', 'home_show_other', 'home_hide_adult', 'content_exclude',
+)
+
+
+def _home_signature(store):
+    """What the rows were built from. Equal signature, same rows."""
+    from lib.ui.compat import ADDON
+
+    auth = store.get_auth() or {}
+    addons = store.get_enabled_addons() or []
+    ids = []
+    for descriptor in addons:
+        if isinstance(descriptor, dict):
+            manifest = descriptor.get('manifest') or {}
+            ids.append(str(descriptor.get('transportUrl') or manifest.get('id') or ''))
+    settings = []
+    for key in _ROW_SETTINGS:
+        try:
+            settings.append(ADDON.getSetting(key))
+        except Exception:
+            settings.append('')
+    return (auth.get('authKey') if isinstance(auth, dict) else None, tuple(sorted(ids)), tuple(settings))
+
+
+#: Lists whose selection survives a refresh. The chips list is matched
+#: by its `action`, a poster by its `sid`.
+def _place_lists():
+    return (BROWSE_LIST, CONTINUE_SHELF, LIBRARY_SHELF) + tuple(
+        list_id for _action, list_id, _label in _SHELVES
+    )
+
+
+def _item_key(item):
+    if item is None:
+        return ''
+    return item.getProperty('sid') or item.getProperty('action') or item.getLabel() or ''
+
+
+def _remember_place(window):
+    """The focused control and, for every list, the title it is on."""
+    try:
+        focus = window.getFocusId()
+    except Exception:
+        focus = 0
+    rows = {}
+    for list_id in _place_lists():
+        try:
+            control = window.getControl(list_id)
+            rows[list_id] = (_item_key(control.getSelectedItem()), control.getSelectedPosition())
+        except Exception:
+            continue
+    return focus, rows
+
+
+def _focusable(window, control_id):
+    if not control_id:
+        return False
+    if control_id == BROWSE_LIST:
+        try:
+            return window.getControl(BROWSE_LIST).size() > 0
+        except Exception:
+            return False
+    if control_id == BTN_SIGNIN:
+        return bool(window.getProperty('HomeSignedOut'))
+    if control_id in _BUTTON_ACTIONS or control_id == TOOLS_LIST:
+        return True
+    for prop, list_id in (('shelf_continue', CONTINUE_SHELF), ('shelf_library', LIBRARY_SHELF)):
+        if control_id == list_id:
+            return bool(window.getProperty(prop))
+    for action, list_id, _label in _SHELVES:
+        if control_id == list_id:
+            return bool(window.getProperty('shelf_%s' % action))
+    return False
+
+
+def _restore_place(window, place):
+    """Put every list back on the title it was on, then the focus."""
+    focus, rows = place
+    for list_id, (key, position) in rows.items():
+        try:
+            control = window.getControl(list_id)
+            size = control.size()
+        except Exception:
+            continue
+        if size <= 0:
+            continue
+        target = None
+        if key:
+            for index in range(size):
+                if _item_key(control.getListItem(index)) == key:
+                    target = index
+                    break
+        if target is None:
+            target = max(0, min(position if isinstance(position, int) else 0, size - 1))
+        control.selectItem(target)
+    if _focusable(window, focus):
+        window.setFocusId(focus)
+        _note_focus(window)
+    else:
+        _focus_first(window)
+
+
+def _after_child(window, played=False):
+    """Bring Home up to date once a screen on top of it has closed.
+
+    Kodi re-runs a dialog's onInit only when the dialog is opened again
+    (here, the reopen after playback), not when a dialog above it closes.
+    Home used to rely on onInit for both, so a library change or a new
+    addon waited for playback, and a reopen rebuilt every row and dropped
+    the remote on the first Continue poster. Now: a changed sign-in,
+    addon list, or row setting rebuilds the rows and puts the remote back
+    where it was; a library change, or coming back from playback,
+    re-reads Continue and Library in place; anything else just repaints.
+    """
+    window._child_refreshed = True
+    try:
+        store = get_store()
+        signature = _home_signature(store)
+    except Exception:
+        return
+    if signature != getattr(window, '_signature', None) or getattr(window, '_catalog_pages', None) is None:
+        place = _remember_place(window)
+        window._row_key = None
+        window._catalog_pages = None
+        window._build(place=place)
+        return
+    if played or _library_dirty:
+        _refresh_saved_rows(window, store)
+    paint_hero(window)
+
+
+def _open_child(window, opener):
+    """Run a screen over Home. True when Home closed for playback.
+
+    A child that returns True started playback; Home closes with it. A
+    plain Back refreshes Home (`_after_child`), unless Home was closed
+    for playback underneath, in which case its reopen does that.
+    """
+    window._child_refreshed = False
+    if opener():
+        window.close()
+        return True
+    if getattr(window, '_closed_for_playback', False) or getattr(window, '_child_refreshed', False):
+        return False
+    _after_child(window)
+    return False
 
 
 def _offer_library(window, item):
@@ -742,36 +1003,51 @@ def _offer_library(window, item):
         refresh_library_row(window)
 
 
+def _note_focus(window):
+    """Remember where the remote is, so the next Up can tell a dead end
+    from a move (`HomeWindow.onAction`)."""
+    try:
+        window._last_focus = window.getFocusId()
+    except Exception:
+        window._last_focus = None
+
+
 def _focus_first(window):
     """Land on the first row that actually has posters, else the chips,
     else Settings. An empty hidden row must not take the remote."""
-    for control_id, prop in (
-        (CONTINUE_SHELF, 'shelf_continue'),
-        (LIBRARY_SHELF, 'shelf_library'),
-    ):
-        if window.getProperty(prop):
-            window.setFocusId(control_id)
+    try:
+        for control_id, prop in (
+            (CONTINUE_SHELF, 'shelf_continue'),
+            (LIBRARY_SHELF, 'shelf_library'),
+        ):
+            if window.getProperty(prop):
+                window.setFocusId(control_id)
+                return
+        if window.getControl(BROWSE_LIST).size():
+            window.setFocusId(BROWSE_LIST)
             return
-    if window.getControl(BROWSE_LIST).size():
-        window.setFocusId(BROWSE_LIST)
-        return
-    for _action, list_id, _label in _SHELVES:
-        if window.getProperty('shelf_%s' % _action):
-            window.setFocusId(list_id)
-            return
-    window.setFocusId(BTN_SETTINGS)
+        for _action, list_id, _label in _SHELVES:
+            if window.getProperty('shelf_%s' % _action):
+                window.setFocusId(list_id)
+                return
+        window.setFocusId(BTN_SETTINGS)
+    finally:
+        _note_focus(window)
 
 
 def _status_text(auth):
     """Home's top status line. Both states are prefixed with a
-    `[COLOR]`-tinted dot (font12 is NotoSans and covers U+25CF)."""
+    `[COLOR]`-tinted dot (font12 is NotoSans and covers U+25CF).
+
+    Signed in reads "Signed in", not the account's address: Home is on a
+    shared TV, often with guests on the sofa (#19). The address stays in
+    Settings > Account (`account_user`, kept current by `_build`).
+    """
     from lib.ui.compat import L
 
     if not auth:
         return '[COLOR 57EEF3F6]\u25cf[/COLOR] %s' % L(30190)
-    user = auth.get('user') or {}
-    text = L(30022) % (user.get('email') or user.get('name') or '?')
-    return '[COLOR FF38BDF8]\u25cf[/COLOR] %s' % text
+    return '[COLOR FF38BDF8]\u25cf[/COLOR] %s' % L(30488)
 
 
 def _fit_hero_title(text):
@@ -810,12 +1086,88 @@ def _append_to_shelf(window, list_id, metas):
         control.selectItem(min(pos, len(items) - 1))
 
 
+def _shelf_lock(window):
+    lock = getattr(window, '_shelf_lock', None)
+    if lock is None:
+        lock = threading.Lock()
+        window._shelf_lock = lock
+    return lock
+
+
+def _schedule_shelf_extend(window, action, room):
+    """The next catalog page for one Home row, off the GUI thread.
+
+    Page two used to be fetched inside onAction: the hero froze, Right
+    presses queued, and a slow addon held the row for its whole timeout.
+    The answer lands in `_shelf_ready` and is appended on the noop this
+    worker posts. One fetch per row at a time.
+    """
+    inflight = getattr(window, '_shelf_inflight', None)
+    if inflight is None:
+        inflight = set()
+        window._shelf_inflight = inflight
+    if action in inflight:
+        return
+    state = (getattr(window, '_shelf_more', None) or {}).get(action)
+    if not state:
+        return
+    inflight.add(action)
+
+    def _work():
+        metas = []
+        try:
+            metas = _pull_more(state, room)
+        except Exception as exc:
+            if isinstance(exc, AssertionError):
+                raise
+            metas = []
+        with _shelf_lock(window):
+            ready = getattr(window, '_shelf_ready', None)
+            if ready is None:
+                window._shelf_ready = [(action, metas)]
+            else:
+                ready.append((action, metas))
+            inflight.discard(action)
+        try:
+            import xbmc
+            xbmc.executebuiltin('Action(noop)')
+        except Exception:
+            pass
+
+    thread = threading.Thread(target=_work, name='rivulet-home-shelf', daemon=True)
+    threads = getattr(window, '_shelf_threads', None)
+    if threads is None:
+        window._shelf_threads = [thread]
+    else:
+        threads.append(thread)
+    thread.start()
+
+
+def _join_shelf_extends(window):
+    """Test hook. Production appends on the noop the worker posts."""
+    for thread in list(getattr(window, '_shelf_threads', []) or []):
+        thread.join(timeout=2)
+
+
+def _apply_shelf_extends(window):
+    """Append what the row workers fetched. UI thread only."""
+    with _shelf_lock(window):
+        ready = list(getattr(window, '_shelf_ready', None) or [])
+        window._shelf_ready = []
+    for action, metas in ready:
+        for name, list_id, _label in _SHELVES:
+            if name == action and metas:
+                _append_to_shelf(window, list_id, metas)
+
+
 def _maybe_extend_focused_shelf(window):
     """Append the next posters when the remote is within four of the end.
 
-    The panel only had the first slice. Moving into the unloaded part
+    The row only had the first slice. Moving into the unloaded part
     left the container on a blank item, paint_hero cleared the title,
-    and the row stopped taking left and right.
+    and the row stopped taking left and right. What page one still
+    holds is appended at once; a further page is fetched off the GUI
+    thread (`_schedule_shelf_extend`).
     """
     focus = window.getFocusId()
     action = None
@@ -826,7 +1178,9 @@ def _maybe_extend_focused_shelf(window):
     if action is None:
         return
     state = (getattr(window, '_shelf_more', None) or {}).get(action)
-    if not state:
+    if not state or state.get('exhausted'):
+        return
+    if action in (getattr(window, '_shelf_inflight', None) or ()):
         return
     control = window.getControl(focus)
     count = control.size()
@@ -837,7 +1191,13 @@ def _maybe_extend_focused_shelf(window):
     for index in range(count):
         if control.getListItem(index).getProperty('sid'):
             shown += 1
-    _append_to_shelf(window, focus, _pull_more(state, _ROW_LIMIT - shown))
+    room = _ROW_LIMIT - shown
+    if room <= 0:
+        return
+    if state.get('pending'):
+        _append_to_shelf(window, focus, _pull_more(state, room))
+        return
+    _schedule_shelf_extend(window, action, room)
 
 
 def _fetch_library_meta(stype, sid):
@@ -939,8 +1299,10 @@ def _write_meta_onto(item, meta):
     background = merged.get('background') or ''
     poster = merged.get('poster') or item.getProperty('thumbnail') or ''
     if not background and poster:
+        from lib.ui.urlutil import sized_image
+
         fresh.setProperty('hero_fill', '1')
-        fresh.setProperty('fanart', poster)
+        fresh.setProperty('fanart', sized_image(poster, 'fill'))
     fresh.setProperty('needs_meta', '')
     for key in _HERO_PROPS:
         item.setProperty(key, fresh.getProperty(key))
@@ -975,6 +1337,121 @@ def _apply_library_meta(window):
             else:
                 item.setProperty('needs_meta', '')
                 item.setProperty('meta_state', 'done')
+
+
+def _upcoming_facts(window, count=2):
+    """`hero_facts` of the next posters on the focused row, so their
+    ratings ride along once the focus rests. [] off a container."""
+    facts = []
+    try:
+        control = window.getControl(window.getFocusId())
+        position = control.getSelectedPosition()
+        size = control.size()
+    except Exception:
+        return facts
+    if not isinstance(position, int) or position < 0:
+        return facts
+    for index in range(position + 1, min(size, position + 1 + count)):
+        try:
+            raw = control.getListItem(index).getProperty('hero_facts') or ''
+            parsed = json.loads(raw) if raw else None
+        except Exception:
+            parsed = None
+        if isinstance(parsed, dict):
+            facts.append(parsed)
+    return facts
+
+
+#: Two 1x1 image slots under the backdrop plate (Home and the hubs) that
+#: load a clearlogo before the hero is allowed to show it.
+LOGO_WARM_SLOTS = (30098, 30099)
+
+#: How long a logo found missing from Kodi's texture cache is trusted to
+#: still be missing before the cache is asked again. A logo that loaded
+#: is known good for the rest of the session.
+_LOGO_RECHECK_SECONDS = 3.0
+
+#: url -> (cached, when it was checked)
+_LOGO_STATE = {}  # type: dict
+
+
+def _texture_cached(url):
+    """True when Kodi's texture cache holds `url`, i.e. it loaded before.
+
+    A clearlogo that 404s never gets a row in Textures13.db; one that
+    loaded once does, in this session or an earlier one. One indexed
+    lookup over JSON-RPC (``Textures.GetTextures``). Any failure answers
+    False, which only means the text title is shown.
+    """
+    import xbmc
+
+    request = {
+        'jsonrpc': '2.0', 'id': 1, 'method': 'Textures.GetTextures',
+        'params': {
+            'properties': ['url'],
+            'filter': {'field': 'url', 'operator': 'is', 'value': url},
+        },
+    }
+    try:
+        answer = json.loads(xbmc.executeJSONRPC(json.dumps(request)) or '{}')
+    except Exception:
+        return False
+    result = answer.get('result') if isinstance(answer, dict) else None
+    textures = result.get('textures') if isinstance(result, dict) else None
+    return bool(textures)
+
+
+def _logo_known_good(url):
+    """Whether the hero may swap the text title for this clearlogo.
+
+    The skin hides the title whenever a logo is set, so a logo URL that
+    404s left the title area blank (#10). Only a logo Kodi has already
+    loaded replaces the text; until then the title shows and the logo is
+    warmed in a slot.
+    """
+    import time
+
+    if not url:
+        return False
+    now = time.monotonic()
+    state = _LOGO_STATE.get(url)
+    if state is not None and (state[0] or now - state[1] < _LOGO_RECHECK_SECONDS):
+        return state[0]
+    ok = _texture_cached(url)
+    _LOGO_STATE[url] = (ok, now)
+    return ok
+
+
+def _upcoming_logos(window, count=1):
+    """Clearlogos of the next posters on the focused row."""
+    logos = []
+    try:
+        control = window.getControl(window.getFocusId())
+        position = control.getSelectedPosition()
+        size = control.size()
+    except Exception:
+        return logos
+    if not isinstance(position, int) or position < 0:
+        return logos
+    for index in range(position + 1, min(size, position + 1 + count)):
+        try:
+            logo = control.getListItem(index).getProperty('hero_logo') or ''
+        except Exception:
+            logo = ''
+        if logo:
+            logos.append(logo)
+    return logos
+
+
+def _warm_logos(window, logos):
+    """Load `logos` in the 1x1 slots so Kodi caches them. A window
+    without the slots (a Rev2 skin) warms nothing."""
+    pending = [logo for logo in logos if logo and not _LOGO_STATE.get(logo, (False, 0))[0]]
+    for slot, logo in zip(LOGO_WARM_SLOTS, pending):
+        try:
+            window.getControl(slot).setImage(logo)
+        except Exception:
+            return
 
 
 def _set_fill_image(window, image):
@@ -1017,7 +1494,7 @@ def paint_hero(window, item=None):
         return
     meta = item.getProperty('hero_meta') or ''
     facts_raw = item.getProperty('hero_facts') or ''
-    if facts_raw:
+    if facts_raw and item.getProperty('facts_done') != '1':
         # A ratings key rebuilds this from the cached scores. No key, or
         # a cache miss, leaves the catalog line alone and returns at once.
         from lib.ui.ratingsched import overlay_text
@@ -1027,10 +1504,27 @@ def paint_hero(window, item=None):
         except ValueError:
             facts = None
         if isinstance(facts, dict):
-            meta = overlay_text(facts, meta)
+            overlaid = overlay_text(facts, meta, _upcoming_facts(window))
+            if overlaid != meta:
+                # Scores applied: keep the result on the card, so the next
+                # paint of this title skips the decode and the merge (#17).
+                item.setProperty('hero_meta', overlaid)
+                item.setProperty('facts_done', '1')
+            meta = overlaid
     plot = item.getProperty('hero_plot') or item.getProperty('subtitle') or ''
     fanart = item.getProperty('fanart') or ''
-    logo = item.getProperty('hero_logo') or ''
+    wanted_logo = item.getProperty('hero_logo') or ''
+    # The text title stays up until Kodi has loaded the logo once (#10).
+    logo = wanted_logo if _logo_known_good(wanted_logo) else ''
+    _warm_logos(window, ([wanted_logo] if wanted_logo and not logo else []) + _upcoming_logos(window))
+    fill = item.getProperty('hero_fill') == '1' and bool(fanart)
+    # Every action repaints (worker noops, mouse moves, a key that did not
+    # move). An unchanged hero is a dozen boundary crossings and a bar
+    # re-measure for nothing (#17).
+    painted = (title or label, meta, plot, fanart, fill, logo)
+    if painted == getattr(window, '_hero_painted', None):
+        return
+    window._hero_painted = painted
     try:
         window.setProperty('HeroLogo', logo)
         window.getControl(HERO_LOGO).setImage(logo)
@@ -1039,7 +1533,6 @@ def paint_hero(window, item=None):
         window.getControl(HERO_META).setText(meta)
         window.getControl(HERO_PLOT).setText(plot)
         image = fanart or addon_fanart()
-        fill = item.getProperty('hero_fill') == '1' and bool(fanart)
         # HeroFill shows the scale plate and hides the letterboxed one.
         # A real backdrop clears it, so the picture is shown whole.
         window.setProperty('HeroFill', '1' if fill else '')
@@ -1062,17 +1555,23 @@ class HomeWindow(BaseWindow):
     """See module docstring. Built/run via `open_home()`."""
 
     def onInit(self):
-        # Recomputed every onInit(): onInit() re-runs on every resume from
-        # a nested modal, so a sign-in or a newly installed catalog shows
-        # up on the way back here without restarting the addon.
+        # Kodi re-runs onInit when this dialog is opened again, which is
+        # the reopen after playback. That refreshes Continue in place and
+        # keeps the remote where it was. The first open builds the rows.
+        if getattr(self, '_built', False):
+            _after_child(self, played=True)
+            return
         self._build()
+        self._built = True
 
-    def _build(self):
+    def _build(self, place=None):
         from lib.ui.compat import addon_fanart, setting_bool
 
         store = get_store()
         auth = store.get_auth()
-        self.getControl(BACKGROUND).setImage(addon_fanart())
+        self._hero_painted = None
+        if place is None:
+            self.getControl(BACKGROUND).setImage(addon_fanart())
         addons = store.get_enabled_addons()
         browse = _menu_items(addons)
         chips = self.getControl(BROWSE_LIST)
@@ -1081,10 +1580,21 @@ class HomeWindow(BaseWindow):
         self.setProperty('HomeBrowse', '1' if browse else '')
         self.setProperty('HomeSignedOut', '' if auth else '1')
         self.getControl(STATUS_LABEL).setLabel(_status_text(auth))
+        # Settings > Account shows who is signed in; Home no longer does.
+        from lib.ui.compat import account_name, set_setting_if_changed
+
+        set_setting_if_changed('account_user', account_name(auth))
         show_continue = setting_bool('home_show_mystuff', True)
         _fill_shelves(self, store, addons, auth, show_continue)
-        _focus_first(self)
+        if place is None:
+            _focus_first(self)
+        else:
+            _restore_place(self, place)
         paint_hero(self)
+        try:
+            self._signature = _home_signature(store)
+        except Exception:
+            self._signature = None
         # After the shelf spinner, not inside it. The 15-minute clock
         # lives in addonsync, so a nested modal closing does not pull
         # on every Back.
@@ -1099,6 +1609,7 @@ class HomeWindow(BaseWindow):
         # The library fetch finished on a worker and woke a noop. The
         # poster properties have to be current before the hero paints.
         _apply_library_meta(self)
+        _apply_shelf_extends(self)
         action_id = action.getId()
         if action_id in BACK_ACTIONS:
             self.close()
@@ -1108,18 +1619,23 @@ class HomeWindow(BaseWindow):
             if focus in _CLICKABLE and focus != BROWSE_LIST:
                 _offer_library(self, self.getControl(focus).getSelectedItem())
             return
-        # The pills are the Down target of the top bar. With no types
-        # installed that list is hidden, and a hidden target does not
-        # take focus, so Down would stick on Settings.
-        if action_id == 4 and not self.getControl(BROWSE_LIST).size():
-            if self.getFocusId() in _BUTTON_ACTIONS or self.getFocusId() == TOOLS_LIST:
-                _focus_first(self)
+        # The header is one row (#23): the pills on the left, the tools on
+        # the right, and a row's Up lands on the pills. With no types
+        # installed the pills are hidden, so that Up has nowhere to go.
+        # Kodi has already moved (or not) by the time this runs: an Up
+        # that left the remote on the shelf it started on was that dead
+        # end, and goes to the tools instead.
+        focus = self.getFocusId()
+        if action_id == 3 and focus == getattr(self, '_last_focus', None) and focus in _SHELF_IDS:
+            if not self.getControl(BROWSE_LIST).size():
+                self.setFocusId(TOOLS_LIST)
         # Right is what walks a shelf. Load the next posters before the
         # hero is painted, so the cell the remote just reached already
         # has a title.
         if action_id == 2:
             _maybe_extend_focused_shelf(self)
         paint_hero(self)
+        _note_focus(self)
 
     @gated_input
     def onClick(self, control_id):
@@ -1135,19 +1651,43 @@ class HomeWindow(BaseWindow):
 
 
 def _open_signin(window):
-    """The existing email/password dialog, then a refresh of this window.
+    """The existing sign-in dialog, then a refresh of this window.
 
-    `views.login()` writes auth.json in this addon's profile. Home calls
-    it directly so the status line and the Library row update before the
-    dialog's RunPlugin directory finish returns. The cached rows are
-    dropped first: they were built for the signed-out key.
+    `views.sign_in()` writes auth.json in this addon's profile. The new
+    auth key changes Home's signature, so `_after_child` rebuilds the
+    rows for it and keeps the remote where it was. Not `views.login()`:
+    that ends a plugin handle, and Home has none to end (#22).
     """
-    from lib.ui.views import login
+    from lib.ui.views import sign_in
 
-    login()
-    window._row_key = None
-    window._catalog_pages = None
-    window._build()
+    sign_in()
+    _after_child(window)
+
+
+def _continue_card(entry):
+    """``(wide picture, "S:1 E:2")`` for a Continue card (#9).
+
+    The card is 16:9; the poster scaled into it was a slice through the
+    middle of the poster. An episode with a Cinemeta id uses that
+    episode's still (the picture the New Episodes cards use), anything
+    else its backdrop. ``""`` when there is neither: the skin then shows
+    the poster whole on the plate.
+    """
+    from lib.newepisodes import episode_still_url
+    from lib.ui.urlutil import sized_image
+
+    land = ''
+    code = ''
+    video_id = entry.get('video_id')
+    if isinstance(video_id, str) and video_id:
+        show, season, episode = (video_id.rsplit(':', 2) + ['', ''])[:3]
+        if show and season.isdigit() and episode.isdigit():
+            code = 'S:%d E:%d' % (int(season), int(episode))
+            land = episode_still_url(show, int(season), int(episode))
+    if not land:
+        background = entry.get('background') or ''
+        land = sized_image(background, 'backdrop') if isinstance(background, str) else ''
+    return land, code
 
 
 def _continue_item(entry):
@@ -1155,9 +1695,18 @@ def _continue_item(entry):
 
     Catalog and Library posters stay on `_poster_item` alone: those
     clicks still open the page, and the skin ignores unknown properties.
+    The card itself is wide art with the show and the episode written
+    bottom-left, the way the New Episodes cards read (#9).
     """
+    from lib.ui.uicommon import escape_label
+
     item = _poster_item(entry)
-    props = {}
+    land, code = _continue_card(entry)
+    props = {
+        'land': land,
+        'card_show': escape_label(entry.get('name') or ''),
+        'card_code': code,
+    }
     band = entry.get('band')
     if band:
         props['band'] = str(band)
@@ -1168,8 +1717,7 @@ def _continue_item(entry):
         value = entry.get(key)
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             props[key] = str(int(value))
-    if props:
-        item.setProperties(props)
+    item.setProperties(props)
     return item
 
 
@@ -1384,9 +1932,8 @@ def _handle_continue(window, item):
     if choice == 0:
         _resume_continue(item, offset_ms)
         return True
-    from lib.ui.detailwindow import open_detail
-    if open_detail(item.getProperty('stype'), item.getProperty('sid')):
-        window.close()
+    land_on = item.getProperty('video_id') or None
+    _open_child(window, lambda: _open_detail_for(item, land_on=land_on))
     return True
 
 
@@ -1406,13 +1953,27 @@ def _activate(window, item, control_id=None):
     if sid and not action:
         if control_id == CONTINUE_SHELF and _handle_continue(window, item):
             return
-        from lib.ui.detailwindow import open_detail
-        if open_detail(item.getProperty('stype'), sid):
-            window.close()
+        land_on = None
+        if control_id == CONTINUE_SHELF:
+            # Next up and recently finished carry the episode too. The
+            # page should open there, not on season 1.
+            land_on = item.getProperty('video_id') or None
+        _open_child(window, lambda: _open_detail_for(item, land_on=land_on))
         return
     handler = _ACTIONS.get(action)
     if handler:
         handler(window)
+
+
+def _open_detail_for(item, land_on=None):
+    """`open_detail` for a poster. `land_on` is the episode the page
+    opens on (a Continue card knows it); without one the page picks
+    from local progress itself."""
+    from lib.ui.detailwindow import open_detail
+
+    if land_on:
+        return open_detail(item.getProperty('stype'), item.getProperty('sid'), land_on=land_on)
+    return open_detail(item.getProperty('stype'), item.getProperty('sid'))
 
 
 def _open_type_row(window, action):
@@ -1423,19 +1984,24 @@ def _open_type_row(window, action):
     types = TYPE_ROW_TYPES[action]
     if types is None:
         types = _remainder_types(_available_types(get_store().get_enabled_addons()))
-    if open_hub(types, L(L_FOR_ACTION[action]), action):
-        window.close()
+    _open_child(window, lambda: open_hub(types, L(L_FOR_ACTION[action]), action))
 
 
 def _open_search(window):
     from lib.ui.searchwindow import open_search
-    if open_search():
-        window.close()
+    _open_child(window, open_search)
 
 
 def _open_addons(window):
+    """Add-ons never closes Home. A newly installed catalog shows up on
+    the way back (`_after_child` sees the addon list change)."""
     from lib.ui.addonswindow import open_addons
-    open_addons()
+
+    def _run():
+        open_addons()
+        return False
+
+    _open_child(window, _run)
 
 
 def _open_settings(window):
@@ -1446,13 +2012,12 @@ def _open_settings(window):
     else:
         from lib.ui.compat import ADDON
         ADDON.openSettings()
-    # Account > Login returns here without re-running onInit. Drop the
-    # row cache so a sign-in done in that dialog shows up on the Library
-    # row in the same visit.
+    # Account > Login returns here without re-running onInit. A sign-in,
+    # a row switched on or off, or a new exclusion changes the signature
+    # and rebuilds the rows; a look at Settings that changed nothing
+    # leaves them, and the remote's place, alone.
     try:
-        window._row_key = None
-        window._catalog_pages = None
-        window._build()
+        _after_child(window)
     except Exception:
         pass
 

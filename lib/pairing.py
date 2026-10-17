@@ -1,16 +1,20 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""Short-lived LAN page for pasting an addon setting from a phone.
+"""Short-lived LAN page for typing something on a phone instead of the TV.
 
 The TV shows a code and a QR. The phone opens the page this process is
-serving and POSTs the key. A gh-pages page cannot do that job: it is
+serving and POSTs the value. A gh-pages page cannot do that job: it is
 HTTPS, and a browser will not let an HTTPS page post to the TV's HTTP
-address, and a static file cannot hold the key until the TV polls.
+address, and a static file cannot hold the value until the TV polls.
+
+One session takes one value: an API key (`clean_key`, the default), an
+addon install link (`clean_url`), or a search (`clean_text`). The page
+can carry one outbound link, such as an addon's configure page.
 
 The code is the only secret. It lasts three minutes, locks after a
-handful of wrong tries, and is single use. The key is the POST body.
-Nothing in this module logs, and a response never repeats the key.
+handful of wrong tries, and is single use. The value is the POST body.
+Nothing in this module logs, and a response never repeats the value.
 
 No xbmc import. The window in lib.ui.pairwindow drives it.
 """
@@ -30,6 +34,11 @@ from lib.qrcodegen import QrCode
 TTL_SECONDS = 180
 MAX_FAILURES = 8
 MAX_KEY_LENGTH = 128
+#: A configured addon's install link carries its whole configuration.
+MAX_URL_LENGTH = 2048
+MAX_TEXT_LENGTH = 120
+#: The POST cap for a key or a search. A link page allows more; see
+#: `body_limit`.
 MAX_BODY = 2048
 
 #: No 0/O or 1/I. Read aloud from the couch, typed if the camera misses.
@@ -48,6 +57,39 @@ def clean_key(value):
     rather than stored, so a wrapped paste cannot become the setting."""
     text = ''.join(ch for ch in str(value or '') if 33 <= ord(ch) <= 126)
     if not text or len(text) > MAX_KEY_LENGTH:
+        return ''
+    return text
+
+
+def clean_url(value):
+    """An addon install link, or '' to refuse it.
+
+    No whitespace, at most `MAX_URL_LENGTH`. Configure pages hand out
+    ``stremio://`` links; those are the same address over HTTPS. The
+    caller still runs the addon validator on the result.
+    """
+    text = str(value or '').strip()
+    if not text or len(text) > MAX_URL_LENGTH:
+        return ''
+    if any(ch.isspace() or ord(ch) < 33 for ch in text):
+        return ''
+    lowered = text.lower()
+    if lowered.startswith('stremio://'):
+        text = 'https://' + text[len('stremio://'):]
+        lowered = text.lower()
+    if not (lowered.startswith('https://') or lowered.startswith('http://')):
+        return ''
+    return text
+
+
+def clean_text(value):
+    """A search typed on the phone, or ''. Whitespace collapsed, control
+    characters dropped, at most `MAX_TEXT_LENGTH`."""
+    # Whitespace (tabs, newlines) becomes one space before the other
+    # control characters are dropped, so "dark\nknight" keeps its gap.
+    spaced = ' '.join(str(value or '').split())
+    text = ' '.join(''.join(ch for ch in spaced if ord(ch) >= 32 and ord(ch) != 127).split())
+    if not text or len(text) > MAX_TEXT_LENGTH:
         return ''
     return text
 
@@ -80,11 +122,18 @@ def _same(left, right):
 
 
 class PairSession:
-    """One code, one key, then done."""
+    """One code, one value, then done.
 
-    def __init__(self, now=None, ttl=TTL_SECONDS, code=None):
+    `cleaner` turns the posted text into the stored value, or '' to
+    refuse it; `max_length` is what the page allows and what a refusal
+    is measured against.
+    """
+
+    def __init__(self, now=None, ttl=TTL_SECONDS, code=None, cleaner=None, max_length=MAX_KEY_LENGTH):
         self.code = code or new_code()
         self.ttl = ttl
+        self.cleaner = cleaner or clean_key
+        self.max_length = max_length
         self._now = now or time.monotonic
         self._created = self._now()
         self._key = None
@@ -95,8 +144,8 @@ class PairSession:
         return self._now() >= self._created + self.ttl
 
     def submit(self, code, key):
-        """'ok' stores the key. Every other result stores nothing."""
-        cleaned = clean_key(key)
+        """'ok' stores the value. Every other result stores nothing."""
+        cleaned = self.cleaner(key)
         with self._lock:
             if self._key is not None:
                 return 'used'
@@ -108,8 +157,11 @@ class PairSession:
                     return 'expired'
                 return 'bad'
             if not cleaned:
-                raw = ''.join(ch for ch in str(key or '') if 33 <= ord(ch) <= 126)
-                return 'long' if len(raw) > MAX_KEY_LENGTH else 'empty'
+                if self.cleaner is clean_key:
+                    raw = ''.join(ch for ch in str(key or '') if 33 <= ord(ch) <= 126)
+                else:
+                    raw = str(key or '').strip()
+                return 'long' if len(raw) > self.max_length else 'empty'
             self._key = cleaned
             return 'ok'
 
@@ -155,7 +207,18 @@ def _page(title, body):
     ) % (_esc(title), _esc(title), body)
 
 
-def _form(strings, code):
+def _outbound(strings):
+    """The page's one outbound link (an addon's configure page), or ''.
+    Only http(s), escaped, opened without a referrer."""
+    link = str(strings.get('link') or '')
+    if not link.lower().startswith(('https://', 'http://')):
+        return ''
+    return '<p><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></p>' % (
+        _esc(link), _esc(strings.get('link_label') or link),
+    )
+
+
+def _form(strings, code, max_length=MAX_KEY_LENGTH):
     hidden = ''
     typed = ''
     if code:
@@ -163,16 +226,17 @@ def _form(strings, code):
     else:
         typed = '<input name="code" maxlength="8" autocomplete="off" autocapitalize="characters">'
     body = (
-        '<p>%s</p><form method="post" action="/%s" autocomplete="off">%s%s'
+        '<p>%s</p>%s<form method="post" action="/%s" autocomplete="off">%s%s'
         '<input name="key" maxlength="%d" autocomplete="off" autocapitalize="off" '
         'spellcheck="false" autofocus>'
         '<button type="submit">%s</button></form>'
     ) % (
         _esc(strings.get('prompt')),
+        _outbound(strings),
         _esc(code),
         hidden,
         typed,
-        MAX_KEY_LENGTH,
+        max_length,
         _esc(strings.get('save')),
     )
     return _page(strings.get('title'), body)
@@ -181,6 +245,13 @@ def _form(strings, code):
 def _result(strings, kind):
     text = strings.get(kind) or strings.get('bad') or ''
     return _page(strings.get('title'), '<p>%s</p>' % _esc(text))
+
+
+def body_limit(session):
+    """The largest POST `session` accepts. Percent-encoding can triple a
+    value, and the form adds the code and field names."""
+    length = getattr(session, 'max_length', MAX_KEY_LENGTH) or MAX_KEY_LENGTH
+    return max(MAX_BODY, length * 3 + 256)
 
 
 def respond(method, path, body, session, strings):
@@ -193,7 +264,7 @@ def respond(method, path, body, session, strings):
     if method == 'GET':
         if (path or '').split('?', 1)[0] == '/favicon.ico':
             return 404, ''
-        return 200, _form(strings, _path_code(path))
+        return 200, _form(strings, _path_code(path), getattr(session, 'max_length', MAX_KEY_LENGTH))
     if method != 'POST':
         return 405, _result(strings, 'bad')
     try:
@@ -228,7 +299,7 @@ class _Handler(BaseHTTPRequestHandler):
             length = int(self.headers.get('Content-Length', '0'))
         except (TypeError, ValueError):
             length = -1
-        if length < 0 or length > MAX_BODY:
+        if length < 0 or length > body_limit(self.server.session):
             self.close_connection = True
             self._write(400, _result(self.server.strings, 'long'))
             return

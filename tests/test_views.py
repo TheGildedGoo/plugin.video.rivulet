@@ -223,6 +223,11 @@ def _wire_data_layer(views, store, client):
     views.get_client = lambda: client
 
 
+def stub_choose_typed(monkeypatch, ctx):
+    """Sign in by typing: the method picker's second row."""
+    monkeypatch.setattr(ctx.views.dialogs, 'choose', lambda heading, rows: 1)
+
+
 def _wire_api(views, api):
     views.StremioAPI = lambda *a, **k: api
 
@@ -1264,8 +1269,90 @@ def test_fetch_catalog_pages_fetches_a_neutral_catalog_from_an_adult_only_manife
 # ---------------------------------------------------------------------------
 
 
-def test_login_cancelled_email_prompt_is_a_noop(load_views):
+def test_login_backing_out_of_the_method_picker_types_nothing(load_views, monkeypatch):
+    ctx = load_views()
+    monkeypatch.setattr(ctx.views.dialogs, 'choose', lambda heading, rows: -1)
+    views = ctx.views
+    store = FakeStore()
+    _wire_data_layer(views, store, FakeAddonClient())
+
+    views.login()
+
+    assert ctx.env.dialog_input_prompts == []
+    assert store.auth_set_calls == []
+    assert 'Container.Refresh' not in ctx.env.executed_builtins
+
+
+def test_login_with_the_phone_stores_the_account_without_the_keyboard(load_views, monkeypatch):
+    """Sign in by code on a phone: no email or password typed on the TV."""
+    ctx = load_views(localized={30022: 'Logged in as %s'})
+    chosen = []
+    monkeypatch.setattr(ctx.views.dialogs, 'choose', lambda heading, rows: chosen.append((heading, rows)) or 0)
+    views = ctx.views
+    store = FakeStore()
+    login_result = {'authKey': 'abc123', 'user': {'email': 'me@example.com'}}
+    api = FakeStremioAPI(addon_collection_result=[])
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, api)
+    import lib.ui.pairwindow as pairwindow
+
+    seen_api = []
+    monkeypatch.setattr(pairwindow, 'link_sign_in', lambda api=None: seen_api.append(api) or login_result)
+
+    views.login()
+
+    assert chosen == [('STR30427', ['STR30480', 'STR30481'])]
+    assert ctx.env.dialog_input_prompts == []
+    assert seen_api == [api]
+    assert store.auth_set_calls == [login_result]
+    assert ctx.env.notifications[-1][1] == 'Logged in as me@example.com'
+    assert 'Container.Refresh' in ctx.env.executed_builtins
+
+
+def test_sign_in_from_a_window_ends_no_plugin_handle(load_views, monkeypatch):
+    """#22: Home and the hubs call sign_in(). It stores the account and
+    returns it, and leaves the long-spent plugin handle alone: no
+    endOfDirectory, no Container.Refresh under the window."""
+    ctx = load_views(localized={30022: 'Logged in as %s'})
+    monkeypatch.setattr(ctx.views.dialogs, 'choose', lambda heading, rows: 0)
+    views = ctx.views
+    store = FakeStore()
+    login_result = {'authKey': 'abc123', 'user': {'email': 'me@example.com'}}
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, FakeStremioAPI(addon_collection_result=[]))
+    import lib.ui.pairwindow as pairwindow
+
+    monkeypatch.setattr(pairwindow, 'link_sign_in', lambda api=None: login_result)
+
+    assert views.sign_in() == login_result
+    assert store.auth_set_calls == [login_result]
+    assert ctx.env.end_of_directory == []
+    assert 'Container.Refresh' not in ctx.env.executed_builtins
+
+    monkeypatch.setattr(pairwindow, 'link_sign_in', lambda api=None: None)
+    assert views.sign_in() is None
+    assert ctx.env.end_of_directory == []
+
+
+def test_login_with_the_phone_backed_out_stores_nothing(load_views, monkeypatch):
+    ctx = load_views()
+    monkeypatch.setattr(ctx.views.dialogs, 'choose', lambda heading, rows: 0)
+    views = ctx.views
+    store = FakeStore()
+    _wire_data_layer(views, store, FakeAddonClient())
+    import lib.ui.pairwindow as pairwindow
+
+    monkeypatch.setattr(pairwindow, 'link_sign_in', lambda api=None: None)
+
+    views.login()
+
+    assert store.auth_set_calls == []
+    assert 'Container.Refresh' not in ctx.env.executed_builtins
+
+
+def test_login_cancelled_email_prompt_is_a_noop(load_views, monkeypatch):
     ctx = load_views()  # no dialog_inputs -> first input() call returns ''
+    stub_choose_typed(monkeypatch, ctx)
     views = ctx.views
     store = FakeStore()
     _wire_data_layer(views, store, FakeAddonClient())
@@ -1277,8 +1364,9 @@ def test_login_cancelled_email_prompt_is_a_noop(load_views):
     assert 'Container.Refresh' not in ctx.env.executed_builtins
 
 
-def test_login_cancelled_password_prompt_is_a_noop(load_views):
+def test_login_cancelled_password_prompt_is_a_noop(load_views, monkeypatch):
     ctx = load_views(dialog_inputs=['me@example.com'])
+    stub_choose_typed(monkeypatch, ctx)
     views = ctx.views
     store = FakeStore()
     _wire_data_layer(views, store, FakeAddonClient())
@@ -1290,8 +1378,9 @@ def test_login_cancelled_password_prompt_is_a_noop(load_views):
     assert 'Container.Refresh' not in ctx.env.executed_builtins
 
 
-def test_login_api_error_notifies_failure_without_storing_auth(load_views):
+def test_login_api_error_notifies_failure_without_storing_auth(load_views, monkeypatch):
     ctx = load_views(dialog_inputs=['me@example.com', 'hunter2'])
+    stub_choose_typed(monkeypatch, ctx)
     views = ctx.views
     store = FakeStore()
     _wire_data_layer(views, store, FakeAddonClient())
@@ -1304,8 +1393,9 @@ def test_login_api_error_notifies_failure_without_storing_auth(load_views):
     assert 'Container.Refresh' not in ctx.env.executed_builtins
 
 
-def test_login_success_merges_all_local_addons_with_remote_collection_and_pushes_back(load_views):
+def test_login_success_merges_all_local_addons_with_remote_collection_and_pushes_back(load_views, monkeypatch):
     ctx = load_views(dialog_inputs=['me@example.com', 'hunter2'], localized={30022: 'Logged in as %s'})
+    stub_choose_typed(monkeypatch, ctx)
     views = ctx.views
     protected = {'transportUrl': 'https://official.example/manifest.json', 'flags': {'protected': True}}
     community = {'transportUrl': 'https://community.example/manifest.json', 'flags': {}}
@@ -1330,7 +1420,7 @@ def test_login_success_merges_all_local_addons_with_remote_collection_and_pushes
     assert 'Container.Refresh' in ctx.env.executed_builtins
 
 
-def test_login_merge_discards_unsafe_synced_descriptors_but_keeps_safe_ones(load_views):
+def test_login_merge_discards_unsafe_synced_descriptors_but_keeps_safe_ones(load_views, monkeypatch):
     """Remote account addon sync must discard descriptors whose
     transportUrl fails validate_transport_url() (credentials, plaintext
     HTTP to a public host, non-HTTP(S) scheme, ...) - a hijacked/tampered
@@ -1342,6 +1432,7 @@ def test_login_merge_discards_unsafe_synced_descriptors_but_keeps_safe_ones(load
     original input descriptor is left untouched (no shared-mutation with
     the API response)."""
     ctx = load_views(dialog_inputs=['me@example.com', 'hunter2'], localized={30022: 'Logged in as %s'})
+    stub_choose_typed(monkeypatch, ctx)
     views = ctx.views
     protected = {'transportUrl': 'https://official.example/manifest.json', 'flags': {'protected': True}}
     store = FakeStore(addons=[protected])
@@ -1398,8 +1489,9 @@ def test_login_merge_discards_unsafe_synced_descriptors_but_keeps_safe_ones(load
     assert 'org.evil-http' in all_messages
 
 
-def test_login_success_keeps_existing_addons_when_remote_sync_fails(load_views):
+def test_login_success_keeps_existing_addons_when_remote_sync_fails(load_views, monkeypatch):
     ctx = load_views(dialog_inputs=['me@example.com', 'hunter2'], localized={30022: 'Logged in as %s'})
+    stub_choose_typed(monkeypatch, ctx)
     views = ctx.views
     store = FakeStore()
     login_result = {'authKey': 'abc123', 'user': {'email': 'me@example.com'}}
@@ -1829,3 +1921,23 @@ def test_get_api_resolves_and_caches_a_single_stremio_api_instance():
         assert ctx.dependencies.get_api() is ctx.dependencies.get_api()
         assert isinstance(ctx.dependencies.get_api(), _CountingApi)
         assert _CountingApi.instances == 1
+
+
+def test_login_and_logout_keep_the_account_setting_current(load_views, monkeypatch):
+    """#19: Settings > Account shows who is signed in (Home no longer does)."""
+    ctx = load_views(localized={30022: 'Logged in as %s'})
+    monkeypatch.setattr(ctx.views.dialogs, 'choose', lambda heading, rows: 0)
+    views = ctx.views
+    store = FakeStore()
+    login_result = {'authKey': 'abc123', 'user': {'email': 'me@example.com'}}
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, FakeStremioAPI(addon_collection_result=[]))
+    import lib.ui.pairwindow as pairwindow
+
+    monkeypatch.setattr(pairwindow, 'link_sign_in', lambda api=None: login_result)
+    views.login()
+    assert ctx.compat.ADDON.getSetting('account_user') == 'me@example.com'
+
+    _stub_confirm(monkeypatch, ctx, True)
+    views.logout()
+    assert ctx.compat.ADDON.getSetting('account_user') == ''

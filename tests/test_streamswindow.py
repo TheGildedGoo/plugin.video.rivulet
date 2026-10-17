@@ -1296,3 +1296,33 @@ def test_moving_the_cursor_while_sources_load_keeps_that_stream(load_streamswind
     focused = control.getSelectedItem()
     assert win.pairs[int(focused.getProperty('position'))][1] is kept
     assert control.selected_index != 0
+
+
+def test_the_options_pill_offers_library_for_the_title(load_streamswindow, monkeypatch):
+    """#15: a movie skips the episode page, so its library choice lived
+    only on the poster's menu key. The source list's Options pill offers
+    it; Up from the top of the list reaches the pill."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    ctx = load_streamswindow()
+    win = _make_window(ctx.streamswindow)
+    win.stype = 'movie'
+    win.heading = 'Dune'
+    win.poster = 'p.jpg'
+    win.meta = {'id': 'tt1', 'type': 'movie', 'name': 'Dune'}
+    offered = []
+    import lib.ui.libraryaction as libraryaction
+
+    monkeypatch.setattr(libraryaction, 'offer', lambda meta: offered.append(meta) or 'added')
+
+    win.onClick(ctx.streamswindow.OPTIONS)
+
+    assert offered == [{'id': 'tt1', 'type': 'movie', 'name': 'Dune', 'poster': 'p.jpg'}]
+    win.meta = None
+    win.onClick(ctx.streamswindow.OPTIONS)
+    assert len(offered) == 1
+    skin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'resources', 'skins', 'Default', '1080i')
+    root = ET.parse(os.path.join(skin, 'StreamsWindow.xml')).getroot()
+    assert (root.find(".//control[@id='30002']").findtext('onup') or '').strip() == '30009'
+    assert (root.find(".//control[@id='30009']").findtext('ondown') or '').strip() == '30002'

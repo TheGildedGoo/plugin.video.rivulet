@@ -10,16 +10,29 @@
                 <effect type="fade" delay="0" end="100" time="200" />
             </animation>
             <!-- No WindowClose animation on purpose: Kodi drops every action while the topmost modal plays one (test_skin_xml.py rule 9). -->
-            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF0A0C0E">white.png</texture></control>
+            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="FF07090B">white.png</texture></control>
             <!-- Design line 218 is filter:brightness(.3); colordiffuse
                  multiplies, so .3*255 = 0x4D. Was FF3A3A3A (.23), inherited
                  from the pre-1a skin. -->
             <control type="image" id="30000"><width>1920</width><height>1080</height><texture colordiffuse="FF4D4D4D"></texture><aspectratio>scale</aspectratio></control>
-            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="D60A0C0E">white.png</texture></control>
-            <control type="image"><width>1150</width><height>1080</height><texture colordiffuse="F70A0C0E">white.png</texture></control>
+            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="D607090B">white.png</texture></control>
+            <control type="image"><width>1150</width><height>1080</height><texture colordiffuse="F707090B">white.png</texture></control>
 
             <control type="image"><left>96</left><top>64</top><width>34</width><height>34</height><texture>logo.png</texture><aspectratio>keep</aspectratio></control>
-            <control type="label"><left>150</left><top>64</top><width>300</width><height>34</height><font>font10</font><textcolor>4DEEF3F6</textcolor><aligny>center</aligny><label>RevRivulet</label></control>
+            <control type="label"><left>150</left><top>64</top><width>300</width><height>34</height><font>font12</font><textcolor>99EEF3F6</textcolor><aligny>center</aligny><label>RevRivulet</label></control>
+
+            <!-- Options (#15): what the menu key opens, for remotes without
+                 one. Up from the top of the list (or the season tabs) lands
+                 here; Down goes back. Styled like Home's tool pills. -->
+            <control type="button" id="30009">
+                <left>1604</left><top>52</top><width>220</width><height>56</height>
+                <font>font13</font><textcolor>B3EEF3F6</textcolor><focusedcolor>FF07090B</focusedcolor>
+                <align>center</align><aligny>center</aligny>
+                <texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus>
+                <texturenofocus border="28" colordiffuse="14FFFFFF">pill_fill.png</texturenofocus>
+                <label>$ADDON[plugin.video.revrivulet 30492]</label>
+                <onup>30009</onup><onleft>30009</onleft><onright>30009</onright><ondown>30002</ondown>
+            </control>
 
             <control type="image" id="30004">
                 <left>96</left><top>150</top><width>340</width><height>510</height>
@@ -34,7 +47,7 @@
 
             <control type="textbox" id="30008">
                 <left>96</left><top>766</top><width>340</width><height>170</height>
-                <font>font10</font><textcolor>80EEF3F6</textcolor>
+                <font>font12</font><textcolor>B3EEF3F6</textcolor>
             </control>
 
             <control type="image">
@@ -44,12 +57,12 @@
 
             <control type="label" id="30100">
                 <left>96</left><top>960</top><width>340</width><height>32</height>
-                <font>Mono26</font><textcolor>80EEF3F6</textcolor>
+                <font>Mono26</font><textcolor>B3EEF3F6</textcolor>
             </control>
 
             <control type="label" id="30101">
                 <left>96</left><top>992</top><width>340</width><height>32</height>
-                <font>Mono26</font><textcolor>80EEF3F6</textcolor>
+                <font>Mono26</font><textcolor>B3EEF3F6</textcolor>
             </control>
 
             <control type="label" id="30102">
@@ -76,6 +89,7 @@
             <control type="list" id="30002">
                 <left>512</left><top>228</top><width>1312</width><height>708</height>
                 <onleft>30002</onleft><onright>30002</onright>
+                <onup>30009</onup>
                 <pagecontrol>30006</pagecontrol>
                 <itemlayout height="118">
                     <control type="image"><width>1312</width><height>1</height><texture colordiffuse="12FFFFFF">white.png</texture></control>
@@ -127,13 +141,13 @@
                     </control>
                     <control type="label">
                         <left>322</left><top>24</top><width>472</width><height>36</height>
-                        <font>Mono26</font><textcolor>A8EEF3F6</textcolor><aligny>center</aligny>
+                        <font>Mono26</font><textcolor>B3EEF3F6</textcolor><aligny>center</aligny>
                         <visible>!String.IsEmpty(ListItem.Property(flags))</visible>
                         <label>$INFO[ListItem.Property(flags)]</label>
                     </control>
                     <control type="label">
                         <left>168</left><top>72</top><width>646</width><height>30</height>
-                        <font>font10</font><textcolor>61EEF3F6</textcolor>
+                        <font>font12</font><textcolor>B3EEF3F6</textcolor>
                         <visible>!String.IsEmpty(ListItem.Property(provider))</visible>
                         <label>$INFO[ListItem.Property(provider)]</label>
                     </control>
@@ -146,7 +160,7 @@
                     </control>
                     <control type="label">
                         <left>30</left><top>72</top><width>784</width><height>30</height>
-                        <font>font10</font><textcolor>61EEF3F6</textcolor>
+                        <font>font12</font><textcolor>B3EEF3F6</textcolor>
                         <visible>String.IsEmpty(ListItem.Property(quality)) + String.IsEmpty(ListItem.Property(release)) + String.IsEmpty(ListItem.Property(provider))</visible>
                         <label>$INFO[ListItem.Label2]</label>
                     </control>
@@ -159,7 +173,7 @@
                     </control>
                     <control type="label">
                         <left>1016</left><top>0</top><width>110</width><height>118</height>
-                        <font>Mono26</font><textcolor>A8EEF3F6</textcolor><align>right</align><aligny>center</aligny>
+                        <font>Mono26</font><textcolor>B3EEF3F6</textcolor><align>right</align><aligny>center</aligny>
                         <visible>!String.IsEmpty(ListItem.Property(seeders))</visible>
                         <label>$INFO[ListItem.Property(seeders)]</label>
                     </control>
@@ -177,7 +191,7 @@
                     </control>
                     <control type="label">
                         <left>1152</left><top>0</top><width>130</width><height>118</height>
-                        <font>Mono26</font><textcolor>4DEEF3F6</textcolor><align>right</align><aligny>center</aligny>
+                        <font>Mono26</font><textcolor>99EEF3F6</textcolor><align>right</align><aligny>center</aligny>
                         <visible>!String.IsEqual(ListItem.Property(cache_state),CACHED) + !String.IsEqual(ListItem.Property(cache_state),DL)</visible>
                         <label>$INFO[ListItem.Property(cache_state)]</label>
                     </control>
@@ -206,13 +220,13 @@
                     </control>
                     <control type="label">
                         <left>322</left><top>24</top><width>472</width><height>36</height>
-                        <font>Mono26</font><textcolor>A8EEF3F6</textcolor><aligny>center</aligny>
+                        <font>Mono26</font><textcolor>B3EEF3F6</textcolor><aligny>center</aligny>
                         <visible>!String.IsEmpty(ListItem.Property(flags))</visible>
                         <label>$INFO[ListItem.Property(flags)]</label>
                     </control>
                     <control type="label">
                         <left>168</left><top>72</top><width>646</width><height>30</height>
-                        <font>font10</font><textcolor>80EEF3F6</textcolor>
+                        <font>font12</font><textcolor>C7EEF3F6</textcolor>
                         <visible>!String.IsEmpty(ListItem.Property(provider))</visible>
                         <label>$INFO[ListItem.Property(provider)]</label>
                     </control>
@@ -225,7 +239,7 @@
                     </control>
                     <control type="label">
                         <left>30</left><top>72</top><width>784</width><height>30</height>
-                        <font>font10</font><textcolor>80EEF3F6</textcolor>
+                        <font>font12</font><textcolor>C7EEF3F6</textcolor>
                         <visible>String.IsEmpty(ListItem.Property(quality)) + String.IsEmpty(ListItem.Property(release)) + String.IsEmpty(ListItem.Property(provider))</visible>
                         <label>$INFO[ListItem.Label2]</label>
                     </control>
@@ -238,7 +252,7 @@
                     </control>
                     <control type="label">
                         <left>1016</left><top>0</top><width>110</width><height>118</height>
-                        <font>Mono26</font><textcolor>A8EEF3F6</textcolor><align>right</align><aligny>center</aligny>
+                        <font>Mono26</font><textcolor>B3EEF3F6</textcolor><align>right</align><aligny>center</aligny>
                         <visible>!String.IsEmpty(ListItem.Property(seeders))</visible>
                         <label>$INFO[ListItem.Property(seeders)]</label>
                     </control>
@@ -256,7 +270,7 @@
                     </control>
                     <control type="label">
                         <left>1152</left><top>0</top><width>130</width><height>118</height>
-                        <font>Mono26</font><textcolor>4DEEF3F6</textcolor><align>right</align><aligny>center</aligny>
+                        <font>Mono26</font><textcolor>99EEF3F6</textcolor><align>right</align><aligny>center</aligny>
                         <visible>!String.IsEqual(ListItem.Property(cache_state),CACHED) + !String.IsEqual(ListItem.Property(cache_state),DL)</visible>
                         <label>$INFO[ListItem.Property(cache_state)]</label>
                     </control>
@@ -275,7 +289,7 @@
 
             <control type="label">
                 <right>96</right><top>994</top><width>300</width><height>30</height>
-                <font>Mono26</font><textcolor>57EEF3F6</textcolor><align>right</align>
+                <font>Mono26</font><textcolor>99EEF3F6</textcolor><align>right</align>
                 <label>$INFO[Container(30002).CurrentItem]/$INFO[Container(30002).NumItems]</label>
             </control>
         </control>

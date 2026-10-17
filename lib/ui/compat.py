@@ -98,6 +98,32 @@ def setting_int(key, default, minimum=None):
     return _settings.setting_int(ADDON, key, default, minimum=minimum)
 
 
+def set_setting_if_changed(key, value):
+    """Write an addon setting only when its value differs. True if written.
+
+    Kodi rewrites the whole settings file on every `setSetting()`, so a
+    value refreshed on each Home paint is compared first. Best-effort: a
+    settings write failing must never take a screen down.
+    """
+    value = '' if value is None else str(value)
+    try:
+        if ADDON.getSetting(key) == value:
+            return False
+        ADDON.setSetting(key, value)
+        return True
+    except Exception as exc:  # noqa: BLE001 - bookkeeping, see docstring
+        log('compat: setting %s was not written: %r' % (key, exc))
+        return False
+
+
+def account_name(auth):
+    """The address (or name) a signed-in profile shows in Settings > Account."""
+    if not isinstance(auth, dict):
+        return ''
+    user = auth.get('user') if isinstance(auth.get('user'), dict) else {}
+    return str(user.get('email') or user.get('name') or '')
+
+
 _KODI_MAJOR = None
 
 

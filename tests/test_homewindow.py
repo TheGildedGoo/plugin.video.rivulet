@@ -312,21 +312,43 @@ def test_menu_items_hides_other_row_its_setting_turns_off(load_homewindow):
 # ---------------------------------------------------------------------------
 
 
-def test_status_text_reports_email_when_authenticated_with_email(load_homewindow):
-    ctx = load_homewindow(localized={30022: 'Logged in as %s'})
+def test_status_text_says_signed_in_without_the_address(load_homewindow):
+    """#19: Home is a shared TV. The address is not on the screen; it is
+    in Settings > Account."""
+    ctx = load_homewindow(localized={30488: 'Signed in'})
 
     text = ctx.homewindow._status_text({'authKey': 'x', 'user': {'email': 'me@example.com', 'name': 'Me'}})
 
-    assert text == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as me@example.com'
-    assert 'Logged in as me@example.com' in text
+    assert text == '[COLOR FF38BDF8]\u25cf[/COLOR] Signed in'
+    assert 'me@example.com' not in text
+    assert 'Me' not in text.replace('[COLOR', '')
 
 
-def test_status_text_falls_back_to_name_when_email_is_absent(load_homewindow):
-    ctx = load_homewindow(localized={30022: 'Logged in as %s'})
+def test_home_keeps_the_signed_in_address_in_settings(load_homewindow, monkeypatch):
+    """The address moves to the read-only Account setting, refreshed on
+    each Home paint and cleared when signed out. An unchanged value is not
+    written again (Kodi rewrites the whole settings file per write)."""
+    ctx = load_homewindow(localized={30488: 'Signed in'})
+    _patch_library(monkeypatch, ctx, [])
+    auth = {'authKey': 'x', 'user': {'email': 'me@example.com'}}
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=auth))
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    writes = []
+    real_set = ctx.compat.ADDON.setSetting
 
-    text = ctx.homewindow._status_text({'authKey': 'x', 'user': {'name': 'Me'}})
+    def _set(key, value):
+        writes.append((key, value))
+        return real_set(key, value)
 
-    assert text == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as Me'
+    monkeypatch.setattr(ctx.compat.ADDON, 'setSetting', _set)
+    win.onInit()
+    assert ctx.compat.ADDON.getSetting('account_user') == 'me@example.com'
+    assert writes.count(('account_user', 'me@example.com')) == 1
+    win._build()
+    assert writes.count(('account_user', 'me@example.com')) == 1
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    win._build()
+    assert ctx.compat.ADDON.getSetting('account_user') == ''
 
 
 def test_status_text_reports_not_logged_in_when_auth_is_none(load_homewindow):
@@ -369,7 +391,7 @@ def test_oninit_shows_the_library_row_when_authenticated(load_homewindow, monkey
     assert win.getControl(ctx.homewindow.BACKGROUND).image == 's'
     assert win.getProperty('HeroFill') == '1'
     assert win.getControl(ctx.homewindow.HERO_FILL).image == 's'
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as ?'
+    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] STR30488'
     assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
 
 
@@ -471,8 +493,8 @@ def test_oninit_hides_library_row_when_not_authenticated(load_homewindow, monkey
     assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR 57EEF3F6]\u25cf[/COLOR] STR30190'
 
 
-def test_oninit_sets_status_label_to_email_when_authenticated_with_email(load_homewindow, monkeypatch):
-    ctx = load_homewindow(localized={30022: 'Logged in as %s'})
+def test_oninit_status_label_says_signed_in_and_settings_hold_the_email(load_homewindow, monkeypatch):
+    ctx = load_homewindow(localized={30488: 'Signed in'})
     auth = {'authKey': 'x', 'user': {'email': 'me@example.com', 'name': 'Me'}}
     _patch_library(monkeypatch, ctx)
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=auth))
@@ -480,11 +502,12 @@ def test_oninit_sets_status_label_to_email_when_authenticated_with_email(load_ho
 
     win.onInit()
 
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as me@example.com'
+    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Signed in'
+    assert ctx.compat.ADDON.getSetting('account_user') == 'me@example.com'
 
 
-def test_oninit_sets_status_label_to_name_when_email_is_absent(load_homewindow, monkeypatch):
-    ctx = load_homewindow(localized={30022: 'Logged in as %s'})
+def test_oninit_settings_fall_back_to_the_name_when_email_is_absent(load_homewindow, monkeypatch):
+    ctx = load_homewindow(localized={30488: 'Signed in'})
     auth = {'authKey': 'x', 'user': {'name': 'Me'}}
     _patch_library(monkeypatch, ctx)
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=auth))
@@ -492,7 +515,8 @@ def test_oninit_sets_status_label_to_name_when_email_is_absent(load_homewindow, 
 
     win.onInit()
 
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Logged in as Me'
+    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Signed in'
+    assert ctx.compat.ADDON.getSetting('account_user') == 'Me'
 
 
 def test_oninit_omits_type_row_supplied_only_by_a_disabled_addon(load_homewindow, monkeypatch):
@@ -1140,7 +1164,9 @@ def test_onclick_library_signin_poster_opens_login(load_homewindow, monkeypatch)
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
 
     import lib.ui.views as views
-    monkeypatch.setattr(views, 'login', lambda: calls.append('login'))
+    monkeypatch.setattr(views, 'sign_in', lambda: calls.append('login'))
+    # Home never ends a plugin handle (#22): login() would.
+    monkeypatch.setattr(views, 'login', lambda: calls.append('handle'))
     import xbmcgui
     win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
     item = xbmcgui.ListItem('Sign in')
@@ -1344,6 +1370,72 @@ def test_right_near_the_end_appends_the_rest_of_the_catalog_page(load_homewindow
     assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Two'
 
 
+def test_a_new_catalog_page_is_fetched_off_the_remote_and_appended_on_the_noop(
+    load_homewindow, monkeypatch,
+):
+    """Page two used to be fetched inside onAction, holding the row for
+    the addon's timeout. It is fetched on a worker; the noop appends it."""
+    ctx = load_homewindow()
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    items = []
+    for index in range(1, 4):
+        item = xbmcgui.ListItem('T%d' % index)
+        item.setProperty('sid', 'tt%d' % index)
+        item.setProperty('hero_title', 'T%d' % index)
+        items.append(item)
+    shelf = win.getControl(ctx.homewindow._SHELVES[0][1])
+    shelf.addItems(items)
+    shelf.selected_index = 2
+    win.setFocusId(ctx.homewindow._SHELVES[0][1])
+    win._shelf_more = {'movies': {'pending': [], 'exhausted': False, 'gen': None}}
+    calls = []
+
+    def fake_pull(state, room):
+        calls.append(room)
+        return [{'id': 'tt4', 'name': 'Four', 'type': 'movie', 'poster': 'p'}]
+
+    monkeypatch.setattr(ctx.homewindow, '_pull_more', fake_pull)
+
+    win.onAction(xbmcgui.Action(2))
+    ctx.homewindow._join_shelf_extends(win)
+    assert [item.getProperty('sid') for item in shelf.items] == ['tt1', 'tt2', 'tt3']
+    assert 'Action(noop)' in ctx.env.executed_builtins
+
+    win.onAction(xbmcgui.Action(0))
+
+    assert [item.getProperty('sid') for item in shelf.items] == ['tt1', 'tt2', 'tt3', 'tt4']
+    assert shelf.selected_index == 2
+    assert len(calls) == 1
+
+
+def test_resuming_a_row_does_not_fetch_page_one_again(load_homewindow, monkeypatch):
+    """The resume used to rebuild the generator and discard its first page."""
+    ctx = load_homewindow()
+    requested = []
+
+    def fake_fetch(transport, ctype, cid, extra=None):
+        requested.append(list(extra or []))
+        return [{'id': 'tt3', 'name': 'Three'}, {'id': 'tt1', 'name': 'One again'}]
+
+    monkeypatch.setattr(ctx.views, '_fetch_catalog', fake_fetch)
+    state = {
+        'transport': 'https://addon.example/manifest.json',
+        'manifest': {'id': 'x'},
+        'catalog': {'type': 'movie', 'id': 'top', 'extra': [{'name': 'skip'}]},
+        'extra': None,
+        'metas': [{'id': 'tt1', 'name': 'One'}, {'id': 'tt2', 'name': 'Two'}],
+        'pending': [],
+        'gen': None,
+        'exhausted': False,
+    }
+
+    added = ctx.homewindow._pull_more(state, 10)
+
+    assert requested[0] == [('skip', 2)]
+    assert [meta['id'] for meta in added] == ['tt3']
+
+
 def test_focus_ring_sits_on_the_art_and_the_hero_does_not_overlap():
     """The ring used to be a larger plate inside a zoomed group, so it
     sat off the poster. The title band used to share its box with the
@@ -1411,8 +1503,19 @@ def test_home_lists_declare_a_visible_focus_and_navigation():
     assert first[0] == '30140' and first[1] == '30040'
     assert rows.find(".//control[@id='30010']") is None
     pills = root.find(".//control[@id='30010']")
-    assert (pills.findtext('onup') or '').strip() == '30011'
+    # One header row (#23): Right off the last pill crosses to the tools,
+    # Left off the first tool crosses back, Up from the pills stays put,
+    # and Down from either goes to the rows. Settings is where Right stops.
+    assert (pills.findtext('onup') or '').strip() == '30010'
+    assert (pills.findtext('onright') or '').strip() == '30011'
     assert (pills.findtext('ondown') or '').strip() == '30001'
+    assert (bar.findtext('onleft') or '').strip() == '30010'
+    assert (bar.findtext('onright') or '').strip() == '30072'
+    assert (bar.findtext('ondown') or '').strip() == '30001'
+    assert int(bar.findtext('top')) == int(pills.findtext('top')) + 4
+    assert int(pills.findtext('left')) + int(pills.findtext('width')) <= int(bar.findtext('left'))
+    # Off the top edge (#7).
+    assert int(pills.findtext('top')) >= 100
     assert (rows.findtext('onup') or '').strip() == '30010'
     blob = ET.tostring(root, encoding='unicode')
     assert 'mask_poster.png' in blob and 'mask_land.png' in blob
@@ -1520,8 +1623,9 @@ def _click_continue(ctx, choice=None, stream=None, started=True, store_error=Fal
     def fake_streams(*args, **kwargs):
         captured['streams'] = (args, kwargs)
 
-    def fake_detail(stype, sid):
+    def fake_detail(stype, sid, land_on=None):
         captured['detail'].append((stype, sid))
+        captured['land_on'] = land_on
         return True
 
     class _Store:
@@ -1594,6 +1698,8 @@ def test_continue_series_episode_list_opens_detail_and_does_not_play(load_homewi
     win.onClick(ctx.homewindow.CONTINUE_SHELF)
 
     assert captured['detail'] == [('series', 'tt1')]
+    # The page opens on the episode the card is for, not season 1.
+    assert captured['land_on'] == 'tt1:1:3'
     assert captured['play'] is None
     assert captured['streams'] is None
     assert win.closed is True
@@ -1753,6 +1859,7 @@ def test_continue_next_up_still_opens_the_episode_list(load_homewindow, monkeypa
 
     assert captured['choose'] is None
     assert captured['detail'] == [('series', 'tt1')]
+    assert captured['land_on'] == 'tt1:1:3'
     assert captured['play'] is None
 
 
@@ -1792,3 +1899,407 @@ def test_continue_row_carries_the_episode_and_the_offset(load_homewindow, monkey
     assert item.getProperty('band') == 'resume'
     assert item.getProperty('position_ms') == '724000'
     assert item.getProperty('duration_ms') == '3600000'
+
+
+# ---------------------------------------------------------------------------
+# Coming back to Home: refresh what changed, keep the remote's place
+# ---------------------------------------------------------------------------
+
+
+def _built_home(ctx, monkeypatch, library, auth=None, progress=None):
+    store = _FakeStore(auth=auth or {'authKey': 'k', 'user': {'email': 'a@b.c'}},
+                       progress_entries=progress or [])
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: store)
+    monkeypatch.setattr(ctx.homewindow, '_catalog_pages', lambda addons, enabled: ({}, {}))
+    _patch_library(monkeypatch, ctx, library)
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.onInit()
+    return win, store
+
+
+_THREE = [
+    {'_id': 'tt%d' % index, 'name': 'T%d' % index, 'type': 'movie', 'poster': 'p', 'removed': False}
+    for index in (1, 2, 3)
+]
+
+
+def test_reopen_after_playback_keeps_the_poster_the_remote_was_on(load_homewindow, monkeypatch):
+    """The reopen used to rebuild every row and land on Continue's first poster."""
+    ctx = load_homewindow()
+    win, _store = _built_home(ctx, monkeypatch, _THREE)
+    library = win.getControl(ctx.homewindow.LIBRARY_SHELF)
+    library.selectItem(2)
+    win.setFocusId(ctx.homewindow.LIBRARY_SHELF)
+    picked = library.getSelectedItem().getProperty('sid')
+
+    win.onInit()
+
+    assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
+    assert library.getSelectedItem().getProperty('sid') == picked
+
+
+def test_a_settings_visit_that_changes_nothing_leaves_the_rows_alone(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    win, _store = _built_home(ctx, monkeypatch, _THREE)
+    library = win.getControl(ctx.homewindow.LIBRARY_SHELF)
+    library.selectItem(1)
+    win.setFocusId(ctx.homewindow.LIBRARY_SHELF)
+    loads = []
+    monkeypatch.setattr(ctx.homewindow, '_load_rows', lambda *a, **k: loads.append(1))
+
+    ctx.homewindow._open_settings(win)
+
+    assert ctx.env.opened_settings is True
+    assert loads == []
+    assert library.getSelectedPosition() == 1
+    assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
+
+
+def test_a_library_change_in_a_hub_shows_on_home_after_back(load_homewindow, monkeypatch):
+    """The hub marks Home dirty. Home used to wait for an onInit that
+    only playback brought."""
+    ctx = load_homewindow()
+    entries = list(_THREE[:2])
+    win, _store = _built_home(ctx, monkeypatch, entries)
+    monkeypatch.setattr(
+        ctx.mystuff, '_fetch_library_entries', lambda store, _entries=entries: list(_entries),
+    )
+
+    def fake_hub(types, heading, action=''):
+        entries.insert(0, dict(_THREE[2]))
+        ctx.homewindow.mark_library_dirty()
+        return False
+
+    monkeypatch.setattr(ctx.hubwindow, 'open_hub', fake_hub)
+
+    ctx.homewindow._open_type_row(win, 'movies')
+
+    sids = [item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items]
+    assert 'tt3' in sids
+    assert win.closed is False
+
+
+def test_a_sign_in_rebuilds_the_rows_for_the_new_account(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    win, store = _built_home(ctx, monkeypatch, _THREE)
+    builds = []
+    real_build = win._build
+    monkeypatch.setattr(win, '_build', lambda place=None: (builds.append(place), real_build(place=place)))
+    import lib.ui.views as views
+
+    def fake_sign_in():
+        store._auth = {'authKey': 'other', 'user': {'email': 'x@y.z'}}
+        return store._auth
+
+    monkeypatch.setattr(views, 'sign_in', fake_sign_in)
+
+    ctx.homewindow._open_signin(win)
+
+    assert len(builds) == 1 and builds[0] is not None
+
+
+def test_tmdb_original_art_is_asked_for_at_the_drawn_size(load_homewindow):
+    """#18: a 200px card and the 1920px hero do not need TMDB `original`."""
+    ctx = load_homewindow()
+    item = ctx.homewindow._poster_item({
+        'id': 'tt1', 'type': 'movie', 'name': 'Dune',
+        'poster': 'https://image.tmdb.org/t/p/original/p.jpg',
+        'background': 'https://image.tmdb.org/t/p/original/b.jpg',
+    })
+    assert item.getProperty('thumbnail') == 'https://image.tmdb.org/t/p/w342/p.jpg'
+    assert item.getProperty('fanart') == 'https://image.tmdb.org/t/p/w1280/b.jpg'
+    # No backdrop: the poster stands in for the hero and is scaled to the
+    # screen, so it is fetched larger than the card.
+    bare = ctx.homewindow._poster_item({
+        'id': 'tt2', 'type': 'movie', 'name': 'Arrival',
+        'poster': 'https://image.tmdb.org/t/p/original/a.jpg',
+    })
+    assert bare.getProperty('thumbnail') == 'https://image.tmdb.org/t/p/w342/a.jpg'
+    assert bare.getProperty('fanart') == 'https://image.tmdb.org/t/p/w780/a.jpg'
+
+
+
+def test_up_from_the_first_row_reaches_the_tools_when_there_are_no_pills(load_homewindow, monkeypatch):
+    """#23: a row's Up lands on the type pills. With no types installed
+    they are hidden, so Kodi leaves the remote where it was; Home sends
+    that dead-end Up to the tools. An Up that did move is left alone."""
+    ctx = load_homewindow()
+    import xbmcgui
+    _patch_library(monkeypatch, ctx, [{
+        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
+    }])
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}, addons=[]))
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.onInit()
+    assert win.getControl(ctx.homewindow.BROWSE_LIST).size() == 0
+    assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
+
+    win.onAction(xbmcgui.Action(3))
+
+    assert win.getFocusId() == ctx.homewindow.TOOLS_LIST
+
+
+def test_each_visible_row_shows_its_place_in_the_list(load_homewindow, monkeypatch):
+    """#20: one row is on screen at a time, so each heading carries
+    "row / rows". Hidden rows are not counted; a lone row shows none."""
+    ctx = load_homewindow()
+    _patch_library(monkeypatch, ctx, [{
+        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
+    }])
+    pages = {
+        'movies': [{'id': 'tt1', 'type': 'movie', 'name': 'One', 'poster': 'p1'}],
+        'series': [{'id': 'tt2', 'type': 'series', 'name': 'Two', 'poster': 'p2'}],
+    }
+    monkeypatch.setattr(ctx.homewindow, '_catalog_pages', lambda addons, enabled: (pages, {}))
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}))
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+
+    win.onInit()
+
+    assert win.getProperty('shelf_continue') == ''
+    assert win.getControl(30150).label == ''
+    assert win.getControl(30151).label == '1 / 3'
+    assert win.getControl(30152).label == '2 / 3'
+    assert win.getControl(30153).label == '3 / 3'
+    assert win.getControl(30154).label == ''
+
+
+def test_down_on_the_last_row_stays_there_and_hubs_count_rows_in_the_skin():
+    """#20: Down from the last Home row used to wrap to Continue. The hub
+    counts its rows from the container, and names itself in the header."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    skin = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i')
+    home = ET.parse(os.path.join(skin, 'HomeWindow.xml')).getroot()
+    last = home.find(".//control[@id='30045']")
+    assert (last.findtext('ondown') or '').strip() == '30045'
+    for counter in range(30150, 30156):
+        label = home.find(".//control[@id='%d']" % counter)
+        assert label is not None and (label.findtext('align') or '').strip() == 'right'
+    hub = ET.parse(os.path.join(skin, 'HubWindow.xml')).getroot()
+    labels = [el.findtext('label') or '' for el in hub.iter('control') if el.get('type') == 'label']
+    assert any('Container(31000).CurrentItem' in text and 'Container(31000).NumItems' in text for text in labels)
+    title = hub.find(".//control[@id='30005']")
+    tools = hub.find(".//control[@id='30011']")
+    assert int(title.findtext('top')) == int(tools.findtext('top'))
+    assert (title.findtext('font') or '').strip() == 'font13'
+
+
+def _hero_with_logo(ctx, logo, next_logo=''):
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    items = []
+    for name, sid, art in (('Dune', 'tt1', logo), ('Arrival', 'tt2', next_logo)):
+        item = xbmcgui.ListItem(name)
+        item.setProperties({
+            'hero_title': name, 'hero_plot': 'Plot.', 'hero_logo': art,
+            'fanart': 'https://img/%s.jpg' % sid, 'sid': sid, 'stype': 'movie',
+        })
+        items.append(item)
+    win.getControl(ctx.homewindow.LIBRARY_SHELF).addItems(items)
+    win.setFocusId(ctx.homewindow.LIBRARY_SHELF)
+    return win
+
+
+def test_a_logo_kodi_has_not_loaded_keeps_the_text_title(load_homewindow, monkeypatch):
+    """#10: the skin hides the title whenever a logo is set, so a logo URL
+    that 404s left the title area blank. A logo replaces the title only
+    once Kodi's texture cache holds it; until then it is warmed."""
+    ctx = load_homewindow()
+    import xbmcgui
+    ctx.env.cached_textures = set()
+    win = _hero_with_logo(ctx, 'https://img/logo1.png', 'https://img/logo2.png')
+
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getProperty('HeroLogo') == ''
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Dune'
+    assert win.getControl(ctx.homewindow.HERO_LOGO).image == ''
+    # The focused logo and the next one load in the two 1x1 slots.
+    assert win.getControl(30098).image == 'https://img/logo1.png'
+    assert win.getControl(30099).image == 'https://img/logo2.png'
+
+    # Once Kodi has it (and the short re-check window has passed), it shows.
+    ctx.env.cached_textures = {'https://img/logo1.png'}
+    ctx.homewindow._LOGO_STATE.clear()
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getProperty('HeroLogo') == 'https://img/logo1.png'
+    assert win.getControl(ctx.homewindow.HERO_LOGO).image == 'https://img/logo1.png'
+
+
+def test_a_cached_logo_shows_at_once_and_is_not_asked_for_again(load_homewindow):
+    ctx = load_homewindow()
+    import xbmcgui
+    win = _hero_with_logo(ctx, 'https://img/logo1.png')
+
+    win.onAction(xbmcgui.Action(1))
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getProperty('HeroLogo') == 'https://img/logo1.png'
+    lookups = [call for call in ctx.env.jsonrpc_calls if 'logo1.png' in call]
+    assert len(lookups) == 1
+
+
+def test_a_card_without_art_shows_its_title_on_the_plate():
+    """#10: a title with no poster drew an empty plate (and, on a hub, a
+    focus ring around nothing). The plate now carries the title, which is
+    also how the More card and the Sign in card read since the captions
+    under the posters went away (#7)."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    skin = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i')
+    home = ET.parse(os.path.join(skin, 'HomeWindow.xml')).getroot()
+    for panel_id in ('30040', '30041', '30042', '30043', '30044', '30045'):
+        panel = home.find(".//control[@id='%s']" % panel_id)
+        for layout in ('itemlayout', 'focusedlayout'):
+            labels = [
+                el for el in panel.find(layout).findall('control')
+                if el.get('type') == 'label' and 'ListItem.Label' in (el.findtext('label') or '')
+                and any('String.IsEmpty(ListItem.Property(thumbnail))' in (v.text or '') for v in el.findall('visible'))
+            ]
+            assert len(labels) == 1, (panel_id, layout)
+    hub = ET.parse(os.path.join(skin, 'HubWindow.xml')).getroot()
+    rows = hub.find(".//control[@id='31000']")
+    for layout in ('itemlayout', 'focusedlayout'):
+        controls = rows.find(layout).findall('control')
+        for slot in range(8):
+            plates = [
+                el for el in controls
+                if (el.findtext('texture') or '').strip() == 'mask_poster.png'
+                and any('Property(n%d)' % slot in (v.text or '') for v in el.findall('visible'))
+                and not any('String.IsEqual(ListItem.Property(layout),decade)' == (v.text or '') for v in el.findall('visible'))
+            ]
+            assert len(plates) == 1, (layout, slot)
+            titles = [
+                el for el in controls
+                if el.get('type') == 'label' and 'Property(n%d)' % slot in (el.findtext('label') or '')
+                and any('String.IsEmpty(ListItem.Property(p%d))' % slot == (v.text or '') for v in el.findall('visible'))
+            ]
+            assert len(titles) >= 1, (layout, slot)
+
+
+def test_continue_cards_are_wide_art_with_the_show_and_episode(load_homewindow):
+    """#9: a Continue card is 16:9. The poster scaled into it was a slice
+    through the middle. It now uses the episode still (Cinemeta ids) or
+    the backdrop, and writes the show and S:1 E:2 bottom-left."""
+    ctx = load_homewindow()
+    episode = ctx.homewindow._continue_item({
+        'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones',
+        'poster': 'p.jpg', 'background': 'b.jpg', 'video_id': 'tt0944947:2:5',
+    })
+    assert episode.getProperty('land') == 'https://episodes.metahub.space/tt0944947/2/5/w780.jpg'
+    assert episode.getProperty('card_show') == 'Game of Thrones'
+    assert episode.getProperty('card_code') == 'S:2 E:5'
+    assert episode.getProperty('video_id') == 'tt0944947:2:5'
+
+    movie = ctx.homewindow._continue_item({
+        'id': 'tt1', 'type': 'movie', 'name': 'Dune', 'poster': 'p.jpg',
+        'background': 'https://image.tmdb.org/t/p/original/b.jpg',
+    })
+    assert movie.getProperty('land') == 'https://image.tmdb.org/t/p/w1280/b.jpg'
+    assert movie.getProperty('card_code') == ''
+    assert movie.getProperty('card_show') == 'Dune'
+
+    bare = ctx.homewindow._continue_item({
+        'id': 'kitsu:1', 'type': 'series', 'name': 'Show', 'poster': 'p.jpg', 'video_id': 'kitsu:1:4',
+    })
+    # No Cinemeta still for a non-imdb id and no backdrop: the skin shows
+    # the poster whole on the plate.
+    assert bare.getProperty('land') == ''
+
+
+def test_continue_card_skin_layers_the_poster_under_the_wide_art():
+    import os
+    import xml.etree.ElementTree as ET
+
+    path = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i', 'HomeWindow.xml')
+    panel = ET.parse(path).getroot().find(".//control[@id='30040']")
+    for layout in ('itemlayout', 'focusedlayout'):
+        controls = panel.find(layout).findall('control')
+        textures = [(el.findtext('texture') or '').strip() for el in controls]
+        poster = textures.index('$INFO[ListItem.Property(thumbnail)]')
+        land = textures.index('$INFO[ListItem.Property(land)]')
+        assert poster < land
+        assert (controls[poster].findtext('aspectratio') or '').strip() == 'keep'
+        assert (controls[land].findtext('aspectratio') or '').strip() == 'scale'
+        labels = [el.findtext('label') or '' for el in controls if el.get('type') == 'label']
+        assert any('card_show' in text for text in labels)
+        assert any('card_code' in text for text in labels)
+        # Nothing hangs under the card any more.
+        assert not [el for el in controls if el.get('type') == 'label' and (el.findtext('top') or '') == '232']
+
+
+def test_any_poster_only_title_fills_the_hero_on_home_and_the_hubs(load_homewindow):
+    """#21: only library records used to get the full-bleed poster; a
+    catalog title without a backdrop sat as a pillarbox. Hubs carry the
+    same scale plate now."""
+    ctx = load_homewindow()
+    import xbmcgui
+    item = ctx.homewindow._poster_item({'id': 'tt5', 'type': 'movie', 'name': 'Five', 'poster': 'p5.jpg'})
+    assert item.getProperty('hero_fill') == '1'
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(30042).addItems([item])
+    win.setFocusId(30042)
+    win.onAction(xbmcgui.Action(1))
+    assert win.getProperty('HeroFill') == '1'
+    assert win.getControl(ctx.homewindow.HERO_FILL).image == 'p5.jpg'
+
+    import os
+    import xml.etree.ElementTree as ET
+    hub = ET.parse(os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i', 'HubWindow.xml')).getroot()
+    fill = hub.find(".//control[@id='30028']")
+    assert fill is not None and (fill.findtext('aspectratio') or '').strip() == 'scale'
+
+
+def test_home_fetches_every_row_at_once(load_homewindow, monkeypatch):
+    """#13: rows were fetched one after another, so opening Home cost the
+    sum of every addon's answer. Two rows that each wait for the other to
+    start only finish if they run together."""
+    ctx = load_homewindow()
+    barrier = threading.Barrier(2, timeout=2)
+
+    def _shelf(addons, types):
+        barrier.wait()
+        return {'metas': [{'id': sorted(types)[0], 'type': 'movie', 'name': 'x'}]}
+
+    monkeypatch.setattr(ctx.homewindow, '_open_shelf', _shelf)
+    pages, more = ctx.homewindow._catalog_pages([], {'movies': frozenset({'movie'}), 'series': frozenset({'series'})})
+
+    assert pages['movies'][0]['id'] == 'movie'
+    assert pages['series'][0]['id'] == 'series'
+
+
+def test_an_unchanged_hero_is_not_repainted_and_applied_ratings_stay_on_the_card(load_homewindow, monkeypatch):
+    """#17: every action repaints the hero (worker noops, a key that did not
+    move). An unchanged hero now costs nothing, and scores merged from the
+    ratings cache are kept on the card instead of being merged again."""
+    ctx = load_homewindow()
+    import xbmcgui
+
+    import lib.ui.heroscrim as heroscrim
+    import lib.ui.ratingsched as ratingsched
+
+    placed = []
+    real_place = heroscrim.place_hero_bar
+    monkeypatch.setattr(heroscrim, 'place_hero_bar', lambda *a, **k: placed.append(a[1]) or real_place(*a, **k))
+    overlays = []
+
+    def _overlay(facts, fallback, upcoming=None):
+        overlays.append(fallback)
+        return 'RT 94%\n' + fallback
+
+    monkeypatch.setattr(ratingsched, 'overlay_text', _overlay)
+    win = _hero_with_facts(ctx, {'imdb_id': 'tt0111161'})
+
+    win.onAction(xbmcgui.Action(1))
+    win.onAction(xbmcgui.Action(0))
+    win.onAction(xbmcgui.Action(0))
+
+    assert placed == ['home']
+    assert overlays == ['2021']
+    card = win.getControl(ctx.homewindow.CONTINUE_SHELF).getSelectedItem()
+    assert card.getProperty('hero_meta') == 'RT 94%\n2021'
+    assert win.getControl(ctx.homewindow.HERO_META).text == 'RT 94%\n2021'

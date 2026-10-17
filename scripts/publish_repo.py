@@ -13,6 +13,7 @@ gh-pages tree; it does not publish official plugin.video.rivulet.
 """
 
 import argparse
+import fnmatch
 import hashlib
 import os
 import re
@@ -35,6 +36,17 @@ REPO_ID = "repository.revrivulet"
 # The addon published there is plugin.video.revrivulet only.
 PAGES_BASE = "https://thegildedgoo.github.io/plugin.video.rivulet/"
 VIDEO_MEMBERS = ("addon.xml", "default.py", "service.py", "resources", "lib", "LICENSE")
+
+#: Files under VIDEO_MEMBERS that RevRivulet never loads, left out of its
+#: zip (#22): the Rev2Rivulet test skins (`open_window` only picks them
+#: in the unpublished variant), their textures, and two textures nothing
+#: references. lib/ui/rev2 itself stays: `open_window` imports it.
+VIDEO_EXCLUDE = (
+    "resources/skins/Default/1080i/Rev2*.xml",
+    "resources/skins/Default/media/rv_*.png",
+    "resources/skins/Default/media/fade_out_h.png",
+    "resources/skins/Default/media/scrim_feather.png",
+)
 
 
 def addon_version(addon_xml):
@@ -102,7 +114,12 @@ def bump_addon_xml(published):
     return chosen
 
 
-def _add_path(zf, source, arcname):
+def _excluded(rel_path, patterns):
+    """True when the repo-relative `rel_path` matches one of `patterns`."""
+    return any(fnmatch.fnmatchcase(rel_path, pattern) for pattern in patterns)
+
+
+def _add_path(zf, source, arcname, exclude=()):
     source = Path(source)
     if source.is_file():
         zf.write(str(source), arcname.replace("\\", "/"))
@@ -114,16 +131,23 @@ def _add_path(zf, source, arcname):
                 continue
             full = Path(dirpath) / filename
             rel = full.relative_to(source)
+            if exclude:
+                try:
+                    repo_rel = full.relative_to(ROOT).as_posix()
+                except ValueError:
+                    repo_rel = rel.as_posix()
+                if _excluded(repo_rel, exclude):
+                    continue
             arc = str(Path(arcname) / rel).replace("\\", "/")
             zf.write(str(full), arc)
 
 
-def _zip_members(destination, prefix, members):
+def _zip_members(destination, prefix, members, exclude=()):
     if destination.exists():
         destination.unlink()
     with zipfile.ZipFile(str(destination), "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for member in members:
-            _add_path(zf, ROOT / member, "%s/%s" % (prefix, member))
+            _add_path(zf, ROOT / member, "%s/%s" % (prefix, member), exclude)
 
 
 def _zip_dir(destination, folder, prefix):
@@ -209,7 +233,7 @@ def build_repo(output_dir):
     staging.mkdir()
     video_zip = staging / ("%s.zip" % ADDON_ID)
     repo_zip = staging / ("%s.zip" % REPO_ID)
-    _zip_members(video_zip, ADDON_ID, VIDEO_MEMBERS)
+    _zip_members(video_zip, ADDON_ID, VIDEO_MEMBERS, VIDEO_EXCLUDE)
     _zip_dir(repo_zip, ROOT / REPO_ID, REPO_ID)
 
     addons_root = ET.Element("addons")

@@ -136,19 +136,21 @@ def block_size(text, font_px, line_px, max_width, max_lines, bold=False):
 
 
 # title_top is the highest the text sits (a full plot). A shorter plot
-# moves down so the stack still ends on `band` minus `row_gap`. Home and
-# the hubs leave 40px under the description: the row title (MOVIES, NEW
-# EPISODES) was sitting on the last line. The skin draws a hairline on
-# the row's top edge in that gap. Grid and a catalog list have no
-# row_gap; their stack still ends on the row.
+# moves down so the stack still ends on `band` minus `row_gap`. Home, the
+# hubs and the coverflow leave 40px under the description: the row title
+# (MOVIES, NEW EPISODES) was sitting on the last line. The skin draws a
+# hairline on the row's top edge in that gap. Grid has no row_gap; its
+# stack still ends on the row.
 # plot_max is the skin's textbox. plot_inset is the slack that box keeps
 # so Kodi's textbox padding does not clip a line. Six lines of font13
 # are 180, and the box is 200, so the inset is 20.
+# The ratings panel is font13 (30) since #11; font12 at 25px was the
+# smallest text a viewer was asked to read. 38 keeps font12's line ratio.
 _SHARED = {
     'meta_left': 1480,
     'meta_w': 380,
-    'meta_font': 25,
-    'meta_line': 32,
+    'meta_font': 30,
+    'meta_line': 38,
     'meta_lines': 8,
     'gap': 8,
     'text_w': 1056,
@@ -163,8 +165,10 @@ ANCHORS = {
         'plot_font': 30, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 200,
         'meta_id': 30021, 'meta_max': 272, 'caption_id': None,
     },
+    # The hubs share Home's band (#14): opening Movies or Series does not
+    # move the hero, and their posters clear the bottom edge (#7).
     'hub': {
-        'left': 64, 'title_top': 428, 'band': 740, 'row_gap': 40, 'title_h': 64,
+        'left': 64, 'title_top': 380, 'band': 692, 'row_gap': 40, 'title_h': 64,
         'title_id': 30020, 'logo_id': 30023, 'plot_id': 30022,
         'plot_font': 30, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 200,
         'meta_id': 30021, 'meta_max': 272, 'caption_id': None,
@@ -175,8 +179,10 @@ ANCHORS = {
         'plot_font': 30, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 200,
         'meta_id': 30021, 'meta_max': 312, 'caption_id': 30025,
     },
+    # The coverflow keeps its font60 title and font27 plot, on the same
+    # band, gap and 64px margin as Home and the hubs (#14).
     'showcase': {
-        'left': 96, 'title_top': 460, 'band': 740, 'title_h': 92,
+        'left': 64, 'title_top': 372, 'band': 692, 'row_gap': 40, 'title_h': 92,
         'title_id': 30020, 'logo_id': None, 'plot_id': 30022,
         'plot_font': 27, 'plot_line': 30, 'plot_lines': 6, 'plot_max': 180,
         'meta_id': 30021, 'meta_max': 280, 'caption_id': None,

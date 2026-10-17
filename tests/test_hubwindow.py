@@ -585,3 +585,209 @@ def test_decade_tile_opens_the_coverflow(load_hub, monkeypatch):
     win.onClick(ctx.hubwindow.HUB_LIST)
     assert opened == [([{'id': 'shawshank', 'type': 'movie', 'name': 'The Shawshank Redemption'}], 'New')]
     assert win.closed is not True
+
+
+def test_a_hub_row_pages_on_without_fetching_page_one_again(load_hub, monkeypatch):
+    ctx = load_hub()
+    monkeypatch.setattr(
+        ctx.homewindow, '_one_catalog_page',
+        lambda *args, **kwargs: [{'id': 'tt%d' % index, 'name': 'T%d' % index} for index in range(1, 4)],
+    )
+    requested = []
+
+    def fake_fetch(transport, ctype, cid, extra=None):
+        requested.append(list(extra or []))
+        return [{'id': 'tt4', 'name': 'T4'}]
+
+    import lib.ui.views as views
+
+    monkeypatch.setattr(views, '_fetch_catalog', fake_fetch)
+    desc = {
+        'transport': 'https://addon.example/manifest.json',
+        'manifest': {'id': 'x'},
+        'catalog': {'type': 'movie', 'id': 'top', 'extra': [{'name': 'skip'}]},
+        'extra': None,
+        'posters': None,
+        'col': 0,
+    }
+
+    ctx.hubwindow._load_posters(desc)
+    posters = ctx.hubwindow._extend_row(desc)
+
+    assert requested == [[('skip', 3)]]
+    assert [poster.getProperty('sid') for poster in posters] == ['tt1', 'tt2', 'tt3', 'tt4']
+
+
+def _row_of(ctx, count, prefix='tt'):
+    return [
+        ctx.homewindow._poster_item({'id': '%s%d' % (prefix, index), 'type': 'movie', 'name': 'T%d' % index, 'poster': 'p%d' % index})
+        for index in range(count)
+    ]
+
+
+def test_a_scrolled_row_moves_the_ring_before_it_moves_the_row(load_hub):
+    """#12: the window moves only when the focus would leave it. The start
+    used to be derived from the column alone, so once a row had scrolled,
+    every Left slid the whole row and the ring stayed pinned right."""
+    ctx = load_hub()
+    import xbmcgui
+    win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
+    win._descs = [{'heading': 'Top', 'kind': 'catalog', 'posters': _row_of(ctx, 12), 'col': 0,
+                   'pending': ['x'], 'exhausted': True}]
+    ctx.hubwindow._paint_list(win, select=0)
+    win.setFocusId(ctx.hubwindow.HUB_LIST)
+    row = win.getControl(ctx.hubwindow.HUB_LIST).getSelectedItem()
+
+    for _ in range(9):
+        win.onAction(xbmcgui.Action(2))
+    assert row.getProperty('col') == '9'
+    assert row.getProperty('focusslot') == '7'
+    assert row.getProperty('p0') == 'p2'
+
+    win.onAction(xbmcgui.Action(1))
+    # The ring steps left; the row does not move.
+    assert row.getProperty('col') == '8'
+    assert row.getProperty('focusslot') == '6'
+    assert row.getProperty('p0') == 'p2'
+
+    for _ in range(7):
+        win.onAction(xbmcgui.Action(1))
+    # Past the first visible poster, the row scrolls back with the ring.
+    assert row.getProperty('col') == '1'
+    assert row.getProperty('focusslot') == '0'
+    assert row.getProperty('p0') == 'p1'
+
+
+def test_a_catalog_that_fails_keeps_its_row_with_a_try_again_card(load_hub, monkeypatch):
+    """#16: a failed first page used to drop the row silently, with no log
+    line. The row stays with one card; OK on it asks again."""
+    ctx = load_hub()
+    calls = []
+
+    def _page(transport, manifest, catalog, extra=None):
+        calls.append(catalog.get('id'))
+        if len(calls) == 1:
+            raise ctx.homewindow.CatalogUnavailable(catalog.get('id'))
+        return [{'id': 'tt1', 'name': 'One', 'type': 'movie', 'poster': 'p1'}]
+
+    monkeypatch.setattr(ctx.homewindow, '_one_catalog_page', _page)
+    desc = {'heading': 'Top', 'kind': 'catalog', 'transport': 't', 'manifest': {},
+            'catalog': {'type': 'movie', 'id': 'top'}, 'extra': None, 'posters': None, 'col': 0}
+    posters = ctx.hubwindow._load_posters(desc)
+
+    assert len(posters) == 1
+    card = posters[0]
+    assert card.getProperty('retry') == '1'
+    assert card.getLabel() == 'STR30490'
+    assert card.getProperty('hero_title') == 'Top'
+    assert card.getProperty('hero_plot') == 'STR30491'
+    assert desc['exhausted'] is True
+
+    win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
+    win._descs = [desc]
+    ctx.hubwindow._paint_list(win, select=0)
+    win.onClick(ctx.hubwindow.HUB_LIST)
+    ctx.hubwindow._join_row_fetches(win)
+    import xbmcgui
+    win.onAction(xbmcgui.Action(0))
+
+    assert calls == ['top', 'top']
+    assert [poster.getProperty('sid') for poster in desc['posters']] == ['tt1']
+    row = win.getControl(ctx.hubwindow.HUB_LIST).getListItem(0)
+    assert row.getProperty('p0') == 'p1'
+    assert row.getProperty('sid') == 'tt1'
+
+
+def test_a_landed_page_paints_under_its_own_row_after_another_row_is_dropped(load_hub, monkeypatch):
+    """#16: workers were handed list positions. The UI thread drops empty
+    rows meanwhile, so a page could land under another row's heading."""
+    ctx = load_hub()
+    gate = threading.Event()
+
+    def _page(transport, manifest, catalog, extra=None):
+        if catalog.get('id') == 'slow':
+            gate.wait(2)
+            return [{'id': 'slow1', 'name': 'Slow', 'type': 'movie', 'poster': 'ps'}]
+        return []
+
+    monkeypatch.setattr(ctx.homewindow, '_one_catalog_page', _page)
+    win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
+    first = {'heading': 'Shown', 'kind': 'catalog', 'posters': _row_of(ctx, 2), 'col': 0}
+    empty = {'heading': 'Empty', 'kind': 'catalog', 'transport': 't', 'catalog': {'type': 'movie', 'id': 'none'},
+             'extra': None, 'posters': None, 'col': 0}
+    slow = {'heading': 'Slow', 'kind': 'catalog', 'transport': 't', 'catalog': {'type': 'movie', 'id': 'slow'},
+            'extra': None, 'posters': None, 'col': 0}
+    win._descs = [first, empty, slow]
+    ctx.hubwindow._paint_list(win, select=0)
+
+    ctx.hubwindow._schedule_row_fetch(win, [2])
+    ctx.hubwindow._schedule_row_fetch(win, [1])
+    # The empty row lands first and is dropped; the slow one lands after.
+    for thread in list(win._row_fetch_threads)[1:]:
+        thread.join(2)
+    ctx.hubwindow._apply_fetched_rows(win)
+    assert [desc['heading'] for desc in win._descs] == ['Shown', 'Slow']
+    gate.set()
+    ctx.hubwindow._join_row_fetches(win)
+    ctx.hubwindow._apply_fetched_rows(win)
+
+    rows = win.getControl(ctx.hubwindow.HUB_LIST)
+    assert rows.getListItem(1).getProperty('heading') == 'Slow'
+    assert rows.getListItem(1).getProperty('p0') == 'ps'
+
+
+def test_a_landscape_catalog_uses_the_wide_row(load_hub, monkeypatch):
+    """#24: channel and video catalogs publish 16:9 art (posterShape
+    landscape). A 2:3 slot letterboxed it; the row uses the four wide
+    slots New Episodes uses."""
+    ctx = load_hub()
+    monkeypatch.setattr(
+        ctx.homewindow, '_one_catalog_page',
+        lambda *args, **kwargs: [
+            {'id': 'c%d' % index, 'name': 'C%d' % index, 'type': 'tv', 'poster': 'w%d' % index, 'posterShape': 'landscape'}
+            for index in range(6)
+        ],
+    )
+    desc = {'heading': 'Channels', 'kind': 'catalog', 'transport': 't', 'catalog': {'type': 'tv', 'id': 'ch'},
+            'extra': None, 'posters': None, 'col': 0}
+    ctx.hubwindow._load_posters(desc)
+    assert desc['layout'] == 'land'
+    import xbmcgui
+    row = xbmcgui.ListItem('Channels')
+    ctx.hubwindow._apply_posters(row, desc['posters'], 0, desc['layout'])
+    assert [row.getProperty('p%d' % slot) for slot in range(5)] == ['w0', 'w1', 'w2', 'w3', '']
+
+    poster_desc = {'heading': 'Movies', 'kind': 'catalog', 'transport': 't', 'catalog': {'type': 'movie', 'id': 'm'},
+                   'extra': None, 'posters': None, 'col': 0}
+    monkeypatch.setattr(
+        ctx.homewindow, '_one_catalog_page',
+        lambda *args, **kwargs: [{'id': 'm1', 'name': 'M', 'type': 'movie', 'poster': 'p', 'posterShape': 'poster'}],
+    )
+    ctx.hubwindow._load_posters(poster_desc)
+    assert not poster_desc.get('layout')
+
+
+def test_new_episodes_and_the_first_rows_are_fetched_together(load_hub, monkeypatch):
+    """#13: the Series hub waited for New Episodes (a meta per followed
+    show) before fetching any catalog row."""
+    ctx = load_hub()
+    barrier = threading.Barrier(2, timeout=2)
+
+    def _episodes(store, types):
+        barrier.wait()
+        return None
+
+    def _page(transport, manifest, catalog, extra=None):
+        barrier.wait()
+        return [{'id': 'pop1', 'name': 'Popular', 'type': 'series', 'poster': 'p'}]
+
+    monkeypatch.setattr(ctx.hubwindow, '_episode_descriptor', _episodes)
+    monkeypatch.setattr(ctx.homewindow, '_one_catalog_page', _page)
+    addons = [{'transportUrl': 'https://a/manifest.json', 'manifest': {'catalogs': [
+        {'type': 'series', 'id': 'pop', 'name': 'Popular'},
+    ]}}]
+
+    descs, episodes = ctx.hubwindow._build(_Store(), addons, frozenset({'series', 'tv'}))
+
+    assert [desc['heading'] for desc in descs] == ['Popular']
+    assert episodes == []

@@ -12,6 +12,7 @@ No second page is fetched to fill a row. One catalog page is already
 more titles than the first screen draws.
 """
 
+import contextlib
 import os
 import threading
 
@@ -22,6 +23,45 @@ _caches = {}  # type: dict
 _caches_lock = threading.Lock()
 _revalidate_inflight = set()
 _revalidate_lock = threading.Lock()
+
+#: `deferred_saves()` nesting depth, and whether a store happened inside.
+#: Not thread-local on purpose: Home and the hubs fetch a first screen on
+#: several workers inside one `deferred_saves()` block.
+_defer = {'depth': 0, 'dirty': False}
+_defer_lock = threading.Lock()
+
+
+@contextlib.contextmanager
+def deferred_saves():
+    """Inside, pages are stored as they arrive and the file is written
+    once, on the way out. Home used to rewrite catalog_pages.json once
+    per row it opened (#13)."""
+    with _defer_lock:
+        _defer['depth'] += 1
+    try:
+        yield
+    finally:
+        with _defer_lock:
+            _defer['depth'] -= 1
+            flush = _defer['depth'] == 0 and _defer['dirty']
+            if flush:
+                _defer['dirty'] = False
+        if flush:
+            cache = get_page_cache()
+            if cache is not None:
+                try:
+                    cache.save()
+                except Exception:
+                    pass
+
+
+def _save(cache):
+    """Write now, or once at the end of the enclosing `deferred_saves()`."""
+    with _defer_lock:
+        if _defer['depth']:
+            _defer['dirty'] = True
+            return
+    cache.save()
 
 
 def get_page_cache():
@@ -86,7 +126,7 @@ def _revalidate(transport, manifest, catalog, extra, key):
     if cache is None:
         return
     cache.store(key, metas, hints)
-    cache.save()
+    _save(cache)
 
 
 def _schedule_revalidate(transport, manifest, catalog, extra, key):
@@ -108,23 +148,26 @@ def _schedule_revalidate(transport, manifest, catalog, extra, key):
 def cached_first_page(transport, manifest, catalog, extra=None):
     """The first page, from the cache when it is fresh or still servable.
 
-    A stale hit is returned immediately and revalidated on a daemon.
-    A miss fetches, stores, and writes the file once.
+    A stale hit is returned immediately and revalidated on a daemon. So
+    is an expired one up to a day old (#13): the first open of an evening
+    paints the rows it had instead of fetching every one cold, and the
+    revalidation has the next open current. A miss fetches, stores, and
+    writes the file once (once per `deferred_saves()` block).
     """
     cache = get_page_cache()
     key = None
     if cache is not None and isinstance(catalog, dict):
         key = cache_key(transport, catalog.get('type'), catalog.get('id'), extra)
-        state, metas = cache.lookup(key)
+        state, metas = cache.lookup(key, allow_expired=True)
         if state == 'fresh' and metas is not None:
             return _region_filter(metas)
-        if state == 'stale' and metas:
+        if state in ('stale', 'expired') and metas:
             _schedule_revalidate(transport, manifest, catalog, extra, key)
             return _region_filter(metas)
     metas, hints = _fetch_first_page(transport, manifest, catalog, extra)
     if cache is not None and key is not None:
         cache.store(key, metas, hints)
-        cache.save()
+        _save(cache)
     return _region_filter(metas)
 
 

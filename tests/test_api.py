@@ -25,6 +25,19 @@ def make_api():
     return StremioAPI()
 
 
+# --- getUser -----------------------------------------------------------
+
+
+def test_get_user_posts_the_key_and_returns_the_account():
+    api = make_api()
+    api.session = FakeSession(responses=[_ok({"result": {"email": "a@b.com", "_id": "u1"}})])
+
+    assert api.get_user("tok-1") == {"email": "a@b.com", "_id": "u1"}
+    call = api.session.calls[0]
+    assert call["url"] == API_BASE + "/api/getUser"
+    assert call["kwargs"]["json"] == {"type": "GetUser", "authKey": "tok-1"}
+
+
 # --- login -------------------------------------------------------------
 
 

@@ -1812,3 +1812,159 @@ def test_open_detail_not_found_still_closes_the_busy_dialog_around_the_fetch(
     assert result is False
     assert busy.created == [('STR30033', '')]
     assert busy.closed == 1
+
+
+# ---------------------------------------------------------------------------
+# Landing: which episode a series page opens on
+# ---------------------------------------------------------------------------
+
+
+class _ProgressStore:
+    def __init__(self, entries):
+        self._entries = entries
+
+    def get_progress_entries(self):
+        return list(self._entries)
+
+    def get_progress(self, *_args, **_kwargs):
+        return None
+
+
+_LANDING_VIDEOS = [
+    {'id': 'tt9:1:1', 'season': 1, 'episode': 1},
+    {'id': 'tt9:1:2', 'season': 1, 'episode': 2},
+    {'id': 'tt9:2:1', 'season': 2, 'episode': 1},
+]
+
+
+def _progress(video_id, position, duration, when):
+    return {
+        'type': 'series', 'id': 'tt9', 'video_id': video_id,
+        'position_ms': position, 'duration_ms': duration, 'updated_at': when,
+    }
+
+
+def test_landing_is_the_episode_in_progress(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow()
+    store = _ProgressStore([
+        _progress('tt9:1:1', 3500000, 3600000, '2026-01-01T00:00:00Z'),
+        _progress('tt9:1:2', 600000, 3600000, '2026-01-02T00:00:00Z'),
+    ])
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+
+    assert ctx.detailwindow._landing_video_id('series', 'tt9', _LANDING_VIDEOS) == 'tt9:1:2'
+
+
+def test_landing_moves_past_a_finished_episode_across_seasons(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow()
+    store = _ProgressStore([_progress('tt9:1:2', 3500000, 3600000, '2026-01-02T00:00:00Z')])
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+
+    assert ctx.detailwindow._landing_video_id('series', 'tt9', _LANDING_VIDEOS) == 'tt9:2:1'
+
+
+def test_landing_is_none_for_a_show_this_device_never_played(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow()
+    store = _ProgressStore([{
+        'type': 'series', 'id': 'tt1', 'video_id': 'tt1:1:1',
+        'position_ms': 1, 'duration_ms': 2, 'updated_at': 'x',
+    }])
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+
+    assert ctx.detailwindow._landing_video_id('series', 'tt9', _LANDING_VIDEOS) is None
+
+
+def test_landing_survives_a_broken_store(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow()
+
+    def boom():
+        raise OSError('unreadable')
+
+    monkeypatch.setattr(ctx.dependencies, 'get_store', boom)
+
+    assert ctx.detailwindow._landing_video_id('series', 'tt9', _LANDING_VIDEOS) is None
+
+
+def test_land_on_selects_the_episode_and_keeps_the_series_art(load_detailwindow):
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    win = _make_window(picker)
+    win.start({
+        'id': 'tt9', 'poster': 'series-poster.jpg', 'background': 'series-fanart.jpg',
+        'videos': [
+            {'id': 'tt9:1:1', 'season': 1, 'episode': 1, 'thumbnail': 'one.jpg'},
+            {'id': 'tt9:1:2', 'season': 1, 'episode': 2, 'thumbnail': 'two.jpg'},
+        ],
+    }, 'series', land_on='tt9:1:2')
+    win.onInit()
+
+    assert win.getControl(picker.POSTER).image == 'series-poster.jpg'
+    assert win.getControl(picker.BACKGROUND).image == 'series-fanart.jpg'
+    assert win.getControl(picker.LIST).selected_index == 1
+
+
+def test_reopen_after_playback_lands_on_the_next_episode(load_detailwindow, monkeypatch):
+    """The reopen after Stop used to put the cursor back on episode 1."""
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    store = _ProgressStore([])
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+    win = _make_window(picker)
+    win.start({
+        'id': 'tt9', 'poster': 'p.jpg',
+        'videos': [dict(video) for video in _LANDING_VIDEOS],
+    }, 'series')
+    win.onInit()
+    assert win.getControl(picker.LIST).selected_index == 0
+
+    store._entries = [_progress('tt9:1:1', 3500000, 3600000, '2026-01-03T00:00:00Z')]
+    win.onInit()
+
+    assert win.getControl(picker.LIST).selected_index == 1
+
+
+def test_open_detail_lands_on_local_progress(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow(addon_info={'path': '/addon/path'})
+    meta = {'id': 'tt9', 'name': 'Nine', 'videos': [dict(video) for video in _LANDING_VIDEOS]}
+    monkeypatch.setattr(ctx.views, '_fetch_meta', lambda stype, sid: meta)
+    store = _ProgressStore([_progress('tt9:1:2', 60000, 3600000, '2026-01-02T00:00:00Z')])
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+    captured = {}
+
+    class RecordingWindow(ctx.detailwindow.DetailWindow):
+        def start(self, meta_obj, stype, video_id=None, land_on=None):
+            captured['start'] = (video_id, land_on)
+            return False
+
+    monkeypatch.setattr(ctx.detailwindow, 'DetailWindow', RecordingWindow)
+
+    ctx.detailwindow.open_detail('series', 'tt9')
+
+    assert captured['start'] == (None, 'tt9:1:2')
+
+
+def test_the_options_pill_opens_the_menu_without_a_menu_key(load_detailwindow, monkeypatch):
+    """#15: Cast & crew, Library and Watched lived only behind the menu key,
+    which many CEC remotes do not have. The Options pill opens the same
+    menu; Up from the season tabs (or from the list when there are none)
+    reaches it."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    ctx = load_detailwindow()
+    win = _make_window(ctx.detailwindow)
+    opened = []
+    monkeypatch.setattr(type(win), '_open_context_menu', lambda self: opened.append(True))
+
+    win.onClick(ctx.detailwindow.OPTIONS)
+
+    assert opened == [True]
+    skin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'resources', 'skins', 'Default', '1080i')
+    root = ET.parse(os.path.join(skin, 'DetailWindow.xml')).getroot()
+    pill = root.find(".//control[@id='30009']")
+    assert pill.get('type') == 'button'
+    assert (pill.findtext('ondown') or '').strip() == '30007'
+    seasons = root.find(".//control[@id='30007']")
+    assert (seasons.findtext('onup') or '').strip() == '30009'
+    # The episode list's Up goes through the (possibly hidden) season tabs.
+    assert (root.find(".//control[@id='30002']").findtext('onup') or '').strip() == '30007'

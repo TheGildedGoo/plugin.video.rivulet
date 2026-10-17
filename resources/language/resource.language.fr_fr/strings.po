@@ -1217,3 +1217,79 @@ msgstr "Langues d'origine"
 msgctxt "#30473"
 msgid "Nothing hidden"
 msgstr "Rien de masqué"
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Installer depuis le téléphone"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Saisir l'adresse"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Ouvre cette page sur le téléphone et colle le lien d'installation de l'extension. Elle fonctionne 3 minutes."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Configurer cette extension"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "Colle un lien qui commence par https://."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Ce lien est trop long."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "Se connecter avec le téléphone"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "Saisir l'e-mail et le mot de passe"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "Scanne le QR ou ouvre l'adresse sur le téléphone et connecte-toi à Stremio là-bas."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Rechercher depuis le téléphone"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Tape-le sur le téléphone"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Ouvre cette page sur le téléphone et tape ce que tu cherches. Elle fonctionne 3 minutes."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Tape quelque chose à rechercher."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Cette recherche est trop longue."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Connecté"
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr "Connecté en tant que"
+
+msgctxt "#30490"
+msgid "Try again"
+msgstr "Réessayer"
+
+msgctxt "#30491"
+msgid "This catalog did not answer."
+msgstr "Ce catalogue n'a pas répondu."
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Options"

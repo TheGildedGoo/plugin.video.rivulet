@@ -1217,3 +1217,79 @@ msgstr "原語"
 msgctxt "#30473"
 msgid "Nothing hidden"
 msgstr "非表示なし"
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "スマホからインストール"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "アドレスを入力"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "スマホでこのページを開き、アドオンのインストールリンクを貼り付けてください。有効期限は3分です。"
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "このアドオンを設定"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "https:// で始まるリンクを貼り付けてください。"
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "このリンクは長すぎます。"
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "スマホでログイン"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "メールアドレスとパスワードを入力"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "スマホでQRを読み取るかアドレスを開き、そこでStremioにログインしてください。"
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "スマホから検索"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "スマホで入力"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "スマホでこのページを開き、検索したい言葉を入力してください。有効期限は3分です。"
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "検索する言葉を入力してください。"
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "この検索語は長すぎます。"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "サインイン済み"
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr "サインイン中のアカウント"
+
+msgctxt "#30490"
+msgid "Try again"
+msgstr "再試行"
+
+msgctxt "#30491"
+msgid "This catalog did not answer."
+msgstr "このカタログから応答がありません。"
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "オプション"

@@ -148,6 +148,15 @@ def _episode_still(video, series_id):
     return ""
 
 
+def episode_still_url(series_id, season, episode):
+    """The metahub still for one Cinemeta episode, or ``""``.
+
+    Public face of `_episode_still` for a caller that has the numbers but
+    not the video record (Home's Continue card, from a ``tt..:s:e`` id).
+    """
+    return _episode_still({'season': season, 'episode': episode}, series_id)
+
+
 def _episode_label(season, episode, title):
     """``S1E3 · Title`` for the hero. Unpadded on purpose: that is the
     label the row is supposed to read. A video with no season and no

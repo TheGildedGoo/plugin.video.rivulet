@@ -42,7 +42,18 @@ def _block_real_network(monkeypatch):
     def _guard(*args, **kwargs):
         raise AssertionError("real network access attempted in a unit test")
 
-    monkeypatch.setattr(socket.socket, "connect", _guard)
+    def _guard_connect(sock, *args, **kwargs):
+        # urllib3 only closes the socket on OSError, so an AssertionError
+        # raised from connect() leaked it. The leak surfaced as a
+        # ResourceWarning in whichever later test the GC happened to run
+        # under, which made unrelated tests fail at random.
+        try:
+            sock.close()
+        except Exception:
+            pass
+        raise AssertionError("real network access attempted in a unit test")
+
+    monkeypatch.setattr(socket.socket, "connect", _guard_connect)
     monkeypatch.setattr(socket, "create_connection", _guard)
 
 

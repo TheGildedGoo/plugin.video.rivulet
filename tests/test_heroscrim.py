@@ -107,7 +107,8 @@ def test_a_short_plot_sits_lower_on_a_shorter_bar():
     assert window.controls[30022].y == 602
     assert window.controls[30022].height == 50
     assert window.controls[30021].y == 530
-    assert window.controls[30021].height == 64
+    # Two ratings lines of font13 (#11): 2 x 38.
+    assert window.controls[30021].height == 76
     # The fade is above the words, not a hard edge through them.
     assert window.controls[30020].y - bar.y == FADE
 
@@ -164,6 +165,8 @@ def test_estimates_cover_noto_sans():
         (bold, 60, True, 'Dune'),
         (regular, 25, False, 'IMDb 8.1'),
         (regular, 25, False, 'Drama, Adventure'),
+        (regular, 30, False, 'Rotten Tomatoes 94%'),
+        (regular, 30, False, 'Science Fiction, Adventure'),
     )
     for path, size, is_bold, text in samples:
         font = ImageFont.truetype(path, size)

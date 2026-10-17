@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev14" provider-name="M0RF30">
+<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev15" provider-name="M0RF30">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.requests" version="2.22.0"/>
@@ -12,7 +12,32 @@
     <summary lang="en_GB">RevRivulet: watch Stremio-protocol catalogs, addons and streams in Kodi. Installs beside official Rivulet.</summary>
     <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote stremio-server-go streaming server, and optionally sync your addon collection with your Stremio account.</description>
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
-    <news>v0.30.1.rev14:
+    <news>v0.30.1.rev15:
+- Fix: a series opens on the episode you are watching, or the next one, not S1E1. After playback it comes back to that episode.
+- Fix: posters further along a row load ahead of time.
+- Fix: with a ratings key, scores load once the remote rests on a title, not for every title passed.
+- Fix: moving right past the first page of a Home row no longer holds the remote while the next page loads.
+- Fix: Home keeps your place when you come back from another screen or from playback, and shows library and addon changes.
+- New: add an addon, search, or sign in from your phone. Sign in shows a code and a QR for Stremio; no password is typed on the TV.
+- Updated: the category buttons and Search, Add-ons and Settings share one row at the top, clear of the screen edge. Up from the first row reaches it.
+- Updated: Movies, Series, Other and the catalog and search lists put the hero and the row where Home does, with the thin line above the row.
+- Updated: the titles under the Home posters are gone; the focused title is in the hero.
+- New: each row name shows where you are, such as 2 / 5. Down stops at the last row. Movies, Series and Other show their name at the top.
+- Fix: a quick load no longer flashes the loading screen.
+- Updated: posters and backdrops from TMDB load at the size they are shown, so they appear sooner.
+- Updated: Home says Signed in instead of your email. Settings > Account shows the account.
+- Updated: small grey text is larger and brighter, and row names are bold.
+- Fix: a title with no poster shows its name on the card. A title logo replaces the text only once it has loaded.
+- Updated: Continue cards show the episode picture with the show name and S:1 E:2, like New Episodes.
+- Fix: in Movies, Series, Other and the catalog and search lists, a title with no backdrop fills the hero with its poster.
+- Fix: rows in Movies, Series and Other scroll like Home's. The posters move only when the focus reaches the edge.
+- Fix: a catalog that does not answer shows Try again instead of an empty row. Posters no longer land on the wrong row while rows load.
+- Fix: catalogs with wide pictures use wide cards.
+- Updated: Home and the hubs ask several addons at a time, and open from the last copy, up to a day old, while a fresh one loads.
+- Updated: moving along a row redraws the hero only when the title changes.
+- New: the episode and source screens have an Options button at the top right, for remotes without a menu key.
+- Fix: signing in from Home or a hub no longer refreshes the screen behind it. The package no longer carries the Rev2Rivulet test screens.
+v0.30.1.rev14:
 - New: Settings can hide titles from chosen countries and original languages. India, Hindi, Tamil, Telugu, Malayalam and Kannada start hidden. A title with no country or language stays visible.
 - Fix: the Library row shows the same backdrop, title, and ratings as the other rows. A title with no backdrop fills the hero with its poster.
 - Fix: Movies, Series, and Other open with the focused title already in the hero.

@@ -5,11 +5,15 @@
     <controls>
         <control type="group">
             <left>0</left><top>0</top>
+            <!-- The fade waits 350ms. A cache hit closes the spinner before
+                 then, so a fast load no longer flashes the dim plate. The
+                 dialog is up from the first frame, so Back still reaches
+                 it: only a closing animation drops input. -->
             <animation type="WindowOpen" reversible="false">
-                <effect type="fade" delay="0" end="100" time="200" />
+                <effect type="fade" delay="350" end="100" time="200" />
             </animation>
             <!-- No WindowClose animation on purpose: Kodi drops every action while the topmost modal plays one (test_skin_xml.py rule 9). -->
-            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="C70A0C0E">white.png</texture></control>
+            <control type="image"><width>1920</width><height>1080</height><texture colordiffuse="C707090B">white.png</texture></control>
 
             <control type="image"><left>680</left><top>450</top><width>560</width><height>180</height><texture colordiffuse="FF12161A">white.png</texture></control>
             <control type="image"><left>680</left><top>450</top><width>560</width><height>1</height><texture colordiffuse="1AFFFFFF">white.png</texture></control>
@@ -26,7 +30,7 @@
 
             <control type="label" id="30321">
                 <left>680</left><top>536</top><width>560</width><height>32</height>
-                <font>font12</font><textcolor>80EEF3F6</textcolor>
+                <font>font12</font><textcolor>B3EEF3F6</textcolor>
                 <align>center</align>
                 <label></label>
                 <visible>!String.IsEmpty(Control.GetLabel(30321))</visible>

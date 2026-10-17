@@ -118,6 +118,24 @@ def make_xbmc(env, info_labels=None, cond_visibility=None):
     def getInfoLabel(label):
         return labels.get(label, '')
 
+    def executeJSONRPC(request):
+        """Answers Textures.GetTextures from `env.cached_textures`; any
+        other method gets an empty result."""
+        import json as _json
+
+        env.jsonrpc_calls.append(request)
+        try:
+            payload = _json.loads(request)
+        except ValueError:
+            return _json.dumps({'error': {'code': -32700}})
+        if payload.get('method') == 'Textures.GetTextures':
+            wanted = (((payload.get('params') or {}).get('filter') or {}).get('value')) or ''
+            cached = env.cached_textures
+            hit = cached is None or wanted in cached
+            textures = [{'textureid': 1, 'url': wanted}] if hit and wanted else []
+            return _json.dumps({'id': payload.get('id'), 'jsonrpc': '2.0', 'result': {'textures': textures}})
+        return _json.dumps({'id': payload.get('id'), 'jsonrpc': '2.0', 'result': {}})
+
     #: Kodi's own core-string catalog (id < 1000), distinct from the addon's
     #: strings.po - only the two ids `dialogs.confirm()` callers pass for
     #: default Yes/No buttons are faked; anything else falls back to the
@@ -130,6 +148,7 @@ def make_xbmc(env, info_labels=None, cond_visibility=None):
     module.log = log
     module.executebuiltin = executebuiltin
     module.getInfoLabel = getInfoLabel
+    module.executeJSONRPC = executeJSONRPC
     module.getCondVisibility = getCondVisibility
     module.getLocalizedString = getLocalizedString
 

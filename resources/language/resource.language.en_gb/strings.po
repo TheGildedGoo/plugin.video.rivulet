@@ -1217,3 +1217,79 @@ msgstr ""
 msgctxt "#30473"
 msgid "Nothing hidden"
 msgstr ""
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr ""
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr ""
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr ""
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr ""
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr ""
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr ""
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr ""
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr ""
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr ""
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr ""
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr ""
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr ""
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr ""
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr ""
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr ""
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr ""
+
+msgctxt "#30490"
+msgid "Try again"
+msgstr ""
+
+msgctxt "#30491"
+msgid "This catalog did not answer."
+msgstr ""
+
+msgctxt "#30492"
+msgid "Options"
+msgstr ""

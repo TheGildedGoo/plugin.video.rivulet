@@ -50,7 +50,11 @@ def test_rev2_art_is_a_full_opacity_rounded_rect_mask():
         text = path.read_text(encoding='utf-8')
         if 'round_mask.png' in text or 'round_fill.png' in text or 'round_frame.png' in text:
             offenders.append('%s still uses the oval mask' % path.name)
-        for tag in re.findall(r'<texture\b[^>]*>', text):
+        for tag, body in re.findall(r'(<texture\b[^>]*>)([^<]*)</texture>', text):
+            # A tinted shade over a card (New Episodes) is not art: the
+            # mask only rounds its corners, and the tint is the shade.
+            if body.strip() == 'card_shade.png':
+                continue
             # ``colordiffuse`` contains the letters "diffuse"; only a real
             # diffuse mask attribute is the oval bug.
             if re.search(r'(^|\s)diffuse=', tag) and (
@@ -146,6 +150,16 @@ def test_publish_ships_revrivulet_only_and_a_two_link_index(tmp_path):
     addon_xml = plain.read('plugin.video.revrivulet/addon.xml').decode('utf-8')
     assert 'plugin.video.revrivulet' in addon_xml
     assert 'plugin.video.rev2rivulet' not in addon_xml
+    # #22: RevRivulet's zip carries no Rev2 skins or Rev2-only textures,
+    # and keeps everything its own windows and the rev2 switch need.
+    names = plain.namelist()
+    plain.close()
+    skin = 'plugin.video.revrivulet/resources/skins/Default/'
+    assert not [name for name in names if name.startswith(skin + '1080i/Rev2')]
+    assert not [name for name in names if name.startswith(skin + 'media/rv_')]
+    assert skin + '1080i/HomeWindow.xml' in names
+    assert skin + 'media/mask_poster.png' in names
+    assert 'plugin.video.revrivulet/lib/ui/rev2/skin.py' in names
 
 
 def test_search_sheet_appends_a_letter_and_settings_toggle_a_bool():

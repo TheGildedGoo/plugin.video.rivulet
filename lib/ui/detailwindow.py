@@ -54,6 +54,8 @@ POSTER = 30004
 HEADING = 30005
 LIST = 30002
 SEASON_BAR = 30007
+#: The Options pill (#15): the context menu for remotes with no menu key.
+OPTIONS = 30009
 
 #: Right-aligned "N EPISODES" readout for the season the episode list
 #: (LIST) is currently showing - a plain window label DetailWindow sets
@@ -381,8 +383,15 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         # None keeps the series poster and the first episode of the
         # default season, which is every other entry into this window.
         self.focus_video_id = None
+        # True only when the caller asked for that episode's own still
+        # as the art (New Episodes). A landing from Continue or local
+        # progress selects the episode and keeps the series poster.
+        self._episode_art = False
+        # False until the first onInit. A later onInit is the reopen
+        # after playback, which lands on what was just watched.
+        self._opened = False
 
-    def start(self, meta, stype, video_id=None):
+    def start(self, meta, stype, video_id=None, land_on=None):
         """doModal() showing `meta`'s episode list. Returns True if
         playback started somewhere down the chain (the caller should
         also close). Also fires `_prefetch_s4me_streams()` for the
@@ -396,7 +405,9 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self.rows = [(video.get('id'), _episode_label(video)) for video in self.videos]
         self._video_by_id = {video.get('id'): video for video in self.videos}
         self.season_groups = _group_by_season(self.meta.get('videos'))
-        self.focus_video_id = video_id or None
+        self.focus_video_id = video_id or land_on or None
+        self._episode_art = bool(video_id)
+        self._opened = False
         self.season_index = self._season_index_for(self.focus_video_id)
         active = self._active_videos()
         _prefetch_s4me_streams(self.stype, active[0].get('id') if active else None)
@@ -558,6 +569,14 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
     def onInit(self):
         from lib.ui.compat import addon_fanart
 
+        if self._opened:
+            # The reopen after playback. Land on what was just watched,
+            # or the episode after it when it finished, not on episode 1.
+            landing = _landing_video_id(self.stype, self.meta.get('id'), self.meta.get('videos'))
+            if landing:
+                self.focus_video_id = landing
+                self.season_index = self._season_index_for(landing)
+        self._opened = True
         poster, background = self._focus_art()
         self.getControl(BACKGROUND).setImage(background or addon_fanart())
         self.getControl(POSTER).setImage(poster)
@@ -580,7 +599,8 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         """Poster and backdrop for this window. A focused episode uses
         its own still for both, and the series art when that still is
         missing. Every other open keeps the series chain."""
-        video = self._video_by_id.get(self.focus_video_id) if self.focus_video_id else None
+        wanted = self.focus_video_id if self._episode_art else None
+        video = self._video_by_id.get(wanted) if wanted else None
         raw = video.get('thumbnail') if isinstance(video, dict) else ''
         thumb = raw.strip() if isinstance(raw, str) else ''
         if thumb:
@@ -878,6 +898,9 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
 
     @gated_input
     def onClick(self, control_id):
+        if control_id == OPTIONS:
+            self._open_context_menu()
+            return
         if control_id == SEASON_BAR:
             self._sync_season_from_bar()
             self.setFocusId(LIST)
@@ -889,6 +912,9 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             return
         sid = focused.getProperty('row_id')
         video = self._video_by_id.get(sid)
+        # Remembered for the reopen after playback, so a stop that has
+        # no progress sample yet still lands on this episode.
+        self.focus_video_id = sid
 
         from lib.ui.streamswindow import open_streams
         # open_streams() only ever returns False (see its own module
@@ -940,11 +966,68 @@ def _pull_account_item(content_id):
         return None
 
 
-def open_detail(stype, sid, video_id=None):
+def _progress_percent(entry):
+    duration = entry.get('duration_ms') or 0
+    position = entry.get('position_ms') or 0
+    if not isinstance(duration, (int, float)) or isinstance(duration, bool) or duration <= 0:
+        return None
+    if not isinstance(position, (int, float)) or isinstance(position, bool):
+        return None
+    return (float(position) / float(duration)) * 100.0
+
+
+def _landing_video_id(stype, show_id, videos):
+    """The episode a series page should open on, from local progress.
+
+    The episode played most recently on this device, or the one after
+    it when that one finished. None when this device has not played the
+    show, so the page keeps its first-season default. Never raises: a
+    broken progress file must not stop the page opening.
+    """
+    if not show_id or not videos:
+        return None
+    try:
+        from lib.ui.dependencies import get_store
+        from lib.ui.mystuff import RESUME_MAX_PERCENT
+
+        entries = get_store().get_progress_entries()
+    except Exception:  # noqa: BLE001 - landing is a convenience
+        return None
+    latest = None
+    for entry in entries or []:
+        if not isinstance(entry, dict) or not entry.get('video_id'):
+            continue
+        if str(entry.get('id')) != str(show_id):
+            continue
+        if stype and entry.get('type') and entry.get('type') != stype:
+            continue
+        if latest is None or str(entry.get('updated_at') or '') > str(latest.get('updated_at') or ''):
+            latest = entry
+    if latest is None:
+        return None
+    ordered = _ordered_videos(videos)
+    ids = [video.get('id') for video in ordered]
+    video_id = latest.get('video_id')
+    if video_id not in ids:
+        return None
+    percent = _progress_percent(latest)
+    if percent is not None and percent >= RESUME_MAX_PERCENT:
+        index = ids.index(video_id)
+        if index + 1 < len(ids):
+            return ids[index + 1]
+    return video_id
+
+
+def open_detail(stype, sid, video_id=None, land_on=None):
     """Fetch (stype, sid)'s full meta. A movie (no `videos`) has nothing
     to pick, so it opens StreamsWindow directly; a series opens this
     window first to pick an episode. Returns True if playback started
-    somewhere down the chain (the caller should also close)."""
+    somewhere down the chain (the caller should also close).
+
+    `video_id` opens on that episode and shows its still (New Episodes).
+    `land_on` opens on that episode and keeps the series art (Continue).
+    With neither, the page opens on the episode in progress on this
+    device, or the next one after a finished episode."""
     import xbmc
 
     from lib.ui.compat import L, log, notify
@@ -976,6 +1059,10 @@ def open_detail(stype, sid, video_id=None):
     try:
         win = open_window(DetailWindow, 'DetailWindow.xml')
         win._library_item = library_item
+        if not video_id and not land_on:
+            land_on = _landing_video_id(stype, meta_obj.get('id') or sid, meta_obj.get('videos'))
+        if land_on and not video_id:
+            return win.start(meta_obj, stype, land_on=land_on)
         return win.start(meta_obj, stype, video_id=video_id)
     except Exception as exc:  # a skin/UI failure must surface, not vanish
         log('detailwindow: window failed to open: %r' % (exc,), xbmc.LOGERROR)

@@ -135,6 +135,9 @@ CACHED_COUNT = 30102
 #: not the side panel — the old INFO_PANEL line was under the poster
 #: and the list itself looked empty.
 LOADING_STATUS = 30110
+#: Options pill (#15): add to or remove from the library without the menu
+#: key. A movie skips the episode page, so this is its only place.
+OPTIONS = 30009
 
 #: Cap on concurrent addon HTTP calls a streams fan-out below opens at
 #: once - mirrors `lib.ui.views._MAX_ADDON_WORKERS`'s bounded-pool
@@ -915,6 +918,9 @@ class StreamsWindow(BaseWindow):
 
     @gated_input
     def onClick(self, control_id):
+        if control_id == OPTIONS:
+            self._offer_library()
+            return
         if control_id != LIST:
             return
         # Kodi queues a window's click callbacks and delivers them on this
@@ -937,6 +943,24 @@ class StreamsWindow(BaseWindow):
             self._play_focused()
         finally:
             self._pick_in_progress = False
+
+    def _offer_library(self):
+        """Options pill: the poster menu's Add to / Remove from Library for
+        this title. A stream list opened without a title id has nothing
+        to save."""
+        from lib.ui.libraryaction import offer
+
+        meta = self.meta if isinstance(self.meta, dict) else {}
+        if not meta.get('id'):
+            return
+        saved = {
+            'id': meta.get('id'),
+            'type': meta.get('type') or self.stype or '',
+            'name': meta.get('name') or self.heading or '',
+            'poster': meta.get('poster') or self.poster or '',
+        }
+        # offer() marks Home's Library row for a refresh itself.
+        offer(saved)
 
     def _play_focused(self):
         focused = self.getControl(LIST).getSelectedItem()

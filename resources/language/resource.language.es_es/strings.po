@@ -1217,3 +1217,79 @@ msgstr "Idiomas originales"
 msgctxt "#30473"
 msgid "Nothing hidden"
 msgstr "Nada oculto"
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Instalar desde el teléfono"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Escribir la dirección"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Abre esta página en el teléfono y pega el enlace de instalación del complemento. Funciona durante 3 minutos."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Configurar este complemento"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "Pega un enlace que empiece por https://."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Ese enlace es demasiado largo."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "Entrar con el teléfono"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "Escribir correo y contraseña"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "Escanea el QR o abre la dirección en el teléfono e inicia sesión en Stremio allí."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Buscar desde el teléfono"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Escríbelo en el teléfono"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Abre esta página en el teléfono y escribe lo que quieres buscar. Funciona durante 3 minutos."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Escribe algo para buscar."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Esa búsqueda es demasiado larga."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Sesión iniciada"
+
+msgctxt "#30489"
+msgid "Signed in as"
+msgstr "Sesión iniciada como"
+
+msgctxt "#30490"
+msgid "Try again"
+msgstr "Reintentar"
+
+msgctxt "#30491"
+msgid "This catalog did not answer."
+msgstr "Este catálogo no respondió."
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Opciones"
