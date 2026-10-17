@@ -23,7 +23,7 @@ Kodi skin defines for the standard names (Estuary: Noto Sans).
 import time
 
 #: Screens that have a Fuse file. Grow this as each screen is drawn.
-FUSE_SKINS = frozenset(('HomeWindow.xml', 'HubWindow.xml', 'ShowcaseWindow.xml'))
+FUSE_SKINS = frozenset(('HomeWindow.xml', 'HubWindow.xml', 'ShowcaseWindow.xml', 'DetailWindow.xml'))
 
 #: Controls only the Fuse files have.
 HERO_FACTS = 30024   # label: year • runtime • genres
@@ -225,3 +225,41 @@ def paint_showcase(window, focused):
         window, focused.getProperty('plot') or '', focused.getProperty('meta_line') or '',
         runtime_minutes(focused.getProperty('runtime')),
     )
+
+
+def short_date(iso_date):
+    """``2024-02-27`` in Kodi's short date format (``27/02/2024``), or
+    the input when it cannot be read."""
+    text = str(iso_date or '').strip()
+    if not text:
+        return ''
+    try:
+        stamp = time.strptime(text[:10], '%Y-%m-%d')
+    except ValueError:
+        return text
+    fmt = ''
+    try:
+        import xbmc
+
+        fmt = xbmc.getRegion('dateshort') or ''
+    except Exception:
+        fmt = ''
+    try:
+        return time.strftime(fmt or '%d/%m/%Y', stamp)
+    except Exception:
+        return text
+
+
+def show_logo(window, logo_url):
+    """The episode page's logo once Kodi has it, else its name (#10)."""
+    from lib.ui.homewindow import HERO_LOGO, _logo_known_good, _warm_logos
+
+    wanted = logo_url or ''
+    logo = wanted if _logo_known_good(wanted) else ''
+    try:
+        if wanted and not logo:
+            _warm_logos(window, [wanted])
+        window.setProperty('HeroLogo', logo)
+        window.getControl(HERO_LOGO).setImage(logo)
+    except Exception:
+        pass

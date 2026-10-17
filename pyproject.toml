@@ -66,6 +66,7 @@ max-complexity = 15
 "resources/s4me_bridge/*" = ["C901"]
 # Inline Kodi XML templates. Wrapping them would change the generated skin.
 "tools/build_rev2_skin.py" = ["E501"]
+"tools/build_fuse_skins.py" = ["E501"]
 "tests/kodistubs/*" = ["C901"]
 "lib/*" = [
     # 18 pre-existing lib/ui/* and lib/stremio/* lines run 101-111 cols; fixing

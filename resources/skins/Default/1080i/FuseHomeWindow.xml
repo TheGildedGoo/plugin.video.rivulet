@@ -2,7 +2,8 @@
 <!-- The Fuse look (lib/ui/fuse.py). Same control ids as the classic file
      of this name, so the same window class drives either; tests/test_fuse.py
      holds that. 1920x1080, standard font names only (font12, font13,
-     font45), which Estuary defines. Generated; keep the classic file's
+     font45), which Estuary defines. Written by tools/build_fuse_skins.py;
+     edit it there. Keep the classic file's
      ids and navigation when editing. -->
 <window>
     <defaultcontrol>30001</defaultcontrol>

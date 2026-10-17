@@ -387,3 +387,75 @@ def test_every_fuse_card_has_a_mirror_image():
             text = handle.read()
         assert 'flipy="true"' in text, name
         assert text.count('fuse_reflect_fade.png') >= text.count('flipy="true"') // 2, name
+
+
+# --- the episode page in the Fuse file ------------------------------------------
+
+def _fuse_detail(monkeypatch, meta, progress=None):
+    from tests.test_detailwindow import _RELOAD_MODULE_NAMES as detail_reload
+
+    stack = install_kodi_stubs(reload=detail_reload + ('lib.ui.fuse',))
+    ctx = stack.__enter__()
+    win = ctx.detailwindow.DetailWindow('FuseDetailWindow.xml', '/addon/path', 'Default', '1080i')
+    win._skin_xml = 'FuseDetailWindow.xml'
+    monkeypatch.setattr(ctx.detailwindow.DetailWindow, '_episode_progress',
+                        staticmethod(lambda stype, sid, vid: (progress or {}).get(vid)))
+    win.start(meta, 'series')
+    return stack, ctx, win
+
+
+_SHOW = {
+    'id': 'tt2788316', 'name': 'Shogun', 'logo': 'https://img/logo.png',
+    'videos': [
+        {'id': 'e1', 'season': 1, 'episode': 1, 'title': 'Anjin', 'released': '2024-02-27T00:00:00.000Z',
+         'overview': 'Destinies converge.', 'runtime': '71 min'},
+        {'id': 'e2', 'season': 1, 'episode': 2, 'title': 'Servants of Two Masters',
+         'released': '2024-02-27T00:00:00.000Z', 'runtime': 60},
+    ],
+}
+
+
+def test_fuse_episode_rows_read_like_the_reference(monkeypatch):
+    stack, ctx, win = _fuse_detail(monkeypatch, _SHOW, progress={
+        'e1': {'position_ms': 95, 'duration_ms': 100}, 'e2': {'position_ms': 30, 'duration_ms': 100},
+    })
+    try:
+        win.onInit()
+        first, second = win.getControl(ctx.detailwindow.LIST).items
+        assert first.getProperty('ep_title') == '1×01. Anjin'
+        assert first.getProperty('runtime') == '1h 11m'
+        assert second.getProperty('runtime') == '1h 0m'
+        assert first.getProperty('aired') == '27/02/2024'
+        assert first.getProperty('plot') == 'Destinies converge.'
+        # Watched past 90%: a tick. Part-way: no tick (the bar shows).
+        assert first.getProperty('watched') == '1' and second.getProperty('watched') == ''
+    finally:
+        stack.__exit__(None, None, None)
+
+
+def test_fuse_episode_page_shows_the_logo_once_kodi_has_it(monkeypatch):
+    stack, ctx, win = _fuse_detail(monkeypatch, _SHOW)
+    try:
+        ctx.env.cached_textures = None  # everything is cached
+        win.onInit()
+        assert win.getProperty('HeroLogo') == 'https://img/logo.png'
+    finally:
+        stack.__exit__(None, None, None)
+
+
+def test_fuse_episode_page_trailer_pill(monkeypatch):
+    stack, ctx, win = _fuse_detail(monkeypatch, _SHOW)
+    try:
+        played = []
+        monkeypatch.setattr(win, '_play_trailer', lambda: played.append(True))
+        win.onClick(ctx.detailwindow.TRAILER)
+        assert played == [True]
+    finally:
+        stack.__exit__(None, None, None)
+
+
+@pytest.mark.parametrize('value, text', [('71 min', '1h 11m'), (54, '54m'), ('', ''), (None, ''), ('?', '')])
+def test_short_runtime(value, text):
+    with install_kodi_stubs(reload=('lib.ui.compat', 'lib.ui.detailwindow')):
+        from lib.ui.detailwindow import _short_runtime
+        assert _short_runtime(value) == text
