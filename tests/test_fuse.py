@@ -316,3 +316,146 @@ def test_open_home_reopens_once_in_the_new_look(load_homewindow, monkeypatch):
     ctx.homewindow.open_home()
 
     assert opened == ['HomeWindow.xml', 'HomeWindow.xml']
+
+
+# --- the hubs and the coverflow in the Fuse files -----------------------------
+
+def test_fuse_hub_paints_the_hero_from_the_opening_card(monkeypatch):
+    from tests.test_hubwindow import _RELOAD as hub_reload
+    from tests.test_hubwindow import _Store as HubStore
+
+    with install_kodi_stubs(reload=hub_reload + ('lib.ui.fuse',)) as ctx:
+        import xbmcgui
+
+        from lib.ui import fuse
+        monkeypatch.setattr(ctx.hubwindow, 'get_store', lambda: HubStore(auth=None))
+        poster = xbmcgui.ListItem('Dune')
+        poster.setProperties({
+            'hero_title': 'Dune', 'hero_plot': 'A desert.', 'hero_meta': 'IMDb 8.0\n2021',
+            'hero_runtime': '155', 'fanart': 'back.jpg', 'sid': 'tt1', 'stype': 'movie',
+        })
+        win = ctx.hubwindow.HubWindow('FuseHubWindow.xml', '/addon/path', 'Default', '1080i')
+        win._skin_xml = 'FuseHubWindow.xml'
+        win.types = frozenset({'movie'})
+        win.heading = 'Movies'
+        win._descs = [{'heading': 'TOP', 'posters': [poster], 'col': 0}]
+        win._episodes = []
+        win.getFocusId = lambda: ctx.hubwindow.BTN_SEARCH
+
+        win.onInit()
+
+        assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Dune'
+        assert win.getControl(fuse.HERO_STARS).image == 'fuse_stars_08.png'
+        assert 'Ends at' in win.getControl(fuse.HERO_SCORES).label
+
+
+def test_fuse_coverflow_paints_facts_and_scores(monkeypatch):
+    from tests.test_infowindow import _RELOAD_MODULE_NAMES as info_reload
+    from tests.test_infowindow import _make_meta
+
+    with install_kodi_stubs(reload=info_reload + ('lib.ui.fuse',)) as ctx:
+        from lib.ui import fuse
+        monkeypatch.setattr(ctx.infowindow.ShowcaseWindow, '_spawn_enrich', lambda self, index, meta: None)
+        win = ctx.infowindow.ShowcaseWindow('FuseShowcaseWindow.xml', '/addon/path', 'Default', '1080i')
+        win._skin_xml = 'FuseShowcaseWindow.xml'
+        win.metas = [_make_meta('tt1', 'One', imdbRating='6.1', runtime='90 min', releaseInfo='2020',
+                                description='A plot.')]
+
+        win.onInit()
+
+        assert win.getControl(fuse.HERO_STARS).image == 'fuse_stars_06.png'
+        assert win.getControl(fuse.HERO_FACTS).label.endswith('2020  •  90 min')
+        assert 'Ends at' in win.getControl(fuse.HERO_SCORES).label
+
+
+def test_open_showcase_picks_the_fuse_file_when_the_look_is_on(monkeypatch):
+    from tests.test_infowindow import _RELOAD_MODULE_NAMES as info_reload
+
+    with install_kodi_stubs(reload=info_reload + ('lib.ui.fuse',), settings={'ui_fuse': 'true'}) as ctx:
+        built = []
+        monkeypatch.setattr(ctx.infowindow.ShowcaseWindow, 'start',
+                            lambda self, metas, **kw: built.append(self._skin_xml))
+        ctx.infowindow.open_showcase([{'id': 'tt1', 'name': 'One'}])
+        assert built == ['FuseShowcaseWindow.xml']
+
+
+def test_every_fuse_card_has_a_mirror_image():
+    """Each poster and wide card is drawn twice: the art, and the same
+    art flipped under it with the fade over it."""
+    for name in ('FuseHomeWindow.xml', 'FuseHubWindow.xml', 'FuseShowcaseWindow.xml'):
+        with open(os.path.join(_SKIN, name), encoding='utf-8') as handle:
+            text = handle.read()
+        assert 'flipy="true"' in text, name
+        assert text.count('fuse_reflect_fade.png') >= text.count('flipy="true"') // 2, name
+
+
+# --- the episode page in the Fuse file ------------------------------------------
+
+def _fuse_detail(monkeypatch, meta, progress=None):
+    from tests.test_detailwindow import _RELOAD_MODULE_NAMES as detail_reload
+
+    stack = install_kodi_stubs(reload=detail_reload + ('lib.ui.fuse',))
+    ctx = stack.__enter__()
+    win = ctx.detailwindow.DetailWindow('FuseDetailWindow.xml', '/addon/path', 'Default', '1080i')
+    win._skin_xml = 'FuseDetailWindow.xml'
+    monkeypatch.setattr(ctx.detailwindow.DetailWindow, '_episode_progress',
+                        staticmethod(lambda stype, sid, vid: (progress or {}).get(vid)))
+    win.start(meta, 'series')
+    return stack, ctx, win
+
+
+_SHOW = {
+    'id': 'tt2788316', 'name': 'Shogun', 'logo': 'https://img/logo.png',
+    'videos': [
+        {'id': 'e1', 'season': 1, 'episode': 1, 'title': 'Anjin', 'released': '2024-02-27T00:00:00.000Z',
+         'overview': 'Destinies converge.', 'runtime': '71 min'},
+        {'id': 'e2', 'season': 1, 'episode': 2, 'title': 'Servants of Two Masters',
+         'released': '2024-02-27T00:00:00.000Z', 'runtime': 60},
+    ],
+}
+
+
+def test_fuse_episode_rows_read_like_the_reference(monkeypatch):
+    stack, ctx, win = _fuse_detail(monkeypatch, _SHOW, progress={
+        'e1': {'position_ms': 95, 'duration_ms': 100}, 'e2': {'position_ms': 30, 'duration_ms': 100},
+    })
+    try:
+        win.onInit()
+        first, second = win.getControl(ctx.detailwindow.LIST).items
+        assert first.getProperty('ep_title') == '1×01. Anjin'
+        assert first.getProperty('runtime') == '1h 11m'
+        assert second.getProperty('runtime') == '1h 0m'
+        assert first.getProperty('aired') == '27/02/2024'
+        assert first.getProperty('plot') == 'Destinies converge.'
+        # Watched past 90%: a tick. Part-way: no tick (the bar shows).
+        assert first.getProperty('watched') == '1' and second.getProperty('watched') == ''
+    finally:
+        stack.__exit__(None, None, None)
+
+
+def test_fuse_episode_page_shows_the_logo_once_kodi_has_it(monkeypatch):
+    stack, ctx, win = _fuse_detail(monkeypatch, _SHOW)
+    try:
+        ctx.env.cached_textures = None  # everything is cached
+        win.onInit()
+        assert win.getProperty('HeroLogo') == 'https://img/logo.png'
+    finally:
+        stack.__exit__(None, None, None)
+
+
+def test_fuse_episode_page_trailer_pill(monkeypatch):
+    stack, ctx, win = _fuse_detail(monkeypatch, _SHOW)
+    try:
+        played = []
+        monkeypatch.setattr(win, '_play_trailer', lambda: played.append(True))
+        win.onClick(ctx.detailwindow.TRAILER)
+        assert played == [True]
+    finally:
+        stack.__exit__(None, None, None)
+
+
+@pytest.mark.parametrize('value, text', [('71 min', '1h 11m'), (54, '54m'), ('', ''), (None, ''), ('?', '')])
+def test_short_runtime(value, text):
+    with install_kodi_stubs(reload=('lib.ui.compat', 'lib.ui.detailwindow')):
+        from lib.ui.detailwindow import _short_runtime
+        assert _short_runtime(value) == text

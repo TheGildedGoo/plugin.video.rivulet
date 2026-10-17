@@ -919,7 +919,7 @@ class StreamsWindow(BaseWindow):
     @gated_input
     def onClick(self, control_id):
         if control_id == OPTIONS:
-            self._offer_library()
+            self._options()
             return
         if control_id != LIST:
             return
@@ -943,6 +943,23 @@ class StreamsWindow(BaseWindow):
             self._play_focused()
         finally:
             self._pick_in_progress = False
+
+    def _options(self):
+        """Options pill: the trailer, or the library choice."""
+        from lib.ui import dialogs
+        from lib.ui.compat import L
+
+        meta = self.meta if isinstance(self.meta, dict) else {}
+        rows = [L(30499)]
+        if meta.get('id'):
+            rows.append(L(30500))
+        picked = dialogs.choose(meta.get('name') or self.heading or '', rows)
+        if picked == 0:
+            from lib.ui.trailer import play_trailer
+
+            play_trailer(meta, meta.get('type') or self.stype or '', meta.get('id') or '')
+        elif picked == 1:
+            self._offer_library()
 
     def _offer_library(self):
         """Options pill: the poster menu's Add to / Remove from Library for

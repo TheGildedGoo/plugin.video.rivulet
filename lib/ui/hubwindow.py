@@ -496,6 +496,7 @@ def _apply_posters(row_item, posters, col, layout='', start=None):
         row_item.setProperty('hero_logo', poster.getProperty('hero_logo'))
         row_item.setProperty('fanart', poster.getProperty('fanart'))
         row_item.setProperty('hero_fill', poster.getProperty('hero_fill'))
+        row_item.setProperty('hero_runtime', poster.getProperty('hero_runtime'))
         row_item.setProperty('sid', poster.getProperty('sid'))
         row_item.setProperty('stype', poster.getProperty('stype'))
         row_item.setProperty('thumbnail', poster.getProperty('thumbnail'))
@@ -947,12 +948,12 @@ def _button(window, action):
 
 def _offer_library(window):
     from lib.ui.homewindow import refresh_library_row
-    from lib.ui.libraryaction import meta_from_item, offer
+    from lib.ui.libraryaction import meta_from_item, poster_menu
 
     meta = meta_from_item(_current_poster(window))
     if meta is None:
         return
-    if offer(meta):
+    if poster_menu(meta):
         refresh_library_row(window)
 
 

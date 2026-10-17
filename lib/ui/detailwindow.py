@@ -56,6 +56,8 @@ LIST = 30002
 SEASON_BAR = 30007
 #: The Options pill (#15): the context menu for remotes with no menu key.
 OPTIONS = 30009
+#: The Fuse page's Trailer pill (FuseDetailWindow.xml only).
+TRAILER = 30012
 
 #: Right-aligned "N EPISODES" readout for the season the episode list
 #: (LIST) is currently showing - a plain window label DetailWindow sets
@@ -90,6 +92,8 @@ _NOW_STRING_ID = 30234
 #: DetailWindow.xml's label reads that property verbatim (one $INFO
 #: substitution, no literal English appended in the skin).
 _WATCHED_STRING_ID = 30212
+#: At or past this, the Fuse row shows a tick instead of a progress bar.
+_WATCHED_TICK_PERCENT = 90
 
 #: ACTION_MOVE_LEFT / ACTION_MOVE_RIGHT - navigating the season bar
 #: (id SEASON_BAR) with either fires onAction() while it still has focus;
@@ -217,7 +221,39 @@ def _episode_properties(video, fallback=''):
         'line2': escape_label(line1 or aired or ''),
         'code': _episode_code(video),
         'title': _episode_title(video),
+        # The Fuse rows (FuseDetailWindow.xml): "1x01. Title", the air
+        # date (ISO here; _build_episode_items formats it), the whole
+        # plot, and a runtime when the meta has one (TMDB-backed metas do).
+        'ep_title': _fuse_episode_title(video),
+        'aired': aired,
+        'plot': escape_label(plot),
+        'runtime': _short_runtime(video.get('runtime')),
     }
+
+
+def _fuse_episode_title(video):
+    """'1\u00d701. Title': season x episode, the way the Fuse list reads."""
+    title = _episode_title(video)
+    try:
+        season = int(video.get('season'))
+        episode = int(video.get('episode'))
+    except (TypeError, ValueError):
+        return title
+    return '%d\u00d7%02d. %s' % (season, episode, title)
+
+
+def _short_runtime(value):
+    """'1h 11m' / '54m' from a runtime ('71 min', 71, '71'), or ''."""
+    from lib.ui.playbackmeta import parse_duration_seconds
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        value = '%d' % value
+    seconds = parse_duration_seconds(value)
+    if not seconds:
+        return ''
+    minutes = int(seconds // 60)
+    hours, minutes = divmod(minutes, 60)
+    return '%dh %dm' % (hours, minutes) if hours else '%dm' % minutes
 
 
 def _episode_heading(show_name, video):
@@ -453,6 +489,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         populate and every season switch both reuse, factored out so
         either can build from any video subset."""
         from lib.ui.compat import L
+        from lib.ui.fuse import short_date as fuse_short_date
 
         sid = self.meta.get('id')
         raw_poster = self.meta.get('poster') if isinstance(self.meta, dict) else ''
@@ -472,6 +509,9 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             ):
                 percent = 100
             properties['watched_percent'] = L(_WATCHED_STRING_ID) % percent if percent is not None else ''
+            # The Fuse row's tick, and its date in Kodi's own format.
+            properties['watched'] = '1' if percent is not None and percent >= _WATCHED_TICK_PERCENT else ''
+            properties['aired'] = fuse_short_date(properties.get('aired'))
             # One setProperties() call instead of one setProperty() call
             # per key - each is a Python->C++ boundary crossing.
             item.setProperties(properties)
@@ -587,6 +627,10 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self.getControl(HEADING).setLabel(
             '[B]%s[/B]' % escape_label((self.meta.get('name') or self.meta.get('id') or '').upper()),
         )
+        from lib.ui import fuse
+
+        if fuse.is_fuse_window(self):
+            fuse.show_logo(self, self.meta.get('logo') if isinstance(self.meta, dict) else '')
         self.getControl(METADATA_LINE).setLabel(_metadata_line(self.meta, _season_count(self.season_groups)))
         self.getControl(GENRES_LINE).setLabel(_genres_line(self.meta))
 
@@ -702,6 +746,8 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             L(30196),
             L(30294) if in_library else L(30293),
             L(30296) if watched else L(30295),
+            # Last, so the rows a remote already knows keep their place.
+            L(30499),
         ]
         picked = dialogs.choose(self.meta.get('name') or self.meta.get('id') or '', rows)
         if picked == 0:
@@ -710,6 +756,16 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             self._toggle_library(auth, item, add=not in_library, lookup_ok=lookup_ok)
         elif picked == 2:
             self._toggle_watched(auth, item, watched=not watched, lookup_ok=lookup_ok)
+        elif picked == 3:
+            self._play_trailer()
+
+    def _play_trailer(self):
+        """The show's trailer (lib/ui/trailer.py). The episode list comes
+        back where it was when the trailer stops."""
+        from lib.ui.trailer import play_trailer
+
+        meta = self.meta if isinstance(self.meta, dict) else {}
+        play_trailer(meta, meta.get('type') or self.stype, meta.get('id') or '')
 
     def _current_library_state(self):
         """`(auth, item, lookup_ok)` for `self.meta` -- `auth` is
@@ -900,6 +956,9 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
     def onClick(self, control_id):
         if control_id == OPTIONS:
             self._open_context_menu()
+            return
+        if control_id == TRAILER:
+            self._play_trailer()
             return
         if control_id == SEASON_BAR:
             self._sync_season_from_bar()

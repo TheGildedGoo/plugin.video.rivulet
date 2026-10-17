@@ -1315,12 +1315,19 @@ def test_the_options_pill_offers_library_for_the_title(load_streamswindow, monke
     import lib.ui.libraryaction as libraryaction
 
     monkeypatch.setattr(libraryaction, 'offer', lambda meta: offered.append(meta) or 'added')
+    import lib.ui.dialogs as dialogs
+    menus = []
+    monkeypatch.setattr(dialogs, 'choose', lambda heading, rows: menus.append(rows) or 1)
 
     win.onClick(ctx.streamswindow.OPTIONS)
 
+    # Trailer first, then the library choice.
+    assert menus[-1] == ['STR30499', 'STR30500']
     assert offered == [{'id': 'tt1', 'type': 'movie', 'name': 'Dune', 'poster': 'p.jpg'}]
     win.meta = None
     win.onClick(ctx.streamswindow.OPTIONS)
+    # No title id: only the trailer row, and nothing offered.
+    assert menus[-1] == ['STR30499']
     assert len(offered) == 1
     skin = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'resources', 'skins', 'Default', '1080i')
     root = ET.parse(os.path.join(skin, 'StreamsWindow.xml')).getroot()

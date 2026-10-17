@@ -1,6 +1,6 @@
 # UI map
 
-This fork is **RevRivulet** (`plugin.video.revrivulet`), version **0.30.1.rev16**. It installs beside official Rivulet. Upstream of the Home redesign was **0.30.1**.
+This fork is **RevRivulet** (`plugin.video.revrivulet`), version **0.30.1.rev17**. It installs beside official Rivulet. Upstream of the Home redesign was **0.30.1**.
 
 The addon draws its own 1920×1080 skin (`resources/skins/Default/1080i/`). Kodi calls `default.py`. A bare launch (`action` missing or `home`) ends the directory handle and opens `HomeWindow`. Any other action goes to `lib/ui/router.py`. If `HomeWindow` itself raises, `default.py` falls back to `lib/ui/views.py:home()`, a recovery directory with a notice and Settings only.
 
@@ -42,7 +42,7 @@ Down from the top bar enters the first visible row. Up from that group returns t
 
 ## Fuse look (beta)
 
-Settings > Home > New look switches to a second skin set: `Fuse` plus the classic file name (`FuseHomeWindow.xml`). `lib/ui/fuse.py` picks the file in `open_window` and paints the controls only Fuse files have: `30024` facts (year • runtime • genres), `30025` scores and "Ends at", `30027` the star strip. A Fuse file declares every id its classic file does (`tests/test_fuse.py`), so the window class is unchanged. Screens without a Fuse file keep the classic one (`FUSE_SKINS`). Changing the setting closes Home and `open_home` reopens it in the other look. Textures come from `tools/make_textures.py` (`write_fuse_assets`). Only Home is drawn so far.
+Settings > Home > New look switches to a second skin set: `Fuse` plus the classic file name (`FuseHomeWindow.xml`). `lib/ui/fuse.py` picks the file in `open_window` and paints the controls only Fuse files have: `30024` facts (year • runtime • genres), `30025` scores and "Ends at", `30027` the star strip. A Fuse file declares every id its classic file does (`tests/test_fuse.py`), so the window class is unchanged. Screens without a Fuse file keep the classic one (`FUSE_SKINS`). Changing the setting closes Home and `open_home` reopens it in the other look. Drawn so far: Home, the hubs, the coverflow and the episode page (`FUSE_SKINS`). The XML is written by `tools/build_fuse_skins.py`; textures come from `tools/make_textures.py` (`write_fuse_assets`). Posters and cards carry a mirror image (flipped art under `fuse_reflect_fade.png`). The episode page adds a Trailer pill (`30012`). Trailers: `lib/ui/trailer.py` (streaming server `/yt/<id>`, else Kodi's YouTube add-on), offered from the episode page, the sources screen's Options and the poster menu (`libraryaction.poster_menu`).
 
 ## Catalog hub
 
