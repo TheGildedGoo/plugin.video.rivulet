@@ -1325,3 +1325,39 @@ msgstr "Zwiastun"
 msgctxt "#30500"
 msgid "Library"
 msgstr "Biblioteka"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Wyczyszczono dane z pamięci podręcznej. Ekran startowy odświeży się po wyjściu z ustawień."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Odśwież dane w pamięci podręcznej"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Zapomina zapisane strony katalogów, szczegóły, oceny i sprawdzenia logo, aby kolejne ekrany ponownie odpytały dodatki. Konto, dodatki i postęp pozostają."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Zwiastuny odtwarza dodatek YouTube dla Kodi. Zainstalować go teraz?"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Z telefonu"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Odkrywaj"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Wyniki"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Witaj"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Szukaj filmów, seriali i nie tylko. Wybieraj litery albo użyj telefonu."

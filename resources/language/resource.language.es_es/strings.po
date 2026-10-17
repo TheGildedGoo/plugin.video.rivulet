@@ -1325,3 +1325,39 @@ msgstr "Tráiler"
 msgctxt "#30500"
 msgid "Library"
 msgstr "Biblioteca"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Datos en caché borrados. Inicio se recarga al salir de Ajustes."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Actualizar datos en caché"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Olvida las páginas de catálogo, los detalles, las valoraciones y las comprobaciones de logotipos guardados, para que las siguientes pantallas vuelvan a preguntar a tus complementos. Tu cuenta, complementos y progreso se mantienen."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Los tráileres se reproducen con el complemento de YouTube de Kodi. ¿Instalarlo ahora?"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Usar móvil"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Descubrir"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Resultados"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Bienvenido"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Busca películas, series y más. Elige letras o usa tu móvil."

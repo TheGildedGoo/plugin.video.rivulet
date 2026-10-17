@@ -1325,3 +1325,39 @@ msgstr "Trailer"
 msgctxt "#30500"
 msgid "Library"
 msgstr "Bibliotheek"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Gecachte gegevens gewist. Start laadt opnieuw zodra je Instellingen verlaat."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Gecachte gegevens vernieuwen"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Vergeet opgeslagen cataloguspagina's, titelgegevens, beoordelingen en logocontroles, zodat de volgende schermen je add-ons opnieuw vragen. Je account, add-ons en voortgang blijven."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Trailers spelen via de YouTube-add-on van Kodi. Nu installeren?"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Via telefoon"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Ontdekken"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Resultaten"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Welkom"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Zoek films, series en meer. Kies letters of gebruik je telefoon."

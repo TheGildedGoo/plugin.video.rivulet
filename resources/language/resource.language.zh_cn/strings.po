@@ -1325,3 +1325,39 @@ msgstr "预告片"
 msgctxt "#30500"
 msgid "Library"
 msgstr "媒体库"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "已清除缓存数据。离开设置后主页将重新加载。"
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "刷新缓存数据"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "清除已保存的目录页面、影片详情、评分和徽标检查结果，让后续界面重新向插件请求。账户、插件和观看进度保留。"
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "预告片通过 Kodi 的 YouTube 插件播放。现在安装吗？"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "用手机"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "发现"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "结果"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "欢迎"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "搜索电影、剧集等。选择字母，或使用手机。"

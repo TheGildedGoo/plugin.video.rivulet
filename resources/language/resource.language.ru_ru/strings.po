@@ -1325,3 +1325,39 @@ msgstr "Трейлер"
 msgctxt "#30500"
 msgid "Library"
 msgstr "Библиотека"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Кэш очищен. Главный экран обновится, когда вы выйдете из настроек."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Обновить кэш"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Удаляет сохранённые страницы каталогов, сведения, оценки и проверки логотипов, чтобы следующие экраны заново запросили дополнения. Аккаунт, дополнения и прогресс сохраняются."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Трейлеры воспроизводятся через дополнение YouTube для Kodi. Установить его сейчас?"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "С телефона"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Обзор"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Результаты"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Добро пожаловать"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Ищите фильмы, сериалы и другое. Выбирайте буквы или используйте телефон."

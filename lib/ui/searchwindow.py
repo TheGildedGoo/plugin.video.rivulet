@@ -18,6 +18,7 @@ search history" row appears once there's history to clear. Picking a
 result title opens `lib.ui.detailwindow` for it. Built/run via
 `open_search()`.
 """
+import contextlib
 import queue
 import threading
 import time
@@ -602,6 +603,19 @@ def _collect_answers(dialog, results, jobs, report):
     return answered
 
 
+class _QuietDialog:
+    """The busy dialog's two calls, for a search with no spinner."""
+
+    def __init__(self, cancel=None):
+        self._cancel = cancel
+
+    def iscanceled(self):
+        return bool(self._cancel is not None and self._cancel.is_set())
+
+    def update(self, *args, **kwargs):
+        pass
+
+
 class _FeedIndexLoader:
     """`_feed_index()` computed on a daemon thread that `run_query()`
     starts BEFORE its fan-out, so a cold ranking-feed fetch (~3.7MB)
@@ -654,7 +668,7 @@ class _FeedIndexLoader:
         return self.index if self._done.is_set() else None
 
 
-def run_query(store, client, query, report=None):
+def run_query(store, client, query, report=None, quiet=False, cancel=None):
     """Fan `query` across every search-capable catalog
     (`iter_catalogs(..., extra_required='search')`) and return the
     collected metas, each with `type` defaulted from its catalog.
@@ -728,7 +742,11 @@ def run_query(store, client, query, report=None):
     feed_index = None
     answered = {}
     if jobs:
-        with busy_dialog(L(30033), query) as dialog:
+        # `quiet`: the Fuse search screen searches as letters are picked,
+        # on a worker, with no spinner; `cancel` (an Event) drops a search
+        # a newer letter has replaced.
+        holder = contextlib.nullcontext(_QuietDialog(cancel)) if quiet else busy_dialog(L(30033), query)
+        with holder as dialog:
             loader = _FeedIndexLoader(store, client)
             results = _start_search_workers(client, query, jobs)
             answered = _collect_answers(dialog, results, jobs, report)
@@ -807,6 +825,11 @@ def open_search():
     if is_rev2():
         from lib.ui.rev2.search import open_search as open_rev2_search
         return open_rev2_search()
+    from lib.ui import fuse
+    if fuse.enabled():
+        # The Fuse look's one-page search: bar, letters, results row.
+        from lib.ui.fusesearch import open_search as open_fuse_search
+        return open_fuse_search()
     from lib.ui.compat import L, log, notify
 
     log('searchwindow: opening SearchWindow', xbmc.LOGINFO)

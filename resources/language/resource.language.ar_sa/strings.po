@@ -1325,3 +1325,39 @@ msgstr "الإعلان"
 msgctxt "#30500"
 msgid "Library"
 msgstr "المكتبة"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "تم مسح البيانات المخزنة. يُعاد تحميل الصفحة الرئيسية عند مغادرة الإعدادات."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "تحديث البيانات المخزنة"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "ينسى صفحات الكتالوج والتفاصيل والتقييمات وفحوص الشعارات المحفوظة، لتطلبها الشاشات التالية من الإضافات من جديد. يبقى حسابك وإضافاتك وتقدمك."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "تُشغَّل الإعلانات عبر إضافة YouTube في Kodi. هل تريد تثبيتها الآن؟"
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "استخدم الهاتف"
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "اكتشف"
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "النتائج"
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "مرحبًا"
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "ابحث عن الأفلام والمسلسلات وغيرها. اختر الحروف أو استخدم هاتفك."

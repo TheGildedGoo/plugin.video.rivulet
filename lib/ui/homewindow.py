@@ -855,6 +855,8 @@ def _refresh_saved_rows(window, store=None):
 _ROW_SETTINGS = (
     'home_show_mystuff', 'home_show_movies', 'home_show_series',
     'home_show_anime', 'home_show_other', 'home_hide_adult', 'content_exclude',
+    # Settings > Refresh cached data bumps this (lib/ui/cacherefresh.py).
+    'cache_generation',
 )
 
 
@@ -977,6 +979,23 @@ def _restyle_if_changed(window):
     return True
 
 
+def _drop_memory_if_refreshed(window):
+    """Settings > Refresh cached data ran in another interpreter: drop
+    this one's copies too before the rows are built again."""
+    from lib.ui.compat import ADDON
+
+    try:
+        generation = ADDON.getSetting('cache_generation') or ''
+    except Exception:
+        return
+    seen = getattr(window, '_cache_generation', None)
+    window._cache_generation = generation
+    if seen is not None and generation != seen:
+        from lib.ui.cacherefresh import clear_memory
+
+        clear_memory()
+
+
 def _after_child(window, played=False):
     """Bring Home up to date once a screen on top of it has closed.
 
@@ -998,6 +1017,7 @@ def _after_child(window, played=False):
     except Exception:
         return
     if signature != getattr(window, '_signature', None) or getattr(window, '_catalog_pages', None) is None:
+        _drop_memory_if_refreshed(window)
         place = _remember_place(window)
         window._row_key = None
         window._catalog_pages = None
@@ -1246,6 +1266,10 @@ def _fetch_library_meta(stype, sid):
     return _fetch_meta(stype, sid)
 
 
+#: Seconds before a failed library/Continue meta fetch is tried again.
+_META_RETRY_SECONDS = 20.0
+
+
 def _library_meta_lock(window):
     lock = getattr(window, '_library_meta_lock', None)
     if lock is None:
@@ -1267,6 +1291,16 @@ def _schedule_library_meta(window, item):
     state = item.getProperty('meta_state')
     if state in ('loading', 'done'):
         return
+    if state.startswith('failed:'):
+        # A fetch that failed (timeout, addon down) is asked again after
+        # a pause, not left blank for the session.
+        import time
+        try:
+            failed_at = float(state.split(':', 1)[1])
+        except ValueError:
+            failed_at = 0.0
+        if time.time() - failed_at < _META_RETRY_SECONDS:
+            return
     stype = item.getProperty('stype')
     sid = item.getProperty('sid')
     if not stype or not sid:
@@ -1312,7 +1346,7 @@ _HERO_PROPS = (
 )
 
 
-def _write_meta_onto(item, meta):
+def _write_meta_onto(item, meta, keep_label=False):
     """Copy a fetched meta onto the poster that is already on the row.
 
     Rebuilding the list would send the cursor home. The card keeps its
@@ -1340,7 +1374,8 @@ def _write_meta_onto(item, meta):
     for key in _HERO_PROPS:
         item.setProperty(key, fresh.getProperty(key))
     label = fresh.getLabel()
-    if label:
+    # A Continue card keeps its own label (the show it was started as).
+    if label and not keep_label:
         item.setLabel(label)
     item.setProperty('meta_state', 'done')
 
@@ -1352,24 +1387,46 @@ def _apply_library_meta(window):
         window._library_meta_ready = []
     if not ready:
         return
-    try:
-        control = window.getControl(LIBRARY_SHELF)
-        items = [control.getListItem(index) for index in range(control.size())]
-    except Exception:
-        return
+    import time
+
+    items = []
+    # Library records and Continue entries both arrive without a
+    # description; both rows get the same hero once the meta lands.
+    for shelf in (LIBRARY_SHELF, CONTINUE_SHELF):
+        try:
+            control = window.getControl(shelf)
+            items.extend((shelf, control.getListItem(index)) for index in range(control.size()))
+        except Exception:
+            continue
     for stype, sid, meta in ready:
-        for item in items:
+        for shelf, item in items:
             if item.getProperty('stype') != stype or item.getProperty('sid') != sid:
+                continue
+            if meta is None:
+                item.setProperty('meta_state', 'failed:%d' % int(time.time()))
                 continue
             useful = isinstance(meta, dict) and (
                 meta.get('name') or meta.get('background')
                 or meta.get('description') or meta.get('poster')
             )
             if useful:
-                _write_meta_onto(item, meta)
+                _write_meta_onto(item, meta, keep_label=(shelf == CONTINUE_SHELF))
+                if shelf == CONTINUE_SHELF:
+                    _fill_continue_card(item, meta)
             else:
                 item.setProperty('needs_meta', '')
                 item.setProperty('meta_state', 'done')
+
+
+def _fill_continue_card(item, meta):
+    """A Continue card with no wide picture takes the fetched backdrop."""
+    if item.getProperty('land'):
+        return
+    background = meta.get('background') if isinstance(meta, dict) else ''
+    if isinstance(background, str) and background:
+        from lib.ui.urlutil import sized_image
+
+        item.setProperty('land', sized_image(background, 'backdrop'))
 
 
 def _upcoming_facts(window, count=2):
@@ -1444,18 +1501,30 @@ def _logo_known_good(url):
     """
     import time
 
+    from lib.ui import logocheck
+
     if not url:
         return False
+    # Answered over HTTP (lib/ui/logocheck.py): an image, or not there.
+    answered = logocheck.state(url)
+    if answered is not None:
+        return answered
     now = time.monotonic()
     state = _LOGO_STATE.get(url)
     if state is not None and (state[0] or now - state[1] < _LOGO_RECHECK_SECONDS):
         return state[0]
     ok = _texture_cached(url)
     _LOGO_STATE[url] = (ok, now)
+    if ok:
+        logocheck.remember(url, True)
+    else:
+        # Kodi has not drawn it yet: ask its host. The worker repaints
+        # the hero when the logo turns out to be real.
+        logocheck.ask([url])
     return ok
 
 
-def _upcoming_logos(window, count=1):
+def _upcoming_logos(window, count=3):
     """Clearlogos of the next posters on the focused row."""
     logos = []
     try:
@@ -1549,7 +1618,12 @@ def paint_hero(window, item=None):
     wanted_logo = item.getProperty('hero_logo') or ''
     # The text title stays up until Kodi has loaded the logo once (#10).
     logo = wanted_logo if _logo_known_good(wanted_logo) else ''
-    _warm_logos(window, ([wanted_logo] if wanted_logo and not logo else []) + _upcoming_logos(window))
+    upcoming_logos = _upcoming_logos(window)
+    _warm_logos(window, ([wanted_logo] if wanted_logo and not logo else []) + upcoming_logos)
+    # The next titles' logos are checked ahead, so they are ready on arrival.
+    from lib.ui import logocheck
+
+    logocheck.ask(upcoming_logos)
     fill = item.getProperty('hero_fill') == '1' and bool(fanart)
     runtime = item.getProperty('hero_runtime') or ''
     # Every action repaints (worker noops, mouse moves, a key that did not
@@ -1635,6 +1709,8 @@ class HomeWindow(BaseWindow):
             self._signature = _home_signature(store)
         except Exception:
             self._signature = None
+        # The refresh generation these rows were built under.
+        _drop_memory_if_refreshed(self)
         # After the shelf spinner, not inside it. The 15-minute clock
         # lives in addonsync, so a nested modal closing does not pull
         # on every Back.
@@ -1747,6 +1823,11 @@ def _continue_item(entry):
         'card_show': escape_label(entry.get('name') or ''),
         'card_code': code,
     }
+    # Progress records carry a name and a poster, not a description:
+    # fetch the meta on focus, the way Library does, so the hero reads
+    # the same on every row.
+    if not entry.get('description') and entry.get('id') and entry.get('type'):
+        props['needs_meta'] = '1'
     band = entry.get('band')
     if band:
         props['band'] = str(band)

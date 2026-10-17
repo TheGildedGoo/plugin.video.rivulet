@@ -57,6 +57,21 @@ def _block_real_network(monkeypatch):
     monkeypatch.setattr(socket, "create_connection", _guard)
 
 
+# --- logo checks stay off the network --------------------------------------
+@pytest.fixture(autouse=True)
+def _no_logo_worker(monkeypatch):
+    """lib/ui/logocheck.py asks logo hosts on a thread. Under test it only
+    records what it was asked, and its answers start empty every test."""
+    import lib.ui.logocheck as logocheck
+
+    asked = []
+    logocheck.forget_all()
+    monkeypatch.setattr(logocheck, 'ask', lambda urls: asked.extend(u for u in (urls or ()) if u))
+    monkeypatch.setattr(logocheck, 'asked', asked, raising=False)
+    yield
+    logocheck.forget_all()
+
+
 # --- fake requests plumbing --------------------------------------------------
 class FakeResponse:
     """Stand-in for requests.Response.

@@ -21,6 +21,11 @@ import re
 #: A YouTube video id. Anything else in a trailer field is ignored.
 _YT_ID = re.compile(r'^[A-Za-z0-9_-]{6,20}$')
 _YOUTUBE_ADDON = 'plugin.video.youtube'
+#: Seconds to wait for the streaming server's first bytes of a trailer.
+PROBE_SECONDS = 6.0
+#: A trailer that has not started by then is given up on, so the screens
+#: come back quickly instead of after a feature's 45 seconds.
+START_TIMEOUT_SECONDS = 15.0
 
 
 def trailer_id(meta):
@@ -48,16 +53,42 @@ def trailer_id(meta):
 
 
 def _server_url(yt):
-    """``<server>/yt/<id>`` when the streaming server answers, else ``''``."""
+    """``<server>/yt/<id>`` when the streaming server answers it with
+    video, else ``''``. Probed first: not every server build has the
+    ``/yt`` route, and handing Kodi a URL that fails closed the screens
+    and showed "One or more items failed to play"."""
     from lib.ui.player import _server_client
 
     try:
         server = _server_client()
         if not server.is_available():
             return ''
-        return server.resolve_stream({'ytId': yt}) or ''
+        url = server.resolve_stream({'ytId': yt}) or ''
     except Exception:
         return ''
+    return url if url and _plays(url) else ''
+
+
+def _plays(url):
+    """True when `url` starts answering with something that is not a page."""
+    try:
+        import requests
+    except Exception:
+        return False
+    try:
+        response = requests.get(url, stream=True, timeout=PROBE_SECONDS, headers={'Range': 'bytes=0-1023'})
+    except Exception:
+        return False
+    try:
+        if response.status_code not in (200, 206):
+            return False
+        kind = str(response.headers.get('Content-Type') or '').lower()
+        return not kind.startswith(('text/', 'application/json'))
+    finally:
+        try:
+            response.close()
+        except Exception:
+            pass
 
 
 def _youtube_addon_url(yt):
@@ -69,9 +100,10 @@ def _youtube_addon_url(yt):
 
 
 def trailer_url(yt):
-    """Where to play `yt` from: the streaming server first, then Kodi's
-    YouTube add-on, else ``''``."""
-    return _server_url(yt) or _youtube_addon_url(yt)
+    """Where to play `yt` from: Kodi's YouTube add-on when it is
+    installed (it plays YouTube reliably), else the streaming server's
+    ``/yt`` route when that answers with video, else ``''``."""
+    return _youtube_addon_url(yt) or _server_url(yt)
 
 
 def _full_meta(meta, stype, sid):
@@ -104,7 +136,7 @@ def play_trailer(meta, stype='', sid=''):
         return False
     url = trailer_url(yt)
     if not url:
-        notify(L(30498))
+        _offer_youtube_addon(L, notify)
         return False
     name = (full or {}).get('name') or ''
     item = xbmcgui.ListItem(label=('%s – %s' % (name, L(30499))) if name else L(30499))
@@ -115,7 +147,25 @@ def play_trailer(meta, stype='', sid=''):
         xbmc.Player().play(url, item)
         from lib.ui.streamswindow import _wait_for_playback_end
 
-        _wait_for_playback_end()
+        _wait_for_playback_end(start_timeout=START_TIMEOUT_SECONDS)
     finally:
         end_player_phase()
     return True
+
+
+def _offer_youtube_addon(L, notify):
+    """Nothing can play it: offer Kodi's YouTube add-on, which Kodi then
+    installs from its own repository (it asks once more itself)."""
+    import xbmc
+
+    from lib.ui import dialogs
+
+    if xbmc.getCondVisibility('System.HasAddon(%s)' % _YOUTUBE_ADDON):
+        notify(L(30498))
+        return
+    try:
+        yes = dialogs.confirm(L(30499), L(30504), xbmc.getLocalizedString(107), xbmc.getLocalizedString(106))
+    except Exception:
+        yes = False
+    if yes:
+        xbmc.executebuiltin('InstallAddon(%s)' % _YOUTUBE_ADDON)
