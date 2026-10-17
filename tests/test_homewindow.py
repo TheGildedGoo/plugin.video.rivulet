@@ -2081,3 +2081,98 @@ def test_down_on_the_last_row_stays_there_and_hubs_count_rows_in_the_skin():
     tools = hub.find(".//control[@id='30011']")
     assert int(title.findtext('top')) == int(tools.findtext('top'))
     assert (title.findtext('font') or '').strip() == 'font13'
+
+
+def _hero_with_logo(ctx, logo, next_logo=''):
+    import xbmcgui
+    win = ctx.homewindow.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    items = []
+    for name, sid, art in (('Dune', 'tt1', logo), ('Arrival', 'tt2', next_logo)):
+        item = xbmcgui.ListItem(name)
+        item.setProperties({
+            'hero_title': name, 'hero_plot': 'Plot.', 'hero_logo': art,
+            'fanart': 'https://img/%s.jpg' % sid, 'sid': sid, 'stype': 'movie',
+        })
+        items.append(item)
+    win.getControl(ctx.homewindow.LIBRARY_SHELF).addItems(items)
+    win.setFocusId(ctx.homewindow.LIBRARY_SHELF)
+    return win
+
+
+def test_a_logo_kodi_has_not_loaded_keeps_the_text_title(load_homewindow, monkeypatch):
+    """#10: the skin hides the title whenever a logo is set, so a logo URL
+    that 404s left the title area blank. A logo replaces the title only
+    once Kodi's texture cache holds it; until then it is warmed."""
+    ctx = load_homewindow()
+    import xbmcgui
+    ctx.env.cached_textures = set()
+    win = _hero_with_logo(ctx, 'https://img/logo1.png', 'https://img/logo2.png')
+
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getProperty('HeroLogo') == ''
+    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Dune'
+    assert win.getControl(ctx.homewindow.HERO_LOGO).image == ''
+    # The focused logo and the next one load in the two 1x1 slots.
+    assert win.getControl(30098).image == 'https://img/logo1.png'
+    assert win.getControl(30099).image == 'https://img/logo2.png'
+
+    # Once Kodi has it (and the short re-check window has passed), it shows.
+    ctx.env.cached_textures = {'https://img/logo1.png'}
+    ctx.homewindow._LOGO_STATE.clear()
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getProperty('HeroLogo') == 'https://img/logo1.png'
+    assert win.getControl(ctx.homewindow.HERO_LOGO).image == 'https://img/logo1.png'
+
+
+def test_a_cached_logo_shows_at_once_and_is_not_asked_for_again(load_homewindow):
+    ctx = load_homewindow()
+    import xbmcgui
+    win = _hero_with_logo(ctx, 'https://img/logo1.png')
+
+    win.onAction(xbmcgui.Action(1))
+    win.onAction(xbmcgui.Action(1))
+
+    assert win.getProperty('HeroLogo') == 'https://img/logo1.png'
+    lookups = [call for call in ctx.env.jsonrpc_calls if 'logo1.png' in call]
+    assert len(lookups) == 1
+
+
+def test_a_card_without_art_shows_its_title_on_the_plate():
+    """#10: a title with no poster drew an empty plate (and, on a hub, a
+    focus ring around nothing). The plate now carries the title, which is
+    also how the More card and the Sign in card read since the captions
+    under the posters went away (#7)."""
+    import os
+    import xml.etree.ElementTree as ET
+
+    skin = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i')
+    home = ET.parse(os.path.join(skin, 'HomeWindow.xml')).getroot()
+    for panel_id in ('30040', '30041', '30042', '30043', '30044', '30045'):
+        panel = home.find(".//control[@id='%s']" % panel_id)
+        for layout in ('itemlayout', 'focusedlayout'):
+            labels = [
+                el for el in panel.find(layout).findall('control')
+                if el.get('type') == 'label' and 'ListItem.Label' in (el.findtext('label') or '')
+                and any('String.IsEmpty(ListItem.Property(thumbnail))' in (v.text or '') for v in el.findall('visible'))
+            ]
+            assert len(labels) == 1, (panel_id, layout)
+    hub = ET.parse(os.path.join(skin, 'HubWindow.xml')).getroot()
+    rows = hub.find(".//control[@id='31000']")
+    for layout in ('itemlayout', 'focusedlayout'):
+        controls = rows.find(layout).findall('control')
+        for slot in range(8):
+            plates = [
+                el for el in controls
+                if (el.findtext('texture') or '').strip() == 'mask_poster.png'
+                and any('Property(n%d)' % slot in (v.text or '') for v in el.findall('visible'))
+                and not any('String.IsEqual(ListItem.Property(layout),decade)' == (v.text or '') for v in el.findall('visible'))
+            ]
+            assert len(plates) == 1, (layout, slot)
+            titles = [
+                el for el in controls
+                if el.get('type') == 'label' and 'Property(n%d)' % slot in (el.findtext('label') or '')
+                and any('String.IsEmpty(ListItem.Property(p%d))' % slot == (v.text or '') for v in el.findall('visible'))
+            ]
+            assert len(titles) >= 1, (layout, slot)

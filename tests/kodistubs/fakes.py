@@ -211,6 +211,13 @@ class Env:
         self.wait_calls = []          # [timeout, ...] - xbmc.Monitor.waitForAbort() calls
         self.clock = FakeClock()
 
+        # xbmc.executeJSONRPC: requests made, and the texture cache the fake
+        # Textures.GetTextures answers from. None means "every URL is
+        # cached" (a box that has seen these images before); a set limits
+        # it to those URLs.
+        self.jsonrpc_calls = []
+        self.cached_textures = None
+
         # xbmcaddon.Addon.openSettings recorder
         self.opened_settings = False
 

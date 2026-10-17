@@ -1304,6 +1304,98 @@ def _upcoming_facts(window, count=2):
     return facts
 
 
+#: Two 1x1 image slots under the backdrop plate (Home and the hubs) that
+#: load a clearlogo before the hero is allowed to show it.
+LOGO_WARM_SLOTS = (30098, 30099)
+
+#: How long a logo found missing from Kodi's texture cache is trusted to
+#: still be missing before the cache is asked again. A logo that loaded
+#: is known good for the rest of the session.
+_LOGO_RECHECK_SECONDS = 3.0
+
+#: url -> (cached, when it was checked)
+_LOGO_STATE = {}  # type: dict
+
+
+def _texture_cached(url):
+    """True when Kodi's texture cache holds `url`, i.e. it loaded before.
+
+    A clearlogo that 404s never gets a row in Textures13.db; one that
+    loaded once does, in this session or an earlier one. One indexed
+    lookup over JSON-RPC (``Textures.GetTextures``). Any failure answers
+    False, which only means the text title is shown.
+    """
+    import xbmc
+
+    request = {
+        'jsonrpc': '2.0', 'id': 1, 'method': 'Textures.GetTextures',
+        'params': {
+            'properties': ['url'],
+            'filter': {'field': 'url', 'operator': 'is', 'value': url},
+        },
+    }
+    try:
+        answer = json.loads(xbmc.executeJSONRPC(json.dumps(request)) or '{}')
+    except Exception:
+        return False
+    result = answer.get('result') if isinstance(answer, dict) else None
+    textures = result.get('textures') if isinstance(result, dict) else None
+    return bool(textures)
+
+
+def _logo_known_good(url):
+    """Whether the hero may swap the text title for this clearlogo.
+
+    The skin hides the title whenever a logo is set, so a logo URL that
+    404s left the title area blank (#10). Only a logo Kodi has already
+    loaded replaces the text; until then the title shows and the logo is
+    warmed in a slot.
+    """
+    import time
+
+    if not url:
+        return False
+    now = time.monotonic()
+    state = _LOGO_STATE.get(url)
+    if state is not None and (state[0] or now - state[1] < _LOGO_RECHECK_SECONDS):
+        return state[0]
+    ok = _texture_cached(url)
+    _LOGO_STATE[url] = (ok, now)
+    return ok
+
+
+def _upcoming_logos(window, count=1):
+    """Clearlogos of the next posters on the focused row."""
+    logos = []
+    try:
+        control = window.getControl(window.getFocusId())
+        position = control.getSelectedPosition()
+        size = control.size()
+    except Exception:
+        return logos
+    if not isinstance(position, int) or position < 0:
+        return logos
+    for index in range(position + 1, min(size, position + 1 + count)):
+        try:
+            logo = control.getListItem(index).getProperty('hero_logo') or ''
+        except Exception:
+            logo = ''
+        if logo:
+            logos.append(logo)
+    return logos
+
+
+def _warm_logos(window, logos):
+    """Load `logos` in the 1x1 slots so Kodi caches them. A window
+    without the slots (a Rev2 skin) warms nothing."""
+    pending = [logo for logo in logos if logo and not _LOGO_STATE.get(logo, (False, 0))[0]]
+    for slot, logo in zip(LOGO_WARM_SLOTS, pending):
+        try:
+            window.getControl(slot).setImage(logo)
+        except Exception:
+            return
+
+
 def _set_fill_image(window, image):
     """The scale plate. Hubs have no library row, so the control is absent there."""
     try:
@@ -1357,7 +1449,10 @@ def paint_hero(window, item=None):
             meta = overlay_text(facts, meta, _upcoming_facts(window))
     plot = item.getProperty('hero_plot') or item.getProperty('subtitle') or ''
     fanart = item.getProperty('fanart') or ''
-    logo = item.getProperty('hero_logo') or ''
+    wanted_logo = item.getProperty('hero_logo') or ''
+    # The text title stays up until Kodi has loaded the logo once (#10).
+    logo = wanted_logo if _logo_known_good(wanted_logo) else ''
+    _warm_logos(window, ([wanted_logo] if wanted_logo and not logo else []) + _upcoming_logos(window))
     try:
         window.setProperty('HeroLogo', logo)
         window.getControl(HERO_LOGO).setImage(logo)
