@@ -92,6 +92,49 @@ def test_discover_fills_the_row_until_two_letters_are_picked(load):
     assert win.getProperty('SearchHasRow') == '1'
 
 
+def test_the_search_pill_searches_now_and_moves_to_the_results(load, monkeypatch):
+    ctx = load()
+    win = _window(ctx)
+    win.onInit()
+    _Timer.started = []
+    monkeypatch.setattr(ctx.fusesearch.threading, 'Timer', _Timer)
+    win._key('X')  # one letter: too short to search on its own
+    assert _Timer.started == []
+    win.onClick(ctx.fusesearch.GO)
+    assert [(t.args[0], t.delay) for t in _Timer.started] == [('X', 0)]
+    # Said at once, before the answer.
+    assert 'STR30512' in win.getControl(ctx.fusesearch.STATUS).label
+    win._post(('results', 'X', [{'id': 'tt1', 'type': 'movie', 'name': 'X-Men'}]))
+    win._apply_ready()
+    assert win.getFocusId() == ctx.fusesearch.ROW
+    assert win.getControl(ctx.fusesearch.STATUS).label == ''
+
+
+def test_no_results_is_said_under_the_pills(load, monkeypatch):
+    ctx = load()
+    win = _window(ctx)
+    win.onInit()
+    monkeypatch.setattr(ctx.fusesearch.threading, 'Timer', _Timer)
+    win.query = 'Zzzz'
+    win._go()
+    win._post(('results', 'Zzzz', []))
+    win._apply_ready()
+    assert win.getControl(ctx.fusesearch.STATUS).label == 'STR30513 Zzzz'
+    assert win.getFocusId() != ctx.fusesearch.ROW
+
+
+def test_the_search_skin_has_the_pill_and_the_status_line():
+    import os
+    import xml.etree.ElementTree as ET
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tree = ET.parse(os.path.join(root, 'resources', 'skins', 'Default', '1080i', 'FuseSearchWindow.xml'))
+    ids = {el.get('id') for el in tree.iter('control')}
+    assert {'30204', '30205', '30203', '30202'} <= ids
+    letters = [el for el in tree.iter('control') if el.get('id') == '30202'][0]
+    assert letters.find('onup').text == '30204'
+
+
 def test_ok_on_a_result_opens_it_and_saves_the_query(load, monkeypatch):
     ctx = load()
     win = _window(ctx)

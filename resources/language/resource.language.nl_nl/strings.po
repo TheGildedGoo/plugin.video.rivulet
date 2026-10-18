@@ -1361,3 +1361,23 @@ msgstr "Welkom"
 msgctxt "#30509"
 msgid "Search for movies, shows and more. Pick letters, or use your phone."
 msgstr "Zoek films, series en meer. Kies letters of gebruik je telefoon."
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "De trailer startte niet. Speel een willekeurige video af in de YouTube-add-on van Kodi om die te controleren."
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Zoeken"
+
+msgctxt "#30512"
+msgid "Searching for “%s”…"
+msgstr "Zoeken naar ‘%s’…"
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Geen resultaten voor ‘%s’"
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "Naar de serie"

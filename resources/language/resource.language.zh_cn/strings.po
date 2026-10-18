@@ -1361,3 +1361,23 @@ msgstr "欢迎"
 msgctxt "#30509"
 msgid "Search for movies, shows and more. Pick letters, or use your phone."
 msgstr "搜索电影、剧集等。选择字母，或使用手机。"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "预告片未能开始播放。请在 Kodi 的 YouTube 插件中播放任意视频进行检查。"
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "搜索"
+
+msgctxt "#30512"
+msgid "Searching for “%s”…"
+msgstr "正在搜索“%s”…"
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "没有“%s”的结果"
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "前往剧集"

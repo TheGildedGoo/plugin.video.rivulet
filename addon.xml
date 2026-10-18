@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev18" provider-name="M0RF30">
+<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev19" provider-name="M0RF30">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.requests" version="2.22.0"/>
@@ -12,7 +12,12 @@
     <summary lang="en_GB">RevRivulet: watch Stremio-protocol catalogs, addons and streams in Kodi. Installs beside official Rivulet.</summary>
     <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote stremio-server-go streaming server, and optionally sync your addon collection with your Stremio account.</description>
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
-    <news>v0.30.1.rev18:
+    <news>v0.30.1.rev19:
+- Fix: episode cards in New Episodes and Continue keep the show's own backdrop and logo at the top; the episode (S1E3 and its title) is the first line under it, and its own description is shown. The episode picture stays on the card.
+- Fix: the new Search page has a Search button next to "Use phone": it searches what you picked and moves to the results. A line under it says "Searching for ..." while it works, or "No results for ...". The letters still search on their own once you pause on them.
+- New: on Series, the menu key on a New Episodes card offers Go to series.
+- Fix: Trailer stays on the current screen with a spinner until the trailer is really playing, then goes full screen. A trailer that does not start is stopped, the next source is tried, and if none plays you stay where you were with a message. Back on the spinner cancels.
+v0.30.1.rev18:
 - Fix: titles show their logo whenever one exists, not only after Kodi has loaded it once.
 - Fix: Continue cards fetch the title's details like Library, so the backdrop, description and scores show there too. A title whose details failed to load is tried again.
 - Fix: in the new look the rows sit lower; the reflections are cut off by the bottom of the screen.

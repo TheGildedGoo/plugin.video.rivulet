@@ -582,8 +582,8 @@ def search():
     letters = '''<control type="panel" id="30202">
                 <left>100</left><top>192</top><width>728</width><height>104</height>
                 <orientation>vertical</orientation>
-                <onup>30203</onup><ondown>30215</ondown>
-                <onleft>30202</onleft><onright>30203</onright>
+                <onup>30204</onup><ondown>30215</ondown>
+                <onleft>30202</onleft><onright>30204</onright>
                 <scrolltime>0</scrolltime>
                 <itemlayout width="52" height="52">%s</itemlayout>
                 <focusedlayout width="52" height="52">%s%s%s</focusedlayout>
@@ -594,11 +594,20 @@ def search():
         label(0, 0, 52, 52, '[B]$INFO[ListItem.Label][/B]', color='FF07090B', align='center', conds=('Control.HasFocus(30202)',)),
         label(0, 0, 52, 52, '$INFO[ListItem.Label]', color='B3EDEDED', align='center', conds=('!Control.HasFocus(30202)',)),
     )
-    phone = ('<control type="button" id="30203"><left>880</left><top>106</top><width>240</width><height>56</height>'
-             '<font>font13</font><textcolor>E6EDEDED</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny>'
-             '<texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="24FFFFFF">pill_fill.png</texturenofocus>'
-             '<label>[B]$ADDON[plugin.video.revrivulet 30505][/B]</label>'
-             '<onup>30203</onup><ondown>30202</ondown><onleft>30202</onleft><onright>30203</onright></control>\n')
+    def pill_button(cid, left, width, string, nav):
+        return ('<control type="button" id="%d"><left>%d</left><top>106</top><width>%d</width><height>56</height>'
+                '<font>font13</font><textcolor>E6EDEDED</textcolor><focusedcolor>FF07090B</focusedcolor><align>center</align><aligny>center</aligny>'
+                '<texturefocus border="28" colordiffuse="FFFFFFFF">pill_fill.png</texturefocus><texturenofocus border="28" colordiffuse="24FFFFFF">pill_fill.png</texturenofocus>'
+                '<label>[B]$ADDON[plugin.video.revrivulet %d][/B]</label>%s</control>\n') % (cid, left, width, string, nav)
+
+    # Search runs what is in the bar now; the letters also search on
+    # their own once the remote rests on them.
+    buttons = (
+        pill_button(30204, 880, 200, 30511,
+                    '<onup>30204</onup><ondown>30202</ondown><onleft>30202</onleft><onright>30203</onright>') +
+        pill_button(30203, 1100, 240, 30505,
+                    '<onup>30203</onup><ondown>30202</ondown><onleft>30204</onleft><onright>30203</onright>')
+    )
     body = (
         warm_slots((30098, 30099)) + backdrop() +
         label(80, 36, 900, 50, '[B]$ADDON[plugin.video.revrivulet 30001][/B]') + '\n' + clock() +
@@ -606,7 +615,9 @@ def search():
         image(60, 96, 800, 76, 'pill_fill.png', attrs=' border="38" colordiffuse="FFFFFFFF"') + '\n' +
         image(80, 106, 56, 56, 'fuse_icon_search.png', attrs=' colordiffuse="FF07090B"') + '\n' +
         label(146, 96, 690, 76, '', color='FF07090B', cid=30201) + '\n' +
-        phone +
+        buttons +
+        '<!-- What the search is doing: "Searching for ...", "No results for ...". -->\n' +
+        label(880, 214, 960, 60, '', font='font13', color='E6EDEDED', cid=30205) + '\n' +
         '<!-- The alphabet, then space and delete: OK adds the letter. -->\n' + letters +
         hero() +
         label(80, BAND, 1200, 44, '', conds=(has_row,), cid=30140) + '\n' +

@@ -169,6 +169,11 @@ def _episode_label(season, episode, title):
     return title
 
 
+def _show_fields(meta):
+    """The series meta without its episode list, for an episode's hero."""
+    return {key: value for key, value in meta.items() if key != "videos"}
+
+
 def _seen_key(content_type, content_id, video_id):
     """Composite key one (series, episode) pair is indexed by in the
     seen-set, or ``None`` when any part is missing/empty (nothing
@@ -306,6 +311,9 @@ def new_episodes(series_items, metas, seen, now):
                 "overview": overview,
                 "poster": still or meta.get("poster"),
                 "background": still or meta.get("background"),
+                # The hero is the show's, not the still blown up: its
+                # backdrop, clearlogo, facts and scores ride along.
+                "show": _show_fields(meta),
             }
             # The Series row filters on these. An episode object does not
             # carry them; the series meta does. Missing stays missing, so

@@ -104,12 +104,14 @@ def offer(meta):
     return _write(auth, meta, in_library)
 
 
-def poster_menu(meta):
-    """The menu key on a Home or hub poster: the library row, then Trailer.
+def poster_menu(meta, extra=()):
+    """The menu key on a Home or hub poster: `extra` rows first (``(label,
+    callable)`` pairs: Go to series on a New Episodes card), then the
+    library row, then Trailer.
 
     Signed out, or when the library lookup fails, the menu still offers
     the trailer. Returns what `offer` does: `'added'`, `'removed'` or
-    None (a trailer, or nothing picked).
+    None (a trailer, an extra row, or nothing picked).
     """
     from lib.ui import dialogs
     from lib.ui.compat import L
@@ -117,7 +119,8 @@ def poster_menu(meta):
     from lib.ui.uicommon import CANCELLED
 
     auth = get_store().get_auth()
-    rows = []
+    extra = [(label, action) for label, action in extra or () if label and callable(action)]
+    rows = [label for label, _action in extra]
     in_library = None
     if auth:
         item, lookup_ok = _lookup(auth, meta.get('id'))
@@ -129,6 +132,9 @@ def poster_menu(meta):
     rows.append(L(30499))
     picked = dialogs.choose(meta.get('name') or meta.get('id') or '', rows)
     if picked is None or picked < 0 or picked >= len(rows):
+        return None
+    if picked < len(extra):
+        extra[picked][1]()
         return None
     if picked == len(rows) - 1:
         from lib.ui.trailer import play_trailer

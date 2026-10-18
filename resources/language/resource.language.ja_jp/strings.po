@@ -1361,3 +1361,23 @@ msgstr "ようこそ"
 msgctxt "#30509"
 msgid "Search for movies, shows and more. Pick letters, or use your phone."
 msgstr "映画やドラマなどを検索します。文字を選ぶか、スマホを使ってください。"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "予告編を開始できませんでした。Kodi の YouTube アドオンで任意の動画を再生して確認してください。"
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "検索"
+
+msgctxt "#30512"
+msgid "Searching for “%s”…"
+msgstr "「%s」を検索中…"
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "「%s」の結果はありません"
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "シリーズへ移動"

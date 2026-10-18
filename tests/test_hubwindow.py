@@ -195,6 +195,54 @@ def test_clicking_the_first_new_episode_marks_it_seen(load_hub, monkeypatch):
     assert win.closed is True
 
 
+def _menu_hub(ctx, monkeypatch, pick, episode=True):
+    import xbmcgui
+
+    shown = []
+    opened = []
+
+    class _Store:
+        def get_auth(self):
+            return None
+
+    import lib.ui.dependencies as dependencies
+    import lib.ui.dialogs as dialogs
+    monkeypatch.setattr(dependencies, 'get_store', lambda: _Store())
+    monkeypatch.setattr(dialogs, 'choose', lambda heading, rows: shown.append(rows) or pick)
+    monkeypatch.setattr(
+        ctx.detailwindow, 'open_detail',
+        lambda ctype, sid, video_id=None: opened.append((ctype, sid, video_id)) or True,
+    )
+    win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
+    poster = xbmcgui.ListItem('Show')
+    if episode:
+        poster.setProperty('episode_index', '0')
+    poster.setProperty('sid', 'show')
+    poster.setProperty('stype', 'series')
+    win._episodes = [{'type': 'series', 'id': 'show', 'video_id': 'show:1:2'}]
+    win._descs = [{'heading': 'New', 'posters': [poster], 'col': 0}]
+    ctx.hubwindow._paint_list(win, select=0)
+    return win, shown, opened
+
+
+def test_the_menu_on_a_new_episode_offers_go_to_series(load_hub, monkeypatch):
+    ctx = load_hub()
+    win, shown, opened = _menu_hub(ctx, monkeypatch, 0)
+    ctx.hubwindow._offer_library(win)
+    assert shown == [['STR30514', 'STR30499']]
+    # The show's page, not the episode it opens on OK.
+    assert opened == [('series', 'show', None)]
+    assert win.should_close_caller is True
+
+
+def test_the_menu_on_a_plain_poster_has_no_go_to_series(load_hub, monkeypatch):
+    ctx = load_hub()
+    win, shown, opened = _menu_hub(ctx, monkeypatch, -1, episode=False)
+    ctx.hubwindow._offer_library(win)
+    assert shown == [['STR30499']]
+    assert opened == []
+
+
 def test_right_moves_the_focus_to_the_next_poster(load_hub):
     ctx = load_hub()
     import xbmcgui
@@ -432,11 +480,17 @@ def test_new_episodes_row_paints_the_cinemeta_still_the_skin_reads(load_hub, mon
     assert row_item.getProperty('layout') == 'land'
     assert row_item.getProperty('p0') == still
     assert meta['poster'] not in row_item.getProperty('p0')
-    assert row_item.getProperty('hero_title') == 'S1E3 \u00b7 Lord Snow'
-    assert row_item.getProperty('hero_meta') == 'Game of Thrones'
+    # The hero is the show's: its name, clearlogo and backdrop. The
+    # episode is the first facts line; the still stays on the card only.
+    from lib.ui.urlutil import sized_image
+    assert row_item.getProperty('hero_title') == 'Game of Thrones'
+    assert row_item.getProperty('hero_meta').split('\n')[0] == 'S1E3 \u00b7 Lord Snow'
     assert row_item.getProperty('hero_plot').startswith('Jon impresses Tyrion')
-    assert row_item.getProperty('hero_logo') == ''
-    assert row_item.getProperty('fanart') == still
+    assert row_item.getProperty('hero_logo') == (meta.get('logo') or '')
+    assert row_item.getProperty('fanart') == sized_image(meta['background'], 'backdrop')
+    assert row_item.getProperty('fanart') != still
+    assert row_item.getProperty('hero_fill') == ''
+    assert row_item.getProperty('hero_facts') == ''
     assert row_item.getProperty('show0') == 'Game of Thrones'
     assert row_item.getProperty('code0') == 'S:1 E:3'
     assert row_item.getProperty('div1') == ''
@@ -504,8 +558,8 @@ def test_episode_cards_group_a_show_and_split_the_next(load_hub, monkeypatch):
     assert row.getProperty('div2') == '1'
     assert row.getProperty('div3') == '1'
     assert row.getProperty('code3') == ''
-    assert row.getProperty('hero_title') == 'S1E1 · One'
-    assert row.getProperty('hero_meta') == 'Alpha'
+    assert row.getProperty('hero_title') == 'Alpha'
+    assert row.getProperty('hero_meta').split('\n')[0] == 'S1E1 · One'
     ctx.hubwindow._apply_posters(row, desc['posters'], 0, '')
     assert row.getProperty('show0') == ''
     assert row.getProperty('code0') == ''
