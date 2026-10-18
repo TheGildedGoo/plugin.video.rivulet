@@ -1831,3 +1831,62 @@ def test_run_search_reuses_the_shared_client_across_multiple_searches(load_searc
     win._run_search('robin')
 
     assert _CountingClient.instances == 1
+
+
+class _NeverCanceled:
+    def iscanceled(self):
+        return False
+
+    def update(self, *args, **kwargs):
+        pass
+
+
+def _clocked(monkeypatch, sw, ticks):
+    """`time.monotonic()` for the collector: each call steps the clock."""
+    clock = {'now': 0.0}
+
+    def monotonic():
+        clock['now'] += ticks
+        return clock['now']
+
+    monkeypatch.setattr(sw, 'time', types.SimpleNamespace(monotonic=monotonic))
+    monkeypatch.setattr(sw, '_SEARCH_POLL_SECONDS', 0.01)
+
+
+def test_results_in_hand_are_not_held_for_a_slow_catalog(load_searchwindow, monkeypatch):
+    """Andor sat on the spinner until Back: one catalog never answered."""
+    import queue
+
+    sw = load_searchwindow().searchwindow
+    _clocked(monkeypatch, sw, 0.5)
+    results = queue.Queue()
+    results.put((0, ([{'id': 'tt9253284', 'name': 'Andor'}], None)))  # the second catalog never answers
+    jobs = [('https://a', {'name': 'Cinemeta'}, {}), ('https://b', {'name': 'Slow'}, {})]
+    report = sw.SearchReport()
+    answered = sw._collect_answers(_NeverCanceled(), results, jobs, report)
+    assert list(answered) == [0]
+    assert report.canceled is False
+
+
+def test_the_wait_ends_at_the_deadline_with_nothing_in(load_searchwindow, monkeypatch):
+    import queue
+
+    sw = load_searchwindow().searchwindow
+    _clocked(monkeypatch, sw, 2.0)
+    jobs = [('https://a', {'name': 'Slow'}, {})]
+    report = sw.SearchReport()
+    assert sw._collect_answers(_NeverCanceled(), queue.Queue(), jobs, report) == {}
+    assert report.canceled is False
+
+
+def test_an_empty_answer_does_not_start_the_grace(load_searchwindow, monkeypatch):
+    import queue
+
+    sw = load_searchwindow().searchwindow
+    _clocked(monkeypatch, sw, 0.5)
+    results = queue.Queue()
+    results.put((0, ([], None)))
+    results.put((1, ([{'id': 'tt1', 'name': 'Andor'}], None)))
+    jobs = [('https://a', {'name': 'A'}, {}), ('https://b', {'name': 'B'}, {})]
+    answered = sw._collect_answers(_NeverCanceled(), results, jobs, sw.SearchReport())
+    assert sorted(answered) == [0, 1]
