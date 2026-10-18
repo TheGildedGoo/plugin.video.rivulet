@@ -433,7 +433,7 @@ def showcase():
         warm_slots((30098, 30099)) + backdrop() + hidden +
         '<!-- The page\'s name: REVRIVULET / the catalog (infowindow._header_label). -->\n' +
         label(80, 36, 940, 50, '', cid=30100) + '\n' + clock() +
-        image(810, 200, 300, 10, 'white.png', cid=30001, attrs=' colordiffuse="8038BDF8"') + '\n' +
+        image(810, 200, 300, 10, 'white.png', cid=30001, attrs=' colordiffuse="80D6D6D6"') + '\n' +
         hero(bound=True) +
         label(1504, BAND, 360, 44, '$INFO[Container(30002).CurrentItem] / $INFO[Container(30002).NumItems]', font='font12',
               color='B3EDEDED', align='right', conds=('Integer.IsGreater(Container(30002).NumItems,0)',)) + '\n' +

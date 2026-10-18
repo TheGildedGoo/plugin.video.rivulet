@@ -197,8 +197,8 @@
                     </control>
                 </itemlayout>
                 <focusedlayout height="118">
-                    <control type="image"><width>1312</width><height>118</height><texture colordiffuse="FF1B2126">white.png</texture></control>
-                    <control type="image"><width>6</width><height>118</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                    <control type="image"><width>1312</width><height>118</height><texture colordiffuse="FF2E2E2E">white.png</texture></control>
+                    <control type="image"><width>6</width><height>118</height><texture colordiffuse="FFD6D6D6">white.png</texture></control>
 
                     <control type="image">
                         <left>30</left><top>35</top><width>112</width><height>48</height>
@@ -283,8 +283,8 @@
                 <orientation>vertical</orientation>
                 <showonepage>false</showonepage>
                 <texturesliderbackground colordiffuse="20FFFFFF">white.png</texturesliderbackground>
-                <texturesliderbar colordiffuse="FF38BDF8">white.png</texturesliderbar>
-                <texturesliderbarfocus colordiffuse="FF38BDF8">white.png</texturesliderbarfocus>
+                <texturesliderbar colordiffuse="FFD6D6D6">white.png</texturesliderbar>
+                <texturesliderbarfocus colordiffuse="FFD6D6D6">white.png</texturesliderbarfocus>
             </control>
 
             <control type="label">

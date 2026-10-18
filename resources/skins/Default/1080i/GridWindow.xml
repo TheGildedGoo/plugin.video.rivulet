@@ -165,7 +165,7 @@
                      rows is indistinguishable from refusing to move. -->
 
                 <!-- resume -->
-                <control type="group"><left>0</left><top>0</top><width>1960</width><height>396</height><visible>!String.IsEmpty(Window.Property(band_resume))</visible><control type="label" id="30107"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>FF38BDF8</textcolor><aligny>center</aligny>
+                <control type="group"><left>0</left><top>0</top><width>1960</width><height>396</height><visible>!String.IsEmpty(Window.Property(band_resume))</visible><control type="label" id="30107"><left>0</left><top>0</top><width>1500</width><height>32</height><font>font13</font><textcolor>FFD6D6D6</textcolor><aligny>center</aligny>
                     <label></label>
                     <visible>!String.IsEmpty(Window.Property(band_resume))</visible>
                 </control>
@@ -197,7 +197,7 @@
                         <control type="image"><top>294</top><left>16</left><width>200</width><height>6</height><texture colordiffuse="59FFFFFF">white.png</texture>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
-                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture>
+                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FFD6D6D6">white.png</texture>
                             <width>$INFO[ListItem.Property(progress_width)]</width>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
@@ -211,14 +211,14 @@
                     <focusedlayout width="232" height="364">
                         <control type="group">
                         <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
-                        <control type="image"><top>0</top><left>8</left><width>216</width><height>308</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
+                        <control type="image"><top>0</top><left>8</left><width>216</width><height>308</height><texture border="24" colordiffuse="FFD6D6D6">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>200</width><height>300</height>
                             <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
                         <!-- Accent underline under the focused poster. -->
-                        <control type="image"><top>302</top><left>16</left><width>200</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><top>302</top><left>16</left><width>200</width><height>4</height><texture colordiffuse="FFD6D6D6">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
                              4px/40FFFFFF the whole widget vanished on a real
                              1080p panel, which reads as "no progress" - the
@@ -226,7 +226,7 @@
                         <control type="image"><top>294</top><left>16</left><width>200</width><height>6</height><texture colordiffuse="59FFFFFF">white.png</texture>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
-                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture>
+                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FFD6D6D6">white.png</texture>
                             <width>$INFO[ListItem.Property(progress_width)]</width>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
@@ -272,7 +272,7 @@
                         <control type="image"><top>294</top><left>16</left><width>200</width><height>6</height><texture colordiffuse="59FFFFFF">white.png</texture>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
-                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture>
+                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FFD6D6D6">white.png</texture>
                             <width>$INFO[ListItem.Property(progress_width)]</width>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
@@ -286,14 +286,14 @@
                     <focusedlayout width="232" height="364">
                         <control type="group">
                         <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
-                        <control type="image"><top>0</top><left>8</left><width>216</width><height>308</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
+                        <control type="image"><top>0</top><left>8</left><width>216</width><height>308</height><texture border="24" colordiffuse="FFD6D6D6">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>200</width><height>300</height>
                             <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
                         <!-- Accent underline under the focused poster. -->
-                        <control type="image"><top>302</top><left>16</left><width>200</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><top>302</top><left>16</left><width>200</width><height>4</height><texture colordiffuse="FFD6D6D6">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
                              4px/40FFFFFF the whole widget vanished on a real
                              1080p panel, which reads as "no progress" - the
@@ -301,7 +301,7 @@
                         <control type="image"><top>294</top><left>16</left><width>200</width><height>6</height><texture colordiffuse="59FFFFFF">white.png</texture>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
-                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture>
+                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FFD6D6D6">white.png</texture>
                             <width>$INFO[ListItem.Property(progress_width)]</width>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
@@ -347,7 +347,7 @@
                         <control type="image"><top>294</top><left>16</left><width>200</width><height>6</height><texture colordiffuse="59FFFFFF">white.png</texture>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
-                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture>
+                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FFD6D6D6">white.png</texture>
                             <width>$INFO[ListItem.Property(progress_width)]</width>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
@@ -361,14 +361,14 @@
                     <focusedlayout width="232" height="364">
                         <control type="group">
                         <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
-                        <control type="image"><top>0</top><left>8</left><width>216</width><height>308</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
+                        <control type="image"><top>0</top><left>8</left><width>216</width><height>308</height><texture border="24" colordiffuse="FFD6D6D6">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>200</width><height>300</height>
                             <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
                         <!-- Accent underline under the focused poster. -->
-                        <control type="image"><top>302</top><left>16</left><width>200</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><top>302</top><left>16</left><width>200</width><height>4</height><texture colordiffuse="FFD6D6D6">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
                              4px/40FFFFFF the whole widget vanished on a real
                              1080p panel, which reads as "no progress" - the
@@ -376,7 +376,7 @@
                         <control type="image"><top>294</top><left>16</left><width>200</width><height>6</height><texture colordiffuse="59FFFFFF">white.png</texture>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
-                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture>
+                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FFD6D6D6">white.png</texture>
                             <width>$INFO[ListItem.Property(progress_width)]</width>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
@@ -422,7 +422,7 @@
                         <control type="image"><top>294</top><left>16</left><width>200</width><height>6</height><texture colordiffuse="59FFFFFF">white.png</texture>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
-                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture>
+                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FFD6D6D6">white.png</texture>
                             <width>$INFO[ListItem.Property(progress_width)]</width>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
@@ -436,14 +436,14 @@
                     <focusedlayout width="232" height="364">
                         <control type="group">
                         <!-- Frame behind the poster: 8px of accent shows on the left, right and bottom. The poster covers the top of this plate, so a bar is drawn over the poster's top edge below. -->
-                        <control type="image"><top>0</top><left>8</left><width>216</width><height>308</height><texture border="24" colordiffuse="FF38BDF8">round_frame.png</texture></control>
+                        <control type="image"><top>0</top><left>8</left><width>216</width><height>308</height><texture border="24" colordiffuse="FFD6D6D6">round_frame.png</texture></control>
                         <control type="image">
                             <top>0</top><left>16</left><width>200</width><height>300</height>
                             <texture diffuse="mask_poster.png" background="true">$INFO[ListItem.Property(thumbnail)]</texture>
                             <aspectratio align="center" aligny="center">keep</aspectratio>
                         </control>
                         <!-- Accent underline under the focused poster. -->
-                        <control type="image"><top>302</top><left>16</left><width>200</width><height>4</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                        <control type="image"><top>302</top><left>16</left><width>200</width><height>4</height><texture colordiffuse="FFD6D6D6">white.png</texture></control>
                         <!-- Progress track: 6px over a 59FFFFFF track. At
                              4px/40FFFFFF the whole widget vanished on a real
                              1080p panel, which reads as "no progress" - the
@@ -451,7 +451,7 @@
                         <control type="image"><top>294</top><left>16</left><width>200</width><height>6</height><texture colordiffuse="59FFFFFF">white.png</texture>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>
-                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FF38BDF8">white.png</texture>
+                        <control type="image"><top>294</top><left>16</left><height>6</height><texture colordiffuse="FFD6D6D6">white.png</texture>
                             <width>$INFO[ListItem.Property(progress_width)]</width>
                             <visible>!String.IsEmpty(ListItem.Property(progress_width))</visible>
                         </control>

@@ -85,6 +85,9 @@ CONFIRM_YES = 30333
 OPTIONLIST_HEADING = 30340
 OPTIONLIST_LIST = 30341
 OPTIONLIST_SCROLLBAR = 30342
+OPTIONLIST_PANEL = 30343
+OPTIONLIST_STROKE = 30344
+OPTIONLIST_DIVIDER = 30345
 
 #: Kodi's OK/Select action id - what `onAction` receives for an OK/Enter
 #: press that no focused control already consumed. The countdown dialog
@@ -558,6 +561,7 @@ class _OptionListWindow(BaseWindow):
             ctrl.reset()
         with contextlib.suppress(Exception):
             ctrl.addItems(items)
+        _fit_option_list(self, len(items))
         with contextlib.suppress(Exception):
             self.setFocusId(OPTIONLIST_LIST)
 
@@ -576,6 +580,45 @@ class _OptionListWindow(BaseWindow):
         if position is not None and position >= 0:
             self.result = position
             self.close()
+
+
+#: OptionListDialog.xml geometry: rows are 72px, at most 7 show at once.
+_OPTION_ROW_H = 72
+_OPTION_MAX_ROWS = 7
+_OPTION_PANEL = (580, 760)  # left, width
+_OPTION_HEAD_H = 110  # plate top to the first row
+_OPTION_FOOT_H = 28  # last row to the plate bottom
+
+
+def option_list_geometry(count, screen_h=1080):
+    """``(top, height, list_height)`` of the menu plate for `count` rows,
+    centred on the screen. Kodi-free."""
+    rows = max(1, min(int(count or 0), _OPTION_MAX_ROWS))
+    list_h = rows * _OPTION_ROW_H
+    height = _OPTION_HEAD_H + list_h + _OPTION_FOOT_H
+    return (screen_h - height) // 2, height, list_h
+
+
+def _fit_option_list(window, count):
+    """Size the plate to the rows (OptionListDialog.xml draws it for 7)."""
+    top, height, list_h = option_list_geometry(count)
+    left, width = _OPTION_PANEL
+    for cid in (OPTIONLIST_PANEL, OPTIONLIST_STROKE):
+        ctrl = _get_control(window, cid)
+        if ctrl is not None:
+            with contextlib.suppress(Exception):
+                ctrl.setPosition(left, top)
+                ctrl.setHeight(height)
+    for cid, x, dy, h in ((OPTIONLIST_HEADING, 628, 38, None), (OPTIONLIST_DIVIDER, 628, 90, None),
+                          (OPTIONLIST_LIST, 596, _OPTION_HEAD_H, list_h),
+                          (OPTIONLIST_SCROLLBAR, 1300, _OPTION_HEAD_H, list_h)):
+        ctrl = _get_control(window, cid)
+        if ctrl is None:
+            continue
+        with contextlib.suppress(Exception):
+            ctrl.setPosition(x, top + dy)
+            if h is not None:
+                ctrl.setHeight(h)
 
 
 def choose(heading, rows):

@@ -132,7 +132,7 @@ def _progress_width(item):
 #: that blue so "there is a new episode waiting" is the one thing that
 #: catches the eye. Watched is deliberately the dimmest thing on screen.
 _BAND_COLOURS = {
-    'resume': 'FF38BDF8',
+    'resume': 'FFD6D6D6',
     'next_up': 'FFFBBF24',
     'recent': '80EEF3F6',
 }

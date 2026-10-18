@@ -319,7 +319,7 @@ def test_status_text_says_signed_in_without_the_address(load_homewindow):
 
     text = ctx.homewindow._status_text({'authKey': 'x', 'user': {'email': 'me@example.com', 'name': 'Me'}})
 
-    assert text == '[COLOR FF38BDF8]\u25cf[/COLOR] Signed in'
+    assert text == '[COLOR FFD6D6D6]\u25cf[/COLOR] Signed in'
     assert 'me@example.com' not in text
     assert 'Me' not in text.replace('[COLOR', '')
 
@@ -391,7 +391,7 @@ def test_oninit_shows_the_library_row_when_authenticated(load_homewindow, monkey
     assert win.getControl(ctx.homewindow.BACKGROUND).image == 's'
     assert win.getProperty('HeroFill') == '1'
     assert win.getControl(ctx.homewindow.HERO_FILL).image == 's'
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] STR30488'
+    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FFD6D6D6]\u25cf[/COLOR] STR30488'
     assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
 
 
@@ -502,7 +502,7 @@ def test_oninit_status_label_says_signed_in_and_settings_hold_the_email(load_hom
 
     win.onInit()
 
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Signed in'
+    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FFD6D6D6]\u25cf[/COLOR] Signed in'
     assert ctx.compat.ADDON.getSetting('account_user') == 'me@example.com'
 
 
@@ -515,7 +515,7 @@ def test_oninit_settings_fall_back_to_the_name_when_email_is_absent(load_homewin
 
     win.onInit()
 
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FF38BDF8]\u25cf[/COLOR] Signed in'
+    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FFD6D6D6]\u25cf[/COLOR] Signed in'
     assert ctx.compat.ADDON.getSetting('account_user') == 'Me'
 
 
