@@ -9,16 +9,17 @@ focused title's hero, and one row of posters. With nothing typed the row
 is Discover (the first page of the first plain movie catalog); as
 letters are picked it becomes the results.
 
-The Search pill searches what is in the bar at once and moves to the
-results. The letters also search on their own once the remote has rested
-on them for `SETTLE_SECONDS`. Either way the search runs on a worker with
-no spinner (`searchwindow.run_query(quiet=True)`), a line under the pills
-says "Searching for ..." until it answers (or "No results for ..."), and
-a newer letter cancels the search it replaced. The answer is applied on
-the UI thread, on the `Action(noop)` the worker posts. The phone pill
-fills the bar from a phone instead (nothing is typed on the TV either
-way). OK on a poster opens the title the way the coverflow does; the
-query then goes into the search history.
+Picking letters fills the bar; the Search pill (or OK from the phone)
+runs the search. It runs the way the classic search does, on the screen's
+own thread under the Rivulet spinner (`searchwindow.run_query`): Back on
+the spinner cancels, and the results replace Discover with the focus on
+them. rev18/rev19 searched on a worker as letters were picked and applied
+the answer on a posted noop; on the TV that search never came back
+("Searching for ..." forever), while the classic path works, so this
+screen now uses that path. An empty answer, or one where every catalog
+failed, is said on the line under the pills. OK on a poster opens the
+title the way the coverflow does; the query then goes into the search
+history.
 """
 
 import threading
@@ -39,13 +40,6 @@ ROW_HEADING = 30140
 BACKGROUND = 30000
 #: Letters, then space and delete. The skin draws " " as "_" and "<" as "<".
 KEYS = tuple('ABCDEFGHIJKLMN') + tuple('OPQRSTUVWXYZ') + (' ', '<')
-#: Seconds the remote rests on the letters before the search runs on
-#: its own. Moving across the letters with a remote takes about a
-#: second per letter, so a shorter wait started a search per letter.
-SETTLE_SECONDS = 1.6
-#: Fewer letters than this do not search on their own (the row shows
-#: Discover). The Search pill searches any query.
-MIN_QUERY = 2
 MAX_QUERY = 60
 #: The hero here sits between the letters and the row: a shorter logo,
 #: two lines of plot.
@@ -64,11 +58,7 @@ class FuseSearchWindow(BaseWindow):
         self._discover = []
         self._lock = threading.Lock()
         self._ready = []
-        self._timer = None
-        self._cancel = None
         self._painted_key = None
-        #: Focus the results when they land: the Search pill was pressed.
-        self._focus_results = False
 
     def start(self):
         self.should_close_caller = False
@@ -158,7 +148,6 @@ class FuseSearchWindow(BaseWindow):
     def onAction(self, action):
         action_id = action.getId()
         if action_id in _BACK_ACTIONS:
-            self._stop_pending()
             self.close()
             return
         self._apply_ready()
@@ -190,15 +179,44 @@ class FuseSearchWindow(BaseWindow):
         elif key and len(self.query) < MAX_QUERY:
             self.query += key.lower() if self.query and not self.query.endswith(' ') else key
         self._paint_query()
-        self._schedule()
+        if not self.query.strip():
+            # An empty bar is Discover again.
+            self._metas = []
+            self._status('')
+            if self._discover:
+                self._show(self._discover, results=False)
 
     def _go(self):
-        """The Search pill: search what is in the bar now, then move to
-        the results."""
-        if not self.query.strip():
+        """The Search pill: search what is in the bar, under the spinner,
+        then move to the results."""
+        query = self.query.strip()
+        if not query:
             return
-        self._focus_results = True
-        self._schedule(delay=0, explicit=True)
+        from lib.ui.compat import L
+        from lib.ui.dependencies import get_client, get_store
+        from lib.ui.searchwindow import SearchReport, _search_notice, run_query
+
+        self._status('')
+        report = SearchReport()
+        try:
+            metas = run_query(get_store(), get_client(), query, report=report)
+        except Exception as exc:
+            import xbmc
+
+            from lib.ui.compat import log
+
+            log('fusesearch: search for %r failed: %r' % (query, exc), xbmc.LOGWARNING)
+            metas = []
+        if report.canceled and not metas:
+            return
+        self._metas = list(metas or [])
+        if self._metas:
+            self._show(self._metas, results=True)
+            self.setFocusId(ROW)
+            notice = _search_notice(report)
+            self._status(notice or '')
+            return
+        self._status(_search_notice(report) or _with_query(L(30513), query))
 
     def _status(self, text):
         try:
@@ -214,61 +232,9 @@ class FuseSearchWindow(BaseWindow):
             return
         self.query = query[:MAX_QUERY]
         self._paint_query()
-        self._focus_results = True
-        self._schedule(delay=0, explicit=True)
+        self._go()
 
     # --- searching -----------------------------------------------------------
-
-    def _stop_pending(self):
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
-        if self._cancel is not None:
-            self._cancel.set()
-            self._cancel = None
-
-    def _schedule(self, delay=None, explicit=False):
-        """Search once the remote has rested; a newer letter replaces it."""
-        from lib.ui.compat import L
-
-        self._stop_pending()
-        query = self.query.strip()
-        if not explicit:
-            self._focus_results = False
-        if not query or (len(query) < MIN_QUERY and not explicit):
-            self._metas = []
-            self._status('')
-            if self._discover:
-                self._show(self._discover, results=False)
-            return
-        # Said at once, so a search that takes a few seconds is visibly
-        # under way (rev18 showed nothing until the answer).
-        self._status(_with_query(L(30512), query))
-        cancel = threading.Event()
-        self._cancel = cancel
-        timer = threading.Timer(SETTLE_SECONDS if delay is None else delay, self._search, (query, cancel))
-        timer.daemon = True
-        self._timer = timer
-        timer.start()
-
-    def _search(self, query, cancel):
-        from lib.ui.dependencies import get_client, get_store
-        from lib.ui.searchwindow import SearchReport, run_query
-
-        if cancel.is_set():
-            return
-        try:
-            metas = run_query(get_store(), get_client(), query, report=SearchReport(), quiet=True, cancel=cancel)
-        except Exception as exc:  # the line under the pills says "No results"
-            import xbmc
-
-            from lib.ui.compat import log
-
-            log('fusesearch: search for %r failed: %r' % (query, exc), xbmc.LOGWARNING)
-            metas = []
-        if cancel.is_set():
-            return
-        self._post(('results', query, metas))
 
     def _load_discover(self):
         def _work():
@@ -288,27 +254,14 @@ class FuseSearchWindow(BaseWindow):
             pass
 
     def _apply_ready(self):
-        """Answers from the workers, on the UI thread. A result for a
-        query that is no longer in the bar is dropped."""
+        """Discover's first page, from its worker, on the UI thread."""
         with self._lock:
             ready, self._ready = self._ready, []
-        for kind, query, metas in ready:
+        for kind, _query, metas in ready:
             if kind == 'discover':
                 self._discover = list(metas or [])
-                if len(self.query.strip()) < MIN_QUERY and self._discover:
+                if not self._metas and self._discover:
                     self._show(self._discover, results=False)
-            elif query == self.query.strip():
-                from lib.ui.compat import L
-
-                self._metas = list(metas or [])
-                if self._metas:
-                    self._status('')
-                    self._show(self._metas, results=True)
-                    if self._focus_results:
-                        self.setFocusId(ROW)
-                else:
-                    self._status(_with_query(L(30513), query))
-                self._focus_results = False
 
     def _open_focused(self):
         item = self.getControl(ROW).getSelectedItem()
@@ -388,7 +341,6 @@ def open_search():
     finally:
         if window is not None:
             try:
-                window._stop_pending()
                 window.close()
             except Exception:
                 pass
