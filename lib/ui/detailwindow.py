@@ -1077,6 +1077,68 @@ def _landing_video_id(stype, show_id, videos):
     return video_id
 
 
+def _base_type(stype):
+    from lib.stremio.addons import _base_type as base
+
+    return base(stype)
+
+
+def _fetch_meta_any_type(stype, sid):
+    """``(meta, type)`` for `sid`: as `stype` first, then as its base type
+    (``movies`` -> ``movie``), then as the other of movie/series, since
+    provider lists label types loosely. ``(None, stype)`` when nothing
+    answers; `CANCELLED` on Back."""
+    from lib.ui.compat import L
+    from lib.ui.views import _fetch_meta
+
+    kinds = []
+    base = _base_type(stype)
+    base = {'movies': 'movie', 'film': 'movie', 'films': 'movie', 'shows': 'series', 'show': 'series',
+            'tvshows': 'series', 'tv': 'series'}.get(base, base)
+    for kind in (stype, base, {'movie': 'series', 'series': 'movie'}.get(base, '')):
+        if kind and kind not in kinds:
+            kinds.append(kind)
+
+    def _work():
+        for kind in kinds:
+            meta = _fetch_meta(kind, sid)
+            if meta:
+                return meta, kind
+        return None, stype
+
+    # One spinner for every type tried.
+    return run_cancellable(_work, L(30033))
+
+
+def _resolve_meta(stype, sid, preview):
+    """``(meta, type, id)`` for a title, trying its id as each plausible
+    type, then (for an id that is not IMDb-keyed) the IMDb id of the same
+    title. ``meta`` is None when nothing answers; `CANCELLED` on Back."""
+    import xbmc
+
+    from lib.ui.compat import log
+
+    found = _fetch_meta_any_type(stype, sid)
+    if found is CANCELLED:
+        return CANCELLED
+    if found[0] or str(sid or '').startswith('tt'):
+        return found[0], found[1], sid
+    # A provider list's own id (tmdb:...) that no meta addon takes: open
+    # the same title by its IMDb id, as a search would.
+    alternative = _imdb_alternative(stype, sid, preview)
+    if alternative is CANCELLED:
+        return CANCELLED
+    if not alternative:
+        return None, found[1], sid
+    log('detailwindow: %s/%s opened as %s' % (stype, sid, alternative), xbmc.LOGINFO)
+    again = _fetch_meta_any_type(stype, alternative)
+    if again is CANCELLED:
+        return CANCELLED
+    if again[0]:
+        return again[0], again[1], alternative
+    return None, found[1], sid
+
+
 def _imdb_alternative(stype, sid, preview):
     """The ``tt`` id for a title whose own id no meta addon resolves: the
     IMDb id its catalog preview names, else the same title (name, type,
@@ -1117,29 +1179,31 @@ def open_detail(stype, sid, video_id=None, land_on=None):
 
     from lib.ui import previews
     from lib.ui.compat import L, log, notify
-    from lib.ui.views import _fetch_meta
 
     preview = previews.lookup(sid) or {}
     if not stype:
         # A catalog that left `type` off its previews.
         stype = preview.get('type') or 'movie'
-    meta_obj = run_cancellable(lambda: _fetch_meta(stype, sid), L(30033))
-    if meta_obj is CANCELLED:
+    resolved = _resolve_meta(stype, sid, preview)
+    if resolved is CANCELLED:
         log('detailwindow: meta fetch for %s/%s cancelled by the user' % (stype, sid), xbmc.LOGINFO)
         return False
-    if not meta_obj and not str(sid or '').startswith('tt'):
-        # A provider list's own id (tmdb:...) that no meta addon takes:
-        # open the same title by its IMDb id, as a search would.
-        alternative = _imdb_alternative(stype, sid, preview)
-        if alternative is CANCELLED:
-            return False
-        if alternative:
-            log('detailwindow: %s/%s opened as %s' % (stype, sid, alternative), xbmc.LOGINFO)
-            sid = alternative
-            meta_obj = run_cancellable(lambda: _fetch_meta(stype, sid), L(30033))
-            if meta_obj is CANCELLED:
-                return False
+    meta_obj, stype, sid = resolved
+    if not meta_obj and preview and _base_type(stype) not in ('series', 'tv'):
+        # What stock Rivulet does with a movie from a catalog: open its
+        # streams straight from the preview, with no meta lookup at all.
+        log('detailwindow: no meta for %s/%s; opening its streams from the catalog preview' % (stype, sid),
+            xbmc.LOGINFO)
+        from lib.ui.streamswindow import open_streams
+
+        movie = dict(preview, id=sid, type=stype)
+        return open_streams(
+            stype, sid, poster=movie.get('poster'), heading=movie.get('name') or sid,
+            art=_show_art(movie), meta=movie,
+        )
     if not meta_obj:
+        log('detailwindow: no addon returned a meta for %s/%s (preview: %s)' % (
+            stype, sid, 'yes' if preview else 'no'), xbmc.LOGWARNING)
         # Distinct from "no streams" (#30030). The fetch already retried
         # the addons that failed; this is the message when none of them
         # produced a meta with an id.

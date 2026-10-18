@@ -121,8 +121,8 @@ def test_previews_are_remembered_by_id(load):
     from lib.ui import previews
 
     previews.forget_all()
-    previews.remember({'id': 'tmdb:603', 'name': 'The Matrix', 'type': 'movie', 'poster': 'p.jpg'})
-    assert previews.lookup('tmdb:603') == {'id': 'tmdb:603', 'name': 'The Matrix', 'type': 'movie'}
+    previews.remember({'id': 'tmdb:603', 'name': 'The Matrix', 'type': 'movie', 'poster': 'p.jpg', 'genres': ['x']})
+    assert previews.lookup('tmdb:603') == {'id': 'tmdb:603', 'name': 'The Matrix', 'type': 'movie', 'poster': 'p.jpg'}
     assert previews.lookup('nope') is None
 
 
@@ -142,7 +142,34 @@ def test_open_detail_falls_back_to_the_imdb_id(load, monkeypatch):
     opened = []
     monkeypatch.setattr(streamswindow, 'open_streams', lambda stype, sid, **kw: opened.append((stype, sid)) or False)
     detailwindow.open_detail('', 'tmdb:603')
-    # No type on the preview: a movie is tried; the IMDb id opens it.
-    assert asked == [('movie', 'tmdb:603'), ('movie', 'tt0133093')]
+    # No type on the preview: a movie is tried, then a series; the IMDb id opens it.
+    assert asked == [('movie', 'tmdb:603'), ('series', 'tmdb:603'), ('movie', 'tt0133093')]
     assert opened == [('movie', 'tt0133093')]
     assert 'STR30430' not in [n[1] for n in ctx.env.notifications]
+
+
+def test_a_movie_nobody_has_a_meta_for_opens_its_streams_from_the_preview(load, monkeypatch):
+    """What stock Rivulet does with a catalog movie."""
+    load()
+    import lib.ui.detailwindow as detailwindow
+    import lib.ui.streamswindow as streamswindow
+    import lib.ui.views as views
+    from lib.ui import previews
+
+    previews.forget_all()
+    previews.remember({'id': 'tt0133093', 'type': 'movie', 'name': 'The Matrix', 'poster': 'p.jpg'})
+    monkeypatch.setattr(views, '_fetch_meta', lambda stype, sid, **kw: None)
+    opened = []
+    monkeypatch.setattr(streamswindow, 'open_streams', lambda stype, sid, **kw: opened.append((stype, sid, kw['meta']['name'])) or False)
+    detailwindow.open_detail('movie', 'tt0133093')
+    assert opened == [('movie', 'tt0133093', 'The Matrix')]
+
+
+def test_a_title_listed_as_the_wrong_type_still_opens(load, monkeypatch):
+    load()
+    import lib.ui.detailwindow as detailwindow
+    import lib.ui.views as views
+
+    show = {'id': 'tt0944947', 'type': 'series', 'name': 'GoT', 'videos': []}
+    monkeypatch.setattr(views, '_fetch_meta', lambda stype, sid, **kw: show if stype == 'series' else None)
+    assert detailwindow._fetch_meta_any_type('Movies', 'tt0944947') == (show, 'series')
