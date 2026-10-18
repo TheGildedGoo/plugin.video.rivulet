@@ -1077,6 +1077,32 @@ def _landing_video_id(stype, show_id, videos):
     return video_id
 
 
+def _imdb_alternative(stype, sid, preview):
+    """The ``tt`` id for a title whose own id no meta addon resolves: the
+    IMDb id its catalog preview names, else the same title (name, type,
+    year) from a search. ``''`` when neither finds it; `CANCELLED` on
+    Back."""
+    from lib.ui import previews
+    from lib.ui.streamswindow import imdb_id_for
+
+    named = imdb_id_for(preview)
+    if named:
+        return named
+    if not preview.get('name'):
+        return ''
+    from lib.ui.dependencies import get_client, get_store
+    from lib.ui.searchwindow import SearchReport, run_query
+
+    report = SearchReport()
+    try:
+        found = run_query(get_store(), get_client(), preview.get('name'), report=report)
+    except Exception:
+        return ''
+    if report.canceled and not found:
+        return CANCELLED
+    return previews.best_match(preview, found, stype)
+
+
 def open_detail(stype, sid, video_id=None, land_on=None):
     """Fetch (stype, sid)'s full meta. A movie (no `videos`) has nothing
     to pick, so it opens StreamsWindow directly; a series opens this
@@ -1089,13 +1115,30 @@ def open_detail(stype, sid, video_id=None, land_on=None):
     device, or the next one after a finished episode."""
     import xbmc
 
+    from lib.ui import previews
     from lib.ui.compat import L, log, notify
     from lib.ui.views import _fetch_meta
 
+    preview = previews.lookup(sid) or {}
+    if not stype:
+        # A catalog that left `type` off its previews.
+        stype = preview.get('type') or 'movie'
     meta_obj = run_cancellable(lambda: _fetch_meta(stype, sid), L(30033))
     if meta_obj is CANCELLED:
         log('detailwindow: meta fetch for %s/%s cancelled by the user' % (stype, sid), xbmc.LOGINFO)
         return False
+    if not meta_obj and not str(sid or '').startswith('tt'):
+        # A provider list's own id (tmdb:...) that no meta addon takes:
+        # open the same title by its IMDb id, as a search would.
+        alternative = _imdb_alternative(stype, sid, preview)
+        if alternative is CANCELLED:
+            return False
+        if alternative:
+            log('detailwindow: %s/%s opened as %s' % (stype, sid, alternative), xbmc.LOGINFO)
+            sid = alternative
+            meta_obj = run_cancellable(lambda: _fetch_meta(stype, sid), L(30033))
+            if meta_obj is CANCELLED:
+                return False
     if not meta_obj:
         # Distinct from "no streams" (#30030). The fetch already retried
         # the addons that failed; this is the message when none of them
