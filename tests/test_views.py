@@ -885,7 +885,8 @@ def test_fetch_catalog_pages_keeps_an_id_less_meta_repeated_across_pages(load_vi
     metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 42  # 19 + 19 + 2 ids, plus the id-less meta twice
-    assert [m for m in metas if m.get('id') is None] == [id_less, id_less]
+    typed = dict(id_less, type='movie')  # the catalog's type, filled in
+    assert [m for m in metas if m.get('id') is None] == [typed, typed]
 
 
 def test_fetch_catalog_pages_stops_on_an_empty_page(load_views):
@@ -1120,7 +1121,7 @@ def test_fetch_catalog_pages_keeps_metas_without_an_id(load_views):
     metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 21
-    assert {'name': 'No Id'} in metas
+    assert {'name': 'No Id', 'type': 'movie'} in metas
 
 
 # ---------------------------------------------------------------------------
