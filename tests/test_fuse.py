@@ -570,3 +570,50 @@ def test_a_failed_meta_fetch_is_tried_again_later(load_homewindow, monkeypatch):
     item.setProperty('meta_state', 'failed:%d' % int(_time.time() - 60))
     hw._schedule_library_meta(win, item)
     assert started == [1]
+
+
+def _home_menu(ctx, monkeypatch, pick):
+    import lib.ui.dependencies as dependencies
+    import lib.ui.dialogs as dialogs
+
+    class _Store:
+        def get_auth(self):
+            return None
+
+    shown = []
+    opened = []
+    monkeypatch.setattr(dependencies, 'get_store', lambda: _Store())
+    monkeypatch.setattr(dialogs, 'choose', lambda heading, rows: shown.append(rows) or pick)
+    monkeypatch.setattr(ctx.homewindow, '_open_child', lambda window, opener: opened.append(opener) or False)
+    return shown, opened
+
+
+def test_a_series_card_on_continue_offers_go_to_series(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    shown, opened = _home_menu(ctx, monkeypatch, 0)
+    item = hw._continue_item({'id': 'tt9253284', 'type': 'series', 'name': 'Andor', 'video_id': 'tt9253284:1:3'})
+    win = hw.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    hw._offer_library(win, item, hw.CONTINUE_SHELF)
+    assert shown == [['STR30514', 'STR30499']]
+    assert len(opened) == 1
+
+    import lib.ui.detailwindow as detailwindow
+    pages = []
+    monkeypatch.setattr(detailwindow, 'open_detail', lambda stype, sid, **kw: pages.append((stype, sid, kw)) or False)
+    opened[0]()
+    # The show's page, without landing on the episode the card resumes.
+    assert pages == [('series', 'tt9253284', {})]
+
+
+def test_a_movie_on_continue_or_a_series_elsewhere_has_no_go_to_series(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    shown, opened = _home_menu(ctx, monkeypatch, -1)
+    win = hw.HomeWindow('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    movie = hw._continue_item({'id': 'tt1', 'type': 'movie', 'name': 'Dune'})
+    hw._offer_library(win, movie, hw.CONTINUE_SHELF)
+    series = hw._poster_item({'id': 'tt2', 'type': 'series', 'name': 'Andor'})
+    hw._offer_library(win, series, hw.LIBRARY_SHELF)
+    assert shown == [['STR30499'], ['STR30499']]
+    assert opened == []
