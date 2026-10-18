@@ -1045,14 +1045,22 @@ def _open_child(window, opener):
     return False
 
 
-def _offer_library(window, item):
-    """Menu button on a poster. A chip or a notice has nothing to save."""
+def _offer_library(window, item, control_id=None):
+    """Menu button on a poster. A chip or a notice has nothing to save.
+
+    A series card on Continue also offers Go to series: the show's page,
+    where OK on the card asks to resume the episode instead."""
     from lib.ui.libraryaction import meta_from_item, poster_menu
 
     meta = meta_from_item(item)
     if meta is None:
         return
-    if poster_menu(meta):
+    extra = []
+    if control_id == CONTINUE_SHELF and item.getProperty('stype') == 'series':
+        from lib.ui.compat import L
+
+        extra.append((L(30514), lambda: _open_child(window, lambda: _open_detail_for(item))))
+    if poster_menu(meta, extra):
         refresh_library_row(window)
 
 
@@ -1795,7 +1803,7 @@ class HomeWindow(BaseWindow):
         if action_id == 117:
             focus = self.getFocusId()
             if focus in _CLICKABLE and focus != BROWSE_LIST:
-                _offer_library(self, self.getControl(focus).getSelectedItem())
+                _offer_library(self, self.getControl(focus).getSelectedItem(), focus)
             return
         # The header is one row (#23): the pills on the left, the tools on
         # the right, and a row's Up lands on the pills. With no types

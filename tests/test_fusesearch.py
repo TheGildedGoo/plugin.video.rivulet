@@ -26,19 +26,6 @@ def _window(ctx):
     return win
 
 
-class _Timer:
-    started = []
-
-    def __init__(self, delay, fn, args):
-        self.delay, self.fn, self.args, self.daemon = delay, fn, args, False
-
-    def start(self):
-        _Timer.started.append(self)
-
-    def cancel(self):
-        pass
-
-
 def test_the_letters_are_the_alphabet_space_and_delete(load):
     ctx = load()
     win = _window(ctx)
@@ -49,37 +36,95 @@ def test_the_letters_are_the_alphabet_space_and_delete(load):
     assert win.getControl(ctx.homewindow.HERO_TITLE).label == '[B]STR30508[/B]'
 
 
-def test_picking_letters_waits_then_searches(load, monkeypatch):
+def _searching(ctx, monkeypatch, answer, failures=(), canceled=False, total=1):
+    import lib.ui.dependencies as dependencies
+    import lib.ui.searchwindow as sw
+
+    asked = []
+
+    def _run_query(store, client, query, report=None, **kwargs):
+        asked.append(query)
+        report.total_catalogs = total
+        report.queried = total
+        report.failures = list(failures)
+        report.canceled = canceled
+        return list(answer)
+
+    monkeypatch.setattr(sw, 'run_query', _run_query)
+    monkeypatch.setattr(dependencies, 'get_store', lambda: object())
+    monkeypatch.setattr(dependencies, 'get_client', lambda: object())
+    return asked
+
+
+def test_picking_letters_fills_the_bar_and_does_not_search(load, monkeypatch):
     ctx = load()
     win = _window(ctx)
     win.onInit()
-    _Timer.started = []
-    monkeypatch.setattr(ctx.fusesearch.threading, 'Timer', _Timer)
-    for key in ('D', 'U', 'N', 'E'):
+    asked = _searching(ctx, monkeypatch, [])
+    for key in ('A', 'N', 'D', 'O', 'R'):
         win._key(key)
-    assert win.query == 'Dune'
-    assert win.getControl(ctx.fusesearch.QUERY).label == 'Dune[COLOR 8007090B]|[/COLOR]'
-    # One letter searched nothing; each later letter replaced the timer.
-    assert [t.args[0] for t in _Timer.started] == ['Du', 'Dun', 'Dune']
-    assert _Timer.started[-1].delay == ctx.fusesearch.SETTLE_SECONDS
+    assert win.query == 'Andor'
+    assert win.getControl(ctx.fusesearch.QUERY).label == 'Andor[COLOR 8007090B]|[/COLOR]'
+    assert asked == []
     win._key('<')
     win._key(' ')
     win._key(' ')
-    assert win.query == 'Dun '
+    assert win.query == 'Ando '
 
 
-def test_results_land_only_for_the_query_still_in_the_bar(load, monkeypatch):
+def test_the_search_pill_searches_and_moves_to_the_results(load, monkeypatch):
     ctx = load()
     win = _window(ctx)
     win.onInit()
-    win.query = 'Dune'
-    win._post(('results', 'Dun', [{'id': 'tt0', 'name': 'Old'}]))
-    win._post(('results', 'Dune', [{'id': 'tt1', 'type': 'movie', 'name': 'Dune', 'description': 'A desert.'}]))
-    win._apply_ready()
+    asked = _searching(ctx, monkeypatch, [{'id': 'tt9253284', 'type': 'series', 'name': 'Andor', 'description': 'A rebel.'}])
+    win.query = 'Andor'
+    win.onClick(ctx.fusesearch.GO)
+    assert asked == ['Andor']
     row = win.getControl(ctx.fusesearch.ROW)
-    assert [item.getLabel() for item in row.items] == ['Dune']
+    assert [item.getLabel() for item in row.items] == ['Andor']
     assert win.getControl(ctx.fusesearch.ROW_HEADING).label == '[B]STR30507[/B]'
-    assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'A desert.'
+    assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'A rebel.'
+    assert win.getFocusId() == ctx.fusesearch.ROW
+    assert win.getControl(ctx.fusesearch.STATUS).label == ''
+    # Discover arriving late does not replace the results.
+    win._post(('discover', '', [{'id': 'tt1', 'name': 'Popular'}]))
+    win._apply_ready()
+    assert [item.getLabel() for item in row.items] == ['Andor']
+
+
+def test_no_results_is_said_under_the_pills(load, monkeypatch):
+    ctx = load()
+    win = _window(ctx)
+    win.onInit()
+    _searching(ctx, monkeypatch, [])
+    win.query = 'Zzzz'
+    win._go()
+    assert win.getControl(ctx.fusesearch.STATUS).label == 'STR30513 Zzzz'
+    assert win.getFocusId() != ctx.fusesearch.ROW
+
+
+def test_every_catalog_failing_is_said_not_no_results(load, monkeypatch):
+    ctx = load()
+    win = _window(ctx)
+    win.onInit()
+    _searching(ctx, monkeypatch, [], failures=[('Cinemeta', 'timeout')])
+    win.query = 'Andor'
+    win._go()
+    assert win.getControl(ctx.fusesearch.STATUS).label == 'STR30382'
+
+
+def test_back_on_the_spinner_leaves_the_row_alone(load, monkeypatch):
+    ctx = load()
+    win = _window(ctx)
+    win.onInit()
+    win._post(('discover', '', [{'id': 'tt1', 'name': 'Popular'}]))
+    win._apply_ready()
+    _searching(ctx, monkeypatch, [], canceled=True)
+    win.query = 'Andor'
+    win._go()
+    row = win.getControl(ctx.fusesearch.ROW)
+    assert [item.getLabel() for item in row.items] == ['Popular']
+    assert win.getControl(ctx.fusesearch.STATUS).label == ''
 
 
 def test_discover_fills_the_row_until_two_letters_are_picked(load):
@@ -90,37 +135,6 @@ def test_discover_fills_the_row_until_two_letters_are_picked(load):
     win._apply_ready()
     assert win.getControl(ctx.fusesearch.ROW_HEADING).label == '[B]STR30506[/B]'
     assert win.getProperty('SearchHasRow') == '1'
-
-
-def test_the_search_pill_searches_now_and_moves_to_the_results(load, monkeypatch):
-    ctx = load()
-    win = _window(ctx)
-    win.onInit()
-    _Timer.started = []
-    monkeypatch.setattr(ctx.fusesearch.threading, 'Timer', _Timer)
-    win._key('X')  # one letter: too short to search on its own
-    assert _Timer.started == []
-    win.onClick(ctx.fusesearch.GO)
-    assert [(t.args[0], t.delay) for t in _Timer.started] == [('X', 0)]
-    # Said at once, before the answer.
-    assert 'STR30512' in win.getControl(ctx.fusesearch.STATUS).label
-    win._post(('results', 'X', [{'id': 'tt1', 'type': 'movie', 'name': 'X-Men'}]))
-    win._apply_ready()
-    assert win.getFocusId() == ctx.fusesearch.ROW
-    assert win.getControl(ctx.fusesearch.STATUS).label == ''
-
-
-def test_no_results_is_said_under_the_pills(load, monkeypatch):
-    ctx = load()
-    win = _window(ctx)
-    win.onInit()
-    monkeypatch.setattr(ctx.fusesearch.threading, 'Timer', _Timer)
-    win.query = 'Zzzz'
-    win._go()
-    win._post(('results', 'Zzzz', []))
-    win._apply_ready()
-    assert win.getControl(ctx.fusesearch.STATUS).label == 'STR30513 Zzzz'
-    assert win.getFocusId() != ctx.fusesearch.ROW
 
 
 def test_the_search_skin_has_the_pill_and_the_status_line():
