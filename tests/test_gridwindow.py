@@ -99,7 +99,7 @@ def test_progress_width_is_empty_when_percent_is_not_a_number(ctx):
 
 def test_badge_shows_percent_for_a_resuming_title(ctx):
     assert ctx.gridwindow._badge(_item(ctx.mystuff.BAND_RESUME, percent=62.4)) == (
-        '[COLOR FF38BDF8]62%[/COLOR]')
+        '[COLOR FFD6D6D6]62%[/COLOR]')
 
 
 def test_badge_names_the_next_up_and_watched_bands(ctx):
@@ -169,7 +169,7 @@ def test_make_list_item_sets_every_property_the_skin_draws(ctx):
 
     assert list_item.getLabel() == 'Dune'
     assert list_item.getProperty('thumbnail') == 'p.jpg'
-    assert list_item.getProperty('badge') == '[COLOR FF38BDF8]50%[/COLOR]'
+    assert list_item.getProperty('badge') == '[COLOR FFD6D6D6]50%[/COLOR]'
     assert list_item.getProperty('progress_width') == str(ctx.gridwindow.PROGRESS_TRACK_WIDTH // 2)
     assert list_item.getProperty('caption') == '50% watched'
     assert list_item.getProperty('plot') == ''
@@ -629,7 +629,7 @@ def test_focus_is_marked_without_scaling_the_cell():
     # invisible - the underline is drawn in the skin's accent colour.
     focused = re.search(r'<focusedlayout[^>]*>(.*?)</focusedlayout>', xml, flags=re.S)
     assert focused, 'no focusedlayout found'
-    assert 'FF38BDF8' in focused.group(1), (
+    assert 'FFD6D6D6' in focused.group(1), (
         'the focused layout draws no accent mark, so focus is invisible')
 
 
@@ -652,7 +652,7 @@ def test_the_focus_underline_spans_the_whole_poster():
     # The 4px accent bar drawn under a focused poster, one per band row.
     underlines = re.findall(
         r'<control type="image"><top>\d+</top><left>(\d+)</left><width>(\d+)</width>'
-        r'<height>4</height><texture colordiffuse="FF38BDF8">', xml)
+        r'<height>4</height><texture colordiffuse="FFD6D6D6">', xml)
     assert underlines, 'no focus underline found'
     for x, w in underlines:
         assert (x, w) == (poster_x, poster_w), (
@@ -676,7 +676,7 @@ def test_focus_frame_is_wider_than_the_poster_on_every_band():
     # 8px of accent past the poster on the left, the right and the bottom.
     frames = re.findall(
         r'<top>0</top><left>%d</left><width>%d</width><height>%d</height>'
-        r'<texture[^>]*colordiffuse="FF38BDF8">'
+        r'<texture[^>]*colordiffuse="FFD6D6D6">'
         % (left - 8, width + 16, height + 8),
         xml,
     )

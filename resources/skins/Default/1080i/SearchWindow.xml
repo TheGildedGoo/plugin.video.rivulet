@@ -31,8 +31,8 @@
                     </control>
                 </itemlayout>
                 <focusedlayout height="108">
-                    <control type="image"><width>1728</width><height>108</height><texture colordiffuse="FF1B2126">white.png</texture></control>
-                    <control type="image"><width>6</width><height>108</height><texture colordiffuse="FF38BDF8">white.png</texture></control>
+                    <control type="image"><width>1728</width><height>108</height><texture colordiffuse="FF2E2E2E">white.png</texture></control>
+                    <control type="image"><width>6</width><height>108</height><texture colordiffuse="FFD6D6D6">white.png</texture></control>
                     <control type="label"><left>32</left><top>21</top><width>1664</width><height>34</height><font>font13</font><textcolor>FFFFFFFF</textcolor>
                         <label>[B]$INFO[ListItem.Label][/B]</label>
                     </control>
@@ -44,8 +44,8 @@
             <control type="scrollbar" id="30010">
                 <left>1839</left><top>165</top><width>21</width><height>648</height>
                 <texturesliderbar colordiffuse="33FFFFFF">white.png</texturesliderbar>
-                <textureslidernib colordiffuse="FF38BDF8">white.png</textureslidernib>
-                <textureslidernibfocus colordiffuse="FF38BDF8">white.png</textureslidernibfocus>
+                <textureslidernib colordiffuse="FFD6D6D6">white.png</textureslidernib>
+                <textureslidernibfocus colordiffuse="FFD6D6D6">white.png</textureslidernibfocus>
                 <showonepage>false</showonepage>
                 <orientation>vertical</orientation>
             </control>

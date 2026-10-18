@@ -33,7 +33,7 @@
 <!-- The page's name: REVRIVULET / the catalog (infowindow._header_label). -->
 <control type="label" id="30100"><left>80</left><top>36</top><width>940</width><height>50</height><font>font13</font><textcolor>FFEDEDED</textcolor><aligny>center</aligny><label></label></control>
 <control type="label"><left>1040</left><top>36</top><width>800</width><height>50</height><font>font13</font><textcolor>FFEDEDED</textcolor><align>right</align><aligny>center</aligny><label>[B]$INFO[System.Time]$INFO[Weather.Temperature,  •  ,][/B]</label></control>
-<control type="image" id="30001"><left>810</left><top>200</top><width>300</width><height>10</height><texture colordiffuse="8038BDF8">white.png</texture></control>
+<control type="image" id="30001"><left>810</left><top>200</top><width>300</width><height>10</height><texture colordiffuse="80D6D6D6">white.png</texture></control>
 <!-- Hero, stacked up from the row by lib/ui/fuse.py: the logo (or the title), stars and facts, the plot (three lines at most), the scores. -->
 <control type="image" id="30023"><left>80</left><top>280</top><width>1000</width><height>120</height><aspectratio align="left" aligny="bottom">keep</aspectratio><texture background="true"></texture><visible>!String.IsEmpty(Window.Property(HeroLogo))</visible></control>
 <control type="label" id="30020"><left>80</left><top>320</top><width>1100</width><height>80</height><font>font45</font><textcolor>FFEDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><wrapmultiline>false</wrapmultiline><label>[B]$INFO[Container(30002).ListItem.Label][/B]</label><visible>String.IsEmpty(Window.Property(HeroLogo))</visible></control>

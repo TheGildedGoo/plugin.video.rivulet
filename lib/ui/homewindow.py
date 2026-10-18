@@ -1108,7 +1108,7 @@ def _status_text(auth):
 
     if not auth:
         return '[COLOR 57EEF3F6]\u25cf[/COLOR] %s' % L(30190)
-    return '[COLOR FF38BDF8]\u25cf[/COLOR] %s' % L(30488)
+    return '[COLOR FFD6D6D6]\u25cf[/COLOR] %s' % L(30488)
 
 
 def _fit_hero_title(text):
