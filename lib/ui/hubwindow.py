@@ -946,14 +946,30 @@ def _button(window, action):
 
 
 def _offer_library(window):
+    """The menu key on a poster. A New Episodes card also offers Go to
+    series: the show's own page, not the episode it opens on OK."""
     from lib.ui.homewindow import refresh_library_row
     from lib.ui.libraryaction import meta_from_item, poster_menu
 
-    meta = meta_from_item(_current_poster(window))
+    item = _current_poster(window)
+    meta = meta_from_item(item)
     if meta is None:
         return
-    if poster_menu(meta):
+    extra = []
+    if item is not None and item.getProperty('episode_index') != '':
+        from lib.ui.compat import L
+
+        extra.append((L(30514), lambda: _open_series(window, item)))
+    if poster_menu(meta, extra):
         refresh_library_row(window)
+
+
+def _open_series(window, item):
+    from lib.ui.detailwindow import open_detail
+
+    if open_detail(item.getProperty('stype') or 'series', item.getProperty('sid')):
+        window.should_close_caller = True
+        window.close()
 
 
 def _retry_row(window):

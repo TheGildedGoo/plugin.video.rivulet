@@ -195,6 +195,54 @@ def test_clicking_the_first_new_episode_marks_it_seen(load_hub, monkeypatch):
     assert win.closed is True
 
 
+def _menu_hub(ctx, monkeypatch, pick, episode=True):
+    import xbmcgui
+
+    shown = []
+    opened = []
+
+    class _Store:
+        def get_auth(self):
+            return None
+
+    import lib.ui.dependencies as dependencies
+    import lib.ui.dialogs as dialogs
+    monkeypatch.setattr(dependencies, 'get_store', lambda: _Store())
+    monkeypatch.setattr(dialogs, 'choose', lambda heading, rows: shown.append(rows) or pick)
+    monkeypatch.setattr(
+        ctx.detailwindow, 'open_detail',
+        lambda ctype, sid, video_id=None: opened.append((ctype, sid, video_id)) or True,
+    )
+    win = ctx.hubwindow.HubWindow('HubWindow.xml', '/addon/path', 'Default', '1080i')
+    poster = xbmcgui.ListItem('Show')
+    if episode:
+        poster.setProperty('episode_index', '0')
+    poster.setProperty('sid', 'show')
+    poster.setProperty('stype', 'series')
+    win._episodes = [{'type': 'series', 'id': 'show', 'video_id': 'show:1:2'}]
+    win._descs = [{'heading': 'New', 'posters': [poster], 'col': 0}]
+    ctx.hubwindow._paint_list(win, select=0)
+    return win, shown, opened
+
+
+def test_the_menu_on_a_new_episode_offers_go_to_series(load_hub, monkeypatch):
+    ctx = load_hub()
+    win, shown, opened = _menu_hub(ctx, monkeypatch, 0)
+    ctx.hubwindow._offer_library(win)
+    assert shown == [['STR30514', 'STR30499']]
+    # The show's page, not the episode it opens on OK.
+    assert opened == [('series', 'show', None)]
+    assert win.should_close_caller is True
+
+
+def test_the_menu_on_a_plain_poster_has_no_go_to_series(load_hub, monkeypatch):
+    ctx = load_hub()
+    win, shown, opened = _menu_hub(ctx, monkeypatch, -1, episode=False)
+    ctx.hubwindow._offer_library(win)
+    assert shown == [['STR30499']]
+    assert opened == []
+
+
 def test_right_moves_the_focus_to_the_next_poster(load_hub):
     ctx = load_hub()
     import xbmcgui
