@@ -1365,3 +1365,19 @@ msgstr "Busca películas, series y más. Elige letras o usa tu móvil."
 msgctxt "#30510"
 msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
 msgstr "El tráiler no se inició. Reproduce cualquier vídeo en el complemento de YouTube de Kodi para comprobarlo."
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Buscar"
+
+msgctxt "#30512"
+msgid "Searching for “%s”…"
+msgstr "Buscando «%s»…"
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Sin resultados para «%s»"
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "Ir a la serie"

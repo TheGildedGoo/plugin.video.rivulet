@@ -1365,3 +1365,19 @@ msgstr "Film, dizi ve daha fazlasını arayın. Harf seçin ya da telefonunuzu k
 msgctxt "#30510"
 msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
 msgstr "Fragman başlamadı. Kontrol etmek için Kodi'nin YouTube eklentisinde herhangi bir video oynatın."
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Ara"
+
+msgctxt "#30512"
+msgid "Searching for “%s”…"
+msgstr "“%s” aranıyor…"
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "“%s” için sonuç yok"
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "Diziye git"
