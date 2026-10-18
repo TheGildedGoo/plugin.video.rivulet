@@ -547,7 +547,7 @@ class AddonClient:
         has_more = envelope.get('hasMore')
         if isinstance(has_more, bool):
             hints['hasMore'] = has_more
-        return metas, hints
+        return default_meta_types(metas, rtype), hints
 
     def meta(self, base, rtype, mid):
         """GET a meta resource -> the meta object (resp['meta']).
@@ -755,6 +755,23 @@ def iter_catalogs(addons, extra_required=None, types=None):
             if wanted is not None and catalog.get('type') not in wanted:
                 continue
             yield transport_url, manifest, catalog
+
+
+def default_meta_types(metas, ctype):
+    """Give each preview without a ``type`` the catalog's own type.
+
+    Provider lists (Netflix, Disney+, Hulu, HBO...) can leave ``type``
+    off their previews. Stremio, and the classic catalog browser, open a
+    title as the type of the catalog it came from; Home's and the hubs'
+    rows used the preview's own empty type, so the meta lookup matched no
+    addon and the title said "could not be loaded". Returns `metas`.
+    """
+    if not isinstance(ctype, str) or not ctype:
+        return metas
+    for meta in metas or ():
+        if isinstance(meta, dict) and not meta.get('type'):
+            meta['type'] = ctype
+    return metas
 
 
 def _base_type(catalog_type):

@@ -187,6 +187,9 @@ def _item_properties(meta):
     Pure helper - no xbmc - so it is trivially unit-testable on its own.
     """
     meta = meta or {}
+    from lib.ui import previews
+
+    previews.remember(meta)
     poster = meta.get('poster')
     logo = meta.get('logo')
     # `resolve_art()` is the addon-wide poster/fanart fallback, but it

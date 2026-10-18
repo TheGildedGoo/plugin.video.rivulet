@@ -463,8 +463,10 @@ def _fetch_catalog(transport, ctype, cid, extra=None):
     lazily by CatalogPickerWindow and infowindow's discover-link picker
     to build their listing/overlay. Raises AddonError on failure; each
     caller decides how to surface it."""
+    from lib.stremio.addons import default_meta_types
+
     client = get_client()
-    return client.catalog(transport, ctype, cid, extra=extra)
+    return default_meta_types(client.catalog(transport, ctype, cid, extra=extra), ctype)
 
 
 def _adult_filtering_enabled():

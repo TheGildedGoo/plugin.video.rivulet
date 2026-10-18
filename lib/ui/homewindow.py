@@ -264,6 +264,9 @@ def _poster_item(meta, action='', sparse=False):
     name = meta.get('name') or ''
     background = meta.get('background') or ''
     poster = meta.get('poster') or ''
+    from lib.ui import previews
+
+    previews.remember(meta)
     item = xbmcgui.ListItem(escape_label(name))
     item.setProperties({
         # TMDB `original` art is megabytes for a 200px card (#18).

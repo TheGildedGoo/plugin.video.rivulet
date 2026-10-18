@@ -357,10 +357,10 @@ _SEARCH_POLL_SECONDS = 0.2
 #: until Back: one search catalog that answers slowly (or retries three
 #: 15s timeouts) held every result that had already landed. The
 #: stragglers are left out of this search, as Back leaves them out.
-_SEARCH_GRACE_SECONDS = 4.0
+_SEARCH_GRACE_SECONDS = 8.0
 
 #: The most `run_query()` waits for the catalogs at all, results or not.
-_SEARCH_DEADLINE_SECONDS = 20.0
+_SEARCH_DEADLINE_SECONDS = 25.0
 
 #: How long, once every catalog has answered, `run_query()` still waits
 #: for the ranking feed (`lib.ui.searchfeed`, ~3.7MB, refreshed daily)

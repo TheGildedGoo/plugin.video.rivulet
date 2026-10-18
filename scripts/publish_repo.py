@@ -238,7 +238,7 @@ def build_repo(output_dir):
 
     addons_root = ET.Element("addons")
     addons_root.append(
-        _publish_one(output, ADDON_ID, video_zip, "resources/icon.png", "resources/fanart.jpg")
+        _publish_one(output, ADDON_ID, video_zip, "resources/icon.png", "resources/fanart_grey.jpg")
     )
     addons_root.append(_publish_one(output, REPO_ID, repo_zip, "icon.png", "fanart.jpg"))
     addons_xml = output / "addons.xml"

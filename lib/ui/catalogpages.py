@@ -159,6 +159,11 @@ def cached_first_page(transport, manifest, catalog, extra=None):
     if cache is not None and isinstance(catalog, dict):
         key = cache_key(transport, catalog.get('type'), catalog.get('id'), extra)
         state, metas = cache.lookup(key, allow_expired=True)
+        if metas:
+            # Pages cached before types were defaulted on the way in.
+            from lib.stremio.addons import default_meta_types
+
+            default_meta_types(metas, catalog.get('type'))
         if state == 'fresh' and metas is not None:
             return _region_filter(metas)
         if state in ('stale', 'expired') and metas:
