@@ -413,7 +413,7 @@ def test_allowed_literal_words_survive_substitution_stripping_regression(tmp_pat
     """Regression: the allow-listed OK/BACK hint strip - literal key
     captions mixed with a real $ADDON substitution - must NOT be flagged,
     or the rule would be too strict to ship."""
-    text = '[COLOR FF38BDF8]OK[/COLOR] $ADDON[plugin.video.revrivulet 30209] [COLOR FF38BDF8]BACK[/COLOR] $ADDON[plugin.video.revrivulet 30210]'
+    text = '[COLOR FFD6D6D6]OK[/COLOR] $ADDON[plugin.video.revrivulet 30209] [COLOR FFD6D6D6]BACK[/COLOR] $ADDON[plugin.video.revrivulet 30210]'
     assert set(_literal_words(text)) <= _ALLOWED_LITERAL_WORDS
 
 
@@ -892,3 +892,28 @@ def test_poster_masks_match_each_art_box_and_are_not_ovals():
             offenders.append('%s file aspect' % name)
         offenders.extend(_mask_pixel_offenders(name, width, height))
     assert offenders == []
+
+
+_DIALOGS = ('BusyDialog.xml', 'ProgressDialog.xml', 'CountdownDialog.xml', 'ConfirmDialog.xml',
+            'OptionListDialog.xml', 'PairDialog.xml')
+
+
+@pytest.mark.parametrize('name', _DIALOGS)
+def test_dialogs_are_rounded_dark_plates(name):
+    """rev21: every dialog is a rounded, translucent black plate with a
+    hairline, not a square slate box edged with four 1px lines."""
+    text = _read(os.path.join(_SKIN_DIR, name))
+    assert 'dlg_panel.png' in text and 'dlg_stroke.png' in text
+    assert 'FF12161A' not in text
+    # The only hairline left is the menu's divider under its heading.
+    edges = re.findall(r'<width>1</width><height>\d+</height><texture colordiffuse="1AFFFFFF">white.png', text)
+    assert edges == []
+
+
+def test_no_blue_accent_is_left_outside_the_rev2_skins():
+    for path in _skin_files():
+        if os.path.basename(path).startswith('Rev2'):
+            continue
+        with open(path, encoding='utf-8') as handle:
+            assert '38BDF8' not in handle.read(), path
+

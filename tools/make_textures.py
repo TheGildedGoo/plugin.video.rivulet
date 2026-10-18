@@ -533,6 +533,23 @@ def write_fuse_assets():
         print('wrote', path)
 
 
+def write_dialog_assets():
+    """Rounded plates for the dialogs (spinner, progress, menus, confirm):
+    a filled panel and its hairline, drawn 9-slice with border=32, and a
+    smaller filled/stroked pair for focused rows and buttons (border=20)."""
+    os.makedirs(MEDIA, exist_ok=True)
+    out = {
+        'dlg_panel.png': _rrect(96, 96, 28),
+        'dlg_stroke.png': _rrect(96, 96, 28, stroke=2),
+        'dlg_row.png': _rrect(64, 64, 16),
+        'dlg_row_stroke.png': _rrect(64, 64, 16, stroke=2),
+    }
+    for name, image in out.items():
+        path = os.path.join(MEDIA, name)
+        image.save(path, optimize=True)
+        print('wrote', path)
+
+
 def main():
     # Sizes the skin builder asks for. Running this file alone still
     # produces the poster and landscape masks the home rows use.
@@ -541,6 +558,7 @@ def main():
     write_scrim()
     write_hero_bar()
     write_fuse_assets()
+    write_dialog_assets()
 
 
 if __name__ == '__main__':
