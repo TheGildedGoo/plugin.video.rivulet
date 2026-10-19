@@ -117,6 +117,13 @@ playback time — OpenSubtitles v3 is preinstalled — and sorted using the
 
 ## Development
 
+### How this was built
+
+RevRivulet was developed with AI coding assistants (such as Claude), with
+the maintainer directing every change. Changes are tested on real hardware
+(CoreELEC), and the test suite, ruff and mypy run in CI on every push and
+pull request. The maintainer (TheGildedGoo) reviews and owns all changes.
+
 `lib/stremio/` and `lib/store.py` are plain Python with no `xbmc*` imports,
 so they run and test outside Kodi. Everything Kodi-specific lives in
 `lib/ui/`, `lib/service_runner.py`, `default.py` and `service.py`. The
