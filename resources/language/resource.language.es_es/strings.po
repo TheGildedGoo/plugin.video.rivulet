@@ -1001,3 +1001,19 @@ msgstr "Sincronizando complementos…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "El catálogo solo muestra las primeras %d páginas; no se cargan más elementos"
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "Ocultar países e idiomas"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "Países"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "Idiomas originales"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "Nada oculto"

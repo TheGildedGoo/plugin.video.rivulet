@@ -1001,3 +1001,19 @@ msgstr "애드온 동기화 중…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "카탈로그에는 처음 %d페이지만 표시되며 나머지 항목은 불러오지 않습니다"
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "국가와 언어 숨기기"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "국가"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "원어"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "숨긴 항목 없음"

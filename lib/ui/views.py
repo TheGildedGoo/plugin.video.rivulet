@@ -438,7 +438,9 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
                 seen.add(key)
             fresh.append(meta_obj)
         filtered = filter_metas(fresh) if hide_adult else fresh
-        return fresh, filtered
+        from lib.ui.regiondialog import apply_region_filter
+
+        return fresh, apply_region_filter(filtered)
 
     _, filtered_first = _dedupe(first)
     yield filtered_first

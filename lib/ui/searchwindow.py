@@ -713,6 +713,9 @@ def run_query(store, client, query, report=None):
             metas.extend(found)
     if hide_adult:
         metas = filter_metas(metas)
+    from lib.ui.regiondialog import apply_region_filter
+
+    metas = apply_region_filter(metas)
     ranked = _rank_by_title(_dedupe(_rank_by_credit(metas, query)), query, feed_index)
 
     log(

@@ -1001,3 +1001,19 @@ msgstr "Eklentiler eşitleniyor…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Katalog yalnızca ilk %d sayfayı gösteriyor; diğer öğeler yüklenmiyor"
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "Ülkeleri ve dilleri gizle"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "Ülkeler"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "Özgün diller"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "Hiçbiri gizli değil"

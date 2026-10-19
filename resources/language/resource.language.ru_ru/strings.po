@@ -1001,3 +1001,19 @@ msgstr "Синхронизация аддонов…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Каталог показывает только первые %d страниц; остальные элементы не загружаются"
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "Скрыть страны и языки"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "Страны"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "Языки оригинала"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "Ничего не скрыто"

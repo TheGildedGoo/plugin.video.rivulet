@@ -1001,3 +1001,19 @@ msgstr "Addons synchroniseren…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "De catalogus toont alleen de eerste %d pagina's; meer items worden niet geladen"
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "Landen en talen verbergen"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "Landen"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "Oorspronkelijke talen"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "Niets verborgen"

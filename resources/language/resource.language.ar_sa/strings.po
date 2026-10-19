@@ -1001,3 +1001,19 @@ msgstr "جارٍ مزامنة الإضافات…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "يعرض الكتالوج أول %d صفحات فقط؛ لن يتم تحميل المزيد من العناصر"
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "إخفاء البلدان واللغات"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "البلدان"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "اللغات الأصلية"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "لا شيء مخفي"

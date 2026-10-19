@@ -1001,3 +1001,19 @@ msgstr "Addons werden synchronisiert…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Der Katalog zeigt nur die ersten %d Seiten; weitere Einträge werden nicht geladen"
+
+msgctxt "#30470"
+msgid "Hide countries and languages"
+msgstr "Länder und Sprachen ausblenden"
+
+msgctxt "#30471"
+msgid "Countries"
+msgstr "Länder"
+
+msgctxt "#30472"
+msgid "Original languages"
+msgstr "Originalsprachen"
+
+msgctxt "#30473"
+msgid "Nothing hidden"
+msgstr "Nichts ausgeblendet"

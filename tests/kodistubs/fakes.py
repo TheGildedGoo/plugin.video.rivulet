@@ -176,6 +176,10 @@ class Env:
 
         # xbmcgui.Dialog / DialogProgress recorders
         self.notifications = []         # [(heading, message, icon, time)]
+        # Dialog.multiselect recordings, and scripted answers. Each answer
+        # is a list of indexes, or None for cancel. An empty queue cancels.
+        self.dialog_multiselects = []
+        self.multiselect_answers = []
         self.dialog_input_prompts = []  # [heading, ...]
         self.dialog_yesno_prompts = []  # [(heading, message), ...]
         self.dialog_created = []        # [(heading, message)]
