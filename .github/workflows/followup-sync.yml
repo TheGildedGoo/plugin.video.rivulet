@@ -15,7 +15,7 @@ permissions:
 
 env:
   BRANCH: upstream-pr/followup-ids
-  EXPECTED: 719bba0c01586f003eb950c5174756e2201024ce
+  EXPECTED: 06dd35929f729c351b9294523c3680eba77e9a73
 
 jobs:
   push:
@@ -30,7 +30,7 @@ jobs:
       - name: Checkout a branch that has the bundle's prerequisites
         uses: actions/checkout@v4
         with:
-          ref: upstream-pr/fixes-and-dark-dialogs
+          ref: upstream-pr/followup-ids
           path: pr
           fetch-depth: 0
 
@@ -41,5 +41,6 @@ jobs:
           git bundle verify ../followup.bundle
           git fetch ../followup.bundle refs/heads/followup-sync:refs/remotes/bundle/followup-sync
           test "$(git rev-parse refs/remotes/bundle/followup-sync)" = "$EXPECTED"
+          git merge-base --is-ancestor HEAD "$EXPECTED"
           git log --oneline -3 "$EXPECTED"
           git push origin "$EXPECTED:refs/heads/$BRANCH"
