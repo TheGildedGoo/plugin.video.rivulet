@@ -1,0 +1,45 @@
+name: Push follow-up ids branch
+
+# Lives only on the test-builds branch. Pushes upstream-pr/followup-ids
+# from the git bundle in test-builds/followup/ (base64 so it survives a
+# text commit). Never forces: an existing branch only moves by fast-forward.
+on:
+  push:
+    branches: [ test-builds ]
+    paths:
+      - test-builds/followup/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BRANCH: upstream-pr/followup-ids
+  EXPECTED: 719bba0c01586f003eb950c5174756e2201024ce
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test-builds (bundle)
+        uses: actions/checkout@v4
+        with:
+          path: tb
+          persist-credentials: false
+
+      - name: Checkout a branch that has the bundle's prerequisites
+        uses: actions/checkout@v4
+        with:
+          ref: upstream-pr/fixes-and-dark-dialogs
+          path: pr
+          fetch-depth: 0
+
+      - name: Push from the bundle
+        working-directory: pr
+        run: |
+          base64 -d ../tb/test-builds/followup/followup.bundle.b64 > ../followup.bundle
+          git bundle verify ../followup.bundle
+          git fetch ../followup.bundle refs/heads/followup-sync:refs/remotes/bundle/followup-sync
+          test "$(git rev-parse refs/remotes/bundle/followup-sync)" = "$EXPECTED"
+          git log --oneline -3 "$EXPECTED"
+          git push origin "$EXPECTED:refs/heads/$BRANCH"
