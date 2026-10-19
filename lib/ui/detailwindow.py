@@ -880,7 +880,15 @@ def _imdb_alternative(stype, sid, preview):
     report = SearchReport()
     try:
         found = run_query(get_store(), get_client(), preview.get('name'), report=report)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - the lookup is a fallback and must not break opening
+        import xbmc
+
+        from lib.ui.compat import log
+
+        # The type name only, like run_query()'s own failure log: an
+        # addon error's text can carry its transport URL.
+        log('detailwindow: IMDb lookup by search for %s/%s failed: %s' % (stype, sid, type(exc).__name__),
+            xbmc.LOGWARNING)
         return ''
     if report.canceled and not found:
         return CANCELLED

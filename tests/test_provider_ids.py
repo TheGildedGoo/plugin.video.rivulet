@@ -217,3 +217,24 @@ def test_the_swapped_type_is_skipped_after_a_slow_miss(load, monkeypatch):
     monkeypatch.setattr(views, '_fetch_meta', _slow_miss)
     assert detailwindow._fetch_meta_any_type('movie', 'tt0944947') == (None, 'movie')
     assert asked == ['movie']
+
+
+def test_a_failing_imdb_lookup_is_logged_not_swallowed(load, monkeypatch):
+    ctx = load()
+    import xbmc
+
+    import lib.ui.detailwindow as detailwindow
+    import lib.ui.searchwindow as searchwindow
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError('https://secret.example/token/manifest.json')
+
+    import lib.ui.dependencies as dependencies
+
+    monkeypatch.setattr(dependencies, 'get_store', lambda: object())
+    monkeypatch.setattr(dependencies, 'get_client', lambda: object())
+    monkeypatch.setattr(searchwindow, 'run_query', _boom)
+    assert detailwindow._imdb_alternative('movie', 'tmdb:603', {'id': 'tmdb:603', 'name': 'The Matrix'}) == ''
+    warnings = [msg for msg, level in ctx.env.log_calls if level == xbmc.LOGWARNING]
+    assert any('IMDb lookup by search for movie/tmdb:603 failed: RuntimeError' in m for m in warnings)
+    assert not any('secret.example' in m for m in warnings)
