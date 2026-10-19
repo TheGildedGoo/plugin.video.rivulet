@@ -13,7 +13,7 @@ from tests.kodistubs import install_kodi_stubs
 def pages():
     with contextlib.ExitStack() as stack:
         ctx = stack.enter_context(install_kodi_stubs(reload=(
-            'lib.ui.compat', 'lib.ui.catalogpages',
+            'lib.ui.compat', 'lib.ui.views', 'lib.ui.catalogpages',
         )))
         yield ctx
 
@@ -68,3 +68,35 @@ def test_deferred_saves_write_the_file_once(pages, tmp_path, monkeypatch):
 
     module.cached_first_page('t', {}, {'type': 'movie', 'id': 'd'})
     assert saves == [1, 1]
+
+
+def test_a_cached_page_follows_the_current_hide_adult_setting(pages, tmp_path, monkeypatch):
+    """Pages are stored as the addon sent them and filtered on the way
+    out: a page cached while hide-adult was off loses its adult item as
+    soon as the setting is turned on, without waiting for it to expire."""
+    module = pages.catalogpages
+    clock = {'now': 0.0}
+    cache = _cache(tmp_path, clock)
+    monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
+    page = [
+        {'id': 'tt1', 'type': 'movie', 'name': 'Family Film'},
+        {'id': 'tt2', 'type': 'movie', 'name': 'Late Night', 'adult': True},
+    ]
+    fetched = []
+    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: fetched.append(1) or ([dict(m) for m in page], {}))
+    monkeypatch.setattr(module, '_schedule_revalidate', lambda *args: None)
+    catalog = {'type': 'movie', 'id': 'top'}
+
+    pages.env.addon.settings['home_hide_adult'] = 'false'
+    shown = module.cached_first_page('t', {}, catalog)
+    assert [meta['id'] for meta in shown] == ['tt1', 'tt2']
+
+    pages.env.addon.settings['home_hide_adult'] = 'true'
+    shown = module.cached_first_page('t', {}, catalog)
+    assert [meta['id'] for meta in shown] == ['tt1']
+    assert fetched == [1]  # the second read came from the cache
+
+    from lib.stremio.pagecache import cache_key
+
+    _state, stored = cache.lookup(cache_key('t', 'movie', 'top', None), allow_expired=True)
+    assert [meta['id'] for meta in stored] == ['tt1', 'tt2']  # kept unfiltered on disk

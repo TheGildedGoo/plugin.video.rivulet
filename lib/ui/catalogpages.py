@@ -85,19 +85,39 @@ def get_page_cache():
         return cache
 
 
+def _hide_adult():
+    from lib.ui.views import _adult_filtering_enabled
+
+    return _adult_filtering_enabled()
+
+
+def _visible(metas, manifest, catalog):
+    """`metas` as the CURRENT hide-adult setting allows them: none for an
+    adult catalog, and adult items dropped from any other. Pages are
+    stored unfiltered, so this runs on every read, cached or fresh, and
+    turning the setting on hides a page cached while it was off."""
+    if metas is None or not _hide_adult():
+        return metas
+    from lib.stremio.contentrating import filter_metas, is_adult_catalog
+
+    if is_adult_catalog(catalog if catalog is not None else {}, manifest):
+        return []
+    return filter_metas(metas)
+
+
 def _fetch_first_page(transport, manifest, catalog, extra):
-    """One page and its cache hints. Adult catalogs are not requested.
+    """One page, unfiltered, and its cache hints. Adult catalogs are not
+    requested while the setting hides them.
 
     A client without ``catalog_with_hints`` (the test fakes) falls
     through to ``iter_catalog_pages``, which already applies the adult
     filter and returns no hints.
     """
-    from lib.stremio.contentrating import filter_metas, is_adult_catalog
+    from lib.stremio.contentrating import is_adult_catalog
     from lib.ui.dependencies import get_client
-    from lib.ui.views import _adult_filtering_enabled, iter_catalog_pages
+    from lib.ui.views import iter_catalog_pages
 
-    hide_adult = _adult_filtering_enabled()
-    if hide_adult and is_adult_catalog(catalog if catalog is not None else {}, manifest):
+    if _hide_adult() and is_adult_catalog(catalog if catalog is not None else {}, manifest):
         return [], {}
     client = get_client()
     hints_fn = getattr(client, 'catalog_with_hints', None)
@@ -105,8 +125,6 @@ def _fetch_first_page(transport, manifest, catalog, extra):
     cid = catalog.get('id') if isinstance(catalog, dict) else None
     if callable(hints_fn):
         metas, hints = hints_fn(transport, ctype, cid, extra=extra)
-        if hide_adult:
-            metas = filter_metas(metas)
         return [meta for meta in metas if isinstance(meta, dict)], hints
     try:
         page = next(iter_catalog_pages(
@@ -153,6 +171,10 @@ def cached_first_page(transport, manifest, catalog, extra=None):
     paints the rows it had instead of fetching every one cold, and the
     revalidation has the next open current. A miss fetches, stores, and
     writes the file once (once per `deferred_saves()` block).
+
+    The page is stored as the addon sent it; the hide-adult setting is
+    applied to what is returned (`_visible`), so it always reflects the
+    setting as it is now.
     """
     cache = get_page_cache()
     key = None
@@ -165,12 +187,12 @@ def cached_first_page(transport, manifest, catalog, extra=None):
 
             metas = default_meta_types(metas, catalog.get('type'))
         if state == 'fresh' and metas is not None:
-            return metas
+            return _visible(metas, manifest, catalog)
         if state in ('stale', 'expired') and metas:
             _schedule_revalidate(transport, manifest, catalog, extra, key)
-            return metas
+            return _visible(metas, manifest, catalog)
     metas, hints = _fetch_first_page(transport, manifest, catalog, extra)
     if cache is not None and key is not None:
         cache.store(key, metas, hints)
         _save(cache)
-    return metas
+    return _visible(metas, manifest, catalog)

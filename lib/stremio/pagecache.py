@@ -46,6 +46,9 @@ _SLIM_FIELDS = (
     'id', 'type', 'name', 'poster', 'background', 'logo',
     'year', 'releaseInfo', 'released', 'runtime', 'imdbRating', 'popularity',
     'genres',
+    # The hide-adult check runs on every read of a cached page
+    # (lib/ui/catalogpages.py), so the signals it reads are kept.
+    'adult', 'genre',
     # The region checklist reads these. Dropping them made a cached row
     # look unlabeled, so a hidden country came back on the next launch.
     'country', 'language', 'originalLanguage', 'original_language',

@@ -166,3 +166,11 @@ def test_save_copies_the_entries_it_writes(tmp_path, monkeypatch):
     cache.save()
     with open(str(tmp_path / 'catalog_pages.json')) as handle:
         assert list(json.load(handle)['entries']) == [cache_key('t', 'movie', 'a', None)]
+
+
+def test_slim_meta_keeps_what_the_adult_check_reads():
+    from lib.stremio.pagecache import slim_meta
+
+    slim = slim_meta({'id': 'x', 'name': 'X', 'adult': True, 'genre': 'Drama', 'cast': ['A']})
+    assert slim['adult'] is True and slim['genre'] == 'Drama'
+    assert 'cast' not in slim
