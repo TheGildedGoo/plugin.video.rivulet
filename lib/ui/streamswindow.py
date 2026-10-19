@@ -1224,7 +1224,13 @@ def _meta_with_imdb(stype, sid, meta):
 
     try:
         full = run_cancellable(lambda: _fetch_meta(stype, sid), L(30033))
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - the lookup is a fallback and must not break the picker
+        import xbmc
+
+        from lib.ui.compat import log
+
+        log('streamswindow: IMDb meta lookup for %s/%s failed: %s' % (stype, sid, type(exc).__name__),
+            xbmc.LOGWARNING)
         return meta
     if full is CANCELLED or not isinstance(full, dict):
         return meta

@@ -238,3 +238,66 @@ def test_a_failing_imdb_lookup_is_logged_not_swallowed(load, monkeypatch):
     warnings = [msg for msg, level in ctx.env.log_calls if level == xbmc.LOGWARNING]
     assert any('IMDb lookup by search for movie/tmdb:603 failed: RuntimeError' in m for m in warnings)
     assert not any('secret.example' in m for m in warnings)
+
+
+# --- streams: learning the IMDb id before asking IMDb-only addons -----------
+
+
+_IMDB_ONLY = {'transportUrl': 'tt-addon', 'manifest': {
+    'name': 'Torrents', 'resources': ['stream'], 'types': ['movie'], 'idPrefixes': ['tt']}}
+
+
+def test_a_fetched_imdb_id_lets_an_imdb_only_addon_be_asked(load, monkeypatch):
+    ctx = load()
+    sw = ctx.streamswindow
+    import lib.ui.uicommon as uicommon
+    import lib.ui.views as views
+
+    _wire_data_layer(sw, _FakeStore(addons=[_IMDB_ONLY]), _FakeAddonClient({}))
+    monkeypatch.setattr(views, '_fetch_meta', lambda stype, sid, **kw: {'id': 'tt0133093', 'type': 'movie'})
+    monkeypatch.setattr(uicommon, 'run_cancellable', lambda callback, _heading: callback())
+    preview = {'id': 'tmdb:603', 'name': 'The Matrix'}
+
+    assert sw._stream_targets('movie', 'tmdb:603', preview) == []
+    merged = sw._meta_with_imdb('movie', 'tmdb:603', preview)
+    assert merged['imdb_id'] == 'tt0133093'
+    assert preview == {'id': 'tmdb:603', 'name': 'The Matrix'}  # the caller's preview is not changed
+    assert [entry[2] for entry in sw._stream_targets('movie', 'tmdb:603', merged)] == ['tt0133093']
+
+
+def test_a_cancelled_imdb_lookup_keeps_the_preview(load, monkeypatch):
+    ctx = load()
+    sw = ctx.streamswindow
+    import lib.ui.uicommon as uicommon
+
+    preview = {'id': 'tmdb:603', 'name': 'The Matrix'}
+    monkeypatch.setattr(uicommon, 'run_cancellable', lambda *_args: uicommon.CANCELLED)
+    assert sw._meta_with_imdb('movie', 'tmdb:603', preview) is preview
+
+
+def test_a_failing_imdb_meta_lookup_keeps_the_preview_and_is_logged(load, monkeypatch):
+    ctx = load()
+    sw = ctx.streamswindow
+    import xbmc
+
+    import lib.ui.uicommon as uicommon
+
+    def _boom(*_args):
+        raise RuntimeError('https://secret.example/token/manifest.json')
+
+    preview = {'id': 'tmdb:603', 'name': 'The Matrix'}
+    monkeypatch.setattr(uicommon, 'run_cancellable', _boom)
+    assert sw._meta_with_imdb('movie', 'tmdb:603', preview) is preview
+    warnings = [msg for msg, level in ctx.env.log_calls if level == xbmc.LOGWARNING]
+    assert any('IMDb meta lookup for movie/tmdb:603 failed: RuntimeError' in m for m in warnings)
+    assert not any('secret.example' in m for m in warnings)
+
+
+def test_an_imdb_keyed_title_needs_no_lookup(load, monkeypatch):
+    ctx = load()
+    sw = ctx.streamswindow
+    import lib.ui.uicommon as uicommon
+
+    monkeypatch.setattr(uicommon, 'run_cancellable', lambda *_args: pytest.fail('looked up'))
+    meta = {'id': 'tt0133093'}
+    assert sw._meta_with_imdb('movie', 'tt0133093', meta) is meta
