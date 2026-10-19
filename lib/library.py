@@ -292,6 +292,39 @@ def library_add_payload(meta, now=None):
     return item
 
 
+def library_add_from_existing(meta, existing=None, now=None):
+    """The ``datastorePut`` body for an explicit Add to Library.
+
+    ``existing`` is the account row pulled immediately before the put.
+    Its ``state`` is kept, so the write does not replace another
+    client's playback with a blank record. ``removed`` and ``temp``
+    become false. ``_mtime`` is now. ``_ctime`` is now when the row is
+    new or was a tombstone, which is the added time Library sorts on.
+    An item that is already in the library keeps its original
+    ``_ctime``. With no account row this is :func:`library_add_payload`.
+    """
+    meta = meta or {}
+    if not isinstance(existing, dict) or not existing.get('_id'):
+        return library_add_payload(meta, now)
+    now_iso = iso8601_utc(now)
+    result = dict(existing)
+    state = result.get('state')
+    result['state'] = dict(state) if isinstance(state, dict) else _default_state(now_iso)
+    was_removed = bool(result.get('removed'))
+    result['removed'] = False
+    result['temp'] = False
+    result['_mtime'] = now_iso
+    if was_removed or not result.get('_ctime'):
+        result['_ctime'] = now_iso
+    if meta.get('name') and not result.get('name'):
+        result['name'] = meta.get('name')
+    if meta.get('type') and not result.get('type'):
+        result['type'] = meta.get('type')
+    if meta.get('poster') and not result.get('poster'):
+        result['poster'] = meta.get('poster')
+    return result
+
+
 def library_remove_payload(item, now=None):
     """Return a NEW LibraryItem dict (`item` is never mutated) flagging
     `item` removed -- Stremio's library "delete" is a tombstone

@@ -76,6 +76,7 @@ def run():
         'server_download': lambda p: _download_server_binary(),
         'advancedsettings_install': lambda p: _install_advancedsettings(),
         'sync_addons_now': _view_action('sync_addons_now'),
+        'refresh_cache': lambda p: _refresh_cache(),
     }
 
     # Any action not in this dict - unrecognized, or a favourite/.strm URL
@@ -90,6 +91,13 @@ def run():
     except Exception as exc:  # noqa: BLE001 - last-resort guard, must never crash Kodi
         log('router: action "%s" failed: %r' % (action, exc), xbmc.LOGERROR)
         _fail_gracefully(action)
+
+
+def _refresh_cache():
+    """Action 'refresh_cache': Settings > Home screen > Refresh cached
+    data, shown while "New look" is on (`lib.ui.cacherefresh`)."""
+    from lib.ui.cacherefresh import refresh_from_settings
+    refresh_from_settings()
 
 
 def _download_server_binary():

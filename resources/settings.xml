@@ -3,6 +3,36 @@
     <section id="plugin.video.rivulet">
         <category id="home" label="30219">
             <group id="1">
+                <!-- The new-look screens (lib/ui/newlook.py). Home reopens in
+                     the other look when Settings closes. -->
+                <setting id="ui_new_look" type="boolean" label="30493" help="30496">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <!-- Clears the new look's catalog, title and ratings caches
+                     and the logo answers (lib/ui/cacherefresh.py). Home
+                     reloads its rows when Settings closes; cache_generation
+                     is how it knows. Shown only with the new look on. -->
+                <setting id="refresh_cache" type="action" label="30502" help="30503">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=refresh_cache)</data>
+                    <dependencies>
+                        <dependency type="visible" setting="ui_new_look">true</dependency>
+                    </dependencies>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting id="cache_generation" type="string" label="30502">
+                    <level>0</level>
+                    <visible>false</visible>
+                    <default></default>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30502</heading>
+                    </control>
+                </setting>
                 <setting id="home_show_mystuff" type="boolean" label="30244">
                     <level>0</level>
                     <default>true</default>
@@ -47,6 +77,38 @@
                     <level>0</level>
                     <default>false</default>
                     <control type="toggle"/>
+                </setting>
+                <!-- Rotten Tomatoes / Metacritic scores for the new-look hero
+                     (lib/stremio/ratings.py). Keys last, and not a category
+                     of their own: Kodi focuses a category's first setting,
+                     and an edit control traps the arrows. Empty means the
+                     hero keeps the catalog's IMDb rating and hides the rest.
+                     Shown only with the new look on. -->
+                <setting id="ratings_omdb_key" type="string" label="30453">
+                    <level>0</level>
+                    <default></default>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible" setting="ui_new_look">true</dependency>
+                    </dependencies>
+                    <control type="edit" format="string">
+                        <heading>30455</heading>
+                    </control>
+                </setting>
+                <setting id="ratings_mdblist_key" type="string" label="30454">
+                    <level>0</level>
+                    <default></default>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <dependencies>
+                        <dependency type="visible" setting="ui_new_look">true</dependency>
+                    </dependencies>
+                    <control type="edit" format="string">
+                        <heading>30456</heading>
+                    </control>
                 </setting>
             </group>
         </category>

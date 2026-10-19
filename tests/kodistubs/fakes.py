@@ -69,6 +69,12 @@ _DEFAULT_LOCALIZED = {
     30341: '%s needs configuration. Open %s in a browser, configure it, then paste the resulting manifest URL',
     30348: 'Showing %d of %d',
     30360: 'New episodes: %d',
+    30429: '%d min',
+    30438: 'Resume %s from %s',
+    30439: 'Resume from %s',
+    30440: 'Episode list',
+    30441: 'Details',
+    30494: 'Ends at %s',
     30383: 'Search incomplete, no answer from: %s',
     30416: 'Search incomplete, catalogs too slow to answer: %d',
 }
@@ -177,6 +183,9 @@ class Env:
 
         # xbmcgui.Dialog / DialogProgress recorders
         self.notifications = []         # [(heading, message, icon, time)]
+        # Parallel to `notifications`. False is a toast that must not play
+        # Kodi's notification chime.
+        self.notification_sounds = []
         self.dialog_input_prompts = []  # [heading, ...]
         self.dialog_yesno_prompts = []  # [(heading, message), ...]
         self.dialog_created = []        # [(heading, message)]
@@ -195,6 +204,13 @@ class Env:
         self.player_seek_calls = []        # [seek_seconds, ...] - xbmc.Player().seekTime() calls
         self.wait_calls = []          # [timeout, ...] - xbmc.Monitor.waitForAbort() calls
         self.clock = FakeClock()
+
+        # xbmc.executeJSONRPC: requests made, and the texture cache the fake
+        # Textures.GetTextures answers from. None means "every URL is
+        # cached" (a box that has seen these images before); a set limits
+        # it to those URLs.
+        self.jsonrpc_calls = []
+        self.cached_textures = None
 
         # xbmcaddon.Addon.openSettings recorder
         self.opened_settings = False

@@ -249,6 +249,12 @@ def _open_addons(window):
 def _open_settings(window):
     from lib.ui.compat import ADDON
     ADDON.openSettings()
+    # "New look" switched on: Home is chosen when it opens, so close and
+    # let `open_home()` open the new-look Home in its place.
+    from lib.ui.newlook import enabled as new_look_enabled
+    if new_look_enabled():
+        window._restyle = True
+        window.close()
 
 
 #: action -> the localized-string id its picker uses as a heading, so the
@@ -331,6 +337,19 @@ def _notify_if_updated(store):
         log('homewindow: update-notification check failed: %r' % (exc,), xbmc.LOGWARNING)
 
 
+def _home_window():
+    """`(window class, skin file)` for Home: the stock HomeWindow, or
+    `lib.ui.newhome`'s while the "New look" setting is on (see
+    `lib.ui.newlook`). With the setting off this is exactly the stock
+    pair, and `lib.ui.newhome` is never imported."""
+    from lib.ui.newlook import enabled as new_look_enabled
+
+    if new_look_enabled():
+        from lib.ui.newhome import NewHomeWindow
+        return NewHomeWindow, 'NewHomeWindow.xml'
+    return HomeWindow, 'HomeWindow.xml'
+
+
 def open_home():
     """Build and run the HomeWindow modal; blocks until the user exits.
 
@@ -344,7 +363,11 @@ def open_home():
 
     The whole session runs under `uicommon.UiHeartbeat`, the liveness marker
     `default.py` consults before opening another Home (see `uicommon`'s
-    "UI phases" notes)."""
+    "UI phases" notes).
+
+    Which Home opens is `_home_window()`'s choice. A Home closed because
+    "New look" changed in Settings (`_restyle`) is opened again in the
+    other look."""
     import xbmc
 
     from lib.ui.compat import log
@@ -368,18 +391,24 @@ def open_home():
             _notify_if_updated(get_store())
         except Exception as exc:
             log('homewindow: update-notification store unavailable: %r' % (exc,), xbmc.LOGWARNING)
-        win = open_window(HomeWindow, 'HomeWindow.xml')
-        try:
-            win.doModal()
-        except Exception as exc:  # default.py's caller falls back to the recovery directory
-            log('homewindow: HomeWindow failed: %r' % (exc,), xbmc.LOGERROR)
-            raise
-        finally:
-            # A normal return means HomeWindow already closed itself; close()
-            # again here is a safe no-op. Only a raised exception makes this
-            # the window's one chance to close.
+        while True:
+            window_cls, xml_name = _home_window()
+            win = open_window(window_cls, xml_name)
             try:
-                win.close()
-            except Exception:
-                pass
+                win.doModal()
+            except Exception as exc:  # default.py's caller falls back to the recovery directory
+                log('homewindow: HomeWindow failed: %r' % (exc,), xbmc.LOGERROR)
+                raise
+            finally:
+                # A normal return means HomeWindow already closed itself; close()
+                # again here is a safe no-op. Only a raised exception makes this
+                # the window's one chance to close.
+                try:
+                    win.close()
+                except Exception:
+                    pass
+            # "New look" changed in Settings: open again in the other look.
+            if not getattr(win, '_restyle', False):
+                break
+            log('homewindow: reopening Home in the other look', xbmc.LOGINFO)
     log('homewindow: HomeWindow closed', xbmc.LOGINFO)

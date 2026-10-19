@@ -301,13 +301,14 @@ DARK_DIALOGS = frozenset((
 
 def skin_name(xml_name):
     """The skin file to load for `xml_name`: its dark variant when the
-    setting is on and it has one, else `xml_name` itself."""
+    setting is on and it has one, else `xml_name` itself. The "New look"
+    (`lib.ui.newlook`) draws its dialogs dark too."""
     if xml_name not in DARK_DIALOGS:
         return xml_name
     from lib.ui.compat import setting_bool
 
     try:
-        dark = setting_bool('ui_dark_dialogs', False)
+        dark = setting_bool('ui_dark_dialogs', False) or setting_bool('ui_new_look', False)
     except Exception:  # noqa: BLE001 - a broken setting read keeps the classic dialog
         dark = False
     return 'Dark' + xml_name if dark else xml_name

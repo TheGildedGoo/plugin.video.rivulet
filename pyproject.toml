@@ -104,5 +104,8 @@ files = ["lib", "default.py", "service.py"]
 # "Library stubs not installed" [import-untyped] error. Disabling the error
 # code, scoped to only the modules that import requests, covers it cleanly
 # without adding a types-requests dev dependency.
-module = ["lib.stremio.addons", "lib.stremio.api", "lib.stremio.server", "lib.serverbin"]
+module = [
+    "lib.stremio.addons", "lib.stremio.api", "lib.stremio.server", "lib.serverbin",
+    "lib.stremio.ratings", "lib.ui.logocheck", "lib.ui.trailer",
+]
 disable_error_code = ["import-untyped"]

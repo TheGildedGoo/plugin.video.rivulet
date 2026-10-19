@@ -118,6 +118,24 @@ def make_xbmc(env, info_labels=None, cond_visibility=None):
     def getInfoLabel(label):
         return labels.get(label, '')
 
+    def executeJSONRPC(request):
+        """Answers Textures.GetTextures from `env.cached_textures`; any
+        other method gets an empty result."""
+        import json as _json
+
+        env.jsonrpc_calls.append(request)
+        try:
+            payload = _json.loads(request)
+        except ValueError:
+            return _json.dumps({'error': {'code': -32700}})
+        if payload.get('method') == 'Textures.GetTextures':
+            wanted = (((payload.get('params') or {}).get('filter') or {}).get('value')) or ''
+            cached = env.cached_textures
+            hit = cached is None or wanted in cached
+            textures = [{'textureid': 1, 'url': wanted}] if hit and wanted else []
+            return _json.dumps({'id': payload.get('id'), 'jsonrpc': '2.0', 'result': {'textures': textures}})
+        return _json.dumps({'id': payload.get('id'), 'jsonrpc': '2.0', 'result': {}})
+
     #: Kodi's own core-string catalog (id < 1000), distinct from the addon's
     #: strings.po - only the two ids `dialogs.confirm()` callers pass for
     #: default Yes/No buttons are faked; anything else falls back to the
@@ -130,6 +148,7 @@ def make_xbmc(env, info_labels=None, cond_visibility=None):
     module.log = log
     module.executebuiltin = executebuiltin
     module.getInfoLabel = getInfoLabel
+    module.executeJSONRPC = executeJSONRPC
     module.getCondVisibility = getCondVisibility
     module.getLocalizedString = getLocalizedString
 
@@ -272,8 +291,11 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             # of a silently-approved action.
             return yesno_answers.pop(0) if yesno_answers else False
 
-        def notification(self, heading, message, icon=None, time=4000):
+        def notification(self, heading, message, icon=None, time=4000, sound=True):
+            # The recorded tuple stays four items: existing assertions
+            # unpack it. The chime is the parallel list.
             env.notifications.append((heading, message, icon, time))
+            env.notification_sounds.append(bool(sound))
 
     class DialogProgress:
         def create(self, heading, message=''):
@@ -296,6 +318,18 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
 
         def __init__(self, window_id=0):
             self._props = env.window_properties.setdefault(window_id, {})
+            self.controls = []
+            self.shown = False
+            self.closed = False
+
+        def addControl(self, control):
+            self.controls.append(control)
+
+        def show(self):
+            self.shown = True
+
+        def close(self):
+            self.closed = True
 
         def setProperty(self, key, value):
             self._props[key] = value
@@ -396,6 +430,23 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
                 raise ValueError('Index out of range')
             return self.items[position]
 
+    class ControlImage:
+        """1x1 poster warmer. ``setImage`` is what fills Kodi's texture cache."""
+
+        def __init__(self, x, y, width, height, filename='', aspectRatio=0, colorDiffuse=''):
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+            self.image = filename
+            self.images = []
+            if filename:
+                self.images.append(filename)
+
+        def setImage(self, filename, useCache=True):
+            self.image = filename
+            self.images.append(filename)
+
     class FakeAction:
         """Stand-in for `xbmcgui.Action`: only `getId()` is used by
         `lib.ui.infowindow.ShowcaseWindow.onAction()`; a test builds one
@@ -472,6 +523,7 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             self.closed = True
 
     module.Window = Window
+    module.ControlImage = ControlImage
     module.Dialog = Dialog
     module.DialogProgress = DialogProgress
     module.WindowXML = WindowXML
