@@ -18,6 +18,10 @@
 
 ---
 
+> **Credit.** RevRivulet is a fork of [Rivulet](https://github.com/rivulet-kodi/plugin.video.rivulet)
+> by [M0Rf30](https://github.com/M0Rf30) — all credit for the original add-on and engine goes to them.
+> Licensed MIT (see [LICENSE](LICENSE)).
+
 Rivulet reimplements the [Stremio](https://www.stremio.com/) client
 experience inside Kodi: browse and search catalogs from the Stremio addon
 protocol, addon management (install from manifest URL), meta/stream
@@ -105,19 +109,24 @@ is built for a TV remote: nothing needs typing.
 
 ## Screenshots
 
-Rivulet's custom UI:
+RevRivulet's new look (Settings → Home → New look), captured on Kodi 21
+at 1080p with only Cinemeta's public catalogs installed.
 
-| ![Home](artwork/screenshots/home.png) | ![Browsing a catalog](artwork/screenshots/discover-coverflow.png) |
+| ![Home with Continue](docs/screenshots/home-continue.svg) | ![Home catalog rows](docs/screenshots/home-movies.svg) |
 | :---: | :---: |
-| **Home** | **Browse** |
+| **Home — Continue** | **Home — catalog rows** |
 
-| ![Detail + streams](artwork/screenshots/detail-streams.png) | ![Addon manager](artwork/screenshots/addons-manager.png) |
+| ![Series with New Episodes](docs/screenshots/series-new-episodes.svg) | ![Episode page](docs/screenshots/episode-page.svg) |
 | :---: | :---: |
-| **Detail + streams** | **Addon manager** |
+| **Series — New Episodes** | **Episode page** |
 
-| ![Continue](artwork/screenshots/mystuff.png) | ![Search results](artwork/screenshots/search-results.png) |
+| ![Movies](docs/screenshots/movies-browse.svg) | ![One-page search](docs/screenshots/search.svg) |
 | :---: | :---: |
-| **Continue** | **Search** |
+| **Movies** | **One-page search** |
+
+| ![Dark menu](docs/screenshots/dark-menu.svg) | ![Country and language filter](docs/screenshots/region-filter.svg) |
+| :---: | :---: |
+| **Dark, rounded menus** | **Country and language filter** |
 
 ## Install
 
