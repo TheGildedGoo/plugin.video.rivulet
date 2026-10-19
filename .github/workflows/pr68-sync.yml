@@ -16,7 +16,7 @@ permissions:
 
 env:
   BRANCH: upstream-pr/fixes-and-dark-dialogs
-  EXPECTED: 9787d77f2ab6a635c346480a6c908f4c08376653
+  EXPECTED: ae2fd9a0a94ef08df1a301015dc834ee12bbebbb
 
 jobs:
   push:
