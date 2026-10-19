@@ -15,7 +15,7 @@ permissions:
 
 env:
   BRANCH: upstream-pr/followup-ids
-  EXPECTED: 06dd35929f729c351b9294523c3680eba77e9a73
+  EXPECTED: 59fb58c31b079c09d32261394722ae0b94cd90c3
 
 jobs:
   push:
