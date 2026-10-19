@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PR_SHA: ae2fd9a0a94ef08df1a301015dc834ee12bbebbb
+  PR_SHA: 719bba0c01586f003eb950c5174756e2201024ce
 
 jobs:
   add:
@@ -63,5 +63,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then echo "nothing to change"; exit 0; fi
-          git commit -m "test build: add plugin.video.rivulet 0.32.0 (upstream PR 1, ${PR_SHA:0:7})"
+          git commit -m "test build: add plugin.video.rivulet 0.32.0 (upstream PR test build, ${PR_SHA:0:7})"
           git push origin HEAD:gh-pages
