@@ -258,3 +258,55 @@ def test_a_failed_deferred_save_does_not_escape(pages, tmp_path, monkeypatch):
     with module.deferred_saves():
         module.cached_first_page('t', {}, {'type': 'movie', 'id': 'top'})
     assert module._defer == {'depth': 0, 'dirty': False}
+
+
+def test_a_hidden_adult_catalog_shows_again_as_soon_as_hiding_is_off(pages, tmp_path, monkeypatch):
+    """An adult catalog read while hide-adult is on is answered empty and
+    nothing is cached for it, so turning the setting off fetches it at
+    once instead of serving that empty page until it expires."""
+    module = pages.catalogpages
+    import lib.ui.dependencies as dependencies
+    from lib.stremio.pagecache import cache_key
+
+    cache = _cache(tmp_path, {'now': 0.0})
+    monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
+    client = _HintsClient([{'id': 'a', 'type': 'movie', 'name': 'A'}, {'id': 'b', 'type': 'movie', 'name': 'B'}],
+                          {'cacheMaxAge': 3600})
+    monkeypatch.setattr(dependencies, 'get_client', lambda: client)
+    adult = {'type': 'movie', 'id': 'xxx', 'name': 'Porn'}
+    key = cache_key('t', 'movie', 'xxx', None)
+
+    pages.env.addon.settings['home_hide_adult'] = 'true'
+    assert module.cached_first_page('t', {}, adult) == []
+    assert client.calls == []
+    assert cache.lookup(key, allow_expired=True) == ('miss', None)
+    assert not (tmp_path / 'catalog_pages.json').exists()
+
+    pages.env.addon.settings['home_hide_adult'] = 'false'
+    shown = module.cached_first_page('t', {}, adult)
+    assert [meta['id'] for meta in shown] == ['a', 'b']
+    assert len(client.calls) == 1
+    assert [meta['id'] for meta in cache.lookup(key)[1]] == ['a', 'b']
+
+    # Hiding again: empty, and the page cached while it was off is kept.
+    pages.env.addon.settings['home_hide_adult'] = 'true'
+    assert module.cached_first_page('t', {}, adult) == []
+    assert [meta['id'] for meta in cache.lookup(key)[1]] == ['a', 'b']
+
+
+def test_a_revalidation_that_lands_after_hiding_is_on_keeps_the_cached_page(pages, tmp_path, monkeypatch):
+    module = pages.catalogpages
+    cache = _cache(tmp_path, {'now': 0.0})
+    monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
+    cache.store('key', [{'id': 'a'}], {'cacheMaxAge': 60})
+    adult = {'type': 'movie', 'id': 'xxx', 'name': 'Porn'}
+
+    def _fetch(*args):
+        # The setting is turned on while the request is out.
+        pages.env.addon.settings['home_hide_adult'] = 'true'
+        return [], {}
+
+    monkeypatch.setattr(module, '_fetch_first_page', _fetch)
+    pages.env.addon.settings['home_hide_adult'] = 'false'
+    module._revalidate('t', {}, adult, None, 'key')
+    assert cache.lookup('key', now=1) == ('fresh', [{'id': 'a'}])

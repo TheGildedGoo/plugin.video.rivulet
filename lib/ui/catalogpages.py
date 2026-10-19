@@ -91,6 +91,17 @@ def _hide_adult():
     return _adult_filtering_enabled()
 
 
+def _blocked(manifest, catalog):
+    """True for an adult catalog while the setting hides them. Such a
+    catalog is neither requested nor cached: an empty page stored now
+    would keep it empty after the setting is turned off."""
+    if not _hide_adult():
+        return False
+    from lib.stremio.contentrating import is_adult_catalog
+
+    return bool(is_adult_catalog(catalog if catalog is not None else {}, manifest))
+
+
 def _visible(metas, manifest, catalog):
     """`metas` as the CURRENT hide-adult setting allows them: none for an
     adult catalog, and adult items dropped from any other. Pages are
@@ -113,11 +124,10 @@ def _fetch_first_page(transport, manifest, catalog, extra):
     through to ``iter_catalog_pages``, which already applies the adult
     filter and returns no hints.
     """
-    from lib.stremio.contentrating import is_adult_catalog
     from lib.ui.dependencies import get_client
     from lib.ui.views import iter_catalog_pages
 
-    if _hide_adult() and is_adult_catalog(catalog if catalog is not None else {}, manifest):
+    if _blocked(manifest, catalog):
         return [], {}
     client = get_client()
     hints_fn = getattr(client, 'catalog_with_hints', None)
@@ -139,6 +149,9 @@ def _revalidate(transport, manifest, catalog, extra, key):
     try:
         metas, hints = _fetch_first_page(transport, manifest, catalog, extra)
     except Exception:
+        return
+    if _blocked(manifest, catalog):
+        # Hiding was turned on while this ran: keep the page that is cached.
         return
     cache = get_page_cache()
     if cache is None:
@@ -174,8 +187,12 @@ def cached_first_page(transport, manifest, catalog, extra=None):
 
     The page is stored as the addon sent it; the hide-adult setting is
     applied to what is returned (`_visible`), so it always reflects the
-    setting as it is now.
+    setting as it is now. An adult catalog the setting hides is answered
+    empty before the cache is read or written, so turning the setting
+    off shows it again at once.
     """
+    if _blocked(manifest, catalog):
+        return []
     cache = get_page_cache()
     key = None
     if cache is not None and isinstance(catalog, dict):
