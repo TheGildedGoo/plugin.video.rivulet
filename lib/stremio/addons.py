@@ -449,9 +449,9 @@ class AddonClient:
         metas = self._get_field(url, 'metas', 'list')
         real = [meta for meta in metas if not is_error_meta(meta)]
         if len(real) == len(metas):
-            return metas
+            return default_meta_types(metas, rtype)
         if real:
-            return real
+            return default_meta_types(real, rtype)
         raise AddonError(
             'GET %s answered with an error placeholder instead of a catalog' % safe_url_for_log(url),
             category=error_meta_category(metas[0]),
@@ -663,6 +663,24 @@ def iter_catalogs(addons, extra_required=None, types=None):
             if wanted is not None and catalog.get('type') not in wanted:
                 continue
             yield transport_url, manifest, catalog
+
+
+def default_meta_types(metas, ctype):
+    """Give each preview without a ``type`` the catalog's own type.
+
+    Provider lists (Netflix, Disney+, Hulu, HBO...) can leave ``type``
+    off their previews. The catalog browser already opens a pick as
+    ``selected.get('type') or ctype``; filling it in where the previews
+    arrive gives every other reader the same answer (the coverflow's
+    direct-to-streams path for a movie checks ``type == 'movie'``).
+    Returns `metas`.
+    """
+    if not isinstance(ctype, str) or not ctype:
+        return metas
+    for meta in metas or ():
+        if isinstance(meta, dict) and not meta.get('type'):
+            meta['type'] = ctype
+    return metas
 
 
 def _base_type(catalog_type):
