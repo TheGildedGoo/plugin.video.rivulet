@@ -1075,8 +1075,8 @@ msgid "MDBList API key"
 msgstr "MDBList API anahtarı"
 
 msgctxt "#30455"
-msgid "OMDb API key (omdbapi.com/apikey.aspx)"
-msgstr "OMDb API anahtarı (omdbapi.com/apikey.aspx)"
+msgid "For movie scores, get a free key at omdbapi.com/apikey.aspx"
+msgstr "Film puanları için ücretsiz anahtar: omdbapi.com/apikey.aspx"
 
 msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
@@ -1137,3 +1137,7 @@ msgstr "Fragman başlamadı. Kontrol etmek için Kodi'nin YouTube eklentisinde h
 msgctxt "#30514"
 msgid "Go to series"
 msgstr "Diziye git"
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr "Rotten Tomatoes ve Metacritic puanlarını mı istiyorsunuz? omdbapi.com/apikey.aspx adresinden ücretsiz bir anahtar alın ve buraya girin."

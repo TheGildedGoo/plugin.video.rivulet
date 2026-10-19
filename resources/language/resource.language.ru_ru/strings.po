@@ -1075,8 +1075,8 @@ msgid "MDBList API key"
 msgstr "API-ключ MDBList"
 
 msgctxt "#30455"
-msgid "OMDb API key (omdbapi.com/apikey.aspx)"
-msgstr "API-ключ OMDb (omdbapi.com/apikey.aspx)"
+msgid "For movie scores, get a free key at omdbapi.com/apikey.aspx"
+msgstr "Для оценок фильмов: бесплатный ключ на omdbapi.com/apikey.aspx"
 
 msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
@@ -1137,3 +1137,7 @@ msgstr "Трейлер не запустился. Чтобы проверить,
 msgctxt "#30514"
 msgid "Go to series"
 msgstr "К сериалу"
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr "Нужны оценки Rotten Tomatoes и Metacritic? Получите бесплатный ключ на omdbapi.com/apikey.aspx и введите его здесь."

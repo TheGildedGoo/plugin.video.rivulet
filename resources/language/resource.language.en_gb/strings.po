@@ -1075,7 +1075,7 @@ msgid "MDBList API key"
 msgstr ""
 
 msgctxt "#30455"
-msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgid "For movie scores, get a free key at omdbapi.com/apikey.aspx"
 msgstr ""
 
 msgctxt "#30456"
@@ -1136,4 +1136,8 @@ msgstr ""
 
 msgctxt "#30514"
 msgid "Go to series"
+msgstr ""
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
 msgstr ""

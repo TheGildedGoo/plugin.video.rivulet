@@ -1075,8 +1075,8 @@ msgid "MDBList API key"
 msgstr "MDBList API 密钥"
 
 msgctxt "#30455"
-msgid "OMDb API key (omdbapi.com/apikey.aspx)"
-msgstr "OMDb API 密钥 (omdbapi.com/apikey.aspx)"
+msgid "For movie scores, get a free key at omdbapi.com/apikey.aspx"
+msgstr "电影评分需要免费密钥：omdbapi.com/apikey.aspx"
 
 msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
@@ -1137,3 +1137,7 @@ msgstr "预告片未能开始播放。请在 Kodi 的 YouTube 插件中播放任
 msgctxt "#30514"
 msgid "Go to series"
 msgstr "前往剧集"
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr "想要显示 Rotten Tomatoes 和 Metacritic 评分？请在 omdbapi.com/apikey.aspx 获取免费密钥并在此输入。"

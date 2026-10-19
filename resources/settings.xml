@@ -84,7 +84,7 @@
                      and an edit control traps the arrows. Empty means the
                      hero keeps the catalog's IMDb rating and hides the rest.
                      Shown only with the new look on. -->
-                <setting id="ratings_omdb_key" type="string" label="30453">
+                <setting id="ratings_omdb_key" type="string" label="30453" help="30515">
                     <level>0</level>
                     <default></default>
                     <constraints>
