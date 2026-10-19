@@ -428,7 +428,7 @@ def test_fetch_meta_retries_an_addon_error_then_returns_the_meta(load_views, tmp
         def meta(self, transport_url, stype, sid):
             self.meta_calls.append(transport_url)
             if len(self.meta_calls) < views._META_ATTEMPTS:
-                raise AddonError('timed out', category='ReadTimeout')
+                raise AddonError('connection dropped', category='ConnectionError')
             return hit
 
     client = _Flaky()
@@ -451,7 +451,13 @@ def test_fetch_meta_retries_an_addon_error_then_returns_the_meta(load_views, tmp
     ('response too large', 1),
     ('HTTP 503', 3),
     ('HTTP 429', 3),
-    ('ReadTimeout', 3),
+    ('ConnectionError', 3),
+    ('HTTP 408', 3),
+    ('ReadTimeout', 1),
+    ('ConnectTimeout', 1),
+    ('Timeout', 1),
+    ('TimeoutError', 1),
+    ('timeout', 1),
     ('addon reported error (HTTP 404)', 3),
 ])
 def test_fetch_meta_retries_only_a_failure_that_may_pass(load_views, category, calls):
@@ -478,6 +484,83 @@ def test_fetch_meta_retries_only_a_failure_that_may_pass(load_views, category, c
 
     assert views._fetch_meta('movie', 'tt1') is None
     assert len(client.meta_calls) == calls
+
+
+class _MetaClock:
+    """A fake `time.monotonic()` for `views`, moved on by the fake
+    addon's own latency and by the retry backoff: no real waiting."""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def monotonic(self):
+        return self.now
+
+
+def _wire_timed_addon(views, monkeypatch, failures):
+    """One meta addon failing with `failures` in turn, each a
+    ``(seconds, category)`` pair; returns ``(client, clock)``."""
+    import types
+
+    clock = _MetaClock()
+    monkeypatch.setattr(views, 'time', types.SimpleNamespace(monotonic=clock.monotonic))
+
+    def _pause(seconds):
+        clock.now += seconds
+        return False
+
+    monkeypatch.setattr(views, '_pause_before_meta_retry', _pause)
+
+    class _Slow:
+        def __init__(self):
+            self.meta_calls = []
+
+        def meta(self, transport_url, stype, sid):
+            seconds, category = failures[len(self.meta_calls)]
+            self.meta_calls.append(transport_url)
+            clock.now += seconds
+            raise AddonError('failed', category=category)
+
+    client = _Slow()
+    descriptor = {
+        'transportUrl': 't1',
+        'manifest': {'id': 'org.a', 'resources': ['meta'], 'types': ['movie'], 'idPrefixes': ['tt']},
+    }
+    _wire_data_layer(views, FakeStore(addons=[descriptor], data_dir=None), client)
+    return client, clock
+
+
+#: `AddonClient`'s request timeout, which a non-answering addon uses up.
+_ADDON_TIMEOUT_SECONDS = 15.0
+
+
+def test_fetch_meta_a_timing_out_addon_is_asked_once(load_views, monkeypatch):
+    """A non-answering addon costs one timeout, not three (about 46 s)."""
+    views = load_views().views
+    client, clock = _wire_timed_addon(views, monkeypatch, [(_ADDON_TIMEOUT_SECONDS, 'ReadTimeout')] * 3)
+
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert client.meta_calls == ['t1']
+    assert clock.now == _ADDON_TIMEOUT_SECONDS
+
+
+def test_fetch_meta_worst_case_for_one_addon_is_about_one_timeout(load_views, monkeypatch):
+    """The slowest path through the retries: a quick dropped connection
+    just inside the retry budget, then a timeout. A slow failure is never
+    retried, so the total stays one timeout plus the budget and one
+    backoff."""
+    views = load_views().views
+    quick = views._META_RETRY_WITHIN_SECONDS - 0.1
+    client, clock = _wire_timed_addon(views, monkeypatch, [
+        (quick, 'ConnectionError'),
+        (_ADDON_TIMEOUT_SECONDS, 'ConnectionError'),
+        (_ADDON_TIMEOUT_SECONDS, 'ConnectionError'),
+    ])
+
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert len(client.meta_calls) == 2
+    worst = _ADDON_TIMEOUT_SECONDS + views._META_RETRY_WITHIN_SECONDS + views._META_RETRY_BACKOFF_SECONDS[0]
+    assert clock.now <= worst < 18
 
 
 def test_fetch_meta_does_not_cache_an_idless_success(load_views, tmp_path):

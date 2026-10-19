@@ -208,15 +208,27 @@ def _usable_meta(meta):
 _META_ATTEMPTS = 3
 _META_RETRY_BACKOFF_SECONDS = (0.4, 0.8)
 
+#: A retry only follows a failure that came back within this many
+#: seconds of the addon's first request. A slow failure (a connection
+#: dropped after a long wait) is not asked again, so one addon costs at
+#: most about this budget, one backoff and one `AddonClient` timeout.
+_META_RETRY_WITHIN_SECONDS = 2.0
+
 
 def _meta_error_is_retryable(exc):
-    """Whether a failed meta request is worth asking again: a timeout, a
-    dropped connection, HTTP 408/429/5xx, or an addon's own error
-    placeholder (a throttled aggregator). A definite answer (any other
+    """Whether a failed meta request is worth asking again: a dropped
+    connection, HTTP 408/429/5xx, or an addon's own error placeholder (a
+    throttled aggregator). A timeout is not: the addon already had the
+    whole `AddonClient` timeout (15 s), and two more would keep the user
+    and a fan-out slot waiting about 46 s. A definite answer (any other
     HTTP 4xx, invalid JSON, a response too large) would only fail the
     same way, and each retry delays the type and IMDb fallbacks."""
     category = str(getattr(exc, 'category', '') or '')
     if category in ('invalid JSON', 'response too large'):
+        return False
+    if 'timeout' in category.lower():
+        # ReadTimeout, ConnectTimeout, Timeout, TimeoutError, socket's
+        # `timeout`: the category is the exception's type name.
         return False
     if category.startswith('HTTP '):
         status = category[5:]
@@ -345,13 +357,17 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
 
     def _fetch_one(descriptor):
         transport_url = descriptor.get('transportUrl')
+        started = time.monotonic()
         for attempt in range(_META_ATTEMPTS):
             try:
                 meta = client.meta(transport_url, stype, sid)
             except AddonError as exc:
                 log('views._fetch_meta: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGWARNING)
-                if not _meta_error_is_retryable(exc) or attempt + 1 >= _META_ATTEMPTS or _pause_before_meta_retry(
-                    _META_RETRY_BACKOFF_SECONDS[attempt],
+                if (
+                    not _meta_error_is_retryable(exc)
+                    or attempt + 1 >= _META_ATTEMPTS
+                    or time.monotonic() - started > _META_RETRY_WITHIN_SECONDS
+                    or _pause_before_meta_retry(_META_RETRY_BACKOFF_SECONDS[attempt])
                 ):
                     return None
                 continue
