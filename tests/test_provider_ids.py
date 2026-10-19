@@ -349,3 +349,19 @@ def test_the_previews_own_imdb_fields_are_kept(load, monkeypatch):
     merged = _merged_with(ctx, monkeypatch, preview, full)
     assert merged['imdbId'] == 'x'
     assert merged['behaviorHints'] == {'defaultVideoId': 'kept'}
+
+
+def test_a_tv_listed_show_is_found_by_search_as_a_series(load, monkeypatch):
+    """A provider list that calls its shows "tv": the search answers "series"."""
+    load()
+    import lib.ui.dependencies as dependencies
+    import lib.ui.detailwindow as detailwindow
+    import lib.ui.searchwindow as searchwindow
+
+    monkeypatch.setattr(dependencies, 'get_store', lambda: object())
+    monkeypatch.setattr(dependencies, 'get_client', lambda: object())
+    monkeypatch.setattr(searchwindow, 'run_query', lambda *a, **kw: [
+        {'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones', 'releaseInfo': '2011\u20132019'},
+    ])
+    preview = {'id': 'tmdb:1399', 'type': 'tv', 'name': 'Game of Thrones', 'releaseInfo': '2011'}
+    assert detailwindow._imdb_alternative('tv', 'tmdb:1399', preview) == 'tt0944947'

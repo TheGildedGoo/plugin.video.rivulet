@@ -788,6 +788,14 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
 #: a slow miss could double the wait on a weak ARM box.
 _SWAPPED_TYPE_MAX_SECONDS = 3.0
 
+def _canonical_type(stype):
+    """`stype` as Stremio's own ``movie``/``series`` where a provider list
+    names it loosely (``Movies``, ``tv``, ``shows``...); any other type
+    reduced to its base (`_base_type()`)."""
+    base = _base_type(stype)
+    return {'movies': 'movie', 'film': 'movie', 'films': 'movie', 'shows': 'series', 'show': 'series',
+            'tvshows': 'series', 'tv': 'series'}.get(base, base)
+
 def _fetch_meta_any_type(stype, sid):
     """``(meta, type)`` for `sid`: as `stype` first, then as its base type
     (``movies`` -> ``movie``), since provider lists label types loosely.
@@ -801,9 +809,7 @@ def _fetch_meta_any_type(stype, sid):
     from lib.ui.views import _fetch_meta
 
     kinds = []
-    base = _base_type(stype)
-    base = {'movies': 'movie', 'film': 'movie', 'films': 'movie', 'shows': 'series', 'show': 'series',
-            'tvshows': 'series', 'tv': 'series'}.get(base, base)
+    base = _canonical_type(stype)
     for kind in (stype, base):
         if kind and kind not in kinds:
             kinds.append(kind)
@@ -887,7 +893,8 @@ def _imdb_alternative(stype, sid, preview):
         return ''
     if report.canceled and not found:
         return CANCELLED
-    return previews.best_match(preview, found, stype)
+    # A provider list's "tv" is the search's "series".
+    return previews.best_match(preview, found, _canonical_type(stype))
 
 
 def open_detail(stype, sid):
