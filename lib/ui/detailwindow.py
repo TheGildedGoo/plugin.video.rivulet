@@ -836,7 +836,81 @@ def _fetch_meta_any_type(stype, sid):
 def _resolve_meta(stype, sid, preview):
     """``(meta, type, id)`` for a title, trying its id as each plausible
     type, then (for an id that is not IMDb-keyed) the IMDb id of the same
-    title. ``meta`` is None when nothing answers; `CANCELLED` on Back."""
+    title. A series that came back without episodes is completed by
+    `_with_episodes()`. ``meta`` is None when nothing answers;
+    `CANCELLED` on Back."""
+    resolved = _resolve_any_meta(stype, sid, preview)
+    if resolved is CANCELLED:
+        return CANCELLED
+    return _with_episodes(resolved, preview)
+
+
+def _with_episodes(resolved, preview):
+    """`resolved`, or the same show's IMDb-keyed meta WITH its episode list
+    when `resolved` is a series meta that has none.
+
+    A catalog addon can answer `meta` for its own titles with just a name
+    and art (or a provider-keyed meta whose episode fetch failed), and the
+    first addon to answer wins (`views._fetch_meta()`). With no `videos`
+    `open_detail()` treated the show as a movie and asked for streams by
+    the show's id, which no stream addon answers for a series: every show
+    from such a list ended in "No streams found". Asked as
+    ``series``/``tt...``, an addon that has the episodes (Cinemeta) gives
+    the list the episode page needs, and its ``tt...:season:episode`` ids
+    are what stream addons take. Without an IMDb id, or with no addon
+    that has the episodes, `resolved` is returned as it was."""
+    import xbmc
+
+    from lib.ui.compat import log
+    from lib.ui.streamswindow import imdb_id_for
+
+    meta, kind, sid = resolved
+    if not meta or meta.get('videos') or _canonical_type(kind) != 'series':
+        return resolved
+    imdb = imdb_id_for(meta) or imdb_id_for(preview)
+    if not imdb and not str(sid or '').startswith('tt'):
+        imdb = _imdb_alternative(kind, sid, preview)
+        if imdb is CANCELLED:
+            return CANCELLED
+    if not imdb:
+        return resolved
+    fuller = _series_meta_with_episodes(imdb)
+    if fuller is CANCELLED:
+        return CANCELLED
+    if not fuller:
+        return resolved
+    log('detailwindow: %s/%s had no episodes; opened as series/%s' % (kind, sid, imdb), xbmc.LOGINFO)
+    return fuller, 'series', imdb
+
+
+def _series_meta_with_episodes(imdb):
+    """The first ``series`` meta for `imdb`, in addon order, that lists
+    episodes, asking each addon that serves it in turn (an answer without
+    `videos` does not count, unlike `views._fetch_meta()`'s first answer).
+    None when none has them; `CANCELLED` on Back."""
+    from lib.stremio.addons import AddonError, addon_supports
+    from lib.ui.compat import L
+    from lib.ui.dependencies import get_client, get_store
+
+    def _work():
+        client = get_client()
+        for descriptor in get_store().get_enabled_addons():
+            if not addon_supports(descriptor.get('manifest') or {}, 'meta', 'series', imdb):
+                continue
+            try:
+                meta = client.meta(descriptor.get('transportUrl'), 'series', imdb)
+            except AddonError:
+                continue
+            if isinstance(meta, dict) and meta.get('videos'):
+                return meta
+        return None
+
+    return run_cancellable(_work, L(30033))
+
+
+def _resolve_any_meta(stype, sid, preview):
+    """`_resolve_meta()` before the episode check: the title's own id as
+    each plausible type, then its IMDb id when the own id is not one."""
     import xbmc
 
     from lib.ui.compat import log

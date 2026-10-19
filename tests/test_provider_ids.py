@@ -365,3 +365,134 @@ def test_a_tv_listed_show_is_found_by_search_as_a_series(load, monkeypatch):
     ])
     preview = {'id': 'tmdb:1399', 'type': 'tv', 'name': 'Game of Thrones', 'releaseInfo': '2011'}
     assert detailwindow._imdb_alternative('tv', 'tmdb:1399', preview) == 'tt0944947'
+
+
+# --- a series from a provider list must reach its episodes ------------------
+
+
+_CINEMETA = {'transportUrl': 'https://cinemeta.example/manifest.json', 'manifest': {
+    'name': 'Cinemeta', 'resources': ['catalog', 'meta'], 'types': ['movie', 'series'], 'idPrefixes': ['tt'],
+    'catalogs': []}}
+_PROVIDER_LISTS = {'transportUrl': 'https://lists.example/manifest.json', 'manifest': {
+    'name': 'Provider lists', 'resources': ['catalog', 'meta'], 'types': ['movie', 'series'],
+    'idPrefixes': ['tt', 'tmdb:'], 'catalogs': []}}
+_TT_STREAMS = {'transportUrl': 'https://streams.example/manifest.json', 'manifest': {
+    'name': 'Streams', 'resources': ['stream'], 'types': ['movie', 'series'], 'idPrefixes': ['tt']}}
+_GOT = {'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones', 'videos': [
+    {'id': 'tt0944947:1:1', 'season': 1, 'episode': 1}, {'id': 'tt0944947:1:2', 'season': 1, 'episode': 2}]}
+
+
+class _MetaClient:
+    """Answers `meta()` per (transport, type, id); every other call is a miss."""
+
+    def __init__(self, metas):
+        self.metas = metas
+        self.asked = []
+
+    def meta(self, transport, stype, sid):
+        from lib.stremio.addons import AddonError
+
+        self.asked.append((transport, stype, sid))
+        found = self.metas.get((transport, stype, sid))
+        if found is None:
+            raise AddonError('not found', category='not found')
+        return dict(found)
+
+
+def _wire_addons(monkeypatch, addons, metas):
+    import lib.ui.dependencies as dependencies
+    import lib.ui.streamswindow as streamswindow
+    import lib.ui.views as views
+
+    store = _FakeStore(addons=addons)
+    client = _MetaClient(metas)
+    for module in (dependencies, views):
+        monkeypatch.setattr(module, 'get_store', lambda: store)
+        monkeypatch.setattr(module, 'get_client', lambda: client)
+    _wire_data_layer(streamswindow, store, client)
+    return client
+
+
+def _first_episode_request(resolved):
+    import lib.ui.streamswindow as streamswindow
+
+    meta, stype, _sid = resolved
+    episode = meta['videos'][0]['id']
+    return [entry[2] for entry in streamswindow._stream_targets(stype, episode, meta)]
+
+
+def test_a_show_whose_list_answers_a_meta_without_episodes_still_opens_its_episodes(load, monkeypatch):
+    """Dylan on CoreELEC: every show from a provider list said "No streams
+    found". The list's addon answered the show's meta first, with no
+    episodes, so it was opened like a movie and streams were asked for
+    the show itself."""
+    load()
+    import lib.ui.detailwindow as detailwindow
+
+    _wire_addons(monkeypatch, [_PROVIDER_LISTS, _CINEMETA, _TT_STREAMS], {
+        (_PROVIDER_LISTS['transportUrl'], 'series', 'tt0944947'): {'id': 'tt0944947', 'type': 'series', 'name': 'GoT'},
+        (_CINEMETA['transportUrl'], 'series', 'tt0944947'): _GOT,
+    })
+    preview = {'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones'}
+    resolved = detailwindow._resolve_meta('series', 'tt0944947', preview)
+    assert resolved[0]['videos'] == _GOT['videos']
+    assert resolved[1:] == ('series', 'tt0944947')
+    assert _first_episode_request(resolved) == ['tt0944947:1:1']
+
+
+def test_a_provider_keyed_show_without_episodes_opens_by_its_imdb_id(load, monkeypatch):
+    load()
+    import lib.ui.detailwindow as detailwindow
+
+    _wire_addons(monkeypatch, [_PROVIDER_LISTS, _CINEMETA, _TT_STREAMS], {
+        (_PROVIDER_LISTS['transportUrl'], 'series', 'tmdb:1399'): {
+            'id': 'tmdb:1399', 'type': 'series', 'name': 'Game of Thrones', 'imdb_id': 'tt0944947', 'videos': []},
+        (_CINEMETA['transportUrl'], 'series', 'tt0944947'): _GOT,
+    })
+    preview = {'id': 'tmdb:1399', 'type': 'series', 'name': 'Game of Thrones'}
+    resolved = detailwindow._resolve_meta('series', 'tmdb:1399', preview)
+    assert resolved[1:] == ('series', 'tt0944947')
+    assert _first_episode_request(resolved) == ['tt0944947:1:1']
+
+
+def test_provider_episode_ids_are_asked_for_as_imdb_episodes(load, monkeypatch):
+    """A provider-keyed series WITH episodes keeps its own ids; only the
+    stream request uses ``tt...:season:episode``."""
+    load()
+    import lib.ui.detailwindow as detailwindow
+
+    show = {'id': 'tmdb:1399', 'type': 'series', 'name': 'Game of Thrones', 'imdb_id': 'tt0944947', 'videos': [
+        {'id': 'tmdb:1399:1:1', 'season': 1, 'episode': 1}]}
+    client = _wire_addons(monkeypatch, [_PROVIDER_LISTS, _CINEMETA, _TT_STREAMS], {
+        (_PROVIDER_LISTS['transportUrl'], 'series', 'tmdb:1399'): show,
+    })
+    resolved = detailwindow._resolve_meta('series', 'tmdb:1399', {'id': 'tmdb:1399', 'type': 'series'})
+    assert resolved[1:] == ('series', 'tmdb:1399')
+    assert resolved[0]['videos'][0]['id'] == 'tmdb:1399:1:1'
+    assert _first_episode_request(resolved) == ['tt0944947:1:1']
+    assert not any(sid == 'tt0944947' for _t, _s, sid in client.asked)  # no extra lookup
+
+
+def test_a_show_nobody_has_episodes_for_is_left_as_it_was(load, monkeypatch):
+    load()
+    import lib.ui.detailwindow as detailwindow
+
+    bare = {'id': 'tt0944947', 'type': 'series', 'name': 'GoT'}
+    _wire_addons(monkeypatch, [_PROVIDER_LISTS, _TT_STREAMS], {
+        (_PROVIDER_LISTS['transportUrl'], 'series', 'tt0944947'): bare,
+    })
+    resolved = detailwindow._resolve_meta('series', 'tt0944947', {'id': 'tt0944947', 'type': 'series'})
+    assert resolved == (bare, 'series', 'tt0944947')
+
+
+def test_a_movie_without_episodes_is_not_looked_up_again(load, monkeypatch):
+    load()
+    import lib.ui.detailwindow as detailwindow
+
+    movie = {'id': 'tt0133093', 'type': 'movie', 'name': 'The Matrix'}
+    client = _wire_addons(monkeypatch, [_CINEMETA, _TT_STREAMS], {
+        (_CINEMETA['transportUrl'], 'movie', 'tt0133093'): movie,
+    })
+    assert detailwindow._resolve_meta('movie', 'tt0133093', {'id': 'tt0133093', 'type': 'movie'}) == (
+        movie, 'movie', 'tt0133093')
+    assert client.asked == [(_CINEMETA['transportUrl'], 'movie', 'tt0133093')]
