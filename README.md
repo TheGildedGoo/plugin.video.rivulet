@@ -32,12 +32,51 @@ account.
 
 ## Contents
 
+- [What RevRivulet adds](#what-revrivulet-adds)
 - [Features](#features)
 - [Screenshots](#screenshots)
 - [Install](#install)
 - [Auto-updates](#auto-updates)
 - [Streaming server](#streaming-server)
 - [Development](#development)
+
+## What RevRivulet adds
+
+RevRivulet is a fork of [Rivulet](https://github.com/rivulet-kodi/plugin.video.rivulet)
+(currently based on 0.32.0) that installs alongside it. Everything below
+is built for a TV remote: nothing needs typing.
+
+**A new look (Settings → Home → New look)**
+- A full-screen backdrop that fades to black, the title's logo in place
+  of its name, star rating, scores, runtime and "Ends at".
+- Home, Movies, Series, the catalog lists and search all share that look,
+  with soft mirror reflections under the posters and a white focus ring.
+- An episode page with stills, air dates, watched ticks and a scrolling
+  description.
+
+**Home and browsing**
+- Continue and Library rows next to your catalogs, with backdrops,
+  descriptions and logos loaded on focus.
+- New Episodes for the series you follow, showing the show's own artwork.
+- "Go to series" on episode cards, decade browsing, and a region filter.
+- Provider lists (Netflix, Disney+, Hulu, HBO...) open and stream even when
+  they use non-IMDb ids or leave out the title's type.
+
+**Search**
+- One page: pick letters with the remote or type on your phone, press
+  Search, and the results replace a Discover row.
+- Searches show what has arrived instead of waiting on the slowest source.
+
+**Playback**
+- Resume from Continue, automatic next episode, and two-way watch
+  progress with your Stremio account.
+- Trailers through Kodi's YouTube add-on, without leaving the screen
+  unless the trailer actually starts.
+
+**Look and feel**
+- Dark, rounded dialogs and menus, greyscale accents and backdrop.
+- Settings → Home → Refresh cached data, for when artwork or details go
+  stale.
 
 ## Features
 
