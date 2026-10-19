@@ -6,7 +6,7 @@
 Kodi launches this script once at startup (xbmc.service extension).
 Bootstrap sys.path so the addon's own ``lib`` package is importable,
 then hand off to the service runner, which supervises the local
-stremio-server-go binary for the lifetime of the Kodi session.
+rivulet-engine binary for the lifetime of the Kodi session.
 """
 import os
 import sys

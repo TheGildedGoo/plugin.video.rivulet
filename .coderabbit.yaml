@@ -48,7 +48,7 @@ reviews:
         do not flag it.
     - path: "lib/service_runner.py"
       instructions: >-
-        Supervises the stremio-server-go subprocess for the lifetime of a Kodi
+        Supervises the rivulet-engine subprocess for the lifetime of a Kodi
         session, and subclasses xbmc.Monitor and xbmc.Player. Scrutinise the
         shutdown path: every early return or exception inside the supervision
         loop should still terminate the child process and close its log handle.

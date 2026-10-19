@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.30.1.rev23" provider-name="M0RF30">
+<addon id="plugin.video.revrivulet" name="RevRivulet" version="0.32.0.rev24" provider-name="M0RF30">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.requests" version="2.22.0"/>
@@ -10,9 +10,11 @@
   <extension point="xbmc.service" library="service.py" start="startup"/>
   <extension point="xbmc.addon.metadata">
     <summary lang="en_GB">RevRivulet: watch Stremio-protocol catalogs, addons and streams in Kodi. Installs beside official Rivulet.</summary>
-    <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote stremio-server-go streaming server, and optionally sync your addon collection with your Stremio account.</description>
+    <description lang="en_GB">RevRivulet is a Kodi client for the Stremio addon protocol that installs beside official Rivulet and does not replace it. Browse and search catalogs by type, install community Stremio addons from a manifest URL, resolve streams and play them back through an embedded or remote rivulet-engine streaming server, and optionally sync your addon collection with your Stremio account.</description>
     <disclaimer lang="en_GB">This addon does not host, index or provide any media content. It is a client for third-party Stremio addons that you install yourself.</disclaimer>
-    <news>v0.30.1.rev23:
+    <news>v0.32.0.rev24:
+- Merged official Rivulet 0.31.0 and 0.32.0: the streaming server is now Rivulet Engine v0.27.0 (renamed from stremio-server-go, downloaded from rivulet-kodi/rivulet-engine). It is downloaded again once after updating; its settings variables start with RIVULET_ and are set for you.
+v0.30.1.rev23:
 - Fix: a title from a provider list (Netflix, Disney+, Hulu, HBO...) that no add-on has details for still opens. A movie goes straight to its streams from what the list showed, the way stock Rivulet does; a title is also tried as the other of movie/series, since these lists label types loosely ("Movies", "TV").
 v0.30.1.rev22:
 - Fix: titles in provider lists (Netflix, Disney+, Hulu, HBO and the like) open again. Those lists leave the movie/series type off their titles, and Home and the category pages did not fill it in from the list the way the classic browser does, so the title "could not be loaded".

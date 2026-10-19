@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""Kodi background service: supervises a local stremio-server-go process.
+"""Kodi background service: supervises a local rivulet-engine process.
 
-Launch interface verified against ~/M0Rf30/stremio-server-go @ cmd/stremio-server/main.go:
+Launch interface verified against ~/rivulet-kodi/rivulet-engine @ cmd/rivulet-engine/main.go:
   - No CLI flags besides a `version`/`-version`/`--version` subcommand that just
     prints and exits (main.go:126-135) -- the daemon itself takes NO arguments.
   - All runtime config is via environment variables (main.go:141-181):
@@ -17,7 +17,7 @@ Launch interface verified against ~/M0Rf30/stremio-server-go @ cmd/stremio-serve
     reads is exposed as its own Kodi setting via
     EXTRA_ENV_SETTINGS/extra_env_from_settings below instead of being pinned.)
   - Logging goes to os.Stderr via internal/logging (logging.go:28-29), text or
-    json per STREMIO_LOG_FORMAT/STREMIO_LOG_LEVEL -- there is no built-in log
+    json per RIVULET_LOG_FORMAT/RIVULET_LOG_LEVEL -- there is no built-in log
     file, so this module captures the child's stdout+stderr into a file itself.
   - Shutdown is graceful: main.go:387-412 listens for os.Interrupt/SIGTERM and
     calls http.Server.Shutdown with a 5s timeout per listener. Popen.terminate()
@@ -56,7 +56,7 @@ from lib.stremio.api import StremioAPI
 DEFAULT_SERVER_URL = "http://127.0.0.1:11470"
 DEFAULT_HTTP_PORT = 11470
 
-BINARY_NAME = "stremio-server"
+BINARY_NAME = "rivulet-engine"
 PROBE_PATHS = ("/settings", "/stats.json")
 PROBE_TIMEOUT = 2.0
 
@@ -93,13 +93,13 @@ LOG_ROTATE_BYTES = 5 * 1024 * 1024
 # re-checking this coarsely: start()'s own _rotate_log() already handles the
 # common case (rotate right before spawning), so the periodic check exists
 # only to bound growth across a crash-free multi-day session -- a real risk
-# on a near-full SD/eMMC box with a chatty stremio-server binary. Gating the
+# on a near-full SD/eMMC box with a chatty rivulet-engine binary. Gating the
 # stat() to once per this many seconds keeps the idle-loop no-disk-touch
 # property intact for every tick except one: 288 stats/day instead of 43200
 # (one per 2s tick) for the exact same detection latency that matters here.
 LOG_ROTATE_CHECK_INTERVAL = 300.0
 
-# Default `ServerProcess.stop()` grace. stremio-server-go answers SIGTERM by
+# Default `ServerProcess.stop()` grace. rivulet-engine answers SIGTERM by
 # draining its HTTP/HTTPS listeners for up to 5s (`shutOne` in
 # internal/app/app.go) and only THEN closing the torrent client, so whenever a
 # connection is still open - a stream being played or pre-buffered, the
@@ -182,7 +182,7 @@ AUTOLOAD_SETTLE_DELAY = 5.0
 # feature for the whole session.
 AUTOLOAD_READY_TIMEOUT = 60.0
 
-# Every env var stremio-server-go's main() reads besides APP_PATH/HTTP_PORT
+# Every env var rivulet-engine's main() reads besides APP_PATH/HTTP_PORT
 # (which stay pinned in ServerProcess.build_env()), one row per Kodi setting:
 # (kodi_setting_id, env_var, kind). `kind` drives both how ServiceMonitor
 # (inside main() below) reads the raw Kodi setting value and how
@@ -197,35 +197,35 @@ AUTOLOAD_READY_TIMEOUT = 60.0
 #   'bool'        - always forwarded as 'true'/'false'.
 EXTRA_ENV_SETTINGS = (
     ("bt_listen_port", "BT_LISTEN_PORT", "int"),
-    ("peers_per_torrent", "STREMIO_PEERS_PER_TORRENT", "int"),
-    ("torrent_idle_timeout", "STREMIO_TORRENT_IDLE_TIMEOUT", "int"),
-    ("bt_encryption", "STREMIO_BT_ENCRYPTION", "string"),
-    ("bt_anonymous", "STREMIO_BT_ANONYMOUS", "bool"),
-    ("disable_trackers", "STREMIO_DISABLE_TRACKERS", "bool"),
-    ("bt_proxy", "STREMIO_BT_PROXY", "string"),
-    ("disable_webtorrent", "STREMIO_DISABLE_WEBTORRENT", "bool"),
-    ("trackers_max", "STREMIO_TRACKERS_MAX", "int"),
-    ("trackers_url", "STREMIO_TRACKERS_URL", "string"),
-    ("dht_bootstrap", "STREMIO_DHT_BOOTSTRAP", "string"),
-    ("memory_cache_size_mb", "STREMIO_MEMORY_CACHE_SIZE", "mb_to_bytes"),
-    ("mem_limit_mb", "STREMIO_MEM_LIMIT", "mb_to_bytes"),
-    ("proxy_prebuffer", "STREMIO_PROXY_PREBUFFER", "int"),
-    ("proxy_seg_cache_ttl", "STREMIO_PROXY_SEG_CACHE_TTL", "int"),
-    ("proxy_password", "STREMIO_PROXY_PASSWORD", "string"),
-    ("proxy_ip_acl", "STREMIO_PROXY_IP_ACL", "string"),
-    ("proxy_public_url", "STREMIO_PROXY_PUBLIC_URL", "string"),
-    ("proxy_upstream", "STREMIO_PROXY_UPSTREAM", "string"),
-    ("proxy_secret", "STREMIO_PROXY_SECRET", "string"),
-    ("enable_dlna", "STREMIO_ENABLE_DLNA", "bool"),
-    ("local_imdb", "STREMIO_LOCAL_IMDB", "bool"),
-    ("metadata_url", "STREMIO_METADATA_URL", "string"),
-    ("bitmagnet_url", "STREMIO_BITMAGNET_URL", "string"),
-    ("torznab_url", "STREMIO_TORZNAB_URL", "string"),
-    ("torznab_apikey", "STREMIO_TORZNAB_APIKEY", "string"),
+    ("peers_per_torrent", "RIVULET_PEERS_PER_TORRENT", "int"),
+    ("torrent_idle_timeout", "RIVULET_TORRENT_IDLE_TIMEOUT", "int"),
+    ("bt_encryption", "RIVULET_BT_ENCRYPTION", "string"),
+    ("bt_anonymous", "RIVULET_BT_ANONYMOUS", "bool"),
+    ("disable_trackers", "RIVULET_DISABLE_TRACKERS", "bool"),
+    ("bt_proxy", "RIVULET_BT_PROXY", "string"),
+    ("disable_webtorrent", "RIVULET_DISABLE_WEBTORRENT", "bool"),
+    ("trackers_max", "RIVULET_TRACKERS_MAX", "int"),
+    ("trackers_url", "RIVULET_TRACKERS_URL", "string"),
+    ("dht_bootstrap", "RIVULET_DHT_BOOTSTRAP", "string"),
+    ("memory_cache_size_mb", "RIVULET_MEMORY_CACHE_SIZE", "mb_to_bytes"),
+    ("mem_limit_mb", "RIVULET_MEM_LIMIT", "mb_to_bytes"),
+    ("proxy_prebuffer", "RIVULET_PROXY_PREBUFFER", "int"),
+    ("proxy_seg_cache_ttl", "RIVULET_PROXY_SEG_CACHE_TTL", "int"),
+    ("proxy_password", "RIVULET_PROXY_PASSWORD", "string"),
+    ("proxy_ip_acl", "RIVULET_PROXY_IP_ACL", "string"),
+    ("proxy_public_url", "RIVULET_PROXY_PUBLIC_URL", "string"),
+    ("proxy_upstream", "RIVULET_PROXY_UPSTREAM", "string"),
+    ("proxy_secret", "RIVULET_PROXY_SECRET", "string"),
+    ("enable_dlna", "RIVULET_ENABLE_DLNA", "bool"),
+    ("local_imdb", "RIVULET_LOCAL_IMDB", "bool"),
+    ("metadata_url", "RIVULET_METADATA_URL", "string"),
+    ("bitmagnet_url", "RIVULET_BITMAGNET_URL", "string"),
+    ("torznab_url", "RIVULET_TORZNAB_URL", "string"),
+    ("torznab_apikey", "RIVULET_TORZNAB_APIKEY", "string"),
     ("web_ui_location", "WEB_UI_LOCATION", "string"),
     ("https_port", "HTTPS_PORT", "int"),
-    ("pprof_addr", "STREMIO_PPROF", "string"),
-    ("cert_authkey", "STREMIO_CERT_AUTHKEY", "string"),
+    ("pprof_addr", "RIVULET_PPROF", "string"),
+    ("cert_authkey", "RIVULET_CERT_AUTHKEY", "string"),
 )
 
 #: settings.xml's <default> for `server_enable` plus every EXTRA_ENV_SETTINGS
@@ -328,9 +328,9 @@ def _bundled_bin_dirs(addon_data_dir):
 
 
 def resolve_binary(explicit_path, addon_data_dir):
-    """Resolve the stremio-server-go binary path.
+    """Resolve the rivulet-engine binary path.
 
-    Priority: explicit setting -> <addon_data_dir>/bin/stremio-server[.exe]
+    Priority: explicit setting -> <addon_data_dir>/bin/rivulet-engine[.exe]
     -> the Android app-private bin dir serverbin.install_dir() would target
     for this addon_data_dir (see _bundled_bin_dirs() -- a no-op search on
     every non-Android platform) -> PATH lookup. Returns None when nothing
@@ -350,7 +350,7 @@ def resolve_binary(explicit_path, addon_data_dir):
 
 def is_bundled_binary(path, addon_data_dir):
     """True if `path` is one of the binaries lib.serverbin.install_binary()
-    manages for this addon_data_dir: `<addon_data_dir>/bin/stremio-server[.exe]`
+    manages for this addon_data_dir: `<addon_data_dir>/bin/rivulet-engine[.exe]`
     and, on Android, the app-private location serverbin.install_dir() would
     instead pick (see _bundled_bin_dirs()).
 
@@ -425,7 +425,7 @@ def probe_listening(server_url, timeout=PROBE_TIMEOUT):
 
 
 class ServerProcess:
-    """Owns the lifecycle of one stremio-server-go child process.
+    """Owns the lifecycle of one rivulet-engine child process.
 
     Pure process management: no `xbmc*` imports, safe to unit test directly.
     """
@@ -1271,7 +1271,7 @@ class Supervisor:
         return candidate, HEALTHY_POLL_INTERVAL
 
     def _resolve_library_candidate(self):
-        """Path of the libstremio-server.so for c-shared library mode (see
+        """Path of the librivulet-engine.so for c-shared library mode (see
         lib.libserver.LibraryServer), or None when unavailable: ctypes
         import failed in this Python build, or serverbin.install_binary()
         has not extracted a companion library yet. Cheap enough (an
@@ -1361,7 +1361,7 @@ class Supervisor:
             return binary
 
         self._info(
-            f"upgrading stremio-server binary from {installed or 'an unstamped install'} "
+            f"upgrading rivulet-engine binary from {installed or 'an unstamped install'} "
             f"to {serverbin.SERVER_TAG}")
         self._notify(30069)
         try:
@@ -1370,7 +1370,7 @@ class Supervisor:
             raise
         except Exception as exc:  # noqa: BLE001 - a stale binary still works; never block the spawn
             self._warn(
-                f"stremio-server binary upgrade to {serverbin.SERVER_TAG} failed: {exc}, "
+                f"rivulet-engine binary upgrade to {serverbin.SERVER_TAG} failed: {exc}, "
                 f"keeping the installed one")
             return binary
 
@@ -1389,7 +1389,7 @@ class Supervisor:
                 f"the torrent-engine/proxy settings are not applied to it")
         else:
             self._info(
-                f"using the stremio-server already listening at {target} instead of spawning one; "
+                f"using the rivulet-engine already listening at {target} instead of spawning one; "
                 f"the torrent-engine/proxy settings are not applied to it")
 
     # -- Phase B ----------------------------------------------------------
@@ -1493,7 +1493,7 @@ class Supervisor:
         if binary is None:
             if not state.notified_missing:
                 self._notify(30031, error=True)
-                self._error("stremio-server binary not found")
+                self._error("rivulet-engine binary not found")
                 state.notified_missing = True
             return interval
         # Self-heal: a runnable binary appeared (or a noexec/EACCES mount
@@ -1517,7 +1517,7 @@ class Supervisor:
         try:
             binary = self._upgrade_bundled_if_stale(binary, state)
         except _AbortRequested:
-            self._info("stremio-server binary upgrade aborted, shutting down")
+            self._info("rivulet-engine binary upgrade aborted, shutting down")
             return IDLE_POLL_INTERVAL, True
         state.proc, interval = self._start_embedded_server(binary, state)
         if state.proc is None and is_bundled_binary(binary, self.profile_dir):
@@ -1529,7 +1529,7 @@ class Supervisor:
             library_path = self._resolve_library_candidate()
             if library_path is not None:
                 self._info(
-                    "stremio-server executable failed to spawn, "
+                    "rivulet-engine executable failed to spawn, "
                     "falling back to library mode")
                 state.proc, interval = self._start_library_server(library_path, state)
         return interval, False
@@ -1547,7 +1547,7 @@ class Supervisor:
         if not state.download_attempt_notified:
             self._notify(30069)
             state.download_attempt_notified = True
-        self._info("auto-downloading stremio-server binary")
+        self._info("auto-downloading rivulet-engine binary")
         from lib import serverbin
 
         try:
@@ -1559,14 +1559,14 @@ class Supervisor:
             # Not a failure -- Kodi is shutting down. No error
             # notification, and unwind the loop right away instead of
             # waiting on abort again.
-            self._info("stremio-server binary download aborted, shutting down")
+            self._info("rivulet-engine binary download aborted, shutting down")
             return interval, True
         except serverbin.UnsupportedPlatformError as exc:
             return self._on_download_unsupported(state, exc, interval), False
         except Exception as exc:
             self._on_download_failed(state, exc)
             return interval, False
-        self._info("stremio-server binary download complete")
+        self._info("rivulet-engine binary download complete")
         state.reset_download()
         return POST_DOWNLOAD_RECHECK_INTERVAL, False
 
@@ -1575,15 +1575,15 @@ class Supervisor:
         if library_path is None:
             state.unsupported_platform = True
             state.next_download_at = None
-            self._warn(f"stremio-server binary cannot run on this device: {exc}")
+            self._warn(f"rivulet-engine binary cannot run on this device: {exc}")
             self._notify(30091, error=True)
             return interval
-        # install_binary() extracts the optional libstremio-server.so
+        # install_binary() extracts the optional librivulet-engine.so
         # companion regardless of whether the executable itself passed
         # verify_executable(), so a fresh SELinux-enforcing failure can fall
         # back to c-shared library mode immediately instead of latching.
         self._info(
-            f"stremio-server executable unsupported ({exc}), "
+            f"rivulet-engine executable unsupported ({exc}), "
             f"falling back to library mode")
         state.notified_missing = False
         interval = self._start_library_with_exec_fallback(state, library_path)
@@ -1602,7 +1602,7 @@ class Supervisor:
             state.download_backoff_idx + 1, len(DOWNLOAD_RETRY_BACKOFF) - 1
         )
         state.next_download_at = self._clock() + wait_s
-        self._error(f"stremio-server binary download failed: {exc}, retrying in {wait_s}s")
+        self._error(f"rivulet-engine binary download failed: {exc}, retrying in {wait_s}s")
         if not state.download_failure_notified:
             self._notify(30063, error=True)
             state.download_failure_notified = True

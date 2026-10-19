@@ -3,7 +3,7 @@
 
 """Tests for lib.service_runner's main() supervision loop: the
 xbmc.Monitor-driven loop that spawns/probes/restarts the embedded
-stremio-server-go child, the AutoloadTrigger that opens Rivulet's UI once
+rivulet-engine child, the AutoloadTrigger that opens Rivulet's UI once
 per Kodi session, and http_port_from_url(), a small pure helper main() uses
 to derive the probe port from the configured server URL.
 
@@ -613,7 +613,7 @@ def test_main_s4me_bridge_sync_failure_is_swallowed(monkeypatch, tmp_path):
 
 def test_main_embedded_enabled_binary_found_spawns_and_polls_healthy(monkeypatch, tmp_path):
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     factory, spawned = _make_process_factory([{}])
     monkeypatch.setattr(service_runner, 'ServerProcess', factory)
 
@@ -624,7 +624,7 @@ def test_main_embedded_enabled_binary_found_spawns_and_polls_healthy(monkeypatch
 
     assert len(spawned) == 1
     proc = spawned[0]
-    assert proc.binary == '/opt/bin/stremio-server'
+    assert proc.binary == '/opt/bin/rivulet-engine'
     assert proc.server_url == service_runner.DEFAULT_SERVER_URL
     assert proc.app_path == os.path.join(str(tmp_path), 'server')
     assert proc.log_path == os.path.join(str(tmp_path), service_runner.LOG_FILENAME)
@@ -653,7 +653,7 @@ def test_main_healthy_loop_rotates_log_on_a_coarse_cadence_not_every_tick(monkey
     a by-then-oversized log.
     """
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     # service_runner.ServerProcess is deliberately left un-patched here --
     # only subprocess.Popen is faked (fake_popen) -- so the real
     # maybe_rotate_log()/_rotate_log() gating logic under test actually runs.
@@ -732,7 +732,7 @@ def test_main_embedded_enabled_binary_missing_auto_downloads_then_starts(monkeyp
         resolve_calls.append(addon_data_dir)
         # Nothing installed yet on the first call; the "installed" binary
         # is found starting the very next iteration.
-        return None if len(resolve_calls) == 1 else '/opt/bin/stremio-server'
+        return None if len(resolve_calls) == 1 else '/opt/bin/rivulet-engine'
 
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
 
@@ -768,11 +768,11 @@ def test_main_embedded_enabled_binary_missing_auto_downloads_then_starts(monkeyp
     assert intervals[0] == service_runner.POST_DOWNLOAD_RECHECK_INTERVAL
     # Second iteration: resolve_binary now finds it, the server starts.
     assert len(spawned) == 1
-    assert spawned[0].binary == '/opt/bin/stremio-server'
+    assert spawned[0].binary == '/opt/bin/rivulet-engine'
     assert spawned[0].start_calls == 1
 
     info_logs = [msg for msg, level in ctx.env.log_calls if level == ctx.xbmc.LOGINFO]
-    assert any('auto-downloading stremio-server binary' in msg for msg in info_logs)
+    assert any('auto-downloading rivulet-engine binary' in msg for msg in info_logs)
     assert any('download complete' in msg for msg in info_logs)
 
 
@@ -799,7 +799,7 @@ def test_main_transient_download_failure_retries_after_backoff_deadline_and_noti
         return os.path.join(dest_dir, service_runner.BINARY_NAME)
 
     def fake_resolve_binary(explicit_path, addon_data_dir):
-        return None if len(install_calls) < 3 else '/opt/bin/stremio-server'
+        return None if len(install_calls) < 3 else '/opt/bin/rivulet-engine'
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
@@ -851,7 +851,7 @@ def test_main_transient_download_failure_retries_after_backoff_deadline_and_noti
     assert any(f'retrying in {service_runner.DOWNLOAD_RETRY_BACKOFF[1]}s' in msg for msg in error_logs)
 
     assert len(spawned) == 1
-    assert spawned[0].binary == '/opt/bin/stremio-server'
+    assert spawned[0].binary == '/opt/bin/rivulet-engine'
     assert spawned[0].start_calls == 1
 
 
@@ -922,7 +922,7 @@ def test_main_embedded_enabled_binary_missing_unsupported_platform_notifies_once
 
     warning_logs = [msg for msg, level in ctx.env.log_calls if level == ctx.xbmc.LOGWARNING]
     assert any('cannot run on this device' in msg for msg in warning_logs)
-    assert f'[{service_runner.ADDON_ID}] stremio-server binary not found' in [
+    assert f'[{service_runner.ADDON_ID}] rivulet-engine binary not found' in [
         msg for msg, level in ctx.env.log_calls if level == ctx.xbmc.LOGERROR
     ]
 
@@ -946,7 +946,7 @@ def test_main_settings_changed_resets_unsupported_platform_latch_for_retry(monke
         return os.path.join(dest_dir, service_runner.BINARY_NAME)
 
     def fake_resolve_binary(explicit_path, addon_data_dir):
-        return None if len(install_calls) < 2 else '/opt/bin/stremio-server'
+        return None if len(install_calls) < 2 else '/opt/bin/rivulet-engine'
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
@@ -971,7 +971,7 @@ def test_main_settings_changed_resets_unsupported_platform_latch_for_retry(monke
 
     assert install_calls == [os.path.join(str(tmp_path), 'bin')] * 2
     assert len(spawned) == 1
-    assert spawned[0].binary == '/opt/bin/stremio-server'
+    assert spawned[0].binary == '/opt/bin/rivulet-engine'
 
     unsupported_notifications = [n for n in ctx.env.notifications if n[1] == 'STR30091']
     missing_notifications = [n for n in ctx.env.notifications if n[1] == 'STR30031']
@@ -1060,7 +1060,7 @@ def test_main_latched_unsupported_platform_self_heals_when_resolve_binary_finds_
         resolve_calls.append(1)
         # Nothing usable for the first two calls (pre-latch + one latched
         # recheck); the noexec/mount condition "clears" starting the third.
-        return None if len(resolve_calls) < 3 else '/opt/bin/stremio-server'
+        return None if len(resolve_calls) < 3 else '/opt/bin/rivulet-engine'
 
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: probe_calls.append(1) or False)
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
@@ -1083,7 +1083,7 @@ def test_main_latched_unsupported_platform_self_heals_when_resolve_binary_finds_
         service_runner.main()
 
     assert len(spawned) == 1
-    assert spawned[0].binary == '/opt/bin/stremio-server'
+    assert spawned[0].binary == '/opt/bin/rivulet-engine'
     assert spawned[0].start_calls == 1
     assert len(resolve_calls) == 3
     assert len(probe_calls) == 3  # probe/resolve only run while proc is None
@@ -1156,7 +1156,7 @@ def test_main_crash_restart_backoff_progression_and_stable_uptime_reset(monkeypa
     crash loop.
     """
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     specs = [
         {'poll_sequence': [0], 'uptime_value': 5.0},   # clean exit(0) still restarts
         {'poll_sequence': [1], 'uptime_value': 3.0},
@@ -1202,7 +1202,7 @@ def test_main_crash_restart_backoff_cadence_matches_elapsed_fake_clock_time(monk
     flipping true after the 8th call.
     """
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     specs = [
         {'poll_sequence': [0], 'uptime_value': 5.0},
         {'poll_sequence': [1], 'uptime_value': 3.0},
@@ -1249,7 +1249,7 @@ def test_main_crash_path_closes_the_log_file_handle(fake_popen, monkeypatch, tmp
     so `log_fh.closed` genuinely proves `stop()` ran.
     """
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
 
     real_server_process = service_runner.ServerProcess
     created = []
@@ -1292,7 +1292,7 @@ def test_main_survives_failed_spawn_and_retries_with_backoff(monkeypatch, tmp_pa
     (not a tight loop), and the very next spawn attempt gets a fresh
     ServerProcess."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     specs = [
         {'start_exceptions': [OSError('exec failed')]},
         {},
@@ -1325,7 +1325,7 @@ def test_main_survives_failed_stop_and_defers_respawn_until_confirmed_stopped(mo
     spawning a duplicate next to a possibly-still-alive process, and only
     respawns once stop() finally succeeds."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     specs = [
         {'poll_sequence': [1, 1], 'stop_exceptions': [OSError('kill failed'), None]},
         {},
@@ -1352,7 +1352,7 @@ def test_main_survives_failed_stop_and_defers_respawn_until_confirmed_stopped(mo
 
 def test_main_settings_changed_restarts_the_running_server(monkeypatch, tmp_path):
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     factory, spawned = _make_process_factory([{}, {}])
     monkeypatch.setattr(service_runner, 'ServerProcess', factory)
 
@@ -1385,7 +1385,7 @@ def test_main_settings_changed_restarts_the_running_server(monkeypatch, tmp_path
 
 def test_main_embedded_disabled_stops_the_running_server(monkeypatch, tmp_path):
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     factory, spawned = _make_process_factory([{}])
     monkeypatch.setattr(service_runner, 'ServerProcess', factory)
 
@@ -1423,7 +1423,7 @@ def test_main_onsettingschanged_with_no_actual_change_does_not_restart(monkeypat
     subs_language) -- a resave that leaves (enabled, binary, url)
     unchanged must not restart an already-healthy server."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     factory, spawned = _make_process_factory([{}])
     monkeypatch.setattr(service_runner, 'ServerProcess', factory)
 
@@ -1524,7 +1524,7 @@ def test_main_onsettingschanged_extra_env_setting_change_triggers_restart(monkey
     change already does, and the respawned process must carry the new
     value through `extra_env`."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     factory, spawned = _make_process_factory([{}, {}])
     monkeypatch.setattr(service_runner, 'ServerProcess', factory)
 
@@ -1545,7 +1545,7 @@ def test_main_onsettingschanged_extra_env_setting_change_triggers_restart(monkey
     assert len(spawned) == 2
     old_proc, new_proc = spawned
     assert old_proc.stop_calls == 1  # stopped by the restart, not by shutdown
-    assert new_proc.extra_env.get('STREMIO_DISABLE_TRACKERS') == 'true'
+    assert new_proc.extra_env.get('RIVULET_DISABLE_TRACKERS') == 'true'
     assert new_proc.stop_calls == 1  # then stopped again by the final shutdown path
 
     restart_logs = [msg for msg, _level in ctx.env.log_calls if 'settings changed, restarting' in msg]
@@ -1559,7 +1559,7 @@ def test_main_onsettingschanged_extra_env_resave_without_change_does_not_restart
     `test_main_onsettingschanged_with_no_actual_change_does_not_restart`
     case above for (enabled, binary, url)."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     factory, spawned = _make_process_factory([{}])
     monkeypatch.setattr(service_runner, 'ServerProcess', factory)
 
@@ -1843,7 +1843,7 @@ def test_main_upgrades_a_bundled_binary_installed_under_an_older_server_tag(monk
     assert [p.binary for p in spawned] == [fresh]
     assert [n for n in ctx.env.notifications if n[1] == 'STR30069']
     assert any(
-        'upgrading stremio-server binary' in msg and serverbin.SERVER_TAG in msg
+        'upgrading rivulet-engine binary' in msg and serverbin.SERVER_TAG in msg
         for msg, level in ctx.env.log_calls if level == ctx.xbmc.LOGINFO
     )
 
@@ -1872,7 +1872,7 @@ def test_main_never_replaces_a_binary_it_did_not_install(monkeypatch, tmp_path):
     build: unstamped, so `installed_tag()` would report None and look
     stale. It must not even be consulted, let alone overwritten."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/usr/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/usr/bin/rivulet-engine')
 
     def installed_tag_must_not_run(*args, **kwargs):
         pytest.fail('installed_tag must not be consulted for a non-bundled binary')
@@ -1888,7 +1888,7 @@ def test_main_never_replaces_a_binary_it_did_not_install(monkeypatch, tmp_path):
     with _main_env(tmp_path, _scripted_wait([], [None]), settings={'server_enable': True}):
         service_runner.main()
 
-    assert [p.binary for p in spawned] == ['/usr/bin/stremio-server']
+    assert [p.binary for p in spawned] == ['/usr/bin/rivulet-engine']
 
 
 def test_main_never_replaces_a_binary_the_server_binary_setting_points_at(monkeypatch, tmp_path):
@@ -2018,7 +2018,7 @@ def test_main_upgrade_aborted_by_shutdown_unwinds_without_spawning(monkeypatch, 
 def test_main_force_library_prefers_library_mode_when_companion_library_present(monkeypatch, tmp_path):
     """`server_force_library=True` skips resolve_binary()/install_binary()
     entirely and goes straight to c-shared library mode whenever a
-    companion libstremio-server.so is already on disk."""
+    companion librivulet-engine.so is already on disk."""
 
     def resolve_binary_must_not_run(*args, **kwargs):
         pytest.fail('resolve_binary must not run when server_force_library is set '
@@ -2031,7 +2031,7 @@ def test_main_force_library_prefers_library_mode_when_companion_library_present(
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
     monkeypatch.setattr(service_runner, 'resolve_binary', resolve_binary_must_not_run)
     monkeypatch.setattr(serverbin, 'install_binary', install_binary_must_not_run)
-    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/libstremio-server.so')
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
 
     factory, spawned = _make_library_process_factory([{}])
     monkeypatch.setattr(libserver, 'LibraryServer', factory)
@@ -2044,7 +2044,7 @@ def test_main_force_library_prefers_library_mode_when_companion_library_present(
 
     assert len(spawned) == 1
     proc = spawned[0]
-    assert proc.library_path == '/opt/lib/libstremio-server.so'
+    assert proc.library_path == '/opt/lib/librivulet-engine.so'
     assert proc.server_url == service_runner.DEFAULT_SERVER_URL
     assert proc.start_calls == 1
     assert intervals == [service_runner.HEALTHY_POLL_INTERVAL] * 2
@@ -2060,7 +2060,7 @@ def test_main_force_library_falls_back_to_binary_flow_when_no_companion_library(
     straight through to the ordinary resolve_binary()/install_binary()
     flow instead of getting stuck."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: None)
 
     def library_factory_must_not_run(*args, **kwargs):
@@ -2077,7 +2077,7 @@ def test_main_force_library_falls_back_to_binary_flow_when_no_companion_library(
         service_runner.main()
 
     assert len(spawned) == 1
-    assert spawned[0].binary == '/opt/bin/stremio-server'
+    assert spawned[0].binary == '/opt/bin/rivulet-engine'
 
 
 def test_main_force_library_falls_back_to_binary_flow_when_ctypes_unsupported(monkeypatch, tmp_path):
@@ -2087,7 +2087,7 @@ def test_main_force_library_falls_back_to_binary_flow_when_ctypes_unsupported(mo
     short-circuit on `LIBRARY_SUPPORTED` before even asking
     `serverbin.resolve_library()`."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
     monkeypatch.setattr(libserver, 'LIBRARY_SUPPORTED', False)
 
     def resolve_library_must_not_run(*args, **kwargs):
@@ -2104,7 +2104,7 @@ def test_main_force_library_falls_back_to_binary_flow_when_ctypes_unsupported(mo
         service_runner.main()
 
     assert len(spawned) == 1
-    assert spawned[0].binary == '/opt/bin/stremio-server'
+    assert spawned[0].binary == '/opt/bin/rivulet-engine'
 
 
 def test_main_unsupported_platform_falls_back_to_library_mode_immediately(monkeypatch, tmp_path):
@@ -2115,7 +2115,7 @@ def test_main_unsupported_platform_falls_back_to_library_mode_immediately(monkey
     serverbin.install_binary()'s docstring)."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
     monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: None)
-    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/libstremio-server.so')
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
 
     def fake_install_binary(dest_dir, progress_cb=None):
         raise serverbin.UnsupportedPlatformError('exec() forbidden')
@@ -2147,7 +2147,7 @@ def test_main_unsupported_platform_self_heals_into_library_mode_when_library_app
 
     def fake_resolve_library(dest_dir):
         resolve_library_calls.append(1)
-        return None if len(resolve_library_calls) < 2 else '/opt/lib/libstremio-server.so'
+        return None if len(resolve_library_calls) < 2 else '/opt/lib/librivulet-engine.so'
 
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: probe_calls.append(1) or False)
     monkeypatch.setattr(serverbin, 'resolve_library', fake_resolve_library)
@@ -2236,7 +2236,7 @@ def test_main_library_mode_never_consults_the_stale_upgrade_helper(monkeypatch, 
     helper (`serverbin.installed_tag`/a second `install_binary()`) at
     all."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/libstremio-server.so')
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
 
     def installed_tag_must_not_run(*args, **kwargs):
         pytest.fail('installed_tag must not be consulted in library mode')
@@ -2262,7 +2262,7 @@ def test_main_library_mode_restart_backoff_on_failed_spawn(monkeypatch, tmp_path
     failed `ServerProcess.start()` -- never crash the supervision loop,
     and advance `state.backoff_idx` through RESTART_BACKOFF."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/libstremio-server.so')
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
 
     factory, spawned = _make_library_process_factory([
         {'start_exceptions': [OSError('cannot dlopen')]},
@@ -2288,8 +2288,8 @@ def test_main_library_mode_settings_change_restarts_and_can_revert_to_binary_mod
     `force_library` is part of `ServiceMonitor._snapshot()`) and fall
     back to the ordinary binary flow on the very next tick."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/libstremio-server.so')
-    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/stremio-server')
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
 
     lib_factory, lib_spawned = _make_library_process_factory([{}])
     monkeypatch.setattr(libserver, 'LibraryServer', lib_factory)
@@ -2312,7 +2312,7 @@ def test_main_library_mode_settings_change_restarts_and_can_revert_to_binary_mod
     assert len(lib_spawned) == 1
     assert lib_spawned[0].stop_calls == 1  # torn down by the settings-changed restart
     assert len(bin_spawned) == 1
-    assert bin_spawned[0].binary == '/opt/bin/stremio-server'
+    assert bin_spawned[0].binary == '/opt/bin/rivulet-engine'
 
 
 # --- regression: library mode never notifies the user -----------------------
@@ -2323,7 +2323,7 @@ def test_main_library_mode_is_silent_across_crash_restarts(monkeypatch, tmp_path
     implementation detail the user should not be told about: it must only
     be logged, never shown as a Kodi notification."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/libstremio-server.so')
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
 
     factory, spawned = _make_library_process_factory([
         {'poll_sequence': [1]},  # exits right away -> triggers a crash restart
@@ -2363,7 +2363,7 @@ def test_main_binary_spawn_failure_falls_back_to_library_mode_when_bundled_and_l
     # no-op here so the only thing under test is the post-spawn-failure
     # fallback, not a reinstall.
     monkeypatch.setattr(serverbin, 'installed_tag', lambda dest_dir: serverbin.SERVER_TAG)
-    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/libstremio-server.so')
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
 
     factory, spawned = _make_process_factory([
         {'start_exceptions': [PermissionError('exec() denied')]},
@@ -2434,7 +2434,7 @@ def test_main_unsupported_platform_latch_survives_failed_library_start_in_both_b
     """
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
     monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: None)
-    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/libstremio-server.so')
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
 
     install_calls = []
 
@@ -2487,7 +2487,7 @@ def test_main_latched_self_heal_falls_back_to_executable_when_library_start_fail
 
     def fake_resolve_library(dest_dir):
         resolve_library_calls.append(1)
-        return None if len(resolve_library_calls) < 2 else '/opt/lib/libstremio-server.so'
+        return None if len(resolve_library_calls) < 2 else '/opt/lib/librivulet-engine.so'
 
     monkeypatch.setattr(serverbin, 'resolve_library', fake_resolve_library)
 
@@ -2498,7 +2498,7 @@ def test_main_latched_self_heal_falls_back_to_executable_when_library_start_fail
         # None on the initial pre-latch probe (iter1) and for as long as
         # the library is still missing; becomes available only once the
         # latched self-heal branch's library attempt has failed (iter2).
-        return None if len(resolve_binary_calls) < 2 else '/opt/bin/stremio-server'
+        return None if len(resolve_binary_calls) < 2 else '/opt/bin/rivulet-engine'
 
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
 
@@ -2544,7 +2544,7 @@ def test_main_unsupported_platform_error_branch_falls_back_to_executable_when_li
     latched) also tries a resolvable executable on the same tick when
     the library fails to start, instead of latching unconditionally."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
-    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/libstremio-server.so')
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
     resolve_binary_calls = []
 
     def fake_resolve_binary(*args, **kwargs):
@@ -2552,7 +2552,7 @@ def test_main_unsupported_platform_error_branch_falls_back_to_executable_when_li
         # None for the outer "nothing resolvable yet" probe that leads
         # into install_binary(); becomes available only once the library
         # fallback's own attempt has failed.
-        return None if len(resolve_binary_calls) < 2 else '/opt/bin/stremio-server'
+        return None if len(resolve_binary_calls) < 2 else '/opt/bin/rivulet-engine'
 
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
 

@@ -177,12 +177,12 @@ msgid "Preferred subtitle language"
 msgstr "Idioma preferido das legendas"
 
 msgctxt "#30060"
-msgid "Download stremio-server binary"
-msgstr "Baixar binário do stremio-server"
+msgid "Download rivulet-engine binary"
+msgstr "Baixar binário do rivulet-engine"
 
 msgctxt "#30061"
-msgid "Downloading stremio-server"
-msgstr "Baixando o stremio-server"
+msgid "Downloading rivulet-engine"
+msgstr "Baixando o rivulet-engine"
 
 msgctxt "#30062"
 msgid "Server binary installed (%s)"

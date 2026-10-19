@@ -4,7 +4,7 @@
 """Suppress the console window Windows allocates for a console-subsystem
 child process spawned from a windowless GUI parent (issue #30).
 
-stremio-server.exe (M0Rf30/stremio-server-go) is built with the default Go
+rivulet-engine.exe (rivulet-kodi/rivulet-engine) is built with the default Go
 console subsystem. Kodi on Windows is a GUI-subsystem process with no
 console of its own. When a GUI process calls CreateProcess() on a console
 subsystem binary without CREATE_NO_WINDOW, Win32 allocates that child a
@@ -13,7 +13,7 @@ Rivulet-specific about this, it is CreateProcess()'s documented default
 behaviour for that exact subsystem mismatch. The window has no controls
 tying it to Rivulet and appears to just be an empty cmd box; closing it
 delivers CTRL_CLOSE_EVENT to the console's process group, which kills
-stremio-server.exe, which `lib.service_runner`'s supervisor then dutifully
+rivulet-engine.exe, which `lib.service_runner`'s supervisor then dutifully
 restarts -- popping a fresh window right back open. That loop is what
 issue #30 reports as "when I close it, it opens again".
 

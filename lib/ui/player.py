@@ -150,7 +150,7 @@ _TARGET_WAIT_SECONDS = 45
 
 #: Upper bound on how long the keep-alive pin (`_KeepAlivePin`) is allowed
 #: to keep a background streaming request open on the torrent's URL after
-#: pre-buffer decides to start - it exists to hold stremio-server-go's
+#: pre-buffer decides to start - it exists to hold rivulet-engine's
 #: piece priority on this file while Kodi's player is still opening/
 #: probing the URL, not to babysit playback forever, so it always gives
 #: up by this deadline even if Kodi never reports playback started.
@@ -645,7 +645,7 @@ def _feasibility_warning_needed(runtime_seconds, file_length_bytes, download_spe
 class _KeepAlivePin:
     """Background thread that keeps a streaming GET open on the torrent's
     URL after pre-buffer decides to hand off to Kodi's player, so
-    stremio-server-go keeps this file's pieces prioritized while the
+    rivulet-engine keeps this file's pieces prioritized while the
     player itself is still spinning up (opening the URL, probing the
     container, filling its own read-ahead) - the exact window a cold
     swarm can lose piece priority in and stall Kodi's very first read.
@@ -818,14 +818,14 @@ def _start_keepalive_pin(server, info_hash, file_idx, start_byte):
 
 
 def _await_file_idx(server, stream, info_hash, url, dialog, monitor):
-    """Poll `GET /create` until stremio-server-go resolves a file index for
+    """Poll `GET /create` until rivulet-engine resolves a file index for
     streams with no fileIdx of their own, sharing the caller's `dialog`/
     `monitor` (owned by `_resolve_playable_item` for the whole resolve -
     see that function) so the flow stays cancellable and ticks the
     "Fetching torrent metadata…" stage (20-35%, with a live attempt
     counter and, once available, a speed/peers line).
 
-    Live-verified gap this closes: against stremio-server-go v0.8.5,
+    Live-verified gap this closes: against rivulet-engine v0.8.5,
     `/create` returns BEFORE metadata resolves and its response never
     gains `guessedFileIdx` later - only a `files` array once metadata
     lands (see `guess_file_idx()`). Older/other server builds that DO
@@ -915,7 +915,7 @@ def _prebuffer_torrent(server, stream, url, dialog, monitor, item_meta=None):
 
     Every successful return spawns a `_KeepAlivePin` (via
     `_start_keepalive_pin`, a monkeypatchable seam) on the exact bytes
-    already obtained, so stremio-server-go keeps this file prioritized
+    already obtained, so rivulet-engine keeps this file prioritized
     while Kodi's player is still opening/probing the URL this function
     hands back.
     """

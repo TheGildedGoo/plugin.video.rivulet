@@ -5,11 +5,11 @@
 suppress the console window Windows would otherwise allocate for a
 console-subsystem child spawned from a GUI process (Kodi).
 
-Background (issue #30): stremio-server.exe is built with Go's default
+Background (issue #30): rivulet-engine.exe is built with Go's default
 console subsystem. Spawned from kodi.exe -- a GUI-subsystem process with
 no console of its own -- Windows allocates the child a brand-new console
 window. A user closing that empty window sends it CTRL_CLOSE_EVENT, which
-kills stremio-server.exe; lib.service_runner's supervisor then sees the
+kills rivulet-engine.exe; lib.service_runner's supervisor then sees the
 child gone and restarts it, popping a fresh window right back up ("when I
 close it, it opens again"). `no_window_kwargs()` is the single source of
 the `subprocess.Popen`/`subprocess.run` kwargs (`creationflags` +
@@ -50,7 +50,7 @@ def test_no_window_kwargs_suppresses_console_on_windows(monkeypatch):
     keep Windows from allocating a console for the spawned child --
     `creationflags=CREATE_NO_WINDOW` and a `STARTUPINFO` with
     `STARTF_USESHOWWINDOW` set and `wShowWindow=SW_HIDE`. Without these, a
-    console-subsystem binary (stremio-server.exe) spawned from Kodi's
+    console-subsystem binary (rivulet-engine.exe) spawned from Kodi's
     GUI-subsystem process pops an empty cmd window; closing that window
     sends CTRL_CLOSE_EVENT, which kills the child, which the
     service_runner supervisor then restarts -- popping a fresh window

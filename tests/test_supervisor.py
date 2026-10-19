@@ -179,7 +179,7 @@ def test_external_server_is_left_alone(tmp_path, monkeypatch):
 
 
 def test_spawns_found_binary_with_backoff_on_failure(tmp_path, monkeypatch):
-    monkeypatch.setattr(sr, "resolve_binary", lambda *a: "/x/stremio-server")
+    monkeypatch.setattr(sr, "resolve_binary", lambda *a: "/x/rivulet-engine")
     monkeypatch.setattr(sr, "is_bundled_binary", lambda *a: False)
     started = []
 

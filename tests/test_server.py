@@ -5,7 +5,7 @@
 
 Reference: stremio-core src/types/resource/stream.rs (Stream::convert) and
 src/constants.rs (STREAMING_SERVER_URL). No network access - ServerClient
-methods that hit stremio-server-go are exercised by substituting
+methods that hit rivulet-engine are exercised by substituting
 `client.session` with `tests.conftest.FakeSession`.
 """
 from urllib.parse import urlencode
@@ -580,7 +580,7 @@ def test_buffered_bytes_full_progress():
 
 # --- guess_file_idx --------------------------------------------------------
 #
-# Live-verified gap (stremio-server-go v0.8.5, Sintel torrent
+# Live-verified gap (rivulet-engine v0.8.5, Sintel torrent
 # 08ada5a7a6183aae1e09d831df6748d566095a10): /create's response never
 # gains guessedFileIdx - only per-file stats.json responses do - but DOES
 # carry a `files` array once metadata resolves:
@@ -670,7 +670,7 @@ def test_guess_file_idx_video_ties_pick_first_and_use_path_or_name():
 # streamProgress/streamLen (buffered_bytes()), which can report megabytes
 # "buffered" while the file's FRONT (offset 0 - where ffmpeg's container
 # probe reads from) was never downloaded, since torrent pieces arrive out
-# of order. Live-verified against a real stremio-server-go instance: a
+# of order. Live-verified against a real rivulet-engine instance: a
 # 1-peer torrent reached buffered=22.7MB by that metric yet a Range read
 # of the front returned 0 bytes, reproducing Kodi's exact
 # CURLE_PARTIAL_FILE(18)/"error probing input format" failure; a
@@ -893,7 +893,7 @@ def _lz_payload(url):
     """Pull the `lz` query param out of `url`, percent-decode it, run it
     through the real LZ-String decompressor, and json.loads() the
     result - i.e. reverse exactly what `ServerClient._lz_query_url`
-    built, to assert on the JSON body a real stremio-server-go would
+    built, to assert on the JSON body a real rivulet-engine would
     see."""
     query = parse_qs(urlsplit(url).query)
     compressed = query["lz"][0]
@@ -1041,7 +1041,7 @@ def test_resolve_stream_archive_urls_capped_at_max_entries():
 def test_resolve_stream_archive_key_is_stable_and_body_sensitive():
     """`/{kind}/create/{key}`: key = sha256(compact JSON body)[:32], so
     an identical re-request hits the server's live-session reuse
-    (stremio-server-go v0.23.0) and any changed field gets a new key."""
+    (rivulet-engine v0.23.0) and any changed field gets a new key."""
     client = make_client()
     stream = {
         "rarUrls": [["https://example.com/file.rar", 10000]],
@@ -1107,7 +1107,7 @@ def test_resolve_stream_nzb_urls_capped_at_max_entries():
 
 def test_resolve_stream_nzb_key_is_stable_and_body_sensitive():
     """The nzb create url carries a deterministic session key so
-    stremio-server-go v0.23.0 can reuse the live session on re-open."""
+    rivulet-engine v0.23.0 can reuse the live session on re-open."""
     client = make_client()
     base = {"nzbUrl": "https://example.com/r.nzb", "servers": ["https://usenet1.example.com"]}
     first = client.resolve_stream(dict(base))
@@ -1150,7 +1150,7 @@ def test_unsupported_stream_error_is_a_server_error():
     assert issubclass(UnsupportedStreamError, ServerError)
 
 
-# --- tracker forwarding on create/front reads (stremio-server-go `tr=`) --------
+# --- tracker forwarding on create/front reads (rivulet-engine `tr=`) --------
 
 from lib.stremio.server import stream_trackers  # noqa: E402
 

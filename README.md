@@ -22,7 +22,7 @@ Rivulet reimplements the [Stremio](https://www.stremio.com/) client
 experience inside Kodi: browse and search catalogs from the Stremio addon
 protocol, addon management (install from manifest URL), meta/stream
 resolution, and playback through a
-[stremio-server-go](https://github.com/M0Rf30/stremio-server-go) streaming
+[rivulet-engine](https://github.com/rivulet-kodi/rivulet-engine) streaming
 server. Optional login syncs your addon collection with your Stremio
 account.
 
@@ -32,12 +32,51 @@ account.
 
 ## Contents
 
+- [What RevRivulet adds](#what-revrivulet-adds)
 - [Features](#features)
 - [Screenshots](#screenshots)
 - [Install](#install)
 - [Auto-updates](#auto-updates)
 - [Streaming server](#streaming-server)
 - [Development](#development)
+
+## What RevRivulet adds
+
+RevRivulet is a fork of [Rivulet](https://github.com/rivulet-kodi/plugin.video.rivulet)
+(currently based on 0.32.0) that installs alongside it. Everything below
+is built for a TV remote: nothing needs typing.
+
+**A new look (Settings → Home → New look)**
+- A full-screen backdrop that fades to black, the title's logo in place
+  of its name, star rating, scores, runtime and "Ends at".
+- Home, Movies, Series, the catalog lists and search all share that look,
+  with soft mirror reflections under the posters and a white focus ring.
+- An episode page with stills, air dates, watched ticks and a scrolling
+  description.
+
+**Home and browsing**
+- Continue and Library rows next to your catalogs, with backdrops,
+  descriptions and logos loaded on focus.
+- New Episodes for the series you follow, showing the show's own artwork.
+- "Go to series" on episode cards, decade browsing, and a region filter.
+- Provider lists (Netflix, Disney+, Hulu, HBO...) open and stream even when
+  they use non-IMDb ids or leave out the title's type.
+
+**Search**
+- One page: pick letters with the remote or type on your phone, press
+  Search, and the results replace a Discover row.
+- Searches show what has arrived instead of waiting on the slowest source.
+
+**Playback**
+- Resume from Continue, and two-way watch
+  progress with your Stremio account.
+- Trailers through Kodi's YouTube add-on, without leaving the screen
+  unless the trailer actually starts.
+
+**Look and feel**
+- Dark, rounded dialogs and menus, greyscale accents and backdrop.
+- Settings → Home → Refresh cached data, for when artwork or details go
+  stale.
 
 ## Features
 
@@ -57,7 +96,7 @@ account.
   subtitle addons at playback time, with OpenSubtitles v3 preinstalled and
   sorted by your preferred language.
 - **One-click streaming server** — download the right
-  `stremio-server-go` build for your platform and run it embedded, or
+  `rivulet-engine` build for your platform and run it embedded, or
   point Rivulet at any server you already run.
 - **Optional launch on startup** — turn on **Settings → Home screen →
   Open Rivulet automatically on Kodi startup** to have a dedicated media
@@ -110,7 +149,7 @@ Details and the shared streaming-server port are in `docs/REVRIVULET.md`.
 
 All playback is resolved through a streaming server speaking the same
 `enginefs` HTTP API as Stremio's own `server.js`
-([stremio-server-go](https://github.com/M0Rf30/stremio-server-go) is a
+([rivulet-engine](https://github.com/rivulet-kodi/rivulet-engine) is a
 pure-Go, drop-in implementation of it). Configure it under
 **Settings → Streaming server**:
 
@@ -118,15 +157,15 @@ RevRivulet keeps the default URL `http://127.0.0.1:11470` and reuses a server th
 
 | Setting | Purpose |
 | --- | --- |
-| **Server URL** | Where the streaming server is listening. Defaults to `http://127.0.0.1:11470`, the standard Stremio server port. Point this at any already-running `stremio-server-go` (or official Stremio server) instance, local or remote. |
-| **Run embedded server** | When enabled, the addon's background service spawns and supervises a local `stremio-server-go` process for the lifetime of the Kodi session, and stops it on shutdown. |
-| **Server binary path** | The `stremio-server-go` executable to run when the embedded server is enabled. Leave empty to auto-detect: the service first looks in `special://profile/addon_data/plugin.video.revrivulet/bin/`, then on `PATH`. |
+| **Server URL** | Where the streaming server is listening. Defaults to `http://127.0.0.1:11470`, the standard Stremio server port. Point this at any already-running `rivulet-engine` (or official Stremio server) instance, local or remote. |
+| **Run embedded server** | When enabled, the addon's background service spawns and supervises a local `rivulet-engine` process for the lifetime of the Kodi session, and stops it on shutdown. |
+| **Server binary path** | The `rivulet-engine` executable to run when the embedded server is enabled. Leave empty to auto-detect: the service first looks in `special://profile/addon_data/plugin.video.revrivulet/bin/`, then on `PATH`. |
 
-`stremio-server-go` no longer needs to be installed by hand: use the
-**Download stremio-server binary** button under
+`rivulet-engine` no longer needs to be installed by hand: use the
+**Download rivulet-engine binary** button under
 **Settings → Streaming server** to fetch the correct build for your platform
 straight from the
-[stremio-server-go releases](https://github.com/M0Rf30/stremio-server-go/releases)
+[rivulet-engine releases](https://github.com/rivulet-kodi/rivulet-engine/releases)
 into the addon's `bin/` folder — the download is integrity-checked before
 install. Subtitles are pulled from your installed Stremio subtitle addons at
 playback time — OpenSubtitles v3 is preinstalled — and sorted using the
@@ -135,8 +174,8 @@ playback time — OpenSubtitles v3 is preinstalled — and sorted using the
 > **Android.** Kodi 19+ targets Android API 29 or newer, where Android 10+
 > forbids *executing* a binary from an app's own writable data directory
 > (SELinux W^X). Rivulet therefore installs the server in two forms from the
-> same integrity-checked `stremio-server_Android_{arm64,armv7,x86_64,i386}` archive:
-> the executable, and `libstremio-server.so`, the same server built as a
+> same integrity-checked `rivulet-engine_Android_{arm64,armv7,x86_64,i386}` archive:
+> the executable, and `librivulet-engine.so`, the same server built as a
 > shared library. It tries the executable first; when Android denies it, the
 > service falls back to **library mode**, loading the `.so` into Kodi's own
 > process (the approach Elementum uses) — no root and no second app needed.
@@ -145,7 +184,7 @@ playback time — OpenSubtitles v3 is preinstalled — and sorted using the
 > next Kodi restart, and a server crash takes Kodi down with it, since both
 > share one process. Features needing external tools (`yt-dlp` for YouTube
 > streams) are unavailable on Android either way. If neither form can start,
-> point **Server URL** at a `stremio-server-go` running elsewhere (PC, NAS,
+> point **Server URL** at a `rivulet-engine` running elsewhere (PC, NAS,
 > [Termux](https://termux.dev/)) and leave **Run embedded server** off.
 
 ## Development
