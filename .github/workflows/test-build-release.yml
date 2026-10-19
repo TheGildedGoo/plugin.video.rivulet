@@ -1,0 +1,48 @@
+name: Publish upstream PR test build
+
+# Lives only on the test-builds branch. Builds an installable zip of the
+# pinned upstream PR commit the same way upstream's build.yml does and
+# publishes it as a prerelease (never "latest"). It does not touch main,
+# gh-pages or the RevRivulet repository.
+on:
+  push:
+    branches: [ test-builds ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PR_SHA: 49e19cd3e40e61083b2982e3ebf781ce3481fc15
+  TAG: upstream-pr1-test
+  ZIP: plugin.video.rivulet-0.32.0-upstream-pr1-test.zip
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pinned PR commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PR_SHA }}
+          fetch-depth: 0
+
+      - name: Build addon package (same as upstream build.yml)
+        run: |
+          git archive --format=zip --prefix=plugin.video.rivulet/ \
+            -o "$ZIP" HEAD -- addon.xml default.py service.py resources lib LICENSE
+          sha256sum "$ZIP"
+          python3 -c "import zipfile,xml.etree.ElementTree as ET; z=zipfile.ZipFile('$ZIP'); r=ET.fromstring(z.read('plugin.video.rivulet/addon.xml')); print(r.get('id'), r.get('version'))"
+
+      - name: Create prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "$ZIP" --repo "$GITHUB_REPOSITORY" \
+              --target "$PR_SHA" --prerelease --latest=false \
+              --title "Test build: upstream PR 1 (stock Rivulet 0.32.0 + fixes and dark dialogs)" \
+              --notes "TEST BUILD, not RevRivulet. Stock official Rivulet 0.32.0 (upstream main 72af342) plus the three upstream PR 1 commits: provider-list titles keyed by non-IMDb ids, search no longer waits on the slowest catalog, and optional Dark dialogs (Settings > Home screen, off by default). Built from branch upstream-pr/fixes-and-dark-dialogs at ${PR_SHA}. Installs as plugin.video.rivulet (Rivulet) alongside RevRivulet; it does not replace it."
+          fi
