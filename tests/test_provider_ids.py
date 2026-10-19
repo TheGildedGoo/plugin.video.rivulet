@@ -365,3 +365,33 @@ def test_a_tv_listed_show_is_found_by_search_as_a_series(load, monkeypatch):
     ])
     preview = {'id': 'tmdb:1399', 'type': 'tv', 'name': 'Game of Thrones', 'releaseInfo': '2011'}
     assert detailwindow._imdb_alternative('tv', 'tmdb:1399', preview) == 'tt0944947'
+
+
+def test_the_imdb_id_is_learned_even_when_an_addon_takes_the_provider_id(load, monkeypatch):
+    """An addon that also takes ``tmdb:`` ids must not keep the IMDb-only
+    ones (Torrentio and the like) out of the stream request."""
+    ctx = load()
+    sw = ctx.streamswindow
+
+    tmdb_too = {'transportUrl': 'tmdb-addon', 'manifest': {
+        'name': 'Debrid', 'resources': ['stream'], 'types': ['movie'], 'idPrefixes': ['tt', 'tmdb:']}}
+    _wire_data_layer(sw, _FakeStore(addons=[tmdb_too, _IMDB_ONLY]), _FakeAddonClient({}))
+    looked_up = []
+
+    def _with_imdb(stype, sid, meta):
+        looked_up.append((stype, sid))
+        return dict(meta, imdb_id='tt0133093')
+
+    monkeypatch.setattr(sw, '_meta_with_imdb', _with_imdb)
+    asked = []
+    real_targets = sw._stream_targets
+
+    def _targets(stype, sid, meta=None):
+        found = real_targets(stype, sid, meta)
+        asked.extend((entry[1]['name'], entry[2]) for entry in found)
+        return []
+
+    monkeypatch.setattr(sw, '_stream_targets', _targets)
+    assert sw.open_streams('movie', 'tmdb:603', meta={'id': 'tmdb:603', 'name': 'The Matrix'}) is False
+    assert looked_up == [('movie', 'tmdb:603')]
+    assert asked == [('Debrid', 'tt0133093'), ('Torrents', 'tt0133093')]
