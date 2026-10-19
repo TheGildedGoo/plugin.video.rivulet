@@ -16,6 +16,7 @@
 >   Licensed MIT (see [LICENSE](LICENSE)).
 > - Look and feel inspired by [Arctic Fuse 3](https://github.com/jurialmunkey/skin.arctic.fuse.3)
 >   by [jurialmunkey](https://github.com/jurialmunkey).
+> - Built with help from AI coding tools. Every change is tested on CoreELEC/Kodi and maintained by me (TheGildedGoo).
 
 RevRivulet installs next to official Rivulet, so you can keep both and use
 whichever you like.
@@ -87,5 +88,5 @@ How it works, the streaming server, settings, building and testing are all in
 ---
 
 <div align="center">
-  <sub>Based on <a href="https://github.com/rivulet-kodi/plugin.video.rivulet">Rivulet</a> by <a href="https://github.com/M0Rf30">M0Rf30</a>. Look and feel inspired by <a href="https://github.com/jurialmunkey/skin.arctic.fuse.3">Arctic Fuse 3</a> by <a href="https://github.com/jurialmunkey">jurialmunkey</a>.<br>Licensed under <a href="LICENSE">MIT</a>. Not affiliated with Stremio.</sub>
+  <sub>Based on <a href="https://github.com/rivulet-kodi/plugin.video.rivulet">Rivulet</a> by <a href="https://github.com/M0Rf30">M0Rf30</a>. Look and feel inspired by <a href="https://github.com/jurialmunkey/skin.arctic.fuse.3">Arctic Fuse 3</a> by <a href="https://github.com/jurialmunkey">jurialmunkey</a>.<br>Built with help from AI coding tools; tested on CoreELEC/Kodi and maintained by TheGildedGoo.<br>Licensed under <a href="LICENSE">MIT</a>. Not affiliated with Stremio.</sub>
 </div>
