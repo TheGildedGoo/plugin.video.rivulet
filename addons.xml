@@ -442,7 +442,7 @@ v0.4.7:
       <fanart>fanart.jpg</fanart>
     </assets>
   </extension>
-</addon><addon id="plugin.video.rivulet" name="Rivulet" version="0.32.0" provider-name="M0RF30">
+</addon><addon id="plugin.video.rivulet" name="Rivulet" version="0.32.0.6" provider-name="M0RF30">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
     <import addon="script.module.requests" version="2.22.0"/>
