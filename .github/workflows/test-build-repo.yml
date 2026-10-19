@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PR_SHA: 49e19cd3e40e61083b2982e3ebf781ce3481fc15
+  PR_SHA: ae2fd9a0a94ef08df1a301015dc834ee12bbebbb
 
 jobs:
   add:
