@@ -68,7 +68,7 @@ is built for a TV remote: nothing needs typing.
 - Searches show what has arrived instead of waiting on the slowest source.
 
 **Playback**
-- Resume from Continue, automatic next episode, and two-way watch
+- Resume from Continue, and two-way watch
   progress with your Stremio account.
 - Trailers through Kodi's YouTube add-on, without leaving the screen
   unless the trailer actually starts.
