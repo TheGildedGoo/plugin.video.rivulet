@@ -174,3 +174,122 @@ def test_slim_meta_keeps_what_the_adult_check_reads():
     slim = slim_meta({'id': 'x', 'name': 'X', 'adult': True, 'genre': 'Drama', 'cast': ['A']})
     assert slim['adult'] is True and slim['genre'] == 'Drama'
     assert 'cast' not in slim
+
+
+def test_slim_ratings_keep_only_the_scores_the_hero_prints():
+    from lib.stremio.pagecache import slim_meta
+
+    as_dict = slim_meta({'id': 'x', 'ratings': {'imdb': 7.1, 'RT': '90%', 'trakt': 70}})
+    assert as_dict['ratings'] == {'imdb': 7.1, 'RT': '90%'}
+    as_list = slim_meta({'id': 'x', 'ratings': [
+        'junk',
+        {'source': 'Internet Movie Database', 'value': '7.1'},
+        {'name': 'Rotten Tomatoes', 'rating': '90%'},
+        {'source': 'Trakt', 'value': '70'},
+    ]})
+    assert as_list['ratings'] == [
+        {'source': 'Internet Movie Database', 'value': '7.1'},
+        {'source': 'Rotten Tomatoes', 'value': '90%'},
+    ]
+    many = slim_meta({'ratings': [{'source': 'imdb', 'value': n} for n in range(10)]})
+    assert len(many['ratings']) == 6
+    assert 'ratings' not in slim_meta({'ratings': {'trakt': 1}})
+    assert 'ratings' not in slim_meta({'ratings': 'n/a'})
+    assert slim_meta('not a meta') is None
+
+
+def test_slim_meta_trims_the_description_and_keeps_moviedb_popularity():
+    from lib.stremio.pagecache import _DESCRIPTION_LIMIT, slim_meta
+
+    slim = slim_meta({'id': 'x', 'description': 'a' * (_DESCRIPTION_LIMIT + 50),
+                      'popularities': {'moviedb': 12.5, 'trakt': 3}})
+    assert len(slim['description']) == _DESCRIPTION_LIMIT
+    assert slim['popularities'] == {'moviedb': 12.5}
+    assert 'popularities' not in slim_meta({'popularities': {'trakt': 3}})
+
+
+def test_hints_ignore_junk_and_keep_has_more_as_a_bool():
+    from lib.stremio.pagecache import hints_from_envelope
+
+    assert hints_from_envelope('nope') == {}
+    assert hints_from_envelope({
+        'cacheMaxAge': 60, 'staleRevalidate': True, 'staleError': -5, 'hasMore': False,
+    }) == {'cacheMaxAge': 60, 'hasMore': False}
+    assert hints_from_envelope({'staleError': 2.9, 'hasMore': 'yes'}) == {'staleError': 2}
+
+
+def test_cache_key_orders_extra_pairs_and_skips_malformed_ones():
+    from lib.stremio.pagecache import cache_key
+
+    one = cache_key('t', 'movie', 'top', [('skip', 20), ('genre', 'Drama'), 'junk'])
+    two = cache_key('t', 'movie', 'top', [('genre', 'Drama'), ('skip', '20')])
+    assert one == two
+    assert cache_key(None, None, None) == '\n\n\n'
+
+
+def test_a_corrupt_or_odd_file_starts_empty(tmp_path):
+    from lib.stremio.pagecache import PageCache
+
+    path = tmp_path / 'pages.json'
+    path.write_text('{not json')
+    assert PageCache(str(path)).lookup('k') == ('miss', None)
+    path.write_text('["a list"]')
+    assert PageCache(str(path)).lookup('k') == ('miss', None)
+    path.write_text('{"entries": {"k": {"stored_at": "soon", "metas": []}, "j": "x"}}')
+    cache = PageCache(str(path))
+    assert cache.lookup('k') == ('miss', None)
+    assert cache.lookup('j') == ('miss', None)
+
+
+def test_ages_fresh_stale_expired_then_gone(tmp_path):
+    from lib.stremio.pagecache import EXPIRED_SERVE_SECONDS, PageCache
+
+    cache = PageCache(str(tmp_path / 'pages.json'), clock=lambda: 0.0)
+    cache.store('k', [{'id': 'a'}], {'cacheMaxAge': 10, 'staleRevalidate': 10, 'staleError': 10})
+    assert cache.lookup('k', now=5)[0] == 'fresh'
+    assert cache.lookup('k', now=25)[0] == 'stale'
+    assert cache.lookup('k', now=100) == ('miss', None)
+    assert cache.lookup('k', now=100, allow_expired=True)[0] == 'expired'
+    assert cache.lookup('k', now=EXPIRED_SERVE_SECONDS + 1, allow_expired=True) == ('miss', None)
+
+
+def test_save_makes_the_folder_and_round_trips(tmp_path):
+    from lib.stremio.pagecache import PageCache
+
+    path = tmp_path / 'new' / 'dir' / 'pages.json'
+    cache = PageCache(str(path), clock=lambda: 1.0)
+    cache.store('k', [{'id': 'a', 'name': 'A'}, 'junk'])
+    cache.save()
+    again = PageCache(str(path), clock=lambda: 2.0)
+    assert again.lookup('k') == ('fresh', [{'id': 'a', 'name': 'A'}])
+
+
+def test_a_failed_write_leaves_no_temp_file(tmp_path, monkeypatch):
+    import os
+
+    import pytest
+
+    from lib.stremio import pagecache
+
+    cache = pagecache.PageCache(str(tmp_path / 'pages.json'))
+    cache.store('k', [{'id': 'a'}])
+
+    def boom(src, dst):
+        raise OSError('disk full')
+
+    monkeypatch.setattr(os, 'replace', boom)
+    with pytest.raises(OSError):
+        cache.save()
+    assert [name for name in os.listdir(str(tmp_path)) if name.startswith('.tmp-pages-')] == []
+
+
+def test_the_oldest_page_goes_first_when_over_budget(tmp_path, monkeypatch):
+    from lib.stremio import pagecache
+
+    monkeypatch.setattr(pagecache, 'BUDGET_BYTES', 400)
+    cache = pagecache.PageCache(str(tmp_path / 'pages.json'))
+    cache.store('old', [{'id': 'a', 'name': 'x' * 100}], now=1)
+    cache.store('mid', [{'id': 'b', 'name': 'x' * 100}], now=2)
+    cache.store('new', [{'id': 'c', 'name': 'x' * 100}], now=3)
+    assert cache.lookup('new', now=3)[0] == 'fresh'
+    assert cache.lookup('old', now=3) == ('miss', None)
