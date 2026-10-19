@@ -155,7 +155,7 @@ def test_open_detail_falls_back_to_the_imdb_id(load, monkeypatch):
     # No type on the preview: a movie is tried, then a series; the IMDb id opens it.
     assert asked == [('movie', 'tmdb:603'), ('series', 'tmdb:603'), ('movie', 'tt0133093')]
     assert opened == [('movie', 'tt0133093')]
-    assert 'STR30430' not in [n[1] for n in ctx.env.notifications]
+    assert 'STR30030' not in [n[1] for n in ctx.env.notifications]
 
 
 def test_a_movie_nobody_has_a_meta_for_opens_its_streams_from_the_preview(load, monkeypatch):
