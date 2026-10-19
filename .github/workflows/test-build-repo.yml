@@ -1,0 +1,67 @@
+name: Add upstream PR test build to Kodi repo
+
+# Lives only on the test-builds branch. Adds stock plugin.video.rivulet
+# (upstream PR 1 test build, pinned commit) to the gh-pages Kodi repository
+# as an extra addon entry. The RevRivulet entries, zips and repository addon
+# are left byte-identical (addons.xml is appended to, not re-serialised).
+# Note: the main-branch "Publish RevRivulet repository" job rebuilds gh-pages
+# from scratch, so a later main push removes this entry; re-run this
+# workflow (workflow_dispatch) to put it back.
+on:
+  push:
+    branches: [ test-builds ]
+    paths:
+      - .github/workflows/test-build-repo.yml
+      - test-builds/add_to_repo.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-repository
+  cancel-in-progress: false
+
+env:
+  PR_SHA: 49e19cd3e40e61083b2982e3ebf781ce3481fc15
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test-builds (script)
+        uses: actions/checkout@v4
+        with:
+          path: tb
+
+      - name: Checkout pinned PR commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PR_SHA }}
+          path: src
+          persist-credentials: false
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: ghp
+
+      - name: Build addon package (same as upstream build.yml)
+        working-directory: src
+        run: |
+          git archive --format=zip --prefix=plugin.video.rivulet/ \
+            -o ../rivulet.zip HEAD -- addon.xml default.py service.py resources lib LICENSE
+
+      - name: Add to repository tree
+        run: python3 tb/test-builds/add_to_repo.py ghp rivulet.zip
+
+      - name: Commit and push gh-pages
+        working-directory: ghp
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "nothing to change"; exit 0; fi
+          git commit -m "test build: add plugin.video.rivulet 0.32.0 (upstream PR 1, ${PR_SHA:0:7})"
+          git push origin HEAD:gh-pages
