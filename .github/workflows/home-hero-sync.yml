@@ -1,0 +1,46 @@
+name: Push home-hero tidy commits
+
+# Lives only on the test-builds branch. Pushes upstream-pr/home-hero
+# from the git bundle in test-builds/home-hero-tidy/ (base64 so it survives a
+# text commit). Never forces: an existing branch only moves by fast-forward.
+on:
+  push:
+    branches: [ test-builds ]
+    paths:
+      - test-builds/home-hero-tidy/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BRANCH: upstream-pr/home-hero
+  EXPECTED: 2aa34902a9cb25acf59a6265fc18b1122ed77b0d
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test-builds (bundle)
+        uses: actions/checkout@v4
+        with:
+          path: tb
+          persist-credentials: false
+
+      - name: Checkout a branch that has the bundle's prerequisites
+        uses: actions/checkout@v4
+        with:
+          ref: upstream-pr/home-hero
+          path: pr
+          fetch-depth: 0
+
+      - name: Push from the bundle
+        working-directory: pr
+        run: |
+          base64 -d ../tb/test-builds/home-hero-tidy/home-hero-tidy.bundle.b64 > ../home-hero-tidy.bundle
+          git bundle verify ../home-hero-tidy.bundle
+          git fetch ../home-hero-tidy.bundle refs/heads/home-hero-sync:refs/remotes/bundle/home-hero-sync
+          test "$(git rev-parse refs/remotes/bundle/home-hero-sync)" = "$EXPECTED"
+          git merge-base --is-ancestor HEAD "$EXPECTED"
+          git log --oneline -3 "$EXPECTED"
+          git push origin "$EXPECTED:refs/heads/$BRANCH"
