@@ -5,7 +5,29 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 repo, zip_path = Path(sys.argv[1]), Path(sys.argv[2])
+# Optional: a build number appended to the addon's version ("0.32.0" ->
+# "0.32.0.<n>") in the published zip only, so every refresh is a new
+# version Kodi fetches and offers as an update instead of reusing its
+# cached package. The PR branch's own addon.xml is not changed.
+suffix = sys.argv[3] if len(sys.argv) > 3 else ""
 AID = "plugin.video.rivulet"
+if suffix:
+    assert re.fullmatch(r"\d+", suffix), suffix
+    with zipfile.ZipFile(str(zip_path)) as src:
+        raw = src.read(AID + "/addon.xml").decode("utf-8")
+        base = ET.fromstring(raw).get("version")
+        bumped = base + "." + suffix
+        head = re.search(r"<addon\b[^>]*>", raw)
+        tag = head.group(0)
+        assert tag.count('version="%s"' % base) == 1, tag
+        raw = raw[: head.start()] + tag.replace('version="%s"' % base, 'version="%s"' % bumped) + raw[head.end():]
+        out_path = zip_path.with_name("bumped.zip")
+        with zipfile.ZipFile(str(out_path), "w") as out:
+            for info in src.infolist():
+                data = raw.encode("utf-8") if info.filename == AID + "/addon.xml" else src.read(info)
+                out.writestr(info, data)
+    zip_path = out_path
+    print("version", base, "->", bumped)
 zf = zipfile.ZipFile(str(zip_path))
 raw = zf.read(AID + "/addon.xml").decode("utf-8")
 el = ET.fromstring(raw)

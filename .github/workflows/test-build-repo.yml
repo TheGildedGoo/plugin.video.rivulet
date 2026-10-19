@@ -54,7 +54,10 @@ jobs:
             -o ../rivulet.zip HEAD -- addon.xml default.py service.py resources lib LICENSE
 
       - name: Add to repository tree
-        run: python3 tb/test-builds/add_to_repo.py ghp rivulet.zip
+        # The published version is <addon.xml version>.<run number>, new on
+        # every run, so Kodi always fetches the fresh zip and offers it as
+        # an update. Only the repo copy is bumped, not the PR branch.
+        run: python3 tb/test-builds/add_to_repo.py ghp rivulet.zip "${{ github.run_number }}"
 
       - name: Commit and push gh-pages
         working-directory: ghp
@@ -63,5 +66,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then echo "nothing to change"; exit 0; fi
-          git commit -m "test build: add plugin.video.rivulet 0.32.0 (upstream PR test build, ${PR_SHA:0:7})"
+          VER=$(sed -n 's/.*<addon id="plugin.video.rivulet"[^>]* version="\([^"]*\)".*/\1/p' plugin.video.rivulet/addon.xml | head -1)
+          git commit -m "test build: add plugin.video.rivulet ${VER} (upstream PR test build, ${PR_SHA:0:7})"
           git push origin HEAD:gh-pages
