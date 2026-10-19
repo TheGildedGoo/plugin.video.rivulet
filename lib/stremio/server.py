@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""stremio-server-go client (pure Python, no Kodi imports).
+"""rivulet-engine client (pure Python, no Kodi imports).
 
 Turns Stream protocol objects (stremio-protocol-spec.md #3, stremio-core
 src/types/resource/stream.rs StreamSource) into URLs playable against a
-local stremio-server-go instance, mirroring stremio-core's Stream::convert
+local rivulet-engine instance, mirroring stremio-core's Stream::convert
 (stream.rs:234-604) for every source kind that endpoint recognizes:
 
 - Torrent (infoHash/fileIdx/announce-or-sources) -> GET {server}/{infoHash}/{fileIdx}
@@ -38,7 +38,7 @@ local stremio-server-go instance, mirroring stremio-core's Stream::convert
 - Archive sources (rar/zip/7zip/tgz/tar) and Nzb -> GET
   {server}/{kind}/create/{key}?lz=<payload>, where `key` is the sha256
   (hex, first 32 chars) of the compact JSON body so an identical
-  re-request reuses the server's live session (stremio-server-go
+  re-request reuses the server's live session (rivulet-engine
   v0.23.0, ~1 h; local archives rechecked by size+mtime), and a nested ftp(s) member url ->
   GET {server}/ftp/{filename}?lz=<payload>, where <payload> is
   `lib.stremio.lzstring.compress_to_encoded_uri_component()` of the
@@ -56,7 +56,7 @@ local stremio-server-go instance, mirroring stremio-core's Stream::convert
 
 iter_front() is the client's readiness probe for torrents: it streams the
 FIRST bytes of the file (offset 0, Range GET) rather than trusting
-aggregate download progress. Verified live against stremio-server-go
+aggregate download progress. Verified live against rivulet-engine
 v0.8.5: a torrent's *aggregate* per-file stats (buffered_bytes()) can
 report megabytes downloaded while the front of the file - where ffmpeg's
 container-header probe reads from - is still completely unavailable
@@ -117,12 +117,12 @@ def _ensure_requests():
 #: segment (URI_COMPONENT_ENCODE_SET, constants.rs).
 _YT_SAFE_CHARS = "-_.!~*'()"
 
-#: fileIdx sentinel meaning "not specified" - tells stremio-server-go to
+#: fileIdx sentinel meaning "not specified" - tells rivulet-engine to
 #: auto-select the largest file in the torrent (stream.rs:
 #: `file_idx.map_or_else(|| "-1".to_string(), ...)`). NOT 0.
 UNKNOWN_FILE_IDX = -1
 
-#: File extensions stremio-server-go's GuessFileIdx treats as playable
+#: File extensions rivulet-engine's GuessFileIdx treats as playable
 #: (internal/engine/engine.go `videoExts`); `guess_file_idx()` mirrors it.
 _VIDEO_EXTENSIONS = (
     '.mkv', '.mp4', '.avi', '.mov', '.m4v', '.webm', '.flv', '.wmv', '.mpg', '.mpeg', '.ts', '.m2ts',
@@ -138,7 +138,7 @@ _INFO_HASH_BYTES = 20
 
 #: Archive `StreamSource` variants stremio-core recognizes (stream.rs:
 #: 738-792), keyed by the Stream protocol field carrying their URL list,
-#: mapped to the `/{kind}/create` path segment stremio-server-go exposes
+#: mapped to the `/{kind}/create` path segment rivulet-engine exposes
 #: for each.
 _ARCHIVE_KIND_BY_KEY = {
     'rarUrls': 'rar',
@@ -234,7 +234,7 @@ def _redact_error_url(base_url, url):
 
 def normalize_info_hash(value):
     """Normalize a torrent info hash to the 40-char lowercase hex string
-    stremio-server-go's URL paths require (`hex::encode`, stream.rs:545).
+    rivulet-engine's URL paths require (`hex::encode`, stream.rs:545).
 
     Accepts the 40-char hex form OR a magnet's 32-char RFC 4648 Base32
     form (BEP 0003 permits either encoding for a magnet's `xt=urn:btih:`
@@ -275,7 +275,7 @@ def normalize_trackers(values):
       wrapper);
     - a `tracker:` wrapper is stripped. Torrentio/AIOStreams-style
       `sources` lists wrap every announce URL that way, and stremio-core
-      forwards them verbatim, but stremio-server-go <= v0.20.0 treated a
+      forwards them verbatim, but rivulet-engine <= v0.20.0 treated a
       `tracker:udp://...` value as a host-less URL and dropped it (verified
       live: `tr=tracker:udp://x` never reached the engine's announce
       list, `tr=udp://x` did), so the wrapped form silently carried no
@@ -366,7 +366,7 @@ def _validate_direct_url(url):
 
 
 class ServerError(Exception):
-    """Raised when a stremio-server-go engine/stats request fails.
+    """Raised when a rivulet-engine engine/stats request fails.
 
     Mirrors AddonError/ApiError in this package: network failures and
     malformed JSON both surface as this one type so callers (e.g. the
@@ -401,7 +401,7 @@ class UnsupportedStreamError(ServerError):
 
 
 class ServerClient:
-    """Talks to a local stremio-server-go instance (default http://127.0.0.1:11470).
+    """Talks to a local rivulet-engine instance (default http://127.0.0.1:11470).
 
     One `requests.Session()` per client instance (stored as `.session`, not
     private, so callers/tests can substitute it directly - mirrors
@@ -419,7 +419,7 @@ class ServerClient:
     def is_available(self):
         """Probe the server: GET /heartbeat, falling back to /settings.
 
-        A responder only counts if its body looks like stremio-server-go
+        A responder only counts if its body looks like rivulet-engine
         (`{"success": true}` for /heartbeat, an object with `values` for
         /settings), so an unrelated service squatting the port is not
         adopted. Short timeout; returns False on ANY error rather than
@@ -497,7 +497,7 @@ class ServerClient:
         """`GET {base}/{infoHash}/create` (or, with `trackers`, `POST` the
         same path with a `peerSearch` body) - start/attach the torrent engine.
 
-        Per stremio-server-go's handleCreate (internal/api/api.go,
+        Per rivulet-engine's handleCreate (internal/api/api.go,
         docs/swagger.yaml `/{infoHash}/create`), the server calls
         EnsureEngine + Ready() with a 90s timeout blocking until torrent
         metadata is available, then returns `types.Stats` including
@@ -596,7 +596,7 @@ class ServerClient:
         the engine would only learn the stream's own trackers once the
         player opens the final URL.
 
-        Reading the failure modes: stremio-server-go withholds the 206
+        Reading the failure modes: rivulet-engine withholds the 206
         headers until the first body byte exists, so `ReadTimeout` here
         means "the swarm has not delivered the first piece yet" (a cold
         torrent - normal for its first few attempts), not a dead server.
@@ -651,7 +651,7 @@ class ServerClient:
 
     def _lz_query_url(self, path, body, keyed=False):
         """GET `{base}/{path}?lz=<payload>` - the shape shared by every
-        stremio-server-go endpoint that takes a JSON body via a query
+        rivulet-engine endpoint that takes a JSON body via a query
         string instead of a POST body: archive/nzb `.../create` and the
         ftp(s) proxy `/ftp/{filename}`. `<payload>` is
         `compress_to_encoded_uri_component()` of the compact-JSON
@@ -663,7 +663,7 @@ class ServerClient:
         session key is appended to `path` as `{path}/{key}`, where `key`
         is the lowercase hex sha256 of that exact compact-JSON body
         truncated to 32 chars (path-safe, no escaping needed). Since
-        stremio-server-go v0.21.0 the keyed GET form parses `?lz=` too
+        rivulet-engine v0.21.0 the keyed GET form parses `?lz=` too
         (key = path segment 2), and since v0.23.0 re-requesting the SAME
         key with an equivalent payload reuses the live archive/NZB
         session (download + extraction/assembly kept for ~1 h; local
@@ -685,7 +685,7 @@ class ServerClient:
 
     def _ftp_create_url(self, url):
         """Rewrite an `ftp://`/`ftps://` url into the proxied
-        `{base}/ftp/{filename}?lz=<payload>` form stremio-server-go
+        `{base}/ftp/{filename}?lz=<payload>` form rivulet-engine
         actually fetches - Kodi (like most HTTP clients) can't open an
         `ftp://` URL directly (`Stream::ftp_url_handler`, stream.rs:
         186-214). `filename` is the url's last path segment
@@ -919,7 +919,7 @@ def buffered_bytes(stats):
 def guess_file_idx(stats):
     """Pick the torrent file index to pre-buffer/poll from a `/create`
     response, tolerating a server-version gap confirmed live against
-    stremio-server-go v0.8.5 (Sintel torrent 08ada5a7a618...): that
+    rivulet-engine v0.8.5 (Sintel torrent 08ada5a7a618...): that
     build's `/create` response NEVER carries `guessedFileIdx` (only a
     per-file `/{infoHash}/{fileIdx}/stats.json` response does, once a
     concrete index is already being polled) but DOES carry a `files`
@@ -972,7 +972,7 @@ def guess_file_idx(stats):
 
 def _is_video_entry(entry):
     """True if a `/create` `files[]` entry names a playable video file,
-    by the same extension set stremio-server-go's GuessFileIdx uses
+    by the same extension set rivulet-engine's GuessFileIdx uses
     (engine.go `videoExts`)."""
     if not isinstance(entry, dict):
         return False

@@ -15,7 +15,7 @@ request-body JSON run through JS library `lz-string`'s
 0.2.1, https://github.com/adumbidiot/lz-str-rs), itself a straight port
 of the original `lz-string` JS library
 (https://github.com/pieroxy/lz-string, (c) pieroxy, WTFPL).
-stremio-server-go decodes the `lz` query param with the very same
+rivulet-engine decodes the `lz` query param with the very same
 algorithm server-side, so this port has to be BIT-FOR-BIT compatible
 with the reference implementation - "round-trips against itself" is not
 good enough on its own.
@@ -40,7 +40,7 @@ ASCII, an archive-create JSON body, and a non-ASCII BMP string) were
 compressed with the real `lz-string@1.5.0` package and produce
 byte-identical output to this module (see test_lzstring.py's
 `test_matches_reference_lz_string_output`), which is the strongest
-evidence available offline that stremio-server-go will decode a payload
+evidence available offline that rivulet-engine will decode a payload
 built by this module correctly.
 
 Algorithm: LZ78-family compression - a growing dictionary of

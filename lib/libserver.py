@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""ctypes-based supervisor for the stremio-server-go c-shared library
-(``libstremio-server.so``), the SELinux-*enforcing*-Android fallback for
+"""ctypes-based supervisor for the rivulet-engine c-shared library
+(``librivulet-engine.so``), the SELinux-*enforcing*-Android fallback for
 ``lib.service_runner.ServerProcess``'s fork+exec model. See
 ``lib.serverbin.UnsupportedPlatformError``'s docstring for exactly which
 devices need this: a targetSdk>=29 device running SELinux *enforcing*
@@ -15,14 +15,14 @@ Pure Python, no ``xbmc*`` imports -- unit-testable directly, same
 discipline as ``lib.serverbin``/``lib.service_runner``'s process-
 management core.
 
-Library-mode contract (matches ``cmd/libstremio`` in stremio-server-go,
+Library-mode contract (matches ``cmd/librivulet-engine`` in rivulet-engine,
 built as a ``c-shared`` buildmode alongside the normal executable in the
 same Android release archives -- see ``lib.serverbin.LIBRARY_NAME``):
 
     int ServerStart(char* logPath, char* envJSON)
         BLOCKING until the server stops. envJSON is a JSON object of the
         same env vars the executable reads (APP_PATH, HTTP_PORT,
-        STREMIO_*, ...). Logs are appended to logPath. Returns 0 on a
+        RIVULET_*, ...). Logs are appended to logPath. Returns 0 on a
         clean stop, 1 on an init error, 2 if already running.
     int ServerStop(void)
         Graceful shutdown (5s internal timeout). Returns 0; safe to call
@@ -98,7 +98,7 @@ _load_lock = threading.Lock()
 
 
 class LibraryLoadError(Exception):
-    """Raised when libstremio-server.so cannot be dlopen()'d, or when a
+    """Raised when librivulet-engine.so cannot be dlopen()'d, or when a
     second, *different* path is requested from this same process (see
     ``_load_library()``'s docstring for why that is refused rather than
     silently honored)."""
@@ -129,7 +129,7 @@ def _load_library(path, log_fn=None):
         if _loaded_lib is not None:
             if _loaded_path != path:
                 message = (
-                    "libstremio-server.so already loaded from %r in this process; "
+                    "librivulet-engine.so already loaded from %r in this process; "
                     "refusing to load a different path %r (restart Kodi to switch)"
                     % (_loaded_path, path)
                 )
@@ -159,8 +159,8 @@ def _load_library(path, log_fn=None):
 
 
 class LibraryServer:
-    """Owns the lifecycle of one stremio-server-go run inside this
-    process via ``libstremio-server.so``. Mirrors
+    """Owns the lifecycle of one rivulet-engine run inside this
+    process via ``librivulet-engine.so``. Mirrors
     ``lib.service_runner.ServerProcess``'s public surface (``running``,
     ``build_env``, ``start``, ``stop``, ``poll``, ``uptime``,
     ``maybe_rotate_log``) so the supervision loop can treat either kind
@@ -194,7 +194,7 @@ class LibraryServer:
         process's environment risks a same-named var (``PATH``,
         ``HOME``, a JVM/Android-runtime variable, ...) meaning something
         entirely different to the embedded Go runtime than it does here.
-        Only the vars stremio-server-go's own main()/libstremio actually
+        Only the vars rivulet-engine's own main()/librivulet-engine actually
         read matter, and every one of those is either pinned below or
         forwarded via `extra_env` (see
         lib.service_runner.extra_env_from_settings()).
@@ -250,9 +250,9 @@ class LibraryServer:
             except Exception as exc:  # noqa: BLE001 - surface as a nonzero exit, never a silently-dead thread
                 self._exit_code = -1
                 if self._log_fn is not None:
-                    self._log_fn("libstremio-server ServerStart raised: %r" % (exc,))
+                    self._log_fn("librivulet-engine ServerStart raised: %r" % (exc,))
 
-        self._thread = threading.Thread(target=_run, name="stremio-server-library", daemon=True)
+        self._thread = threading.Thread(target=_run, name="rivulet-engine-library", daemon=True)
         self._thread.start()
         self._started_at = time.monotonic()
         self._last_rotate_check = self._started_at
@@ -322,13 +322,13 @@ class LibraryServer:
                 self._lib.ServerStop()
             except Exception as exc:  # noqa: BLE001 - a failed native call must never crash the supervision loop
                 if self._log_fn is not None:
-                    self._log_fn("libstremio-server ServerStop raised: %r" % (exc,))
+                    self._log_fn("librivulet-engine ServerStop raised: %r" % (exc,))
 
         if self._thread is not None and self._thread.is_alive():
             self._thread.join(timeout=grace)
             if self._thread.is_alive():
                 raise RuntimeError(
-                    "stremio-server library thread still running %.1fs after ServerStop" % grace)
+                    "rivulet-engine library thread still running %.1fs after ServerStop" % grace)
 
         self._thread = None
         self._started_at = None

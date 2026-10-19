@@ -66,7 +66,7 @@ def test_round_trip_json_archive_payload():
 def test_matches_reference_lz_string_output():
     """Byte-for-byte against real `lz-string@1.5.0` (npm), captured
     offline - see module docstring. This is the strongest evidence
-    available offline that stremio-server-go (which decodes with the
+    available offline that rivulet-engine (which decodes with the
     same algorithm) will accept a payload this module produces.
     """
     vectors = {

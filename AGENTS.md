@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-RevRivulet (`plugin.video.revrivulet`) is a Kodi video addon implementing a **Stremio addon-protocol client**: it browses catalogs published by community Stremio addons, resolves streams, and plays them through an embedded or remote `stremio-server-go` streaming server. It ships its own 1920x1080 skin rather than drawing through the user's Kodi skin. It installs beside official Rivulet and does not replace it.
+RevRivulet (`plugin.video.revrivulet`) is a Kodi video addon implementing a **Stremio addon-protocol client**: it browses catalogs published by community Stremio addons, resolves streams, and plays them through an embedded or remote `rivulet-engine` streaming server. It ships its own 1920x1080 skin rather than drawing through the user's Kodi skin. It installs beside official Rivulet and does not replace it.
 
 Two independently versioned artifacts live here: the addon (`addon.xml`) and the Kodi repository addon that delivers it (`repository.revrivulet/addon.xml`). `repository.rivulet/` is the upstream repository definition and is not what this fork publishes.
 
@@ -28,7 +28,7 @@ default.py (plugin)   service.py (xbmc.service, start="startup")
 
 Browsing: `lib/ui/views.py` fans a request across installed addons -> `lib/stremio/addons.py` (`iter_catalogs`, `AddonClient`) -> metadata cached via `lib/ui/metacache.py` -> rendered by a window in `lib/ui/` (`infowindow.py` coverflow, `detailwindow.py` detail, `streamswindow.py` source list) -> `lib/ui/player.py` resolves a playable URL through the streaming server and hands it to `xbmc.Player`.
 
-**Service flow.** `service.py` -> `lib/service_runner.py:main()` supervises the `stremio-server-go` subprocess for the whole Kodi session: probes for a listening server, falls back to an external one, downloads the binary via `lib/serverbin.py` when missing, and syncs playback progress to the Stremio API. It is the only long-lived process and the most complex function in the codebase (radon E-33) — weigh any refactor of it against the shutdown path specifically.
+**Service flow.** `service.py` -> `lib/service_runner.py:main()` supervises the `rivulet-engine` subprocess for the whole Kodi session: probes for a listening server, falls back to an external one, downloads the binary via `lib/serverbin.py` when missing, and syncs playback progress to the Stremio API. It is the only long-lived process and the most complex function in the codebase (radon E-33) — weigh any refactor of it against the shutdown path specifically.
 
 **Counted strings must be count-neutral.** These `.po` files carry no plural-form machinery: the code picks between a singular id and a non-singular one, which is wrong for Polish, Russian, Arabic and Turkish at most values. Write `Label: %d` constructions rather than inflecting the counted noun, and do not build plural selection. Any `%`-formatted id that production code formats must also be registered in `tests/kodistubs/fakes.py`'s `_DEFAULT_LOCALIZED`, or the fake returns a placeholder-free `STR<id>` and `L(id) % n` raises `TypeError` under test.
 

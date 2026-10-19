@@ -177,12 +177,12 @@ msgid "Preferred subtitle language"
 msgstr "선호하는 자막 언어"
 
 msgctxt "#30060"
-msgid "Download stremio-server binary"
-msgstr "stremio-server 바이너리 다운로드"
+msgid "Download rivulet-engine binary"
+msgstr "rivulet-engine 바이너리 다운로드"
 
 msgctxt "#30061"
-msgid "Downloading stremio-server"
-msgstr "stremio-server 다운로드 중"
+msgid "Downloading rivulet-engine"
+msgstr "rivulet-engine 다운로드 중"
 
 msgctxt "#30062"
 msgid "Server binary installed (%s)"
