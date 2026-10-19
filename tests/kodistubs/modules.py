@@ -335,6 +335,9 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             self.label = None
             self.text = None
             self.percent = None
+            self.x = None
+            self.y = None
+            self.height = None
 
         def addItems(self, items):
             self.items.extend(items)
@@ -360,6 +363,13 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
 
         def setPercent(self, percent):
             self.percent = percent
+
+        def setPosition(self, x, y):
+            self.x = x
+            self.y = y
+
+        def setHeight(self, height):
+            self.height = height
 
         def getPercent(self):
             return self.percent

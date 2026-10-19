@@ -1001,3 +1001,7 @@ msgstr "Sincronizando addons…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "O catálogo mostra apenas as primeiras %d páginas; mais itens não são carregados"
+
+msgctxt "#30412"
+msgid "Dark dialogs"
+msgstr "Caixas de diálogo escuras"

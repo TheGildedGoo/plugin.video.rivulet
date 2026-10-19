@@ -1001,3 +1001,7 @@ msgstr "جارٍ مزامنة الإضافات…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "يعرض الكتالوج أول %d صفحات فقط؛ لن يتم تحميل المزيد من العناصر"
+
+msgctxt "#30412"
+msgid "Dark dialogs"
+msgstr "مربعات حوار داكنة"

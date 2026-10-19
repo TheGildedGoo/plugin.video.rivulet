@@ -1001,3 +1001,7 @@ msgstr "正在同步插件…"
 msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "目录仅显示前 %d 页;更多项目不会加载"
+
+msgctxt "#30412"
+msgid "Dark dialogs"
+msgstr "深色对话框"

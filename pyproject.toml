@@ -62,6 +62,8 @@ max-complexity = 15
 "lib/ui/streamswindow.py" = ["C901"]
 "resources/s4me_bridge/*" = ["C901"]
 "tests/kodistubs/*" = ["C901"]
+# Inline Kodi XML fragments. Wrapping them would change the generated skin.
+"tools/build_dark_dialogs.py" = ["E501"]
 "lib/*" = [
     # 18 pre-existing lib/ui/* and lib/stremio/* lines run 101-111 cols; fixing
     # them means reformatting lib/, which is out of scope for this config slice.
