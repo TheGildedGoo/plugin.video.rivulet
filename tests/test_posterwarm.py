@@ -104,7 +104,7 @@ def test_each_batch_is_held_long_enough_for_kodi_to_start_it(load_warm):
 
 
 def test_a_screen_without_slots_warms_nothing(load_warm):
-    """A Rev2 skin, or a window that has closed. No error, no window."""
+    """A skin with no warm slots, or a window that has closed. No error, no window."""
     ctx = load_warm()
 
     from lib.ui.posterwarm import reset_warmer, warm_posters

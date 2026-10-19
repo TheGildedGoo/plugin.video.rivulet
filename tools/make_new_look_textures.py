@@ -128,12 +128,12 @@ def _fade(points, span, horizontal, thickness=8):
 
 #: Left fade: dark under the title and plot, clear past two thirds of
 #: the width, so the picture shows to the right of the text.
-FUSE_FADE_LEFT = ((0.0, 235), (0.34, 168), (0.66, 0), (1.0, 0))
+NEWLOOK_FADE_LEFT = ((0.0, 235), (0.34, 168), (0.66, 0), (1.0, 0))
 #: Bottom fade, top to bottom: clear through the picture, solid from the
 #: row band (y=630 of 1080, 0.583) down, so posters never sit on art.
-FUSE_FADE_BOTTOM = ((0.0, 0), (0.36, 0), (0.52, 150), (0.583, 255), (1.0, 255))
+NEWLOOK_FADE_BOTTOM = ((0.0, 0), (0.36, 0), (0.52, 150), (0.583, 255), (1.0, 255))
 #: A light shade behind the date and clock at the top edge.
-FUSE_FADE_TOP = ((0.0, 140), (1.0, 0))
+NEWLOOK_FADE_TOP = ((0.0, 140), (1.0, 0))
 
 
 def _star_points(cx, cy, outer, inner):
@@ -184,7 +184,7 @@ def _newlook_icon(draw_fn, focused):
 #: edge, solid black by the middle, so the reflection fades into the
 #: black under the rows. A plain (unflipped) texture over the flipped
 #: art, so it does not depend on how Kodi orients a diffuse.
-FUSE_REFLECT_FADE = ((0.0, 100), (0.45, 235), (0.65, 255), (1.0, 255))
+NEWLOOK_REFLECT_FADE = ((0.0, 100), (0.45, 235), (0.65, 255), (1.0, 255))
 
 def _pill(size=72, radius=28):
     """A plain (not supersampled) rounded square, stretched 9-slice."""
@@ -196,13 +196,13 @@ def _pill(size=72, radius=28):
 def textures():
     """``{file name: PIL image}`` for every texture this script owns."""
     out = {
-        'newlook_fade_left.png': _fade(FUSE_FADE_LEFT, 960, True),
-        'newlook_fade_bottom.png': _fade(FUSE_FADE_BOTTOM, 540, False),
-        'newlook_fade_top.png': _fade(FUSE_FADE_TOP, 64, False),
+        'newlook_fade_left.png': _fade(NEWLOOK_FADE_LEFT, 960, True),
+        'newlook_fade_bottom.png': _fade(NEWLOOK_FADE_BOTTOM, 540, False),
+        'newlook_fade_top.png': _fade(NEWLOOK_FADE_TOP, 64, False),
         # Drawn 9-slice with border=24: radius 20 outside a 12px card
         # corner, 5px of white, so the ring is concentric with the art.
         'newlook_ring.png': _rrect(64, 64, 20, stroke=5),
-        'newlook_reflect_fade.png': _fade(FUSE_REFLECT_FADE, 256, False),
+        'newlook_reflect_fade.png': _fade(NEWLOOK_REFLECT_FADE, 256, False),
         'card_shade.png': _card_shade(),
         'pill_fill.png': _pill(),
     }
