@@ -38,6 +38,7 @@ import time
 
 import xbmcgui
 
+from lib.stremio.addons import _base_type
 from lib.ui.playbackmeta import episode_code as _pm_episode_code
 from lib.ui.playbackmeta import resolve_art
 from lib.ui.uicommon import (
@@ -786,12 +787,6 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
 #: fan-out over every addon with its own 15s timeout, so retrying after
 #: a slow miss could double the wait on a weak ARM box.
 _SWAPPED_TYPE_MAX_SECONDS = 3.0
-
-def _base_type(stype):
-    from lib.stremio.addons import _base_type as base
-
-    return base(stype)
-
 
 def _fetch_meta_any_type(stype, sid):
     """``(meta, type)`` for `sid`: as `stype` first, then as its base type
