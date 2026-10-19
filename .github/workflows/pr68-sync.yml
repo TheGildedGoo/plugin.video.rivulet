@@ -1,0 +1,47 @@
+name: Fast-forward PR 68 branch
+
+# Lives only on the test-builds branch. Fast-forwards
+# upstream-pr/fixes-and-dark-dialogs to the commits carried in
+# test-builds/pr68/pr68.bundle.b64 (a git bundle, base64 so it survives a
+# text commit). Never forces: the push fails unless it is a fast-forward.
+on:
+  push:
+    branches: [ test-builds ]
+    paths:
+      - test-builds/pr68/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BRANCH: upstream-pr/fixes-and-dark-dialogs
+  EXPECTED: 9787d77f2ab6a635c346480a6c908f4c08376653
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout test-builds (bundle)
+        uses: actions/checkout@v4
+        with:
+          path: tb
+          persist-credentials: false
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          path: pr
+          fetch-depth: 0
+
+      - name: Fast-forward from the bundle
+        working-directory: pr
+        run: |
+          base64 -d ../tb/test-builds/pr68/pr68.bundle.b64 > ../pr68.bundle
+          git bundle verify ../pr68.bundle
+          git fetch ../pr68.bundle refs/heads/pr68-sync:refs/remotes/bundle/pr68-sync
+          test "$(git rev-parse refs/remotes/bundle/pr68-sync)" = "$EXPECTED"
+          git merge-base --is-ancestor HEAD "$EXPECTED"
+          git log --oneline --graph HEAD.."$EXPECTED"
+          git push origin "$EXPECTED:refs/heads/$BRANCH"
