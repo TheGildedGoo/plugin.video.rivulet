@@ -9,7 +9,7 @@ from tests.test_streamswindow_fetch import _FakeAddonClient, _FakeStore, _wire_d
 
 _RELOAD = (
     'lib.ui.compat', 'lib.ui.dependencies', 'lib.ui.uicommon', 'lib.ui.dialogs', 'lib.ui.player',
-    'lib.ui.streamswindow', 'lib.ui.previews', 'lib.ui.detailwindow',
+    'lib.ui.streamswindow', 'lib.ui.previews', 'lib.ui.detailwindow', 'lib.ui.views',
 )
 
 
@@ -395,3 +395,66 @@ def test_the_imdb_id_is_learned_even_when_an_addon_takes_the_provider_id(load, m
     assert sw.open_streams('movie', 'tmdb:603', meta={'id': 'tmdb:603', 'name': 'The Matrix'}) is False
     assert looked_up == [('movie', 'tmdb:603')]
     assert asked == [('Debrid', 'tt0133093'), ('Torrents', 'tt0133093')]
+
+
+# --- a series from a provider list, end to end ------------------------------
+
+
+_GOT = {'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones', 'videos': [
+    {'id': 'tt0944947:1:1', 'season': 1, 'episode': 1, 'title': 'Winter Is Coming'},
+]}
+
+
+def test_a_provider_lists_empty_meta_does_not_hide_cinemetas_series(load, monkeypatch):
+    """A list addon that also declares ``meta`` answers ``{"meta": {}}``
+    for a show at once; Cinemeta answers later with the episodes. The
+    empty answer used to win, no meta was found and the series said "No
+    streams found" (a movie still played, straight from the list)."""
+    ctx = load()
+    import threading
+
+    import lib.ui.detailwindow as detailwindow
+    import lib.ui.views as views
+    from lib.ui import previews
+
+    empty_sent = threading.Event()
+
+    class _Client:
+        def meta(self, transport_url, stype, sid):
+            if transport_url == 'lists':
+                empty_sent.set()
+                return {}
+            assert empty_sent.wait(2)
+            return dict(_GOT) if (stype, sid) == ('series', 'tt0944947') else None
+
+    def _addon(url, name, types):
+        return {'transportUrl': url, 'manifest': {
+            'name': name, 'resources': ['catalog', 'meta'], 'types': types, 'idPrefixes': ['tt']}}
+
+    store = _FakeStore(addons=[_addon('cinemeta', 'Cinemeta', ['movie', 'series']),
+                               _addon('lists', 'Streaming Catalogs', ['movie', 'series'])])
+    monkeypatch.setattr(views, 'get_store', lambda: store)
+    monkeypatch.setattr(views, 'get_client', lambda: _Client())
+    previews.forget_all()
+    previews.remember({'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones'})
+
+    started = []
+
+    class _Window:
+        def start(self, meta, stype, **kw):
+            started.append((meta['id'], stype, len(meta['videos'])))
+            return False
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(detailwindow, 'open_window', lambda *_args: _Window())
+    detailwindow.open_detail('series', 'tt0944947')
+    assert started == [('tt0944947', 'series', 1)]
+    assert 'STR30030' not in [n[1] for n in ctx.env.notifications]
+    logged = [msg for msg, _level in ctx.env.log_calls]
+    assert any('detailwindow: opening series/tt0944947 from the list (list type series' in m for m in logged)
+    assert any('views._fetch_meta: asking 2 addon(s) for series/tt0944947: Cinemeta, Streaming Catalogs' in m
+               for m in logged)
+    assert any('views._fetch_meta: Streaming Catalogs answered series/tt0944947 with a meta without an id' in m
+               for m in logged)

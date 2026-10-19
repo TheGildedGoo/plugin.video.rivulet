@@ -817,6 +817,13 @@ def _fetch_meta_any_type(stype, sid):
     if swapped in kinds:
         swapped = ''
 
+    import xbmc
+
+    from lib.ui.compat import log
+
+    log('detailwindow: looking %s up as %s%s' % (
+        sid, ', then '.join(kinds), (' (then %s after a quick miss)' % swapped) if swapped else ''), xbmc.LOGINFO)
+
     def _work():
         started = time.monotonic()
         for kind in kinds:
@@ -908,6 +915,9 @@ def open_detail(stype, sid):
     from lib.ui.compat import L, log, notify
 
     preview = previews.lookup(sid) or {}
+    log('detailwindow: opening %s/%s from the list (list type %s, name %s, IMDb id %s)' % (
+        stype or '-', sid, preview.get('type') or '-', preview.get('name') or '-',
+        preview.get('imdb_id') or preview.get('imdbId') or '-'), xbmc.LOGINFO)
     if not stype:
         # A catalog that left `type` off its previews.
         stype = preview.get('type') or 'movie'
@@ -933,8 +943,11 @@ def open_detail(stype, sid):
         notify(L(30030))
         return False
 
+    videos = meta_obj.get('videos')
+    log('detailwindow: %s/%s resolved to a meta with id %s and %d episode(s)' % (
+        stype, sid, meta_obj.get('id'), len(videos) if isinstance(videos, list) else 0), xbmc.LOGINFO)
     from lib.ui.streamswindow import open_streams
-    if not meta_obj.get('videos'):
+    if not videos:
         return open_streams(
             stype, sid, poster=meta_obj.get('poster'),
             heading=meta_obj.get('name') or meta_obj.get('id') or '',
