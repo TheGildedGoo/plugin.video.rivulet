@@ -32,6 +32,17 @@ def test_a_preview_without_a_type_takes_the_catalogs():
     assert default_meta_types([{'id': 'tt3'}], '') == [{'id': 'tt3'}]
 
 
+def test_filling_in_a_type_leaves_the_callers_dicts_alone():
+    from lib.stremio.addons import default_meta_types
+
+    original = {'id': 'tmdb:603'}
+    metas = [original]
+    filled = default_meta_types(metas, 'movie')
+    assert filled == [{'id': 'tmdb:603', 'type': 'movie'}]
+    assert original == {'id': 'tmdb:603'}
+    assert metas == [{'id': 'tmdb:603'}]
+
+
 # --- the id stream addons are asked for ---------------------------------------------
 
 

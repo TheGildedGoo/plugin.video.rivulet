@@ -673,14 +673,19 @@ def default_meta_types(metas, ctype):
     ``selected.get('type') or ctype``; filling it in where the previews
     arrive gives every other reader the same answer (the coverflow's
     direct-to-streams path for a movie checks ``type == 'movie'``).
-    Returns `metas`.
+
+    Returns a new list; a preview that gets a type is a shallow copy, so
+    the dicts passed in are never changed. `AddonClient.catalog()` only
+    ever hands it freshly decoded JSON that nothing else holds (the
+    client keeps no response cache), so this is defensive: a later
+    caller that passes shared or cached dicts stays safe too.
     """
     if not isinstance(ctype, str) or not ctype:
         return metas
-    for meta in metas or ():
-        if isinstance(meta, dict) and not meta.get('type'):
-            meta['type'] = ctype
-    return metas
+    return [
+        dict(meta, type=ctype) if isinstance(meta, dict) and not meta.get('type') else meta
+        for meta in metas or ()
+    ]
 
 
 def _base_type(catalog_type):
