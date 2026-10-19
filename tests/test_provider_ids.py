@@ -183,3 +183,37 @@ def test_a_title_listed_as_the_wrong_type_still_opens(load, monkeypatch):
     show = {'id': 'tt0944947', 'type': 'series', 'name': 'GoT', 'videos': []}
     monkeypatch.setattr(views, '_fetch_meta', lambda stype, sid, **kw: show if stype == 'series' else None)
     assert detailwindow._fetch_meta_any_type('Movies', 'tt0944947') == (show, 'series')
+
+
+def test_the_swapped_type_is_tried_after_a_quick_miss(load, monkeypatch):
+    load()
+    import lib.ui.detailwindow as detailwindow
+    import lib.ui.views as views
+
+    show = {'id': 'tt0944947', 'type': 'series', 'name': 'GoT', 'videos': []}
+    asked = []
+    monkeypatch.setattr(views, '_fetch_meta', lambda stype, sid, **kw: asked.append(stype) or (show if stype == 'series' else None))
+    assert detailwindow._fetch_meta_any_type('movie', 'tt0944947') == (show, 'series')
+    assert asked == ['movie', 'series']
+
+
+def test_the_swapped_type_is_skipped_after_a_slow_miss(load, monkeypatch):
+    """A movie lookup that timed out across addons is not repeated as a series."""
+    load()
+    import types
+
+    import lib.ui.detailwindow as detailwindow
+    import lib.ui.views as views
+
+    clock = {'now': 0.0}
+    monkeypatch.setattr(detailwindow, 'time', types.SimpleNamespace(monotonic=lambda: clock['now']))
+    asked = []
+
+    def _slow_miss(stype, sid, **kw):
+        asked.append(stype)
+        clock['now'] += detailwindow._SWAPPED_TYPE_MAX_SECONDS + 1
+        return None
+
+    monkeypatch.setattr(views, '_fetch_meta', _slow_miss)
+    assert detailwindow._fetch_meta_any_type('movie', 'tt0944947') == (None, 'movie')
+    assert asked == ['movie']

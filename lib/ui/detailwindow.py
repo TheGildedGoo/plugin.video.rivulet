@@ -34,6 +34,7 @@ payloads `lib.library` builds (`library_add_payload`/
 time rather than cached.
 """
 import threading
+import time
 
 import xbmcgui
 
@@ -780,6 +781,12 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             self.close()
 
 
+#: How quickly `_fetch_meta_any_type()`'s first attempts must come back
+#: empty for it to also try the other of movie/series. Each attempt is a
+#: fan-out over every addon with its own 15s timeout, so retrying after
+#: a slow miss could double the wait on a weak ARM box.
+_SWAPPED_TYPE_MAX_SECONDS = 3.0
+
 def _base_type(stype):
     from lib.stremio.addons import _base_type as base
 
@@ -788,9 +795,13 @@ def _base_type(stype):
 
 def _fetch_meta_any_type(stype, sid):
     """``(meta, type)`` for `sid`: as `stype` first, then as its base type
-    (``movies`` -> ``movie``), then as the other of movie/series, since
-    provider lists label types loosely. ``(None, stype)`` when nothing
-    answers; `CANCELLED` on Back."""
+    (``movies`` -> ``movie``), since provider lists label types loosely.
+    The other of movie/series is tried last, and only when those attempts
+    came back empty within `_SWAPPED_TYPE_MAX_SECONDS`: a quick "nobody
+    has it" is a mislabelled type worth one more fan-out, a slow one
+    (addons timing out on a weak box) is not. A type no enabled addon
+    serves costs no request (`views._fetch_meta()` finds no targets).
+    ``(None, stype)`` when nothing answers; `CANCELLED` on Back."""
     from lib.ui.compat import L
     from lib.ui.views import _fetch_meta
 
@@ -798,15 +809,23 @@ def _fetch_meta_any_type(stype, sid):
     base = _base_type(stype)
     base = {'movies': 'movie', 'film': 'movie', 'films': 'movie', 'shows': 'series', 'show': 'series',
             'tvshows': 'series', 'tv': 'series'}.get(base, base)
-    for kind in (stype, base, {'movie': 'series', 'series': 'movie'}.get(base, '')):
+    for kind in (stype, base):
         if kind and kind not in kinds:
             kinds.append(kind)
+    swapped = {'movie': 'series', 'series': 'movie'}.get(base, '')
+    if swapped in kinds:
+        swapped = ''
 
     def _work():
+        started = time.monotonic()
         for kind in kinds:
             meta = _fetch_meta(kind, sid)
             if meta:
                 return meta, kind
+        if swapped and time.monotonic() - started < _SWAPPED_TYPE_MAX_SECONDS:
+            meta = _fetch_meta(swapped, sid)
+            if meta:
+                return meta, swapped
         return None, stype
 
     # One spinner for every type tried.
