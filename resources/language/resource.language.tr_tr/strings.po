@@ -1021,3 +1021,119 @@ msgstr "İzlemeye devam et listesinden kaldırılsın mı?"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "Arama eksik, çok yavaş kataloglar: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "Kitaplık"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "Stremio kitaplığınızdaki başlıklar"
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Diğer"
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "Kitaplığınız boş. Bir başlığı sayfasından ekleyin."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "Giriş"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "Burada bir kez oturum açın. Rivulet kendi Stremio girişini kullanır."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d dk"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s, %s konumundan devam"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "%s konumundan devam"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Bölüm listesi"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Ayrıntılar"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API anahtarı"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API anahtarı"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "OMDb API anahtarı (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "MDBList API anahtarı (mdblist.com/preferences/)"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Oturum açık"
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr "Yeni görünüm (beta)"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "Bitiş: %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "Ana sayfa"
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr "Arka plan ekranı doldurur ve siyaha geçer, başlığın logosu başlık olur ve seçili kartın etrafında beyaz bir çerçeve olur. Önce ana sayfa; diğer ekranlar ardından gelecek."
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "Bu başlık için fragman yok."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "Fragman oynatılamıyor. Akış sunucusunu başlatın veya Kodi'nin YouTube eklentisini yükleyin."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "Fragman"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Önbellek temizlendi. Ayarlardan çıktığınızda ana sayfa yeniden yüklenir."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Önbelleği yenile"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Kayıtlı katalog sayfalarını, ayrıntıları, puanları ve logo kontrollerini unutur; sonraki ekranlar eklentilere yeniden sorar. Hesabınız, eklentileriniz ve ilerlemeniz kalır."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Fragmanlar Kodi'nin YouTube eklentisiyle oynatılır. Şimdi yüklensin mi?"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "Fragman başlamadı. Kontrol etmek için Kodi'nin YouTube eklentisinde herhangi bir video oynatın."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "Diziye git"

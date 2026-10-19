@@ -1021,3 +1021,119 @@ msgstr "「続きを見る」から削除しますか？"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "検索が不完全です。応答が遅すぎたカタログ: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "ライブラリ"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "Stremioライブラリに保存した作品"
+
+msgctxt "#30425"
+msgid "More"
+msgstr "その他"
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "ライブラリは空です。作品のページから追加してください。"
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "ログイン"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "ここで一度ログインしてください。Rivuletは独自のStremioログインを使います。"
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d分"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s を %s から再開"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "%s から再開"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "エピソード一覧"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "詳細"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb APIキー"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList APIキー"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "OMDb APIキー (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "MDBList APIキー (mdblist.com/preferences/)"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "サインイン済み"
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr "新しい外観（ベータ）"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "%s に終了"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "ホーム"
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr "背景画像が画面いっぱいに表示されて黒へフェードし、タイトルのロゴがタイトルになり、選択中のカードに白い枠が付きます。まずホームから。ほかの画面も順次対応します。"
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "このタイトルには予告編がありません。"
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "予告編を再生できません。ストリーミングサーバーを起動するか、Kodi の YouTube アドオンをインストールしてください。"
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "予告編"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "キャッシュを消去しました。設定を閉じるとホームが再読み込みされます。"
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "キャッシュを更新"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "保存済みのカタログページ、作品情報、評価、ロゴの確認結果を消去し、次の画面でアドオンに再取得させます。アカウント、アドオン、視聴状況はそのままです。"
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "予告編は Kodi の YouTube アドオンで再生します。今すぐインストールしますか？"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "予告編を開始できませんでした。Kodi の YouTube アドオンで任意の動画を再生して確認してください。"
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "シリーズへ移動"

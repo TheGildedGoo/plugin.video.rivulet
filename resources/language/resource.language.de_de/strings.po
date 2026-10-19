@@ -1021,3 +1021,119 @@ msgstr "Aus „Weiterschauen“ entfernen?"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "Suche unvollständig, zu langsame Kataloge: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "Bibliothek"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "Titel in deiner Stremio-Bibliothek"
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Mehr"
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "Deine Bibliothek ist leer. Füge einen Titel auf seiner Seite hinzu."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "Anmelden"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "Hier einmal anmelden. Rivulet hat eine eigene Stremio-Anmeldung."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d Min."
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s ab %s fortsetzen"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "Ab %s fortsetzen"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Episodenliste"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Details"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb-API-Schlüssel"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList-API-Schlüssel"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "OMDb-API-Schlüssel (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "MDBList-API-Schlüssel (mdblist.com/preferences/)"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Angemeldet"
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr "Neues Design (Beta)"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "Endet um %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "Start"
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr "Das Hintergrundbild füllt den Bildschirm und blendet nach Schwarz aus, das Logo des Titels ist der Titel, und die ausgewählte Karte bekommt einen weißen Rahmen. Zuerst die Startseite; die anderen Bildschirme folgen."
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "Für diesen Titel gibt es keinen Trailer."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "Der Trailer lässt sich nicht abspielen. Starte den Streaming-Server oder installiere das YouTube-Add-on von Kodi."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "Trailer"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Zwischengespeicherte Daten gelöscht. Die Startseite lädt neu, sobald du die Einstellungen verlässt."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Zwischenspeicher aktualisieren"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Vergisst gespeicherte Katalogseiten, Titeldetails, Bewertungen und Logo-Prüfungen, damit die nächsten Bildschirme deine Add-ons neu fragen. Konto, Add-ons und Fortschritt bleiben."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Trailer laufen über das YouTube-Add-on von Kodi. Jetzt installieren?"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "Der Trailer ließ sich nicht starten. Spiele zum Prüfen ein beliebiges Video im YouTube-Add-on von Kodi ab."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "Zur Serie"

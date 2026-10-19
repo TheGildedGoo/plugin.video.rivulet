@@ -1021,3 +1021,119 @@ msgstr "Verwijderen uit Verder kijken?"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "Zoekopdracht onvolledig, te trage catalogi: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "Bibliotheek"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "Titels in je Stremio-bibliotheek"
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Meer"
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "Je bibliotheek is leeg. Voeg een titel toe vanaf de pagina."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "Aanmelden"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "Meld je hier eenmaal aan. Rivulet heeft een eigen Stremio-login."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d min"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "Hervat %s vanaf %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "Hervat vanaf %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Afleveringen"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Details"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API-sleutel"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API-sleutel"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "OMDb API-sleutel (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "MDBList API-sleutel (mdblist.com/preferences/)"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Aangemeld"
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr "Nieuw uiterlijk (bèta)"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "Eindigt om %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "Start"
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr "De achtergrond vult het scherm en vervaagt naar zwart, het logo van de titel is de titel en de geselecteerde kaart krijgt een witte rand. Eerst Start; de andere schermen volgen."
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "Geen trailer voor deze titel."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "De trailer kan niet worden afgespeeld. Start de streamingserver of installeer de YouTube-add-on van Kodi."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "Trailer"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Gecachte gegevens gewist. Start laadt opnieuw zodra je Instellingen verlaat."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Gecachte gegevens vernieuwen"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Vergeet opgeslagen cataloguspagina's, titelgegevens, beoordelingen en logocontroles, zodat de volgende schermen je add-ons opnieuw vragen. Je account, add-ons en voortgang blijven."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Trailers spelen via de YouTube-add-on van Kodi. Nu installeren?"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "De trailer startte niet. Speel een willekeurige video af in de YouTube-add-on van Kodi om die te controleren."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "Naar de serie"

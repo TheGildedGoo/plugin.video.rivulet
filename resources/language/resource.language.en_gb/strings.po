@@ -1021,3 +1021,119 @@ msgstr ""
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr ""
+
+msgctxt "#30422"
+msgid "Library"
+msgstr ""
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr ""
+
+msgctxt "#30425"
+msgid "More"
+msgstr ""
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr ""
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr ""
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr ""
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr ""
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr ""
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr ""
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr ""
+
+msgctxt "#30441"
+msgid "Details"
+msgstr ""
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr ""
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr ""
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr ""
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr ""
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr ""
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr ""
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr ""
+
+msgctxt "#30495"
+msgid "Home"
+msgstr ""
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr ""
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr ""
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr ""
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr ""
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr ""
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr ""
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr ""
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr ""
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr ""
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr ""

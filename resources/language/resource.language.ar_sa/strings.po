@@ -1021,3 +1021,119 @@ msgstr "إزالة من متابعة المشاهدة؟"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "البحث غير مكتمل، كتالوجات لم تردّ في الوقت: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "المكتبة"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "عناوين محفوظة في مكتبة ستريميو"
+
+msgctxt "#30425"
+msgid "More"
+msgstr "المزيد"
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "مكتبتك فارغة. أضف عنوانًا من صفحته."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "تسجيل الدخول"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "سجّل الدخول هنا مرة واحدة. يحتفظ Rivulet بتسجيل دخول Stremio خاص به."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d د"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "استئناف %s من %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "استئناف من %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "قائمة الحلقات"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "التفاصيل"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "مفتاح API لـ OMDb"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "مفتاح API لـ MDBList"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "مفتاح API لـ OMDb (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "مفتاح API لـ MDBList (mdblist.com/preferences/)"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "تم تسجيل الدخول"
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr "مظهر جديد (تجريبي)"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "ينتهي في %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "الرئيسية"
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr "تملأ الخلفية الشاشة وتتلاشى إلى الأسود، ويصبح شعار العنوان هو العنوان، وتحصل البطاقة المحددة على حلقة بيضاء. الصفحة الرئيسية أولاً؛ وتتبعها الشاشات الأخرى."
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "لا يوجد إعلان لهذا العنوان."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "تعذر تشغيل الإعلان. شغّل خادم البث أو ثبّت إضافة YouTube في Kodi."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "الإعلان"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "تم مسح البيانات المخزنة. يُعاد تحميل الصفحة الرئيسية عند مغادرة الإعدادات."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "تحديث البيانات المخزنة"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "ينسى صفحات الكتالوج والتفاصيل والتقييمات وفحوص الشعارات المحفوظة، لتطلبها الشاشات التالية من الإضافات من جديد. يبقى حسابك وإضافاتك وتقدمك."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "تُشغَّل الإعلانات عبر إضافة YouTube في Kodi. هل تريد تثبيتها الآن؟"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "لم يبدأ الإعلان. شغّل أي فيديو في إضافة YouTube في Kodi للتحقق منها."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "الانتقال إلى المسلسل"

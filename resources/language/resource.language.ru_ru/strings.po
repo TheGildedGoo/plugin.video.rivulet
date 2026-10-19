@@ -1021,3 +1021,119 @@ msgstr "Удалить из «Продолжить просмотр»?"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "Поиск неполный, слишком медленные каталоги: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "Библиотека"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "Названия в вашей библиотеке Stremio"
+
+msgctxt "#30425"
+msgid "More"
+msgstr "Еще"
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "Библиотека пуста. Добавьте название с его страницы."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "Войти"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "Войдите здесь один раз. У Rivulet свой вход в Stremio."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d мин"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "Продолжить %s с %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "Продолжить с %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Список серий"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Подробности"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "API-ключ OMDb"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "API-ключ MDBList"
+
+msgctxt "#30455"
+msgid "OMDb API key (omdbapi.com/apikey.aspx)"
+msgstr "API-ключ OMDb (omdbapi.com/apikey.aspx)"
+
+msgctxt "#30456"
+msgid "MDBList API key (mdblist.com/preferences/)"
+msgstr "API-ключ MDBList (mdblist.com/preferences/)"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Вход выполнен"
+
+msgctxt "#30493"
+msgid "New look (beta)"
+msgstr "Новый вид (бета)"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "Закончится в %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "Главная"
+
+msgctxt "#30496"
+msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
+msgstr "Фон заполняет экран и уходит в чёрный, логотип становится заголовком, а выбранная карточка получает белую рамку. Сначала главный экран, остальные экраны появятся позже."
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "Для этого фильма нет трейлера."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "Не удалось воспроизвести трейлер. Запустите сервер потоковой передачи или установите дополнение YouTube для Kodi."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "Трейлер"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Кэш очищен. Главный экран обновится, когда вы выйдете из настроек."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Обновить кэш"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Удаляет сохранённые страницы каталогов, сведения, оценки и проверки логотипов, чтобы следующие экраны заново запросили дополнения. Аккаунт, дополнения и прогресс сохраняются."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Трейлеры воспроизводятся через дополнение YouTube для Kodi. Установить его сейчас?"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "Трейлер не запустился. Чтобы проверить, включите любое видео в дополнении YouTube для Kodi."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "К сериалу"
