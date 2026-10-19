@@ -1152,6 +1152,46 @@ def _feed_loader(ctx, monkeypatch, feed_index):
     return ctx.searchwindow._FeedIndexLoader(store, client)
 
 
+def test_feed_wait_budget_is_capped_by_the_remaining_search_deadline(load_searchwindow, monkeypatch):
+    """CodeRabbit on #68: a search that hit the 25s deadline could still
+    wait up to 3s more for the feed. The feed only gets what is left."""
+    sw = load_searchwindow().searchwindow
+    clock = {'now': 0.0}
+    monkeypatch.setattr(sw, 'time', types.SimpleNamespace(monotonic=lambda: clock['now']))
+
+    clock['now'] = 5.0
+    assert sw._feed_wait_budget(0.0) == sw._FEED_WAIT_SECONDS
+    clock['now'] = sw._SEARCH_DEADLINE_SECONDS - 1.0
+    assert sw._feed_wait_budget(0.0) == 1.0
+    clock['now'] = sw._SEARCH_DEADLINE_SECONDS
+    assert sw._feed_wait_budget(0.0) == 0.0
+    clock['now'] = sw._SEARCH_DEADLINE_SECONDS + 4.0
+    assert sw._feed_wait_budget(0.0) == 0.0
+
+
+def test_run_query_waits_for_the_feed_only_within_the_search_deadline(load_searchwindow, monkeypatch):
+    ctx = load_searchwindow()
+    sw = ctx.searchwindow
+    store, (ta,) = _addons('A')
+    seen = {}
+
+    class _Loader:
+        def __init__(self, store_arg, client_arg):
+            pass
+
+        def wait(self, dialog, timeout=sw._FEED_WAIT_SECONDS):
+            seen['timeout'] = timeout
+            return None
+
+    monkeypatch.setattr(sw, '_FeedIndexLoader', _Loader)
+    monkeypatch.setattr(sw, '_feed_wait_budget', lambda started: 0.25)
+    client = _ScriptedClient({ta: lambda: [_meta('tt1')]})
+
+    result = sw.run_query(store, client, 'x')
+
+    assert [m['id'] for m in result] == ['tt1']
+    assert seen['timeout'] == 0.25
+
 def test_feed_loader_gives_up_on_a_slow_feed_without_blocking_then_serves_it_later(load_searchwindow, monkeypatch):
     ctx = load_searchwindow()
     release = threading.Event()

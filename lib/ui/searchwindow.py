@@ -569,6 +569,14 @@ def _collect_answers(dialog, results, jobs, report):
     return answered
 
 
+def _feed_wait_budget(started):
+    """How long `run_query()` may still wait for the ranking feed: at most
+    `_FEED_WAIT_SECONDS`, and never past `_SEARCH_DEADLINE_SECONDS` counted
+    from `started` (the fan-out's start), so a search that already ran into
+    the deadline does not keep the spinner up for the feed on top of it."""
+    remaining = started + _SEARCH_DEADLINE_SECONDS - time.monotonic()
+    return max(0.0, min(_FEED_WAIT_SECONDS, remaining))
+
 class _FeedIndexLoader:
     """`_feed_index()` computed on a daemon thread that `run_query()`
     starts BEFORE its fan-out, so a cold ranking-feed fetch (~3.7MB)
@@ -696,11 +704,12 @@ def run_query(store, client, query, report=None):
     answered = {}
     if jobs:
         with busy_dialog(L(30033), query) as dialog:
+            started = time.monotonic()
             loader = _FeedIndexLoader(store, client)
             results = _start_search_workers(client, query, jobs)
             answered = _collect_answers(dialog, results, jobs, report)
             if not report.canceled:
-                feed_index = loader.wait(dialog)
+                feed_index = loader.wait(dialog, timeout=_feed_wait_budget(started))
         for index, (_transport_url, manifest, _cat) in enumerate(jobs):
             name = manifest.get('name') or '?'
             answer = answered.get(index)
