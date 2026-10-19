@@ -301,3 +301,51 @@ def test_an_imdb_keyed_title_needs_no_lookup(load, monkeypatch):
     monkeypatch.setattr(uicommon, 'run_cancellable', lambda *_args: pytest.fail('looked up'))
     meta = {'id': 'tt0133093'}
     assert sw._meta_with_imdb('movie', 'tt0133093', meta) is meta
+
+
+def _merged_with(ctx, monkeypatch, preview, full):
+    sw = ctx.streamswindow
+    import lib.ui.uicommon as uicommon
+    import lib.ui.views as views
+
+    monkeypatch.setattr(views, '_fetch_meta', lambda stype, sid, **kw: full)
+    monkeypatch.setattr(uicommon, 'run_cancellable', lambda callback, _heading: callback())
+    return sw._meta_with_imdb('movie', 'tmdb:603', preview)
+
+
+def test_an_empty_imdb_id_on_the_preview_does_not_hide_the_full_metas(load, monkeypatch):
+    """CodeRabbit on #68: ``imdb_id: null`` blocked a provider-keyed meta's IMDb id."""
+    ctx = load()
+    preview = {'id': 'tmdb:603', 'name': 'The Matrix', 'imdb_id': None}
+    merged = _merged_with(ctx, monkeypatch, preview, {'id': 'tmdb:603', 'imdb_id': 'tt0133093'})
+    assert merged['imdb_id'] == 'tt0133093'
+    assert ctx.streamswindow.stream_alias('tmdb:603', merged) == 'tt0133093'
+    assert preview['imdb_id'] is None
+
+
+def test_empty_preview_hints_take_the_full_metas(load, monkeypatch):
+    ctx = load()
+    preview = {'id': 'tmdb:603', 'behaviorHints': {}}
+    full = {'id': 'tmdb:603', 'behaviorHints': {'defaultVideoId': 'tt0133093', 'hasScheduledVideos': False}}
+    merged = _merged_with(ctx, monkeypatch, preview, full)
+    assert merged['behaviorHints'] == full['behaviorHints']
+    assert merged['behaviorHints'] is not full['behaviorHints']
+    assert ctx.streamswindow.imdb_id_for(merged) == 'tt0133093'
+
+
+def test_the_default_video_id_joins_the_previews_own_hints(load, monkeypatch):
+    ctx = load()
+    preview = {'id': 'tmdb:603', 'behaviorHints': {'bingeGroup': 'matrix'}}
+    full = {'id': 'tmdb:603', 'behaviorHints': {'defaultVideoId': 'tt0133093', 'bingeGroup': 'other'}}
+    merged = _merged_with(ctx, monkeypatch, preview, full)
+    assert merged['behaviorHints'] == {'bingeGroup': 'matrix', 'defaultVideoId': 'tt0133093'}
+    assert preview['behaviorHints'] == {'bingeGroup': 'matrix'}
+
+
+def test_the_previews_own_imdb_fields_are_kept(load, monkeypatch):
+    ctx = load()
+    preview = {'id': 'tmdb:603', 'imdbId': 'x', 'behaviorHints': {'defaultVideoId': 'kept'}}
+    full = {'id': 'tmdb:603', 'imdbId': 'tt0133093', 'behaviorHints': {'defaultVideoId': 'tt0133093'}}
+    merged = _merged_with(ctx, monkeypatch, preview, full)
+    assert merged['imdbId'] == 'x'
+    assert merged['behaviorHints'] == {'defaultVideoId': 'kept'}

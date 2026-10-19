@@ -1237,9 +1237,18 @@ def _meta_with_imdb(stype, sid, meta):
     # Only the ids are taken: the caller's meta (its art, its episode
     # list) stays what the screens built.
     merged = dict(meta or {})
-    for key in ('imdb_id', 'imdbId', 'behaviorHints'):
-        if full.get(key) and key not in merged:
+    # A preview can carry the keys with nothing in them (``imdb_id: null``,
+    # ``behaviorHints: {}``): those must not hide the full meta's values.
+    for key in ('imdb_id', 'imdbId'):
+        if full.get(key) and not merged.get(key):
             merged[key] = full[key]
+    full_hints = full.get('behaviorHints') if isinstance(full.get('behaviorHints'), dict) else {}
+    own_hints = merged.get('behaviorHints') if isinstance(merged.get('behaviorHints'), dict) else {}
+    if full_hints and not own_hints:
+        merged['behaviorHints'] = dict(full_hints)
+    elif full_hints.get('defaultVideoId') and not own_hints.get('defaultVideoId'):
+        # Only the id is added; the preview's other hints stay its own.
+        merged['behaviorHints'] = dict(own_hints, defaultVideoId=full_hints['defaultVideoId'])
     if not imdb_id_for(merged) and str(full.get('id') or '').startswith('tt'):
         merged['imdb_id'] = full['id']
     return merged
