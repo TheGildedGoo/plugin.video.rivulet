@@ -201,11 +201,30 @@ def _usable_meta(meta):
     return isinstance(meta_id, str) and bool(meta_id.strip())
 
 
-#: First try plus two silent retries of an `AddonError`. A usable meta
+#: First try plus two silent retries of a retryable `AddonError`
+#: (`_meta_error_is_retryable()`). A usable meta
 #: returns immediately; a successful body with no id is not retried
 #: (the addon answered, it just had nothing we can open).
 _META_ATTEMPTS = 3
 _META_RETRY_BACKOFF_SECONDS = (0.4, 0.8)
+
+
+def _meta_error_is_retryable(exc):
+    """Whether a failed meta request is worth asking again: a timeout, a
+    dropped connection, HTTP 408/429/5xx, or an addon's own error
+    placeholder (a throttled aggregator). A definite answer (any other
+    HTTP 4xx, invalid JSON, a response too large) would only fail the
+    same way, and each retry delays the type and IMDb fallbacks."""
+    category = str(getattr(exc, 'category', '') or '')
+    if category in ('invalid JSON', 'response too large'):
+        return False
+    if category.startswith('HTTP '):
+        status = category[5:]
+        if not status.isdigit():
+            return True
+        code = int(status)
+        return code in (408, 429) or code >= 500
+    return True
 
 
 def _pause_before_meta_retry(seconds):
@@ -331,7 +350,7 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
                 meta = client.meta(transport_url, stype, sid)
             except AddonError as exc:
                 log('views._fetch_meta: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGWARNING)
-                if attempt + 1 >= _META_ATTEMPTS or _pause_before_meta_retry(
+                if not _meta_error_is_retryable(exc) or attempt + 1 >= _META_ATTEMPTS or _pause_before_meta_retry(
                     _META_RETRY_BACKOFF_SECONDS[attempt],
                 ):
                     return None

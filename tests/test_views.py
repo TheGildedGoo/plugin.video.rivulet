@@ -445,6 +445,41 @@ def test_fetch_meta_retries_an_addon_error_then_returns_the_meta(load_views, tmp
     assert client.meta_calls == ['t1', 't1', 't1']
 
 
+@pytest.mark.parametrize('category, calls', [
+    ('HTTP 404', 1),
+    ('invalid JSON', 1),
+    ('response too large', 1),
+    ('HTTP 503', 3),
+    ('HTTP 429', 3),
+    ('ReadTimeout', 3),
+    ('addon reported error (HTTP 404)', 3),
+])
+def test_fetch_meta_retries_only_a_failure_that_may_pass(load_views, category, calls):
+    """A definite answer (a 4xx, invalid JSON, an oversized body) fails
+    the same way again; only a transient failure, or an addon's own error
+    placeholder, is asked again."""
+    ctx = load_views()
+    views = ctx.views
+
+    class _Failing:
+        def __init__(self):
+            self.meta_calls = []
+
+        def meta(self, transport_url, stype, sid):
+            self.meta_calls.append(transport_url)
+            raise AddonError('failed', category=category)
+
+    client = _Failing()
+    descriptor = {
+        'transportUrl': 't1',
+        'manifest': {'id': 'org.a', 'resources': ['meta'], 'types': ['movie'], 'idPrefixes': ['tt']},
+    }
+    _wire_data_layer(views, FakeStore(addons=[descriptor], data_dir=None), client)
+
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert len(client.meta_calls) == calls
+
+
 def test_fetch_meta_does_not_cache_an_idless_success(load_views, tmp_path):
     ctx = load_views()
     views = ctx.views
