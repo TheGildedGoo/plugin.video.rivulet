@@ -1002,6 +1002,10 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "يعرض الكتالوج أول %d صفحات فقط؛ لن يتم تحميل المزيد من العناصر"
 
+msgctxt "#30412"
+msgid "Dark dialogs"
+msgstr "مربعات حوار داكنة"
+
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "الاحتفاظ بالتورنت بعد التشغيل (المشاركة)"
@@ -1013,3 +1017,7 @@ msgstr "يترك التورنت على خادم البث عند انتهاء ا�
 msgctxt "#30415"
 msgid "Remove from Continue watching?"
 msgstr "إزالة من متابعة المشاهدة؟"
+
+msgctxt "#30416"
+msgid "Search incomplete, catalogs too slow to answer: %d"
+msgstr "البحث غير مكتمل، كتالوجات لم تردّ في الوقت: %d"

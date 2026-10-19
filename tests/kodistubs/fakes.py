@@ -70,6 +70,7 @@ _DEFAULT_LOCALIZED = {
     30348: 'Showing %d of %d',
     30360: 'New episodes: %d',
     30383: 'Search incomplete, no answer from: %s',
+    30416: 'Search incomplete, catalogs too slow to answer: %d',
 }
 
 class FakeClock:

@@ -1152,6 +1152,46 @@ def _feed_loader(ctx, monkeypatch, feed_index):
     return ctx.searchwindow._FeedIndexLoader(store, client)
 
 
+def test_feed_wait_budget_is_capped_by_the_remaining_search_deadline(load_searchwindow, monkeypatch):
+    """CodeRabbit on #68: a search that hit the 25s deadline could still
+    wait up to 3s more for the feed. The feed only gets what is left."""
+    sw = load_searchwindow().searchwindow
+    clock = {'now': 0.0}
+    monkeypatch.setattr(sw, 'time', types.SimpleNamespace(monotonic=lambda: clock['now']))
+
+    clock['now'] = 5.0
+    assert sw._feed_wait_budget(0.0) == sw._FEED_WAIT_SECONDS
+    clock['now'] = sw._SEARCH_DEADLINE_SECONDS - 1.0
+    assert sw._feed_wait_budget(0.0) == 1.0
+    clock['now'] = sw._SEARCH_DEADLINE_SECONDS
+    assert sw._feed_wait_budget(0.0) == 0.0
+    clock['now'] = sw._SEARCH_DEADLINE_SECONDS + 4.0
+    assert sw._feed_wait_budget(0.0) == 0.0
+
+
+def test_run_query_waits_for_the_feed_only_within_the_search_deadline(load_searchwindow, monkeypatch):
+    ctx = load_searchwindow()
+    sw = ctx.searchwindow
+    store, (ta,) = _addons('A')
+    seen = {}
+
+    class _Loader:
+        def __init__(self, store_arg, client_arg):
+            pass
+
+        def wait(self, dialog, timeout=sw._FEED_WAIT_SECONDS):
+            seen['timeout'] = timeout
+            return None
+
+    monkeypatch.setattr(sw, '_FeedIndexLoader', _Loader)
+    monkeypatch.setattr(sw, '_feed_wait_budget', lambda started: 0.25)
+    client = _ScriptedClient({ta: lambda: [_meta('tt1')]})
+
+    result = sw.run_query(store, client, 'x')
+
+    assert [m['id'] for m in result] == ['tt1']
+    assert seen['timeout'] == 0.25
+
 def test_feed_loader_gives_up_on_a_slow_feed_without_blocking_then_serves_it_later(load_searchwindow, monkeypatch):
     ctx = load_searchwindow()
     release = threading.Event()
@@ -1740,3 +1780,108 @@ def test_run_search_reuses_the_shared_client_across_multiple_searches(load_searc
     win._run_search('robin')
 
     assert _CountingClient.instances == 1
+
+
+class _NeverCanceled:
+    def iscanceled(self):
+        return False
+
+    def update(self, *args, **kwargs):
+        pass
+
+
+def _clocked(monkeypatch, sw, ticks):
+    """`time.monotonic()` for the collector: each call steps the clock."""
+    clock = {'now': 0.0}
+
+    def monotonic():
+        clock['now'] += ticks
+        return clock['now']
+
+    monkeypatch.setattr(sw, 'time', types.SimpleNamespace(monotonic=monotonic))
+    monkeypatch.setattr(sw, '_SEARCH_POLL_SECONDS', 0.01)
+    return clock
+
+
+def test_results_in_hand_are_not_held_for_a_slow_catalog(load_searchwindow, monkeypatch):
+    """Andor sat on the spinner until Back: one catalog never answered."""
+    import queue
+
+    sw = load_searchwindow().searchwindow
+    clock = _clocked(monkeypatch, sw, 0.5)
+    results = queue.Queue()
+    results.put((0, ([{'id': 'tt9253284', 'name': 'Andor'}], None)))  # the second catalog never answers
+    jobs = [('https://a', {'name': 'Cinemeta'}, {}), ('https://b', {'name': 'Slow'}, {})]
+    report = sw.SearchReport()
+    answered = sw._collect_answers(_NeverCanceled(), results, jobs, report)
+    assert list(answered) == [0]
+    assert report.canceled is False
+    # It was the grace period after the first titles that ended the wait,
+    # not the overall deadline.
+    assert sw._SEARCH_GRACE_SECONDS <= clock['now'] < sw._SEARCH_GRACE_SECONDS + 2
+    assert clock['now'] < sw._SEARCH_DEADLINE_SECONDS
+
+
+def test_the_wait_ends_at_the_deadline_with_nothing_in(load_searchwindow, monkeypatch):
+    import queue
+
+    sw = load_searchwindow().searchwindow
+    _clocked(monkeypatch, sw, 2.0)
+    jobs = [('https://a', {'name': 'Slow'}, {})]
+    report = sw.SearchReport()
+    assert sw._collect_answers(_NeverCanceled(), queue.Queue(), jobs, report) == {}
+    assert report.canceled is False
+
+
+def test_an_empty_answer_does_not_start_the_grace(load_searchwindow, monkeypatch):
+    import queue
+
+    sw = load_searchwindow().searchwindow
+    clock = _clocked(monkeypatch, sw, 0.5)
+    late_at = sw._SEARCH_GRACE_SECONDS + 3  # after a wrongly started grace, before the deadline
+    assert late_at < sw._SEARCH_DEADLINE_SECONDS
+
+    class _LateSecondAnswer:
+        """The empty answer at once; the titles only once the clock passes `late_at`."""
+
+        def __init__(self):
+            self.pending = [(0, ([], None))]
+
+        def get(self, timeout=None):
+            if self.pending:
+                return self.pending.pop()
+            if clock['now'] >= late_at:
+                return 1, ([{'id': 'tt1', 'name': 'Andor'}], None)
+            raise queue.Empty
+
+    jobs = [('https://a', {'name': 'A'}, {}), ('https://b', {'name': 'B'}, {})]
+    answered = sw._collect_answers(_NeverCanceled(), _LateSecondAnswer(), jobs, sw.SearchReport())
+    assert sorted(answered) == [0, 1]
+    assert clock['now'] >= late_at
+
+
+def test_catalogs_left_out_by_the_wait_are_counted_in_the_notice(load_searchwindow):
+    """M0Rf30 on #68: a slow but good catalog must not go silently missing."""
+    sw = load_searchwindow().searchwindow
+    report = sw.SearchReport()
+    report.total_catalogs = report.queried = 3
+    report.unanswered = ['Slow', 'Slower']
+    assert sw._search_notice(report) == 'Search incomplete, catalogs too slow to answer: 2'
+
+
+def test_a_failed_catalog_is_named_before_slow_ones_are_counted(load_searchwindow):
+    sw = load_searchwindow().searchwindow
+    report = sw.SearchReport()
+    report.total_catalogs = report.queried = 3
+    report.failures = [('A', 'timeout')]
+    report.unanswered = ['Slow']
+    assert sw._search_notice(report) == 'Search incomplete, no answer from: A'
+
+
+def test_a_cancelled_search_says_nothing_about_the_catalogs_still_out(load_searchwindow):
+    sw = load_searchwindow().searchwindow
+    report = sw.SearchReport()
+    report.total_catalogs = report.queried = 2
+    report.unanswered = ['Slow']
+    report.canceled = True
+    assert sw._search_notice(report) is None

@@ -1002,6 +1002,10 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr ""
 
+msgctxt "#30412"
+msgid "Dark dialogs"
+msgstr ""
+
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr ""
@@ -1012,4 +1016,8 @@ msgstr ""
 
 msgctxt "#30415"
 msgid "Remove from Continue watching?"
+msgstr ""
+
+msgctxt "#30416"
+msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr ""

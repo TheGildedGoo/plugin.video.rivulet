@@ -1002,6 +1002,10 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "De catalogus toont alleen de eerste %d pagina's; meer items worden niet geladen"
 
+msgctxt "#30412"
+msgid "Dark dialogs"
+msgstr "Donkere dialoogvensters"
+
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "Torrents na afspelen behouden (seeden)"
@@ -1013,3 +1017,7 @@ msgstr "Laat de torrent na het afspelen op de streamingserver staan in plaats va
 msgctxt "#30415"
 msgid "Remove from Continue watching?"
 msgstr "Verwijderen uit Verder kijken?"
+
+msgctxt "#30416"
+msgid "Search incomplete, catalogs too slow to answer: %d"
+msgstr "Zoekopdracht onvolledig, te trage catalogi: %d"

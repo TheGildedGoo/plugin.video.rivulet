@@ -36,6 +36,17 @@ from tests.kodistubs import install_kodi_stubs
 
 # --- hard network block (defense in depth) ----------------------------------
 @pytest.fixture(autouse=True)
+def _fresh_previews():
+    """lib.ui.previews is process-wide; one test's coverflow must not
+    hand another test's open_detail a fallback it never set up."""
+    from lib.ui import previews
+
+    previews.forget_all()
+    yield
+    previews.forget_all()
+
+
+@pytest.fixture(autouse=True)
 def _block_real_network(monkeypatch):
     """Fail loudly if any code path tries to open a real socket."""
 

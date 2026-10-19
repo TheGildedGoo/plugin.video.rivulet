@@ -1002,6 +1002,10 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Katalog yalnızca ilk %d sayfayı gösteriyor; diğer öğeler yüklenmiyor"
 
+msgctxt "#30412"
+msgid "Dark dialogs"
+msgstr "Koyu iletişim kutuları"
+
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "Oynatmadan sonra torrentleri tut (seed)"
@@ -1013,3 +1017,7 @@ msgstr "Oynatma bittiğinde torrenti kaldırmak yerine akış sunucusunda bırak
 msgctxt "#30415"
 msgid "Remove from Continue watching?"
 msgstr "İzlemeye devam et listesinden kaldırılsın mı?"
+
+msgctxt "#30416"
+msgid "Search incomplete, catalogs too slow to answer: %d"
+msgstr "Arama eksik, çok yavaş kataloglar: %d"

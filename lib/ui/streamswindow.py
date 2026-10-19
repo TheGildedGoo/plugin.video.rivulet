@@ -1113,6 +1113,138 @@ def _supported_stream_addons(stype, sid):
     return addons
 
 
+#: Anime ids stream addons take as they are; their episode numbers do not
+#: map onto an IMDb season and episode.
+_NATIVE_PREFIXES = ('kitsu:', 'mal:', 'anilist:', 'anidb:')
+
+
+def imdb_id_for(meta):
+    """The IMDb id (``tt...``) a meta carries, or ``''``. Kodi-free.
+
+    Catalogs keyed by another id (``tmdb:603``, an aggregator's own
+    prefix) still name the IMDb id: ``imdb_id`` (Stremio's TMDB addon,
+    Cinemeta) or ``behaviorHints.defaultVideoId`` (what Stremio itself
+    requests streams with for a movie).
+    """
+    if not isinstance(meta, dict):
+        return ''
+    hints = meta.get('behaviorHints') if isinstance(meta.get('behaviorHints'), dict) else {}
+    for value in (meta.get('id'), meta.get('imdb_id'), meta.get('imdbId'), hints.get('defaultVideoId')):
+        if isinstance(value, str) and value.startswith('tt') and value[2:].split(':')[0].isdigit():
+            return value.split(':')[0]
+    return ''
+
+
+def stream_alias(sid, meta):
+    """The IMDb-keyed id to ask stream addons for in place of `sid`, or
+    ``''`` when `sid` is already IMDb-keyed or no IMDb id is known.
+    Kodi-free.
+
+    Most stream addons (Torrentio, AIOStreams' sources...) only take
+    ``tt`` ids. A title from a provider list (Netflix, Disney+, Hulu,
+    HBO...) can be keyed ``tmdb:...``: every such addon was filtered out
+    and the picker said "no streams", while the same title from a search
+    (a Cinemeta ``tt`` id) played. A movie maps to the IMDb id; an
+    episode to ``tt...:season:episode``, from its entry in the series'
+    videos or the id's own trailing numbers.
+    """
+    sid = str(sid or '')
+    if not sid or sid.startswith('tt') or sid.startswith(_NATIVE_PREFIXES):
+        return ''
+    imdb = imdb_id_for(meta)
+    if not imdb:
+        return ''
+    show_id = str(meta.get('id') or '')
+    if sid == show_id:
+        return imdb
+    if show_id.startswith('tt'):
+        # An IMDb-keyed series names its own episodes; ask for them as
+        # they are.
+        return ''
+    for video in (meta.get('videos') or []):
+        if not isinstance(video, dict) or video.get('id') != sid:
+            continue
+        season, episode = video.get('season'), video.get('episode')
+        if isinstance(season, int) and isinstance(episode, int):
+            return '%s:%d:%d' % (imdb, season, episode)
+        return ''
+    if meta.get('videos'):
+        # An episode id the list does not hold: only its own trailing
+        # numbers can say which episode it is.
+        _head, season, episode = (sid.rsplit(':', 2) + ['', ''])[:3]
+        if sid.count(':') >= 2 and season.isdigit() and episode.isdigit():
+            return '%s:%d:%d' % (imdb, int(season), int(episode))
+        return ''
+    # A movie (no episode list).
+    return imdb if sid.count(':') < 2 else ''
+
+
+def _stream_targets(stype, sid, meta=None):
+    """`(descriptor, manifest, request_id)` for every addon that serves
+    streams for this title.
+
+    `request_id` is the IMDb alias (`stream_alias`) for an addon that
+    takes it, else `sid` for an addon that takes that. The alias wins,
+    as Stremio's `defaultVideoId` does: an addon declaring both prefixes
+    answers the IMDb id with the sources it actually has. Progress,
+    watched state and the library still use `sid`; only the stream
+    request changes.
+    """
+    from lib.stremio.addons import addon_supports
+
+    alias = stream_alias(sid, meta)
+    targets = []
+    for descriptor in get_store().get_enabled_addons():
+        manifest = descriptor.get('manifest') or {}
+        if alias and addon_supports(manifest, 'stream', stype, alias):
+            targets.append((descriptor, manifest, alias))
+        elif addon_supports(manifest, 'stream', stype, sid):
+            targets.append((descriptor, manifest, sid))
+    if alias:
+        import xbmc
+
+        from lib.ui.compat import log
+
+        log('streamswindow: asking for %s streams as %s' % (sid, alias), xbmc.LOGINFO)
+    return targets
+
+
+def _meta_with_imdb(stype, sid, meta):
+    """`meta`, or the full meta when `sid` is not IMDb-keyed and `meta`
+    (a catalog preview) names no IMDb id. Back on the spinner keeps
+    `meta`."""
+    if str(sid or '').startswith('tt') or imdb_id_for(meta):
+        return meta
+    if isinstance(meta, dict) and meta.get('videos'):
+        # A full series meta already: asking again gives the same answer.
+        return meta
+    from lib.ui.compat import L
+    from lib.ui.uicommon import CANCELLED, run_cancellable
+    from lib.ui.views import _fetch_meta
+
+    try:
+        full = run_cancellable(lambda: _fetch_meta(stype, sid), L(30033))
+    except Exception as exc:  # noqa: BLE001 - the lookup is a fallback and must not break the picker
+        import xbmc
+
+        from lib.ui.compat import log
+
+        log('streamswindow: IMDb meta lookup for %s/%s failed: %s' % (stype, sid, type(exc).__name__),
+            xbmc.LOGWARNING)
+        return meta
+    if full is CANCELLED or not isinstance(full, dict):
+        return meta
+    # Only the ids are taken: the caller's meta (its art, its episode
+    # list) stays what the screens built.
+    merged = dict(meta or {})
+    for key in ('imdb_id', 'imdbId', 'behaviorHints'):
+        if full.get(key) and key not in merged:
+            merged[key] = full[key]
+    if not imdb_id_for(merged) and str(full.get('id') or '').startswith('tt'):
+        merged['imdb_id'] = full['id']
+    return merged
+
+
 #: How long each fan-out consumer's `Queue.get()` blocks before giving up
 #: and retrying - short enough that `dialog.iscanceled()` keeps getting
 #: rechecked while addons are still mid-flight, long enough not to spin
@@ -1146,18 +1278,21 @@ def _start_stream_fetch_workers(stype, sid, addons):
     addon has answered (`open_streams()`) needs."""
     client = get_client()
     work = queue.Queue()
-    for descriptor, manifest in addons:
-        work.put((descriptor.get('transportUrl'), manifest.get('name', '?')))
+    for entry in addons:
+        descriptor, manifest = entry[0], entry[1]
+        # `_stream_targets()` adds the id to ask each addon for.
+        request_id = entry[2] if len(entry) > 2 else sid
+        work.put((descriptor.get('transportUrl'), manifest.get('name', '?'), request_id))
     results = queue.Queue()
 
     def _worker():
         while True:
             try:
-                transport_url, addon_name = work.get_nowait()
+                transport_url, addon_name, request_id = work.get_nowait()
             except queue.Empty:
                 return
             addon_pairs, failed, reason = _query_addon_streams(
-                client, transport_url, addon_name, stype, sid)
+                client, transport_url, addon_name, stype, request_id)
             results.put((addon_name, addon_pairs, failed, reason))
 
     for _ in range(min(len(addons), _MAX_STREAM_ADDON_WORKERS)):
@@ -1240,7 +1375,7 @@ class _StreamAnswerConsumer:
         return addon_name, addon_pairs
 
 
-def _fetch_stream_pairs(stype, sid):
+def _fetch_stream_pairs(stype, sid, meta=None):
     """Fetch+parse (not sort) every installed addon's streams for
     (stype, sid) - the exact aggregate pipeline `open_streams()` has
     always run for its own initial fetch, factored out so
@@ -1263,7 +1398,7 @@ def _fetch_stream_pairs(stype, sid):
 
     from lib.ui.compat import L, log
 
-    addons = _supported_stream_addons(stype, sid)
+    addons = _stream_targets(stype, sid, meta)
     pairs = []
     failures = []
     if not addons:
@@ -1405,7 +1540,7 @@ def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
             if candidate is None:
                 return None
 
-            next_pairs = _fetch_stream_pairs(stype, candidate.get('id'))
+            next_pairs = _fetch_stream_pairs(stype, candidate.get('id'), meta)
             if not next_pairs:
                 return None
             sort_key = ADDON.getSetting('stream_sort') or 'quality'
@@ -1540,7 +1675,12 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
 
     from lib.ui.compat import ADDON, L, log, notify
 
-    addons = _supported_stream_addons(stype, sid)
+    addons = _stream_targets(stype, sid, meta)
+    if not addons and not str(sid or '').startswith('tt'):
+        # No addon takes this id as it is: learn the IMDb id, if the
+        # meta did not carry one, and ask by that.
+        meta = _meta_with_imdb(stype, (meta or {}).get('id') or sid, meta)
+        addons = _stream_targets(stype, sid, meta)
     if not addons:
         notify(L(30030))
         return False

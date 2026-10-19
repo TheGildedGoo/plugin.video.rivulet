@@ -557,7 +557,8 @@ def test_addon_client_catalog_unwraps_metas():
         responses=[_json_response({"metas": [{"id": "tt1", "name": "Movie 1"}]})]
     )
     metas = client.catalog("https://addon.example", "movie", "top")
-    assert metas == [{"id": "tt1", "name": "Movie 1"}]
+    # A preview without a type takes the catalog's.
+    assert metas == [{"id": "tt1", "name": "Movie 1", "type": "movie"}]
 
 
 def test_addon_client_catalog_tolerates_missing_metas_key():
@@ -1080,7 +1081,11 @@ def test_catalog_drops_placeholders_appended_after_real_entries():
     client = AddonClient()
     client.session = FakeSession(responses=[_json_response({'metas': real + [_error_placeholder('Request timed out')]})])
 
-    assert client.catalog('https://addon.example/manifest.json', 'movie', 'top') == real
+    assert client.catalog('https://addon.example/manifest.json', 'movie', 'top') == _typed(real)
+
+
+def _typed(metas, ctype='movie'):
+    return [dict(meta, type=meta.get('type') or ctype) if isinstance(meta, dict) else meta for meta in metas]
 
 
 def test_catalog_without_placeholders_is_returned_untouched():
@@ -1088,7 +1093,15 @@ def test_catalog_without_placeholders_is_returned_untouched():
     client = AddonClient()
     client.session = FakeSession(responses=[_json_response({'metas': real})])
 
-    assert client.catalog('https://addon.example/manifest.json', 'movie', 'top') == real
+    assert client.catalog('https://addon.example/manifest.json', 'movie', 'top') == _typed(real)
+
+
+def test_a_preview_keeps_its_own_type():
+    real = [{'id': 'tt1', 'name': 'One', 'type': 'series'}, {'id': 'tt2', 'name': 'Two'}]
+    client = AddonClient()
+    client.session = FakeSession(responses=[_json_response({'metas': real})])
+
+    assert [m['type'] for m in client.catalog('https://addon.example/manifest.json', 'movie', 'top')] == ['series', 'movie']
 
 
 def test_empty_catalog_is_still_an_empty_list_not_an_error():

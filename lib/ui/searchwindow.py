@@ -330,6 +330,16 @@ _MAX_SEARCH_WORKERS = 8
 #: not seen for up to 15s), long enough not to spin the CPU.
 _SEARCH_POLL_SECONDS = 0.2
 
+#: Once a catalog has answered WITH titles, how long `run_query()` still
+#: waits for the rest. One search catalog that answers slowly (or retries
+#: three 15s timeouts) held every result that had already landed: the
+#: spinner stayed up until Back, and Back showed the results. The
+#: stragglers are left out of this search, as Back leaves them out.
+_SEARCH_GRACE_SECONDS = 8.0
+
+#: The most `run_query()` waits for the catalogs at all, results or not.
+_SEARCH_DEADLINE_SECONDS = 25.0
+
 #: How long, once every catalog has answered, `run_query()` still waits
 #: for the ranking feed (`lib.ui.searchfeed`, ~3.7MB, refreshed daily)
 #: it started loading before the fan-out. The feed only reorders ties
@@ -370,7 +380,9 @@ class SearchReport:
     - `failures`: `[(addon_name, reason), ...]` in catalog order, one per
       catalog that failed. `reason` is safe to log (an `AddonError`'s
       `category`, or a bare exception type name) - never `str(exc)`.
-    - `unanswered`: addon names still in flight when the user backed out.
+    - `unanswered`: addon names still in flight when the user backed out,
+      or when the wait ended (`_SEARCH_GRACE_SECONDS` after the first
+      titles, or `_SEARCH_DEADLINE_SECONDS`); one entry per catalog.
     - `canceled`: the user backed out of the busy dialog before every
       catalog answered. What had arrived by then is still returned.
     """
@@ -418,7 +430,8 @@ def _search_notice(report):
     the stock search addon - the one a user is most likely to have
     switched off in the addon manager, which leaves a Cinemeta-less
     install searching through whatever single third-party aggregator
-    remains."""
+    remains. Last, with nothing failed, catalogs that never answered in
+    time (a slow but good catalog would otherwise be silently missing)."""
     from lib.ui.compat import L
 
     if report.canceled:
@@ -429,6 +442,10 @@ def _search_notice(report):
         return L(30382)
     names = report.failed_addon_names()
     if not names:
+        if report.unanswered:
+            # Catalogs too slow for the grace period or the deadline:
+            # their titles are missing, so say how many were left out.
+            return L(30416) % len(report.unanswered)
         return None
     shown = names[:_MAX_NAMED_FAILURES]
     label = ', '.join(escape_label(name) for name in shown)
@@ -509,7 +526,10 @@ def _collect_answers(dialog, results, jobs, report):
     user cancels, returning `{index: (metas, failure)}` for what arrived.
 
     Polls in `_SEARCH_POLL_SECONDS` slices so `dialog.iscanceled()` is
-    honoured while requests are still in flight. The busy dialog names
+    honoured while requests are still in flight. It also stops waiting
+    `_SEARCH_GRACE_SECONDS` after the first catalog that answered with
+    titles, and after `_SEARCH_DEADLINE_SECONDS` in any case: one slow
+    catalog no longer holds results that are already in. The busy dialog names
     the first catalog still outstanding and shows how many have answered;
     a cancel sets `report.canceled` and leaves the stragglers out - the
     caller still gets whatever had landed, the same "stop waiting" meaning
@@ -520,9 +540,17 @@ def _collect_answers(dialog, results, jobs, report):
     answered = {}
     dialog.update(0, L(30186) % (jobs[0][1].get('name') or '?'))
     monitor = xbmc.Monitor()
+    started = time.monotonic()
+    first_hit = None
     while len(answered) < total:
         if dialog.iscanceled():
             report.canceled = True
+            break
+        now = time.monotonic()
+        if (first_hit is not None and now - first_hit >= _SEARCH_GRACE_SECONDS) or \
+                now - started >= _SEARCH_DEADLINE_SECONDS:
+            # Titles are in hand (or the wait is over): show them. The
+            # catalogs still out are reported as unanswered.
             break
         try:
             index, answer = results.get(timeout=_SEARCH_POLL_SECONDS)
@@ -537,6 +565,8 @@ def _collect_answers(dialog, results, jobs, report):
                 break
             continue
         answered[index] = answer
+        if first_hit is None and answer and answer[0]:
+            first_hit = time.monotonic()
         outstanding = next((i for i in range(total) if i not in answered), None)
         if outstanding is not None:
             dialog.update(
@@ -545,6 +575,14 @@ def _collect_answers(dialog, results, jobs, report):
             )
     return answered
 
+
+def _feed_wait_budget(started):
+    """How long `run_query()` may still wait for the ranking feed: at most
+    `_FEED_WAIT_SECONDS`, and never past `_SEARCH_DEADLINE_SECONDS` counted
+    from `started` (the fan-out's start), so a search that already ran into
+    the deadline does not keep the spinner up for the feed on top of it."""
+    remaining = started + _SEARCH_DEADLINE_SECONDS - time.monotonic()
+    return max(0.0, min(_FEED_WAIT_SECONDS, remaining))
 
 class _FeedIndexLoader:
     """`_feed_index()` computed on a daemon thread that `run_query()`
@@ -673,11 +711,12 @@ def run_query(store, client, query, report=None):
     answered = {}
     if jobs:
         with busy_dialog(L(30033), query) as dialog:
+            started = time.monotonic()
             loader = _FeedIndexLoader(store, client)
             results = _start_search_workers(client, query, jobs)
             answered = _collect_answers(dialog, results, jobs, report)
             if not report.canceled:
-                feed_index = loader.wait(dialog)
+                feed_index = loader.wait(dialog, timeout=_feed_wait_budget(started))
         for index, (_transport_url, manifest, _cat) in enumerate(jobs):
             name = manifest.get('name') or '?'
             answer = answered.get(index)

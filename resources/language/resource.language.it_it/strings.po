@@ -1002,6 +1002,10 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Il catalogo mostra solo le prime %d pagine; altri elementi non vengono caricati"
 
+msgctxt "#30412"
+msgid "Dark dialogs"
+msgstr "Finestre di dialogo scure"
+
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "Mantieni i torrent dopo la riproduzione (seed)"
@@ -1013,3 +1017,7 @@ msgstr "Lascia il torrent sul server di streaming al termine della riproduzione 
 msgctxt "#30415"
 msgid "Remove from Continue watching?"
 msgstr "Rimuovere da Continua a guardare?"
+
+msgctxt "#30416"
+msgid "Search incomplete, catalogs too slow to answer: %d"
+msgstr "Ricerca incompleta, cataloghi troppo lenti: %d"
