@@ -157,6 +157,18 @@ def test_a_clock_stuck_at_zero_is_a_stall(trailer):
     assert trailer.trailer._wait_rolling(player, _Monitor(), timeout=0.05, tick=0) == 'stalled'
 
 
+def test_the_start_wait_runs_on_the_monotonic_clock(trailer, monkeypatch):
+    """A wall clock that jumps back (NTP, a time zone change) must not
+    hold the wait open: the deadline is measured on time.monotonic()."""
+    import time
+
+    ticks = iter(range(100))
+    monkeypatch.setattr(time, 'monotonic', lambda: float(next(ticks)))
+    monkeypatch.setattr(time, 'time', lambda: 0.0)  # frozen wall clock
+    player = _Player([0.0])
+    assert trailer.trailer._wait_rolling(player, _Monitor(), timeout=5, tick=0) == 'stalled'
+
+
 def test_a_stalled_start_stops_the_player(trailer, monkeypatch):
     import xbmc
 

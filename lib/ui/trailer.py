@@ -210,9 +210,11 @@ def _wait_rolling(player, monitor, timeout=None, tick=0.25):
     `timeout` seconds without that, ``'abort'`` on Kodi shutdown."""
     import time
 
-    deadline = time.time() + (START_TIMEOUT_SECONDS if timeout is None else timeout)
+    # Monotonic: a wall-clock change (NTP, a time zone) must not end or
+    # stretch the wait.
+    deadline = time.monotonic() + (START_TIMEOUT_SECONDS if timeout is None else timeout)
     first = None
-    while time.time() < deadline:
+    while time.monotonic() < deadline:
         if monitor.waitForAbort(tick):
             return 'abort'
         try:
