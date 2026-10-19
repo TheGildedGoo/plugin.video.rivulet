@@ -445,7 +445,7 @@ def _search_notice(report):
         if report.unanswered:
             # Catalogs too slow for the grace period or the deadline:
             # their titles are missing, so say how many were left out.
-            return L(30415) % len(report.unanswered)
+            return L(30416) % len(report.unanswered)
         return None
     shown = names[:_MAX_NAMED_FAILURES]
     label = ', '.join(escape_label(name) for name in shown)
