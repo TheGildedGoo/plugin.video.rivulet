@@ -380,7 +380,9 @@ class SearchReport:
     - `failures`: `[(addon_name, reason), ...]` in catalog order, one per
       catalog that failed. `reason` is safe to log (an `AddonError`'s
       `category`, or a bare exception type name) - never `str(exc)`.
-    - `unanswered`: addon names still in flight when the user backed out.
+    - `unanswered`: addon names still in flight when the user backed out,
+      or when the wait ended (`_SEARCH_GRACE_SECONDS` after the first
+      titles, or `_SEARCH_DEADLINE_SECONDS`); one entry per catalog.
     - `canceled`: the user backed out of the busy dialog before every
       catalog answered. What had arrived by then is still returned.
     """
@@ -428,7 +430,8 @@ def _search_notice(report):
     the stock search addon - the one a user is most likely to have
     switched off in the addon manager, which leaves a Cinemeta-less
     install searching through whatever single third-party aggregator
-    remains."""
+    remains. Last, with nothing failed, catalogs that never answered in
+    time (a slow but good catalog would otherwise be silently missing)."""
     from lib.ui.compat import L
 
     if report.canceled:
@@ -439,6 +442,10 @@ def _search_notice(report):
         return L(30382)
     names = report.failed_addon_names()
     if not names:
+        if report.unanswered:
+            # Catalogs too slow for the grace period or the deadline:
+            # their titles are missing, so say how many were left out.
+            return L(30415) % len(report.unanswered)
         return None
     shown = names[:_MAX_NAMED_FAILURES]
     label = ', '.join(escape_label(name) for name in shown)

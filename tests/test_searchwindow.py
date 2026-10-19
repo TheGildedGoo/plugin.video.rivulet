@@ -1839,3 +1839,30 @@ def test_an_empty_answer_does_not_start_the_grace(load_searchwindow, monkeypatch
     jobs = [('https://a', {'name': 'A'}, {}), ('https://b', {'name': 'B'}, {})]
     answered = sw._collect_answers(_NeverCanceled(), results, jobs, sw.SearchReport())
     assert sorted(answered) == [0, 1]
+
+
+def test_catalogs_left_out_by_the_wait_are_counted_in_the_notice(load_searchwindow):
+    """M0Rf30 on #68: a slow but good catalog must not go silently missing."""
+    sw = load_searchwindow().searchwindow
+    report = sw.SearchReport()
+    report.total_catalogs = report.queried = 3
+    report.unanswered = ['Slow', 'Slower']
+    assert sw._search_notice(report) == 'Search incomplete, catalogs too slow to answer: 2'
+
+
+def test_a_failed_catalog_is_named_before_slow_ones_are_counted(load_searchwindow):
+    sw = load_searchwindow().searchwindow
+    report = sw.SearchReport()
+    report.total_catalogs = report.queried = 3
+    report.failures = [('A', 'timeout')]
+    report.unanswered = ['Slow']
+    assert sw._search_notice(report) == 'Search incomplete, no answer from: A'
+
+
+def test_a_cancelled_search_says_nothing_about_the_catalogs_still_out(load_searchwindow):
+    sw = load_searchwindow().searchwindow
+    report = sw.SearchReport()
+    report.total_catalogs = report.queried = 2
+    report.unanswered = ['Slow']
+    report.canceled = True
+    assert sw._search_notice(report) is None
