@@ -79,8 +79,9 @@ def test_skin_file_discovery_finds_every_window():
     """Guards every other test in this file: a glob that silently matches
     nothing would make every rule below pass by scanning zero files."""
     paths = _skin_files()
-    # 14 windows, plus the 5 dark dialog variants (tools/build_dark_dialogs.py).
-    assert len(paths) == 19, 'expected 19 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
+    # 14 windows, the 5 dark dialog variants (tools/build_dark_dialogs.py)
+    # and the new-look Home (NewHomeWindow.xml).
+    assert len(paths) == 20, 'expected 20 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
 
 
 @pytest.mark.parametrize('path', _skin_files(), ids=lambda p: os.path.basename(p))
@@ -244,18 +245,18 @@ def test_missing_texture_file_is_rejected_regression(tmp_path):
 _HEX8_RE = re.compile(r'^[0-9A-Fa-f]{8}$')
 
 
-def _colordiffuse_refs(path):
+def _colordifnewlook_refs(path):
     """`(tag, value)` for every `colordiffuse` attribute in one file."""
     return [(el.tag, el.get('colordiffuse')) for el in ET.parse(path).iter() if el.get('colordiffuse') is not None]
 
 
-def test_skin_colordiffuse_is_eight_hex_digits():
+def test_skin_colordifnewlook_is_eight_hex_digits():
     """The `FF3A3A3A`-for-`#0A0C0E` bug: a `colordiffuse` value with the
     wrong digit count is silently misread rather than rejected."""
     offenders = []
     total = 0
     for path in _skin_files():
-        for tag, value in _colordiffuse_refs(path):
+        for tag, value in _colordifnewlook_refs(path):
             if value.startswith('$'):
                 continue  # $INFO[...] binding, resolved at runtime
             total += 1
@@ -266,12 +267,12 @@ def test_skin_colordiffuse_is_eight_hex_digits():
     assert not offenders, 'malformed skin colordiffuse values:\n  ' + '\n  '.join(offenders)
 
 
-def test_six_hex_colordiffuse_is_rejected_regression(tmp_path):
+def test_six_hex_colordifnewlook_is_rejected_regression(tmp_path):
     """Regression: a 6-digit value (the alpha channel dropped) must be
     flagged - this is exactly how FF3A3A3A-for-#0A0C0E shipped."""
     bad = tmp_path / 'Bad.xml'
     bad.write_text('<window><controls><control type="image"><texture colordiffuse="3A3A3A">white.png</texture></control></controls></window>', encoding='utf-8')
-    ((_tag, value),) = _colordiffuse_refs(str(bad))
+    ((_tag, value),) = _colordifnewlook_refs(str(bad))
     assert value == '3A3A3A'
     assert not _HEX8_RE.match(value)
 

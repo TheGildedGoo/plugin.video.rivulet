@@ -86,13 +86,36 @@ def _list_rows(text):
 
 
 def _dots(text):
-    """The spinner's squares become dots."""
+    """The spinner's squares become dots (the round pill plate)."""
     return re.sub(r'(<width>16</width><height>16</height>\s*<texture colordiffuse="[0-9A-F]{8}">)white.png',
-                  r'\1dlg_row.png', text)
+                  r'\1pill_fill.png', text)
+
+
+def _readable_text(text):
+    """Secondary text one step brighter on the black plates: 40-60% white
+    reads as grey mush there. A focused menu row's second line goes
+    further, to match its bright first line."""
+    def focused(match):
+        return match.group(0).replace('<textcolor>99FFFFFF</textcolor>', '<textcolor>D9FFFFFF</textcolor>')
+    text = re.sub(r'<focusedlayout\b.*?</focusedlayout>', focused, text, flags=re.S)
+    return re.sub(r'<textcolor>(?:66|80|99)FFFFFF</textcolor>', '<textcolor>B3FFFFFF</textcolor>', text)
+
+
+#: The spinner fades in after this long, so a load that finishes sooner
+#: (a cache hit) never flashes the dim plate. The dialog is up from the
+#: first frame, so Back still reaches it: only a closing animation drops
+#: input.
+BUSY_FADE_DELAY = '350'
+
+
+def _busy_fade(text):
+    return text.replace('<effect type="fade" delay="0" end="100" time="200" />',
+                        '<effect type="fade" delay="%s" end="100" time="200" />' % BUSY_FADE_DELAY, 1)
 
 
 COLORS = (
     ('C707090B', 'A6000000'),   # the dim behind a dialog: black, lighter
+    ('C70A0C0E', 'A6000000'),   # (the same dim, as the stock dialogs write it)
     ('FF1B2126', 'FF2E2E2E'),   # focus plate: dark grey
     ('38BDF8', 'D6D6D6'),       # the accent: light grey (alpha kept)
     ('FF04222E', 'FF0B0B0B'),   # text on the accent
@@ -125,7 +148,7 @@ def restyle(text):
     text = _dots(text)
     for old, new in COLORS:
         text = text.replace(old, new)
-    return text
+    return _readable_text(text)
 
 
 def _option_list_ids(text):
@@ -152,6 +175,8 @@ def main(paths=None):
             text = restyle(handle.read())
         if name == 'OptionListDialog.xml':
             text = _option_list_ids(text)
+        if name == 'BusyDialog.xml':
+            text = _busy_fade(text)
         out = SKIN + 'Dark' + name
         with open(out, 'w', encoding='utf-8') as handle:
             handle.write(text)
