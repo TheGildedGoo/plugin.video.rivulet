@@ -185,6 +185,86 @@ def _action_item(label, url, icon=None):
     return (url, li, False)
 
 
+def _usable_meta(meta):
+    """A meta the detail screen can open: a dict with a non-empty string id.
+
+    `None`, `{}`, and a dict that has no id used to count as a hit -
+    `_fetch_meta` returned on the first non-None, and anything truthy was
+    cached for `metacache.TTL_SECONDS`. An addon that answered HTTP 200
+    with an empty object then beat a slower addon that had the title, or
+    poisoned the cache for half an hour. An id is what every later screen
+    keys off; without one there is nothing to open.
+    """
+    if not isinstance(meta, dict):
+        return False
+    meta_id = meta.get('id')
+    return isinstance(meta_id, str) and bool(meta_id.strip())
+
+
+#: First try plus two silent retries of a retryable `AddonError`
+#: (`_meta_error_is_retryable()`). A usable meta
+#: returns immediately; a successful body with no id is not retried
+#: (the addon answered, it just had nothing we can open).
+_META_ATTEMPTS = 3
+_META_RETRY_BACKOFF_SECONDS = (0.4, 0.8)
+
+#: A retry only follows a failure that came back within this many
+#: seconds of the addon's first request. A slow failure (a connection
+#: dropped after a long wait) is not asked again, so one addon costs at
+#: most about this budget, one backoff and one `AddonClient` timeout.
+_META_RETRY_WITHIN_SECONDS = 2.0
+
+
+def _meta_error_is_retryable(exc):
+    """Whether a failed meta request is worth asking again: a dropped
+    connection, HTTP 408/429/5xx, or an addon's own error placeholder (a
+    throttled aggregator). A timeout is not: the addon already had the
+    whole `AddonClient` timeout (15 s), and two more would keep the user
+    and a fan-out slot waiting about 46 s. A definite answer (any other
+    HTTP 4xx, invalid JSON, a response too large) would only fail the
+    same way, and each retry delays the type and IMDb fallbacks."""
+    category = str(getattr(exc, 'category', '') or '')
+    if category in ('invalid JSON', 'response too large'):
+        return False
+    if 'timeout' in category.lower():
+        # ReadTimeout, ConnectTimeout, Timeout, TimeoutError, socket's
+        # `timeout`: the category is the exception's type name.
+        return False
+    if category.startswith('HTTP '):
+        status = category[5:]
+        if not status.isdigit():
+            return True
+        code = int(status)
+        return code in (408, 429) or code >= 500
+    return True
+
+
+def _pause_before_meta_retry(seconds):
+    """Wait `seconds` before retrying a failed meta request. Returns True
+    when Kodi is aborting and the worker should stop."""
+    if seconds <= 0:
+        return False
+    return xbmc.Monitor().waitForAbort(seconds)
+
+
+def _addon_name(descriptor):
+    """An addon's manifest name for the log (never its transport URL,
+    which can carry a user's token)."""
+    manifest = descriptor.get('manifest') if isinstance(descriptor, dict) else None
+    return str((manifest or {}).get('name') or (manifest or {}).get('id') or '?')
+
+
+def _meta_summary(meta):
+    """``id=..., videos=N`` for the log, or why `meta` is not usable."""
+    if meta is None:
+        return 'no meta'
+    if not _usable_meta(meta):
+        return 'a meta without an id'
+    videos = meta.get('videos')
+    return 'id=%s, type=%s, videos=%d' % (
+        meta.get('id'), meta.get('type'), len(videos) if isinstance(videos, list) else 0)
+
+
 def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; ratchet
     """Aggregate meta across every installed addon supporting it for
     (stype, sid); Stremio addons commonly disagree on coverage, so the
@@ -258,7 +338,9 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
     if cache_dir is not None:
         from lib.ui.metacache import load_cached_meta
         cached = load_cached_meta(cache_dir, stype, sid)
-        if cached is not None:
+        if _usable_meta(cached):
+            log('views._fetch_meta: %s/%s from the meta cache (%s)' % (stype, sid, _meta_summary(cached)),
+                xbmc.LOGINFO)
             return cached
 
     if on_miss is not None:
@@ -268,16 +350,33 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
         descriptor for descriptor in data_store.get_enabled_addons()
         if addons_lib.addon_supports(descriptor.get('manifest') or {}, 'meta', stype, sid)
     ]
+    log('views._fetch_meta: asking %d addon(s) for %s/%s: %s' % (
+        len(targets), stype, sid, ', '.join(_addon_name(d) for d in targets) or '-'), xbmc.LOGINFO)
     if not targets:
         return None
 
     def _fetch_one(descriptor):
         transport_url = descriptor.get('transportUrl')
-        try:
-            return client.meta(transport_url, stype, sid)
-        except AddonError as exc:
-            log('views._fetch_meta: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGWARNING)
-            return None
+        started = time.monotonic()
+        for attempt in range(_META_ATTEMPTS):
+            try:
+                meta = client.meta(transport_url, stype, sid)
+            except AddonError as exc:
+                log('views._fetch_meta: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGWARNING)
+                if (
+                    not _meta_error_is_retryable(exc)
+                    or attempt + 1 >= _META_ATTEMPTS
+                    or time.monotonic() - started > _META_RETRY_WITHIN_SECONDS
+                    or _pause_before_meta_retry(_META_RETRY_BACKOFF_SECONDS[attempt])
+                ):
+                    return None
+                continue
+            log('views._fetch_meta: %s answered %s/%s with %s' % (
+                _addon_name(descriptor), stype, sid, _meta_summary(meta)), xbmc.LOGINFO)
+            # A body that arrived is the addon's answer. Retrying `{}`
+            # would only delay the next addon, and it must not win.
+            return meta if _usable_meta(meta) else None
+        return None
 
     if len(targets) == 1:
         result = _fetch_one(targets[0])
@@ -303,16 +402,19 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
         while len(finished) < len(targets):
             index, one = results.get()
             finished[index] = one
-            if one is not None:
+            if _usable_meta(one):
                 # Only consults results already in hand - never blocks on a
                 # still-running addon - then picks the earliest-index winner
                 # among those, preserving list-order preference whenever the
-                # preferred addon is at least as fast as the others.
-                winning_index = min(i for i, r in finished.items() if r is not None)
+                # preferred addon is at least as fast as the others. An
+                # id-less body is not a winner: the loop keeps waiting for
+                # an addon that actually has this title.
+                winning_index = min(i for i, r in finished.items() if _usable_meta(r))
                 result = finished[winning_index]
                 break
 
-    if store and cache_dir is not None and result:
+    log('views._fetch_meta: %s/%s resolved to %s' % (stype, sid, _meta_summary(result)), xbmc.LOGINFO)
+    if store and cache_dir is not None and _usable_meta(result):
         from lib.ui.metacache import store_cached_meta
         store_cached_meta(cache_dir, stype, sid, result)
     return result

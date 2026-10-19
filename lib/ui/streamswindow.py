@@ -1200,12 +1200,16 @@ def _stream_targets(stype, sid, meta=None):
             targets.append((descriptor, manifest, alias))
         elif addon_supports(manifest, 'stream', stype, sid):
             targets.append((descriptor, manifest, sid))
+    import xbmc
+
+    from lib.ui.compat import log
+
     if alias:
-        import xbmc
-
-        from lib.ui.compat import log
-
         log('streamswindow: asking for %s streams as %s' % (sid, alias), xbmc.LOGINFO)
+    log('streamswindow: asking for %s/%s streams from %d addon(s): %s' % (
+        stype, sid, len(targets), ', '.join(
+            '%s (%s)' % (manifest.get('name') or manifest.get('id') or '?', request_id)
+            for _descriptor, manifest, request_id in targets) or '-'), xbmc.LOGINFO)
     return targets
 
 
@@ -1237,9 +1241,18 @@ def _meta_with_imdb(stype, sid, meta):
     # Only the ids are taken: the caller's meta (its art, its episode
     # list) stays what the screens built.
     merged = dict(meta or {})
-    for key in ('imdb_id', 'imdbId', 'behaviorHints'):
-        if full.get(key) and key not in merged:
+    # A preview can carry the keys with nothing in them (``imdb_id: null``,
+    # ``behaviorHints: {}``): those must not hide the full meta's values.
+    for key in ('imdb_id', 'imdbId'):
+        if full.get(key) and not merged.get(key):
             merged[key] = full[key]
+    full_hints = full.get('behaviorHints') if isinstance(full.get('behaviorHints'), dict) else {}
+    own_hints = merged.get('behaviorHints') if isinstance(merged.get('behaviorHints'), dict) else {}
+    if full_hints and not own_hints:
+        merged['behaviorHints'] = dict(full_hints)
+    elif full_hints.get('defaultVideoId') and not own_hints.get('defaultVideoId'):
+        # Only the id is added; the preview's other hints stay its own.
+        merged['behaviorHints'] = dict(own_hints, defaultVideoId=full_hints['defaultVideoId'])
     if not imdb_id_for(merged) and str(full.get('id') or '').startswith('tt'):
         merged['imdb_id'] = full['id']
     return merged
@@ -1675,13 +1688,14 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
 
     from lib.ui.compat import ADDON, L, log, notify
 
-    addons = _stream_targets(stype, sid, meta)
-    if not addons and not str(sid or '').startswith('tt'):
-        # No addon takes this id as it is: learn the IMDb id, if the
-        # meta did not carry one, and ask by that.
+    if not str(sid or '').startswith('tt'):
+        # Learn the IMDb id, if the meta does not carry one, before
+        # choosing addons: an addon that also takes this id as it is
+        # must not keep the IMDb-only ones (most stream addons) out.
         meta = _meta_with_imdb(stype, (meta or {}).get('id') or sid, meta)
-        addons = _stream_targets(stype, sid, meta)
+    addons = _stream_targets(stype, sid, meta)
     if not addons:
+        log('streamswindow: no enabled addon serves %s/%s streams' % (stype, sid), xbmc.LOGINFO)
         notify(L(30030))
         return False
 
@@ -1724,6 +1738,8 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
             # screen they came from.
             log('streamswindow: stream lookup cancelled by the user', xbmc.LOGINFO)
             return False
+        log('streamswindow: no streams for %s/%s from %d addon(s), %d failed' % (stype, sid, total, len(failures)),
+            xbmc.LOGINFO)
         notify(L(30030))
         return False
 
