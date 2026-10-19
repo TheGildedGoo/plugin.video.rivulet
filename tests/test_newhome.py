@@ -1058,14 +1058,14 @@ def test_a_ratings_miss_keeps_the_catalog_line_and_schedules(load_homewindow, mo
     scheduled = []
     monkeypatch.setattr(ratingsched, '_keys', lambda: ('secret-omdb', ''))
     monkeypatch.setattr(ratingsched, '_get_cache', lambda: cache)
-    monkeypatch.setattr(ratingsched, '_schedule', lambda *args: scheduled.append(args[0]))
-    win = _hero_with_facts(ctx, {'id': 'tt0111161', 'year': 2021})
+    monkeypatch.setattr(ratingsched, '_schedule', lambda *args, **kwargs: scheduled.append((args[0], kwargs.get('stype'))))
+    win = _hero_with_facts(ctx, {'id': 'tt0111161', 'type': 'series', 'year': 2021})
 
     import xbmcgui
     win.onAction(xbmcgui.Action(1))
 
     assert win.getControl(ctx.homewindow.HERO_META).text == '2021'
-    assert scheduled == ['tt0111161']
+    assert scheduled == [('tt0111161', 'series')]
     logged = ' '.join(msg for msg, _level in ctx.env.log_calls)
     assert 'secret-omdb' not in logged
 

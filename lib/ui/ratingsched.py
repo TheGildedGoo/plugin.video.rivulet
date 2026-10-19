@@ -81,16 +81,26 @@ def _get_cache():
     return _cache
 
 
+def _type_of(meta):
+    """The Stremio type a meta (or its panel facts) carries, or ''."""
+    if not isinstance(meta, dict):
+        return ''
+    value = meta.get('type')
+    return value.strip() if isinstance(value, str) else ''
+
+
 def _misses(cache, metas):
-    """IMDb ids from `metas` the cache does not hold, in order."""
+    """`(imdb_id, type)` for the `metas` the cache does not hold, in order."""
     found = []
+    seen = set()
     for meta in metas or ():
         try:
             imdb_id = imdb_id_of(meta)
         except Exception:
             imdb_id = None
-        if imdb_id and imdb_id not in found and cache.lookup(imdb_id) is None:
-            found.append(imdb_id)
+        if imdb_id and imdb_id not in seen and cache.lookup(imdb_id) is None:
+            seen.add(imdb_id)
+            found.append((imdb_id, _type_of(meta)))
     return found
 
 
@@ -109,14 +119,15 @@ def overlay_text(meta, fallback, upcoming=None):
         omdb_key, mdblist_key = _keys()
         if not omdb_key and not mdblist_key:
             return fallback
+        stype = _type_of(meta)
         cache = _get_cache()
         scores = cache.lookup(imdb_id)
-        later = [other for other in _misses(cache, upcoming) if other != imdb_id]
+        later = [other for other in _misses(cache, upcoming) if other[0] != imdb_id]
         if scores is None:
-            _schedule(imdb_id, omdb_key, mdblist_key, cache, later[:PREFETCH])
+            _schedule(imdb_id, omdb_key, mdblist_key, cache, later[:PREFETCH], stype=stype)
             return fallback
         if later:
-            _schedule(later[0], omdb_key, mdblist_key, cache, later[1:PREFETCH])
+            _schedule(later[0][0], omdb_key, mdblist_key, cache, later[1:PREFETCH], stype=later[0][1])
         if not scores:
             return fallback
         from lib.ui.newhome import _hero_meta_text
@@ -137,17 +148,21 @@ def apply_to_property(listitem, meta, prop):
         listitem.setProperty(prop, text)
 
 
-def _schedule(imdb_id, omdb_key, mdblist_key, cache, prefetch=()):
+def _schedule(imdb_id, omdb_key, mdblist_key, cache, prefetch=(), stype=''):
     """Replace the plan with `imdb_id` then `prefetch`. Latest wins.
 
-    Nothing is fetched until the focus has rested `_DWELL_SECONDS` on
-    this plan. One worker serves every window; it is started here when
-    it is not already running.
+    `stype` is `imdb_id`'s Stremio type, and each `prefetch` entry is an
+    `(imdb_id, type)` pair (a bare id is taken as type unknown): MDBList
+    looks movies and shows up on different paths. Nothing is fetched
+    until the focus has rested `_DWELL_SECONDS` on this plan. One worker
+    serves every window; it is started here when it is not already
+    running.
     """
     items = []
-    for wanted in [imdb_id] + list(prefetch or ()):
+    for entry in [(imdb_id, stype)] + list(prefetch or ()):
+        wanted, wanted_type = entry if isinstance(entry, tuple) else (entry, '')
         if wanted and wanted not in [item[0] for item in items]:
-            items.append((wanted, omdb_key, mdblist_key, cache))
+            items.append((wanted, omdb_key, mdblist_key, cache, wanted_type or ''))
     if not items:
         return
     with _lock:
@@ -173,7 +188,7 @@ def _next_due():
         if left > 0:
             return None, left
         item = _plan['items'].pop(0)
-        imdb_id, omdb_key, mdblist_key, _cache_obj = item
+        imdb_id, omdb_key, mdblist_key, _cache_obj, _stype = item
         fail_id = _fail_id(imdb_id, omdb_key, mdblist_key)
         if imdb_id in _inflight or _failed_until.get(fail_id, 0) > time.time():
             return (), None
@@ -193,7 +208,7 @@ def _loop():
             continue
         if not item:
             continue
-        imdb_id, omdb_key, mdblist_key, cache, fail_id = item
+        imdb_id, omdb_key, mdblist_key, cache, stype, fail_id = item
         try:
             cached = cache.lookup(imdb_id) is not None
         except Exception:
@@ -202,15 +217,15 @@ def _loop():
             with _lock:
                 _inflight.discard(imdb_id)
             continue
-        _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id)
+        _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id, stype)
 
 
-def _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id):
+def _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id, stype=''):
     from lib.stremio.ratings import fetch_scores
 
     failed = False
     try:
-        scores = fetch_scores(imdb_id, omdb_key, mdblist_key)
+        scores = fetch_scores(imdb_id, omdb_key, mdblist_key, stype=stype)
         cache.store(imdb_id, scores)
     except RatingsError as exc:
         failed = not exc.empty

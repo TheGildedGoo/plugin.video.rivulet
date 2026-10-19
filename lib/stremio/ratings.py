@@ -48,7 +48,7 @@ _MDB_IMDB = frozenset(('imdb', 'internet movie database'))
 _SCORE_KEYS = ('rottenTomatoes', 'metascore', 'imdbRating')
 
 _FACT_KEYS = (
-    'id', 'imdb_id', 'imdbId', 'imdbID',
+    'id', 'type', 'imdb_id', 'imdbId', 'imdbID',
     'imdbRating', 'year', 'releaseInfo', 'released', 'runtime',
     'rottenTomatoes', 'rtRating', 'tomatoMeter', 'tomatoes',
     'metascore', 'metacritic', 'metaScore',
@@ -270,8 +270,40 @@ def _ask(get, url, params, timeout, parse):
     return {}, True, False
 
 
-def fetch_scores(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=_TIMEOUT):
+#: MDBList looks a title up under its media type: ``imdb/movie/<id>`` or
+#: ``imdb/show/<id>``. A series asked for on the movie path is not found.
+_MDBLIST_MOVIE = 'movie'
+_MDBLIST_SHOW = 'show'
+_SHOW_TYPES = frozenset(('series', 'tv', 'show', 'anime'))
+
+
+def mdblist_media_type(stype):
+    """``'movie'`` or ``'show'`` for a Stremio type.
+
+    Series, tv and anime are shows; a dotted subtype is read by its last
+    part, so ``anime.movie`` is a movie and ``anime.series`` a show.
+    Anything else, an empty type included, is looked up as a movie.
+    """
+    parts = [part for part in str(stype or '').strip().lower().split('.') if part]
+    if not parts:
+        return _MDBLIST_MOVIE
+    if parts[-1] == 'movie':
+        return _MDBLIST_MOVIE
+    if parts[-1] in _SHOW_TYPES or parts[0] in _SHOW_TYPES:
+        return _MDBLIST_SHOW
+    return _MDBLIST_MOVIE
+
+
+def mdblist_url(imdb_id, stype=''):
+    """The MDBList lookup URL for `imdb_id` as a title of type `stype`."""
+    return '%simdb/%s/%s' % (MDBLIST_URL, mdblist_media_type(stype), imdb_id)
+
+
+def fetch_scores(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=_TIMEOUT, stype=''):
     """Scores for one IMDb id, or {} when the title is unknown.
+
+    `stype` is the title's Stremio type; it picks MDBList's movie or
+    show path (`mdblist_url`).
 
     OMDb is asked first. MDBList is asked only when a key is set and
     OMDb left a score out. A transport failure raises `RatingsError`
@@ -300,7 +332,7 @@ def fetch_scores(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=_TIMEOU
         saw_empty = empty
         saw_error = error
     if mdblist_key and not _complete(scores):
-        found, empty, error = _ask(get, MDBLIST_URL + imdb_id, {
+        found, empty, error = _ask(get, mdblist_url(imdb_id, stype), {
             'apikey': mdblist_key,
         }, timeout, parse_mdblist)
         for key, value in found.items():

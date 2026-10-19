@@ -158,7 +158,8 @@ def test_fetch_fills_gaps_from_mdblist_and_stops_when_omdb_is_complete():
     assert get.calls[0][0] == OMDB_URL
     assert get.calls[0][1]['apikey'] == _SECRET
     assert get.calls[0][1]['i'] == 'tt0111161'
-    assert get.calls[1][0] == MDBLIST_URL + 'tt0111161'
+    # No type given: looked up as a movie.
+    assert get.calls[1][0] == MDBLIST_URL + 'imdb/movie/tt0111161'
     assert get.calls[1][1]['apikey'] == 'MDBSECRET'
     assert omdb.closed and mdblist.closed
 
@@ -259,7 +260,7 @@ def test_worker_caches_a_miss_and_logs_only_the_exception_class(kodi_stubs, tmp_
     ctx = kodi_stubs(reload=('lib.ui.compat', 'lib.ui.ratingsched'))
     sched = ctx.ratingsched
 
-    def fail(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=8):
+    def fail(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=8, stype=''):
         assert omdb_key == _SECRET
         raise TimeoutError('GET https://www.omdbapi.com/?apikey=%s' % _SECRET)
 
@@ -339,3 +340,52 @@ def test_the_next_titles_ride_along_after_the_focused_one(kodi_stubs, tmp_path, 
     # 6 is cached already; the two after the focused title are 7 and 8,
     # capped at PREFETCH.
     assert fetched == ['tt0000005', 'tt0000007', 'tt0000008'][:1 + sched.PREFETCH]
+
+
+def _mdblist_only():
+    reply = _Response(200, {'ratings': [{'source': 'tomatoes', 'value': 91}]})
+    return _get([reply])
+
+
+@pytest.mark.parametrize('stype, path', [
+    ('movie', 'imdb/movie/'),
+    ('series', 'imdb/show/'),
+    ('anime', 'imdb/show/'),
+    ('tv', 'imdb/show/'),
+    ('anime.movie', 'imdb/movie/'),
+    ('anime.series', 'imdb/show/'),
+    ('', 'imdb/movie/'),
+])
+def test_mdblist_is_asked_on_the_path_for_the_titles_type(stype, path):
+    get = _mdblist_only()
+    scores = fetch_scores('tt0944947', mdblist_key='MDBSECRET', get=get, stype=stype)
+    assert scores == {'rottenTomatoes': '91%'}
+    assert get.calls[0][0] == MDBLIST_URL + path + 'tt0944947'
+
+
+def test_a_series_on_home_is_fetched_on_the_show_path(kodi_stubs, tmp_path, monkeypatch):
+    """The type rides from the poster's panel facts through overlay_text,
+    the plan and the worker to the MDBList request."""
+    ctx = kodi_stubs(reload=('lib.ui.compat', 'lib.ui.ratingsched'))
+    sched = ctx.ratingsched
+    urls = []
+
+    def get(url, params=None, timeout=None, **_kwargs):
+        urls.append(url)
+        return _Response(200, {'ratings': [{'source': 'tomatoes', 'value': 80}]})
+
+    monkeypatch.setattr('requests.get', get)
+    monkeypatch.setattr(sched, '_DWELL_SECONDS', 0.05)
+    cache = RatingsCache(str(tmp_path / 'ratings.json'))
+    monkeypatch.setattr(sched, '_keys', lambda: ('', 'MDBSECRET'))
+    monkeypatch.setattr(sched, '_get_cache', lambda: cache)
+
+    facts = panel_facts({'id': 'tt0944947', 'type': 'series', 'name': 'Show'})
+    assert facts['type'] == 'series'
+    sched.overlay_text(facts, 'fallback', [panel_facts({'id': 'tt0111161', 'type': 'movie'})])
+    import time
+
+    deadline = time.monotonic() + 3
+    while sched._plan['running'] and time.monotonic() < deadline:
+        time.sleep(0.02)
+    assert urls[:2] == [MDBLIST_URL + 'imdb/show/tt0944947', MDBLIST_URL + 'imdb/movie/tt0111161']
