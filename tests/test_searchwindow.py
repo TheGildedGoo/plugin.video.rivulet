@@ -1800,6 +1800,7 @@ def _clocked(monkeypatch, sw, ticks):
 
     monkeypatch.setattr(sw, 'time', types.SimpleNamespace(monotonic=monotonic))
     monkeypatch.setattr(sw, '_SEARCH_POLL_SECONDS', 0.01)
+    return clock
 
 
 def test_results_in_hand_are_not_held_for_a_slow_catalog(load_searchwindow, monkeypatch):
@@ -1807,7 +1808,7 @@ def test_results_in_hand_are_not_held_for_a_slow_catalog(load_searchwindow, monk
     import queue
 
     sw = load_searchwindow().searchwindow
-    _clocked(monkeypatch, sw, 0.5)
+    clock = _clocked(monkeypatch, sw, 0.5)
     results = queue.Queue()
     results.put((0, ([{'id': 'tt9253284', 'name': 'Andor'}], None)))  # the second catalog never answers
     jobs = [('https://a', {'name': 'Cinemeta'}, {}), ('https://b', {'name': 'Slow'}, {})]
@@ -1815,6 +1816,10 @@ def test_results_in_hand_are_not_held_for_a_slow_catalog(load_searchwindow, monk
     answered = sw._collect_answers(_NeverCanceled(), results, jobs, report)
     assert list(answered) == [0]
     assert report.canceled is False
+    # It was the grace period after the first titles that ended the wait,
+    # not the overall deadline.
+    assert sw._SEARCH_GRACE_SECONDS <= clock['now'] < sw._SEARCH_GRACE_SECONDS + 2
+    assert clock['now'] < sw._SEARCH_DEADLINE_SECONDS
 
 
 def test_the_wait_ends_at_the_deadline_with_nothing_in(load_searchwindow, monkeypatch):
@@ -1832,13 +1837,27 @@ def test_an_empty_answer_does_not_start_the_grace(load_searchwindow, monkeypatch
     import queue
 
     sw = load_searchwindow().searchwindow
-    _clocked(monkeypatch, sw, 0.5)
-    results = queue.Queue()
-    results.put((0, ([], None)))
-    results.put((1, ([{'id': 'tt1', 'name': 'Andor'}], None)))
+    clock = _clocked(monkeypatch, sw, 0.5)
+    late_at = sw._SEARCH_GRACE_SECONDS + 3  # after a wrongly started grace, before the deadline
+    assert late_at < sw._SEARCH_DEADLINE_SECONDS
+
+    class _LateSecondAnswer:
+        """The empty answer at once; the titles only once the clock passes `late_at`."""
+
+        def __init__(self):
+            self.pending = [(0, ([], None))]
+
+        def get(self, timeout=None):
+            if self.pending:
+                return self.pending.pop()
+            if clock['now'] >= late_at:
+                return 1, ([{'id': 'tt1', 'name': 'Andor'}], None)
+            raise queue.Empty
+
     jobs = [('https://a', {'name': 'A'}, {}), ('https://b', {'name': 'B'}, {})]
-    answered = sw._collect_answers(_NeverCanceled(), results, jobs, sw.SearchReport())
+    answered = sw._collect_answers(_NeverCanceled(), _LateSecondAnswer(), jobs, sw.SearchReport())
     assert sorted(answered) == [0, 1]
+    assert clock['now'] >= late_at
 
 
 def test_catalogs_left_out_by_the_wait_are_counted_in_the_notice(load_searchwindow):
