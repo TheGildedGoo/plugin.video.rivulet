@@ -55,7 +55,7 @@ from lib.ui.uicommon import (
     unregister_transient_dialog,
 )
 
-# ProgressDialog.xml
+# DarkProgressDialog.xml
 PROGRESS_HEADING = 30300
 PROGRESS_SUBHEADING = 30301
 PROGRESS_STATUS = 30302
@@ -64,24 +64,24 @@ PROGRESS_BAR = 30304
 PROGRESS_ATTEMPT = 30305
 PROGRESS_STATS = 30306
 
-# CountdownDialog.xml
+# DarkCountdownDialog.xml
 COUNTDOWN_HEADING = 30310
 COUNTDOWN_MESSAGE = 30311
 COUNTDOWN_BAR = 30312
 COUNTDOWN_REMAINING = 30313
 
-# BusyDialog.xml
+# DarkBusyDialog.xml
 BUSY_HEADING = 30320
 BUSY_MESSAGE = 30321
 BUSY_BAR = 30322
 
-# ConfirmDialog.xml
+# DarkConfirmDialog.xml
 CONFIRM_HEADING = 30330
 CONFIRM_BODY = 30331
 CONFIRM_NO = 30332
 CONFIRM_YES = 30333
 
-# OptionListDialog.xml
+# DarkOptionListDialog.xml
 OPTIONLIST_HEADING = 30340
 OPTIONLIST_LIST = 30341
 OPTIONLIST_SCROLLBAR = 30342
@@ -112,7 +112,7 @@ def _get_control(window, control_id):
 def _set_label(window, control_id, text):
     """`getControl(control_id).setLabel(text)`, tolerating both a missing
     control and a `None` text (Kodi's setLabel('') is how the skin hides
-    an optional row - see ProgressDialog.xml's `visible` bindings on
+    an optional row - see DarkProgressDialog.xml's `visible` bindings on
     30303/30305/30306)."""
     ctrl = _get_control(window, control_id)
     if ctrl is None:
@@ -242,7 +242,7 @@ class RivuletProgress:
     """Drop-in replacement for `xbmcgui.DialogProgress` - see the module
     docstring for why it is non-blocking. `create()`/`update()` clear an
     empty `attempt`/`stats` to `''` rather than the caller's own text: a
-    `None` or `''` value hides that row (ProgressDialog.xml gates 30303/
+    `None` or `''` value hides that row (DarkProgressDialog.xml gates 30303/
     30305/30306's visibility on their own label being empty), never
     prints the literal string "None"."""
 
@@ -257,7 +257,7 @@ class RivuletProgress:
         self._percent = None
 
     def create(self, heading, message=''):
-        self._window = open_window(_TransientDialog, 'ProgressDialog.xml')
+        self._window = open_window(_TransientDialog, 'DarkProgressDialog.xml')
         register_transient_dialog(self)
         self._window.show()
         self._panel = _Panel(self._window, self._CONTROLS)
@@ -306,7 +306,7 @@ class RivuletProgress:
 class RivuletBusy:
     """Drop-in replacement for `xbmcgui.DialogProgress` used as an
     indeterminate spinner - see the module docstring for why it is
-    non-blocking. `BusyDialog.xml`'s marching-squares activity indicator
+    non-blocking. `DarkBusyDialog.xml`'s marching-squares activity indicator
     is gated (in the skin) on 30322's own visibility, so revealing the
     real progress bar is the only thing `update()` needs to do once a
     genuine percent arrives; it never goes back to indeterminate once
@@ -319,20 +319,20 @@ class RivuletBusy:
         self._panel = None
 
     def create(self, heading, message=''):
-        self._window = open_window(_TransientDialog, 'BusyDialog.xml')
+        self._window = open_window(_TransientDialog, 'DarkBusyDialog.xml')
         register_transient_dialog(self)
         self._window.show()
         self._panel = _Panel(self._window, self._CONTROLS)
         self._panel.label(BUSY_HEADING, heading)
         self._panel.label(BUSY_MESSAGE, message)
-        # BusyDialog.xml deliberately carries no static <visible> tag on
+        # DarkBusyDialog.xml deliberately carries no static <visible> tag on
         # the bar - a hardcoded false would outrank setVisible() on real
         # Kodi - so the indeterminate default is established here.
         self._panel.visible(BUSY_BAR, False)
 
     def update(self, percent, message='', attempt='', stats=''):
         # attempt/stats accepted only for drop-in parity with
-        # RivuletProgress/DialogProgress - BusyDialog.xml has no controls
+        # RivuletProgress/DialogProgress - DarkBusyDialog.xml has no controls
         # for them.
         if self._panel is None:
             return
@@ -407,7 +407,7 @@ class RivuletCountdown:
         """Ticks `seconds` down to 0, one second at a time, setting
         `heading`/`message` and a `remaining` Mono26 readout
         (`'<N> s'`) each tick. Returns True once the countdown runs out
-        OR the user presses OK/Select to skip it (CountdownDialog.xml's
+        OR the user presses OK/Select to skip it (DarkCountdownDialog.xml's
         "OK plays now" hint), None if the user backs out instead (a
         "not now", matching `_binge_countdown`'s existing contract), or
         False the instant `monitor.waitForAbort()` fires (Kodi shutting
@@ -423,7 +423,7 @@ class RivuletCountdown:
         keeps this module free of any particular strings.po id."""
         monitor = monitor or xbmc.Monitor()
         formatter = message if callable(message) else (lambda remaining: message)
-        self._window = open_window(_CountdownWindow, 'CountdownDialog.xml')
+        self._window = open_window(_CountdownWindow, 'DarkCountdownDialog.xml')
         self._window.show()
         self._panel = _Panel(self._window, self._CONTROLS)
         self._panel.label(COUNTDOWN_HEADING, heading)
@@ -498,13 +498,13 @@ def confirm(heading, body, yeslabel, nolabel):
     False for the secondary button OR backing out.
 
     The primary button's `[B]...[/B]` wrap is deliberate, not
-    decorative: ConfirmDialog.xml's button controls can't make their
+    decorative: DarkConfirmDialog.xml's button controls can't make their
     label bold only while focused (no conditional-on-focus font
     weight), so the "focused button reads bold" look the design draws
     has to come from the label text itself - see OtherSkins' skin
     handoff. The secondary button stays plain.
     """
-    window = open_window(_ConfirmWindow, 'ConfirmDialog.xml')
+    window = open_window(_ConfirmWindow, 'DarkConfirmDialog.xml')
     window.heading = heading
     window.body = body
     window.yeslabel = yeslabel
@@ -568,7 +568,7 @@ class _OptionListWindow(BaseWindow):
             self.close()
 
 
-#: (Dark)OptionListDialog.xml geometry: rows are 72px, at most 7 show at once.
+#: (Dark)DarkOptionListDialog.xml geometry: rows are 72px, at most 7 show at once.
 _OPTION_ROW_H = 72
 _OPTION_MAX_ROWS = 7
 _OPTION_PANEL = (580, 760)  # left, width
@@ -587,9 +587,7 @@ def option_list_geometry(count, screen_h=1080):
 
 def _fit_option_list(window, count):
     """Size the dark menu's plate to the rows (DarkOptionListDialog.xml
-    draws it for 7). The classic menu is left as it is drawn."""
-    if not str(getattr(window, '_skin_xml', '')).startswith('Dark'):
-        return
+    draws it for 7)."""
     top, height, list_h = option_list_geometry(count)
     left, width = _OPTION_PANEL
     for cid in (OPTIONLIST_PANEL, OPTIONLIST_STROKE):
@@ -614,9 +612,9 @@ def choose(heading, rows):
     """Mirrors `xbmcgui.Dialog().select(heading, rows)`: returns the
     picked row's index, or -1 if dismissed. Each of `rows` is either a
     plain label string, or a `(label, sublabel)` pair for the two-line
-    row OptionListDialog.xml draws (see the design's "Cast & crew"
+    row DarkOptionListDialog.xml draws (see the design's "Cast & crew"
     frame)."""
-    window = open_window(_OptionListWindow, 'OptionListDialog.xml')
+    window = open_window(_OptionListWindow, 'DarkOptionListDialog.xml')
     window.heading = heading
     window.rows = list(rows)
     window.doModal()

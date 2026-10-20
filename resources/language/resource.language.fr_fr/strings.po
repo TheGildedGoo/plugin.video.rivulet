@@ -1002,10 +1002,6 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Le catalogue n'affiche que les %d premières pages ; les autres éléments ne sont pas chargés"
 
-msgctxt "#30412"
-msgid "Dark dialogs"
-msgstr "Boîtes de dialogue sombres"
-
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "Conserver les torrents après la lecture (seed)"

@@ -290,41 +290,14 @@ def addon_skin_path():
     return ADDON.getAddonInfo('path')
 
 
-#: Dialogs with a dark, rounded variant, `Dark<name>`
-#: (tools/build_dark_dialogs.py), used while Settings > Home screen >
-#: Dark dialogs is on. Off by default: the classic files are unchanged.
-DARK_DIALOGS = frozenset((
-    'BusyDialog.xml', 'ProgressDialog.xml', 'CountdownDialog.xml',
-    'ConfirmDialog.xml', 'OptionListDialog.xml',
-))
-
-
-def skin_name(xml_name):
-    """The skin file to load for `xml_name`: its dark variant when the
-    setting is on and it has one, else `xml_name` itself. The "New look"
-    (`lib.ui.newlook`) draws its dialogs dark too."""
-    if xml_name not in DARK_DIALOGS:
-        return xml_name
-    from lib.ui.compat import setting_bool
-
-    try:
-        dark = setting_bool('ui_dark_dialogs', False)
-    except Exception:  # noqa: BLE001 - a broken setting read keeps the classic dialog
-        dark = False
-    return 'Dark' + xml_name if dark else xml_name
-
-
 def open_window(window_cls, xml_name, *args, **kwargs):
     """Build `window_cls(xml_name, addon_skin_path(), 'Default', '1080i')`
     and return it (unconstructed screens are useless - callers still call
     `.start(...)` themselves, since each screen's `start()` signature
-    differs). A dialog with a dark variant loads that variant while the
-    setting is on (`skin_name`); the file loaded is kept on the window as
-    `_skin_xml`."""
-    name = skin_name(xml_name)
-    window = window_cls(name, addon_skin_path(), 'Default', '1080i', *args, **kwargs)
+    differs). The file loaded is kept on the window as `_skin_xml`."""
+    window = window_cls(xml_name, addon_skin_path(), 'Default', '1080i', *args, **kwargs)
     try:
-        window._skin_xml = name
+        window._skin_xml = xml_name
     except Exception:  # noqa: BLE001 - a binding that refuses attributes still opens
         pass
     return window
