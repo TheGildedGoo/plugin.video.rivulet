@@ -654,6 +654,10 @@ msgstr "Startbildschirm"
 
 
 
+msgctxt "#30222"
+msgid "Show Anime"
+msgstr "Anime anzeigen"
+
 msgctxt "#30223"
 msgid "cancel"
 msgstr "abbrechen"

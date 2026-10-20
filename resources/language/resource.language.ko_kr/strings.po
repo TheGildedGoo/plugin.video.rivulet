@@ -654,6 +654,10 @@ msgstr "홈 화면"
 
 
 
+msgctxt "#30222"
+msgid "Show Anime"
+msgstr "애니메이션 표시"
+
 msgctxt "#30223"
 msgid "cancel"
 msgstr "취소"

@@ -96,10 +96,11 @@ def test_all_toggle_migrations(flags):
     assert ('continue' in rows) is flags[0]
     assert ('new:movie' in rows) is flags[1]
     assert ('new:series' in rows) is flags[2]
-    assert ('new:anime-movie' in rows) is flags[3]
+    assert 'new:anime-movie' in rows
+    assert 'rest:anime-series' in rows
     assert ('continue:movie' in rows) is (flags[0] and flags[1])
     assert ('continue:series' in rows) is (flags[0] and flags[2])
-    assert ('continue:anime' in rows) is (flags[0] and flags[3])
+    assert ('continue:anime' in rows) is flags[0]
     assert layout['tabs']['mystuff'] == ['library:movie', 'library:series']
 
 
@@ -169,3 +170,50 @@ def test_persistence_bypasses_cached_reads_and_same_size_rewrites(tmp_path, monk
     assert first.get_home_layout() == layout
     assert first.set_home_layout({'bad': 'https://user:secret@host'}) == h.DEFAULT
     assert 'secret' not in caplog.text
+
+
+@pytest.mark.parametrize('manifest,catalog,expected', [
+    ({}, {'type': 'anime', 'id': 'x'}, True),
+    ({}, {'type': 'anime.movie', 'id': 'x'}, True),
+    ({}, {'type': 'movie', 'name': 'Top Anime', 'id': 'top'}, True),
+    ({}, {'type': 'series', 'name': 'CRUNCHYROLL – Popular', 'id': 'top'}, True),
+    ({}, {'type': 'tv', 'name': 'HiDive Picks', 'id': 'top'}, True),
+    ({}, {'type': 'series', 'name': 'Popular', 'id': 'funimation_top'}, True),
+    ({'id': 'org.kitsu'}, {'type': 'movie', 'id': 'top'}, True),
+    ({'name': 'AniList Catalogs'}, {'type': 'series', 'id': 'top'}, True),
+    ({'id': 'org.myanimelist'}, {'type': 'series', 'id': 'top'}, True),
+    ({'name': 'AniDB'}, {'type': 'tv', 'id': 'top'}, True),
+    ({'id': 'pw.ers.netflix-catalog'}, {'type': 'movie', 'id': 'cru'}, True),
+    ({'id': 'pw.ers.netflix-catalog'}, {'type': 'series', 'id': 'cru'}, True),
+    ({'id': 'pw.ers.netflix-catalog'}, {'type': 'movie', 'id': 'nfx', 'name': 'Netflix'}, False),
+    ({}, {'type': 'movie', 'name': 'Animation'}, False),
+    ({}, {'type': 'movie', 'name': 'Animated Movies'}, False),
+    ({}, {'type': 'series', 'name': 'Animal Planet'}, False),
+    ({}, {'type': 'series', 'name': 'Malcolm'}, False),
+    ({}, {'type': 'series', 'name': 'Normal People'}, False),
+    ({'id': 'org.mal', 'name': 'MAL Catalog'}, {'type': 'series', 'id': 'top'}, False),
+    ({}, {'type': 'movie', 'id': 'anime', 'name': 'Top'}, False),
+    ({'name': 'Anime sources'}, {'type': 'movie', 'id': 'top'}, False),
+    ({'name': 'Crunchyroll'}, {'type': 'channel', 'id': 'top'}, False),
+    ({}, {'type': 'movie', 'name': 'NotCrunchyroll Movies'}, False),
+])
+def test_anime_source_classifier_uses_only_the_approved_words(manifest, catalog, expected):
+    assert h.is_anime_source(manifest, catalog) is expected
+
+
+def test_crunchyroll_defaults_to_anime_but_explicit_placements_win():
+    installed = [{'transportUrl': 'streaming', 'manifest': {'id': 'pw.ers.netflix-catalog', 'catalogs': [
+        catalog('nfx', 'movie', 'Netflix'), catalog('hbm', 'series', 'HBO Max'),
+        catalog('cru', 'movie', 'Crunchyroll'), catalog('cru', 'series', 'Crunchyroll'),
+    ]}}]
+    cats = h.installed_catalogs(installed)
+    anime = [entry for entry in cats if entry['catalog']['id'] == 'cru']
+    assert [entry['kind'] for entry in anime] == ['anime-movie', 'anime-series']
+    assert all(entry['filter'] == '' for entry in anime)
+    assert [entry['list_id'] for entry in anime] == ['cat:streaming|movie|cru', 'cat:streaming|series|cru']
+    layout = h.default_layout()
+    for tab in ('home', 'movies', 'series'):
+        assert not any(entry[2] and entry[2]['catalog']['id'] == 'cru' for entry in h.resolve(layout, tab, cats))
+    assert [entry[0] for entry in h.resolve(layout, 'anime', cats) if entry[1] == 'catalog'] == [entry['list_id'] for entry in anime]
+    layout['tabs']['series'].append('cat:streaming|series|cru')
+    assert 'cat:streaming|series|cru' in [entry[0] for entry in h.resolve(layout, 'series', cats)]

@@ -111,6 +111,8 @@ def _menu_items(addons=None, layout=None, active='home', progress=None):
     layout = layout or default_layout()
     items = []
     for string_id, tab in _MENU:
+        if tab == 'anime' and not setting_bool('home_show_anime', True):
+            continue
         plan = resolve(layout, tab, catalogs)
         renderable = any(kind != 'continue' or any(matches_continue(meta, variant)
                          for meta in progress or []) for _, kind, _, variant, _ in plan)
@@ -623,10 +625,12 @@ def _make_row_states(store, auth, entries, plan, fetched, suppressed=None):
 def _load_rows(window, store, addons, auth):
     """Fetch only this tab's plan. One account read feeds every personal row."""
     from lib.homelayout import resolve
-    from lib.ui.compat import L
+    from lib.ui.compat import L, setting_bool
     from lib.ui.uicommon import CANCELLED, run_cancellable
 
     tab = window._active_tab
+    if tab == 'anime' and not setting_bool('home_show_anime', True):
+        return []
     plan = resolve(window._layout, tab, window._catalogs)
 
     def load():
@@ -807,6 +811,10 @@ def _select_active_chip(window):
 
 def _switch_tab(window, tab):
     """Switch on OK only. Discard old queued/ready loads before slot reuse."""
+    from lib.ui.compat import setting_bool
+
+    if tab == 'anime' and not setting_bool('home_show_anime', True):
+        return
     if tab == window._active_tab:
         _select_active_chip(window)
         window.setFocusId(BROWSE_LIST)
@@ -831,7 +839,7 @@ def _switch_tab(window, tab):
 #: Settings a Home row is built from. A Settings visit that changes none
 #: of them (and no sign-in, no addon change) leaves the rows, and the
 #: remote's place on them, alone.
-_ROW_SETTINGS = ('home_hide_adult', 'cache_generation', 'home_layout_generation')
+_ROW_SETTINGS = ('home_hide_adult', 'cache_generation', 'home_layout_generation', 'home_show_anime')
 
 
 def _home_signature(store):

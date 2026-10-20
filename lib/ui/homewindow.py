@@ -63,7 +63,7 @@ def _migrate_home_layout():
         if not folder or os.path.exists(os.path.join(folder, 'home_layout.json')):
             return
         toggles = {key: setting_bool(key, True) for key in (
-            'home_show_mystuff', 'home_show_movies', 'home_show_series', 'home_show_anime',
+            'home_show_mystuff', 'home_show_movies', 'home_show_series',
         )}
         store.set_home_layout(migrate(toggles))
     except Exception as exc:

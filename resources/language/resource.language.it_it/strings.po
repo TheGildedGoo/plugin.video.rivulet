@@ -654,6 +654,10 @@ msgstr "Schermata principale"
 
 
 
+msgctxt "#30222"
+msgid "Show Anime"
+msgstr "Mostra Anime"
+
 msgctxt "#30223"
 msgid "cancel"
 msgstr "annulla"

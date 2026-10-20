@@ -304,3 +304,21 @@ def test_layout_migration_runs_after_the_old_continue_rename(load_homewindow, mo
     ctx.env.addon.settings.update(home_show_mystuff='true', home_show_movies='true')
     ctx.homewindow._migrate_home_layout()
     assert store.get_home_layout() == layout
+
+
+def test_anime_toggle_never_rewrites_saved_layout_and_absent_keeps_placeholders(load_homewindow, monkeypatch, tmp_path):
+    from lib.store import Store
+
+    ctx = load_homewindow(settings={'home_show_anime': 'false'})
+    store = Store(str(tmp_path))
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: store)
+    path = tmp_path / 'home_layout.json'
+    saved = b'{"version": 1, "tabs": {"anime": ["cat:t|series|cru"]}}\n'
+    path.write_bytes(saved)
+    ctx.homewindow._migrate_home_layout()
+    assert path.read_bytes() == saved
+    path.unlink()
+    ctx.homewindow._migrate_home_layout()
+    assert 'rest:anime-movie' in store.get_home_layout()['tabs']['anime']
+    assert 'rest:anime-series' in store.get_home_layout()['tabs']['anime']
+    assert 'continue:anime' in store.get_home_layout()['tabs']['anime']

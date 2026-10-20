@@ -20,6 +20,11 @@
                     <data>RunPlugin(plugin://plugin.video.rivulet/?action=home_lists)</data>
                     <control type="button" format="action"/>
                 </setting>
+                <setting id="home_show_anime" type="boolean" label="30222">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
                 <setting id="cache_generation" type="string" label="30502">
                     <level>0</level>
                     <visible>false</visible>

@@ -776,3 +776,44 @@ def test_equivalent_disk_layout_keeps_snapshots_selection_and_focus(load_homewin
     assert win._tab_snapshots is snapshots
     assert win.getControl(30041).getSelectedPosition() == 8
     assert win.getFocusId() == 30041
+
+
+def test_explicit_series_alone_makes_anime_chip_and_toggle_rebuilds(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.newhome
+    layout = homelayout.default_layout()
+    layout['tabs']['anime'] = ['cat:https://addon/manifest.json|series|shows']
+    win, _, calls = build(ctx, monkeypatch, layout=layout)
+    assert 'anime' in chip_actions(ctx, win)
+    # Opening Home never follows the inactive Anime plan or recurses into it.
+    assert sorted(calls) == ['movies', 'shows']
+    calls.clear()
+    hw._switch_tab(win, 'anime')
+    assert calls == ['shows']
+    assert [state['list_id'] for state in win._rows.values()] == layout['tabs']['anime']
+    ctx.compat.ADDON.setSetting('home_show_anime', 'false')
+    hw._after_child(win)
+    assert 'anime' not in chip_actions(ctx, win)
+    assert win._active_tab == 'home'
+    assert hw._load_rows(type('Window', (), {'_active_tab': 'anime'})(), None, [], None) == []
+    calls.clear()
+    hw._switch_tab(win, 'anime')
+    assert calls == []
+    ctx.compat.ADDON.setSetting('home_show_anime', 'true')
+    hw._after_child(win)
+    assert 'anime' in chip_actions(ctx, win)
+
+
+def test_anime_off_keeps_explicit_placement_and_continue_elsewhere(load_homewindow, monkeypatch):
+    ctx = load_homewindow(settings={'home_show_anime': 'false'})
+    layout = homelayout.default_layout()
+    layout['tabs']['series'].append('cat:t|series|cru')
+    installed = [{'transportUrl': 't', 'manifest': {'id': 'pw.ers.netflix-catalog', 'catalogs': [
+        {'id': 'cru', 'type': 'series', 'name': 'Crunchyroll'}]}}]
+    win, _, calls = build(ctx, monkeypatch, layout=layout, installed=installed)
+    assert calls == []
+    assert 'anime' not in chip_actions(ctx, win)
+    assert [row['kind'] for row in win._rows.values()] == ['continue']
+    ctx.newhome._switch_tab(win, 'series')
+    assert calls == ['cru']
+    assert [row['kind'] for row in win._rows.values()] == ['continue', 'catalog']

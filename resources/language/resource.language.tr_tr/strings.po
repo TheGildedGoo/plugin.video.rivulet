@@ -654,6 +654,10 @@ msgstr "Ana ekran"
 
 
 
+msgctxt "#30222"
+msgid "Show Anime"
+msgstr "Anime göster"
+
 msgctxt "#30223"
 msgid "cancel"
 msgstr "iptal"

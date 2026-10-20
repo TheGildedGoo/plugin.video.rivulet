@@ -654,6 +654,10 @@ msgstr "ホーム画面"
 
 
 
+msgctxt "#30222"
+msgid "Show Anime"
+msgstr "アニメを表示"
+
 msgctxt "#30223"
 msgid "cancel"
 msgstr "キャンセル"

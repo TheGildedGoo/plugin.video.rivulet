@@ -21,6 +21,7 @@ MAX_POSTER_ROWS = 12
 NEW_TOKENS = ('new', 'latest', 'recent', 'recently', 'release', 'releases',
               'premiere', 'premieres', 'fresh', 'airing', 'ongoing',
               'theaters', 'theatres', 'now playing')
+ANIME_SOURCES = {'crunchyroll', 'hidive', 'funimation', 'kitsu', 'anilist', 'myanimelist', 'anidb'}
 _NEW_RE = re.compile(r'\b(?:%s)\b' % '|'.join(re.escape(token) for token in NEW_TOKENS))
 _NEW_LABELS = dict(zip(KINDS, (30529, 30530, 30531, 30532)))
 DEFAULT = {'version': 1, 'tabs': {
@@ -95,11 +96,10 @@ def migrate(toggles):
             if list_id in CONTINUE_IDS and not toggles.get('home_show_mystuff', True):
                 continue
             disabled = False
-            for kind, setting in (('movie', 'home_show_movies'), ('series', 'home_show_series'),
-                                  ('anime', 'home_show_anime')):
+            for kind, setting in (('movie', 'home_show_movies'), ('series', 'home_show_series')):
                 if toggles.get(setting, True):
                     continue
-                if (kind == 'anime' and list_id.startswith(('new:anime', 'rest:anime'))) or list_id in ('new:%s' % kind, 'rest:%s' % kind):
+                if list_id in ('new:%s' % kind, 'rest:%s' % kind):
                     disabled = True
                 if list_id == 'continue:%s' % kind:
                     disabled = True
@@ -137,6 +137,29 @@ def matches_catalog(meta, variant=''):
     return movie if variant == 'movie' else not movie
 
 
+def is_anime_source(manifest, catalog):
+    """Whole source words, not substrings such as Animation or Malcolm.
+
+    Streaming Catalogs' opaque cru id needs its exact manifest/id pair.
+    Classification changes placeholder defaults only; explicit ids stay put.
+    """
+    base = _base_type(catalog.get('type'))
+    if base == 'anime':
+        return True
+    if base not in ('movie', 'series', 'tv'):
+        return False
+
+    def words(value):
+        return set(re.findall(r'[^\W_]+', str(value or '').lower()))
+
+    if words(catalog.get('name')) & (ANIME_SOURCES | {'anime'}):
+        return True
+    if any(words(value) & ANIME_SOURCES for value in (
+            catalog.get('id'), manifest.get('id'), manifest.get('name'))):
+        return True
+    return manifest.get('id') == 'pw.ers.netflix-catalog' and catalog.get('id') == 'cru'
+
+
 def installed_catalogs(addons, hide_adult=True):
     """Reuse the protocol's union of modern/legacy required extras.
 
@@ -160,7 +183,10 @@ def installed_catalogs(addons, hide_adult=True):
         cid = catalog.get('id')
         if not isinstance(addon_id, str) or not isinstance(cid, str) or not cid:
             continue
-        views = [('movie' if base == 'movie' else 'series', '')]
+        kind = 'movie' if base == 'movie' else 'series'
+        if base != 'anime' and is_anime_source(manifest, catalog):
+            kind = 'anime-%s' % kind
+        views = [(kind, '')]
         if base == 'anime':
             if ctype in ('anime.movie', 'anime.series'):
                 views = [('anime-%s' % ctype.split('.')[1], '')]

@@ -654,6 +654,10 @@ msgstr "主屏幕"
 
 
 
+msgctxt "#30222"
+msgid "Show Anime"
+msgstr "显示动漫"
+
 msgctxt "#30223"
 msgid "cancel"
 msgstr "取消"

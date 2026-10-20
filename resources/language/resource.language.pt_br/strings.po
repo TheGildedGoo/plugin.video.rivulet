@@ -654,6 +654,10 @@ msgstr "Tela inicial"
 
 
 
+msgctxt "#30222"
+msgid "Show Anime"
+msgstr "Mostrar Anime"
+
 msgctxt "#30223"
 msgid "cancel"
 msgstr "cancelar"
