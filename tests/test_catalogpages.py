@@ -322,3 +322,34 @@ def test_a_cache_write_failure_keeps_the_loaded_row(pages, tmp_path, monkeypatch
     messages = [msg for msg, _ in pages.env.log_calls if 'cache save failed' in msg]
     assert len(messages) == 2
     assert all('OSError' in msg and 'secret' not in msg for msg in messages)
+
+
+def test_home_later_page_lru_reuses_raw_pages_and_has_a_200_page_bound(pages, monkeypatch):
+    module = pages.catalogpages
+    module.clear_later_pages()
+    calls = []
+    monkeypatch.setattr(pages.views, '_fetch_catalog', lambda *args, **kw: calls.append(kw['extra']) or [{'id': 'tt1'}])
+    for _ in range(2):
+        assert module.cached_later_page('a', 'movie', 'top', [('genre', 'Drama'), ('skip', 24)]) == [{'id': 'tt1'}]
+    assert len(calls) == 1
+    for offset in range(25, 225):
+        module.cached_later_page('a', 'movie', 'top', [('genre', 'Drama'), ('skip', offset)])
+    assert len(module._later_pages) == 200
+    assert ('a', 'movie', 'top', (('genre', 'Drama'),), 24) not in module._later_pages
+    module.clear_later_pages()
+    assert not module._later_pages
+
+
+def test_home_resume_can_page_past_twenty_and_short_pages(pages):
+    offsets = []
+
+    def fetch(_transport, _type, _id, extra=None):
+        skip = dict(extra)['skip']
+        offsets.append(skip)
+        return [{'id': str(skip)}] if skip <= 25 else []
+
+    catalog = {'id': 'top', 'type': 'movie', 'extra': [{'name': 'skip'}]}
+    rows = list(pages.views.iter_catalog_pages_after('t', 'movie', 'top', 10, ['first'],
+                catalog=catalog, page_limit=None, fetch_page=fetch, stop_short=False))
+    assert len(rows) == 16
+    assert offsets == list(range(10, 27))

@@ -8,13 +8,14 @@ The window's own in-memory pages still win for the session
 is the disk layer underneath the first fetch: the next launch, and a
 hub opened after Home has warmed, skips the GET while the page is fresh.
 
-No second page is fetched to fill a row. One catalog page is already
-more titles than the first screen draws.
+Home can fill a filtered anime view from later pages; those raw pages
+share a bounded session LRU below. Stock first-page callers are unchanged.
 """
 
 import contextlib
 import os
 import threading
+from collections import OrderedDict
 
 from lib.stremio.pagecache import cache_key
 
@@ -217,3 +218,34 @@ def cached_first_page(transport, manifest, catalog, extra=None):
     if cache is not None and key is not None:
         _store_page(cache, key, metas)
     return _visible(metas, manifest, catalog)
+
+
+# Later pages live only for this interpreter. A bounded LRU shares a plain
+# anime catalog's raw pages between its two filtered Home views.
+_later_pages = OrderedDict()  # type: OrderedDict
+_later_lock = threading.Lock()
+_MAX_LATER_PAGES = 200
+
+
+def clear_later_pages():
+    with _later_lock:
+        _later_pages.clear()
+
+
+def cached_later_page(transport, ctype, cid, extra=None):
+    from lib.ui.views import _fetch_catalog
+
+    pairs = list(extra or ())
+    key = (transport, ctype, cid, tuple((k, v) for k, v in pairs if k != 'skip'),
+           next((v for k, v in pairs if k == 'skip'), 0))
+    with _later_lock:
+        if key in _later_pages:
+            _later_pages.move_to_end(key)
+            return list(_later_pages[key])
+    page = _fetch_catalog(transport, ctype, cid, extra=extra)
+    with _later_lock:
+        _later_pages[key] = list(page)
+        _later_pages.move_to_end(key)
+        while len(_later_pages) > _MAX_LATER_PAGES:
+            _later_pages.popitem(last=False)
+    return page

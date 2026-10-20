@@ -431,7 +431,8 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
 
 
 def iter_catalog_pages_after(transport, ctype, cid, served, seen_ids, extra=None,
-                             catalog=None, manifest=None):
+                             catalog=None, manifest=None, page_limit=_MAX_CATALOG_PAGES, fetch_page=None,
+                             stop_short=True):
     """The pages after a first page the caller already has.
 
     Home's rows hold page one from the disk cache. Resuming used to
@@ -452,7 +453,8 @@ def iter_catalog_pages_after(transport, ctype, cid, served, seen_ids, extra=None
     if any(name == 'skip' for name, _value in base_extra):
         return
     seen = set(key for key in (seen_ids or ()) if key is not None)
-    yield from _follow_pages(transport, ctype, cid, base_extra, served, served, seen, hide_adult)
+    yield from _follow_pages(transport, ctype, cid, base_extra, served, served, seen, hide_adult,
+                             page_limit, fetch_page, stop_short)
 
 
 def _dedupe_page(page, seen, hide_adult):
@@ -475,15 +477,19 @@ def _dedupe_page(page, seen, hide_adult):
     return fresh, filtered
 
 
-def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hide_adult):
+def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hide_adult,
+                  page_limit=_MAX_CATALOG_PAGES, fetch_page=None, stop_short=True):
     """Pages two onward. `served` is the metas the addon has actually
     served so far, duplicates and all - NOT the deduped count. This is
     what the next `skip` is counted from, so a page that comes back
     longer or shorter than the first can't make the following request
     skip past (or back over) items the addon never served."""
-    for page_index in range(1, _MAX_CATALOG_PAGES):
+    page_index = 0
+    fetch = fetch_page or _fetch_catalog
+    while page_limit is None or page_index + 1 < page_limit:
+        page_index += 1
         try:
-            page = _fetch_catalog(
+            page = fetch(
                 transport, ctype, cid,
                 extra=base_extra + [('skip', served)],
             )
@@ -505,7 +511,7 @@ def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hi
                 % (safe_url_for_log(transport), page_index), xbmc.LOGINFO)
             return
         yield filtered
-        if len(page) < page_size:
+        if stop_short and len(page) < page_size:
             return
 
     log('views.iter_catalog_pages: %s hit the %d-page cap'
