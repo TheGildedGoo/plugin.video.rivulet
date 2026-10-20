@@ -315,3 +315,18 @@ def test_home_recovery_is_limited_to_window_open_failures(monkeypatch, failure):
         assert bool(opened) is (failure != 'construct')
         assert any('failed' in msg for msg, _level in ctx.env.log_calls)
         assert not any('secret' in msg or 'user:' in msg for msg, _level in ctx.env.log_calls)
+
+
+@pytest.mark.parametrize('startup', ['is_duplicate_launch', 'dismiss_busy_dialog'])
+def test_startup_probe_and_busy_cleanup_errors_recover_safely(load_default, monkeypatch, startup):
+    def prepare(ctx):
+        def fail():
+            raise RuntimeError('https://user:secret@host/private?token=hidden')
+        monkeypatch.setattr(ctx.uicommon, startup, fail)
+
+    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', ''], before=prepare)
+    assert ctx.open_home_calls == []
+    assert any('Container.Update' in cmd for cmd in ctx.env.executed_builtins)
+    messages = [msg for msg, _ in ctx.env.log_calls if 'failed to open' in msg]
+    assert len(messages) == 1 and 'RuntimeError' in messages[0]
+    assert 'secret' not in messages[0] and 'hidden' not in messages[0]

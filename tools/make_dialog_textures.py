@@ -1,4 +1,4 @@
-"""Rounded textures for the dark dialogs (tools/build_dark_dialogs.py).
+"""Rounded textures for the shipped Dark dialog XMLs.
 
 dlg_panel.png and its hairline dlg_stroke.png are drawn 9-slice with
 border=32; dlg_row.png and dlg_row_stroke.png (focused rows and buttons,

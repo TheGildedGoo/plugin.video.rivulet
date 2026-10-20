@@ -56,8 +56,18 @@ if _action == 'home':
     except Exception as exc:  # import failure: no Home can be constructed
         _recover_home(exc)
     else:
+        duplicate = False
         try:
-            if is_duplicate_launch():
+            try:
+                duplicate = is_duplicate_launch()
+                if not duplicate:
+                    dismiss_busy_dialog()
+            except Exception as exc:
+                _recover_home(exc)
+            else:
+                if not duplicate:
+                    open_home()
+            if duplicate:
                 # Kodi re-ran the plugin root (it re-fetches the Videos container
                 # the addon was started from whenever that window is activated
                 # again - e.g. when playback stops: kodi.log 01:07:59.987 ->
@@ -67,9 +77,6 @@ if _action == 'home':
                 # dismiss_busy_dialog() would close that picker. See
                 # lib.ui.uicommon's "UI phases" notes for the exact rule.
                 log('default: a Rivulet UI is already running - ignoring bare launch', xbmc.LOGINFO)
-            else:
-                dismiss_busy_dialog()
-                open_home()
         except HomeOpenError as exc:
             _recover_home(exc)
 else:
