@@ -692,6 +692,7 @@ def test_addons_button_never_closes_home(load_homewindow, monkeypatch, child_res
 def test_context_key_dispatches_poster_menu_and_refreshes_after_a_library_write(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     import xbmcgui
+
     from lib.ui import libraryaction
     hw = ctx.newhome
     win, _, _ = build(ctx, monkeypatch, auth={'authKey': 'k'})
