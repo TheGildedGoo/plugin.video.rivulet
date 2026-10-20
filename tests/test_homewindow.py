@@ -156,7 +156,7 @@ def test_open_home_closes_the_window_exactly_once_and_reraises_when_domodal_rais
     # default.py wraps open_home() itself and falls back to the recovery
     # home directory on ANY exception - that contract requires the
     # exception to keep propagating unchanged, not be swallowed here.
-    with pytest.raises(RuntimeError, match='onInit blew up'):
+    with pytest.raises(ctx.homewindow.HomeOpenError, match='RuntimeError'):
         ctx.homewindow.open_home()
 
     win = captured['window']
@@ -232,7 +232,7 @@ def test_open_home_clears_the_heartbeat_when_the_window_raises(load_homewindow, 
 
     monkeypatch.setattr(ctx.newhome, 'NewHomeWindow', ExplodingWindow)
 
-    with pytest.raises(RuntimeError, match='onInit blew up'):
+    with pytest.raises(ctx.homewindow.HomeOpenError, match='RuntimeError'):
         ctx.homewindow.open_home()
 
     assert ctx.uicommon.ui_owner_alive() is False

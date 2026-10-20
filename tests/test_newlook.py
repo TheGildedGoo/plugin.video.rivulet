@@ -1,9 +1,4 @@
-"""The "New look" (lib/ui/newlook.py) and the Home it opens.
-
-Pins the hero lines (stars, facts, scores, "Ends at"), the stack that
-moves them, NewHomeWindow.xml against the window code, the setting that
-picks the window, and Home reopening itself when that setting changes.
-"""
+"""Hero rendering and shared Home helpers for the single Home."""
 import contextlib
 import os
 import time

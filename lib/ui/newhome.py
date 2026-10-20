@@ -1741,6 +1741,28 @@ class NewHomeWindow(BaseWindow):
         self._built = True
 
     def _build(self, place=None):
+        """Keep a failed build on Home, with empty/hidden poster rows.
+
+        A data failure must not send the whole addon to recovery. This
+        uses the same hidden-row state as a failed catalog fetch and
+        adds no error controls to the pinned skin.
+        """
+        try:
+            self._build_rows(place)
+        except Exception as exc:
+            import xbmc
+
+            from lib.stremio.addons import addon_error_detail
+            from lib.ui.compat import log
+
+            log('home: build failed: %s' % addon_error_detail(exc), xbmc.LOGERROR)
+            for list_id, prop, _counter in _ROW_COUNTERS:
+                self.setProperty(prop, '')
+                self.getControl(list_id).reset()
+            _number_rows(self)
+            _focus_first(self)
+
+    def _build_rows(self, place=None):
         from lib.ui.compat import setting_bool
         from lib.ui.newlook import fanart as addon_fanart
 

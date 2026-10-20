@@ -74,57 +74,42 @@ def _notify_if_updated(store):
 
 
 
+class HomeOpenError(RuntimeError):
+    """The Home could not be constructed or enter Kodi's modal loop."""
+
+
 def open_home():
-    """Build and run the HomeWindow modal; blocks until the user exits.
+    """Run the single Home under a heartbeat, closing it on every exit.
 
-    default.py wraps this call in its own try/except and falls back to
-    the minimal recovery directory (Settings row) on ANY exception, so
-    an exception raised here must keep propagating unchanged - this
-    only logs it for diagnostics and
-    guarantees the window is closed (it may not have had a chance to
-    self-close, e.g. if onInit() or doModal() itself raised) before
-    re-raising.
-
-    The whole session runs under `uicommon.UiHeartbeat`, the liveness marker
-    `default.py` consults before opening another Home (see `uicommon`'s
-    "UI phases" notes).
-
-    Home always uses NewHomeWindow.xml."""
+    Only construction/open failures reach the recovery directory. Home
+    handles build/row failures itself, leaving failed rows empty.
+    """
     import xbmc
 
+    from lib.stremio.addons import addon_error_detail
     from lib.ui.compat import log
 
     log('homewindow: opening HomeWindow', xbmc.LOGINFO)
-    # Runs here, not in HomeWindow.onInit(): onInit() re-fires every time
-    # Home is resumed after a nested modal (Discover/Search/...) closes,
-    # which would re-show the toast on every back-navigation. open_home()
-    # runs exactly once per addon launch. get_store() itself is guarded
-    # here too (not just inside _notify_if_updated): a cosmetic toast must
-    # never stop Home from opening, even if Store construction itself
-    # fails (e.g. an unwritable profile directory).
     _migrate_mystuff_setting()
     with UiHeartbeat():
-        # Everything below runs under the heartbeat, so a second interpreter
-        # (Kodi re-running the plugin root after playback - see
-        # uicommon's phase notes) can tell a live UI is already up and
-        # `default.py` does not open another HomeWindow over it. The
-        # heartbeat is cleared and its thread joined on every exit path.
+        # Once per launch, not onInit: reopening after playback must not
+        # repeat the update notice. A cosmetic store failure is harmless.
         try:
             _notify_if_updated(get_store())
         except Exception as exc:
-            log('homewindow: update-notification store unavailable: %r' % (exc,), xbmc.LOGWARNING)
-        from lib.ui.newhome import NewHomeWindow
+            log('homewindow: update-notification store unavailable: %s' %
+                addon_error_detail(exc), xbmc.LOGWARNING)
+        try:
+            from lib.ui.newhome import NewHomeWindow
 
-        win = open_window(NewHomeWindow, 'NewHomeWindow.xml')
+            win = open_window(NewHomeWindow, 'NewHomeWindow.xml')
+        except Exception as exc:
+            raise HomeOpenError(addon_error_detail(exc)) from exc
         try:
             win.doModal()
-        except Exception as exc:  # default.py's caller falls back to the recovery directory
-            log('homewindow: HomeWindow failed: %r' % (exc,), xbmc.LOGERROR)
-            raise
+        except Exception as exc:
+            raise HomeOpenError(addon_error_detail(exc)) from exc
         finally:
-            # A normal return means HomeWindow already closed itself; close()
-            # again here is a safe no-op. Only a raised exception makes this
-            # the window's one chance to close.
             try:
                 win.close()
             except Exception:

@@ -41,37 +41,36 @@ if _action == 'home':
     xbmcplugin.endOfDirectory(
         router.ADDON_HANDLE, succeeded=True, updateListing=False, cacheToDisc=False
     )
-    try:
-        from lib.ui.homewindow import open_home
-        from lib.ui.uicommon import dismiss_busy_dialog, is_duplicate_launch
+    def _recover_home(exc):
+        from lib.stremio.addons import addon_error_detail
 
-        if is_duplicate_launch():
-            # Kodi re-ran the plugin root (it re-fetches the Videos container
-            # the addon was started from whenever that window is activated
-            # again - e.g. when playback stops: kodi.log 01:07:59.987 ->
-            # 01:08:00.189) while another interpreter's UI is alive. The
-            # directory handle is satisfied above; opening Home here would
-            # stack a second UI over the restored picker, and
-            # dismiss_busy_dialog() would close that picker. See
-            # lib.ui.uicommon's "UI phases" notes for the exact rule.
-            log('default: a Rivulet UI is already running - ignoring bare launch', xbmc.LOGINFO)
-        else:
-            dismiss_busy_dialog()
-            open_home()
-    except Exception as exc:  # the custom UI must never leave the addon unusable
-        log(
-            'default: HomeWindow failed, falling back to classical home: %r' % (exc,),
-            xbmc.LOGERROR,
-        )
-        # 'home_classical' is intentionally NOT a registered router action:
-        # this is a FRESH plugin:// invocation (its own handle), and
-        # router.run()'s dispatch falls back to views.home() - now a
-        # minimal recovery directory (notice + Settings row), not the
-        # classical home - for any unrecognized action; see router.run()'s
-        # `dispatch.get(action, dispatch['home'])`. This handle was already
-        # closed above, so recovery must go through a new invocation rather
-        # than a second endOfDirectory() call on the same (spent) handle.
+        log('default: HomeWindow failed to open: %s' % addon_error_detail(exc), xbmc.LOGERROR)
+        # The original handle is spent. Recovery needs a fresh invocation,
+        # whose unregistered action routes to the minimal Settings directory.
         fallback_url = urlutil.url_for(router.BASE_URL, 'home_classical')
         xbmc.executebuiltin('Container.Update(%s)' % fallback_url)
+
+    try:
+        from lib.ui.homewindow import HomeOpenError, open_home
+        from lib.ui.uicommon import dismiss_busy_dialog, is_duplicate_launch
+    except Exception as exc:  # import failure: no Home can be constructed
+        _recover_home(exc)
+    else:
+        try:
+            if is_duplicate_launch():
+                # Kodi re-ran the plugin root (it re-fetches the Videos container
+                # the addon was started from whenever that window is activated
+                # again - e.g. when playback stops: kodi.log 01:07:59.987 ->
+                # 01:08:00.189) while another interpreter's UI is alive. The
+                # directory handle is satisfied above; opening Home here would
+                # stack a second UI over the restored picker, and
+                # dismiss_busy_dialog() would close that picker. See
+                # lib.ui.uicommon's "UI phases" notes for the exact rule.
+                log('default: a Rivulet UI is already running - ignoring bare launch', xbmc.LOGINFO)
+            else:
+                dismiss_busy_dialog()
+                open_home()
+        except HomeOpenError as exc:
+            _recover_home(exc)
 else:
     router.run()

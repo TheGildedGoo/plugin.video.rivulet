@@ -95,7 +95,7 @@ def run():
 
 def _refresh_cache():
     """Action 'refresh_cache': Settings > Home screen > Refresh cached
-    data, shown while "New look" is on (`lib.ui.cacherefresh`)."""
+    data (`lib.ui.cacherefresh`)."""
     from lib.ui.cacherefresh import refresh_from_settings
     refresh_from_settings()
 

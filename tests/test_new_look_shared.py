@@ -1,13 +1,7 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""What the new-look Home adds to shared modules, and how the stock Home
-hands over to it.
-
-The helpers are additions only: no existing caller of these modules
-changes. The switch is the one place the stock Home runs differently,
-and only while "New look" is on.
-"""
+"""Hero rendering and shared Home helpers for the single Home."""
 import contextlib
 import datetime
 

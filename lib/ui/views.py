@@ -3,7 +3,7 @@
 
 """Shared data helpers and RunPlugin script actions for plugin.video.rivulet.
 
-The addon's real UI is the custom WindowXML dialog stack (HomeWindow,
+The addon's real UI is the custom WindowXML dialog stack (NewHomeWindow,
 CatalogPickerWindow, infowindow.ShowcaseWindow, DetailWindow,
 StreamsWindow, SearchWindow, AddonsWindow, LibraryWindow) - this module no
 longer builds any of their directory listings. What remains here is:
@@ -17,7 +17,7 @@ longer builds any of their directory listings. What remains here is:
   `open_settings`) - side effects, not listings, so they finish with
   _finish_action() instead of xbmcplugin.endOfDirectory() on their own.
 - `home()`, the minimal recovery directory default.py falls back to when
-  opening the custom HomeWindow itself raises.
+  constructing or opening NewHomeWindow fails.
 """
 import queue
 import threading
@@ -675,9 +675,9 @@ def _refresh_addon_manifests(store, client):
 @_safe_listing
 def home():
     """Recovery directory - NOT Rivulet's home screen any more (that is
-    now the custom `HomeWindow`). This is what `default.py` falls back to
-    when opening `HomeWindow` itself raises, e.g. a broken skin missing
-    the InfoWindow/DetailWindow XML the custom UI depends on.
+    now the custom `NewHomeWindow`). This is what `default.py` falls back to
+    when constructing or opening `NewHomeWindow` fails. Data/row failures
+    are handled within Home and leave the affected row empty.
 
     It deliberately offers only Settings: every other screen is now a
     custom WindowXML dialog that depends on those same skin resources,
