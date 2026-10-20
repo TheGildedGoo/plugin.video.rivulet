@@ -16,7 +16,9 @@ def _migrate_mystuff_setting():
     The merged row replaced two rows and took a new setting id with it, so
     anyone who had deliberately turned the old "Continue watching" row OFF
     would silently get the new row switched back on. This copies that
-    decision across the rename exactly once.
+    decision across the rename exactly once. The Home layout migration
+    reads that result immediately afterwards, completing the old setting
+    → merged setting → saved layout chain before retired toggles vanish.
 
     Only a `false` needs carrying: the new setting already defaults to
     True, so an unset or true old value is already correct. The old key is
@@ -41,6 +43,31 @@ def _migrate_mystuff_setting():
         ADDON.setSetting('home_show_continue', '')
     except Exception as exc:
         log('homewindow: home_show_mystuff migration failed: %r' % (exc,), xbmc.LOGWARNING)
+
+
+def _migrate_home_layout():
+    """Finish the old toggle rename chain once, before Home reads layout.
+
+    Only an absent file migrates; a user's saved arrangement wins over old
+    settings forever. Personal Library splits survive disabled type rows.
+    """
+    import os
+
+    from lib.homelayout import migrate
+    from lib.stremio.addons import addon_error_detail
+    from lib.ui.compat import log, setting_bool
+
+    try:
+        store = get_store()
+        folder = getattr(store, 'data_dir', None)
+        if not folder or os.path.exists(os.path.join(folder, 'home_layout.json')):
+            return
+        toggles = {key: setting_bool(key, True) for key in (
+            'home_show_mystuff', 'home_show_movies', 'home_show_series', 'home_show_anime',
+        )}
+        store.set_home_layout(migrate(toggles))
+    except Exception as exc:
+        log('homewindow: layout migration failed: %s' % addon_error_detail(exc))
 
 
 def _notify_if_updated(store):
@@ -91,6 +118,7 @@ def open_home():
 
     log('homewindow: opening HomeWindow', xbmc.LOGINFO)
     _migrate_mystuff_setting()
+    _migrate_home_layout()
     with UiHeartbeat():
         # Once per launch, not onInit: reopening after playback must not
         # repeat the update notice. A cosmetic store failure is harmless.

@@ -288,3 +288,19 @@ def test_migration_survives_a_broken_settings_write(load_homewindow, monkeypatch
     monkeypatch.setattr(ctx.compat.ADDON, 'setSetting', _boom)
 
     ctx.homewindow._migrate_mystuff_setting()   # must not raise
+
+
+def test_layout_migration_runs_after_the_old_continue_rename(load_homewindow, monkeypatch, tmp_path):
+    from lib.store import Store
+
+    ctx = load_homewindow(settings={'home_show_continue': 'false', 'home_show_movies': 'false'})
+    store = Store(str(tmp_path))
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: store)
+    ctx.homewindow.open_home()
+    layout = store.get_home_layout()
+    assert all(not value.startswith('continue') for rows in layout['tabs'].values() for value in rows)
+    assert 'new:movie' not in layout['tabs']['home']
+    assert layout['tabs']['mystuff'] == ['library:movie', 'library:series']
+    ctx.env.addon.settings.update(home_show_mystuff='true', home_show_movies='true')
+    ctx.homewindow._migrate_home_layout()
+    assert store.get_home_layout() == layout

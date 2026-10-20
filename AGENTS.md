@@ -22,7 +22,7 @@ lib/ui/        every xbmc* import lives here (except service_runner.py)
 default.py (plugin)   service.py (xbmc.service, start="startup")
 ```
 
-**The Kodi-independence rule is real and load-bearing.** `lib/stremio/*`, `lib/store.py`, `lib/library.py`, `lib/serverbin.py`, `lib/ui/urlutil.py` and `lib/ui/playbackmeta.py` contain **zero** `xbmc*` imports, which is what makes them unit-testable without stubs. `lib/stremio/subtitles.py:92-96` documents a constant duplicated rather than imported specifically to preserve this. Never add an `xbmc` import to those modules to save a few lines.
+**The Kodi-independence rule is real and load-bearing.** `lib/stremio/*`, `lib/store.py`, `lib/library.py`, `lib/serverbin.py`, `lib/ui/urlutil.py`, `lib/ui/playbackmeta.py` and `lib/homelayout.py` contain **zero** `xbmc*` imports, which is what makes them unit-testable without stubs. `lib/stremio/subtitles.py:92-96` documents a constant duplicated rather than imported specifically to preserve this. Never add an `xbmc` import to those modules to save a few lines.
 
 **Plugin flow.** Kodi invokes `default.py` -> `lib/ui/router.py:run()` reads `action` from the query string (`params.get('action', 'home')`) and dispatches. Handlers lazily import `views`/`player` **inside closures** so an unrelated action never pays their import cost — a measured startup optimization, not an accident.
 

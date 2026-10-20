@@ -86,6 +86,7 @@ RESUME_OFFSET_FILENAME = "resume_offset.json"
 PROGRESS_FILENAME = "progress.json"
 LAST_VERSION_FILENAME = "last_version.json"
 SEEN_EPISODES_FILENAME = "seen_episodes.json"
+HOME_LAYOUT_FILENAME = "home_layout.json"
 
 #: Most-recent-first cap for the persisted search history list.
 MAX_SEARCH_HISTORY = 15
@@ -922,6 +923,7 @@ class Store:
         #: must always observe the current on-disk bytes -- see
         #: `_cached_read`'s docstring.
         self._read_cache = {}
+        self._home_layout_path = os.path.join(self.data_dir, HOME_LAYOUT_FILENAME)
         #: `time.monotonic()` of this instance's last full age-based
         #: `progress.json` sweep in `set_progress` (see
         #: `PROGRESS_SWEEP_INTERVAL_SECONDS`). `None` means "never swept
@@ -935,6 +937,36 @@ class Store:
         #: every time the entry count actually exceeds
         #: `MAX_PROGRESS_ENTRIES`, sweep or not.
         self._last_progress_sweep_monotonic = None
+
+    def _validated_home_layout(self, value):
+        from lib.homelayout import LayoutError, default_layout, normalize
+        from lib.stremio.addons import addon_error_detail
+
+        try:
+            return normalize(value)
+        except LayoutError as exc:
+            import logging
+
+            logging.getLogger(__name__).warning('Home layout reset: %s', addon_error_detail(exc))
+            return default_layout()
+
+    def get_home_layout(self):
+        """Read fresh: Settings edits this file in a separate interpreter.
+
+        Avoid adding a data-controlled key to _cached_read's closed set,
+        and observe an atomic same-size rewrite even on coarse filesystems.
+        """
+        from lib.homelayout import default_layout
+
+        if not os.path.exists(self._home_layout_path):
+            return default_layout()
+        return self._validated_home_layout(_read_json(self._home_layout_path, None))
+
+    def set_home_layout(self, layout):
+        """Validate and replace the arrangement atomically, never API data."""
+        value = self._validated_home_layout(layout)
+        _atomic_write(self._home_layout_path, value)
+        return value
 
     def _cached_read(self, path, default):
         """Memoised ``_read_json(path, default)`` for read-only accessors.
