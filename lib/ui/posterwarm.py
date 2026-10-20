@@ -109,16 +109,29 @@ def warm_posters(window, urls, monitor=None):
     if not slots:
         return
     monitor = monitor or xbmc.Monitor()
+    stop = getattr(window, '_home_stop', None)
     try:
         for start in range(0, len(urls), len(slots)):
+            if (stop is not None and stop.is_set()) or monitor.abortRequested():
+                return
             batch = urls[start:start + len(slots)]
             try:
                 for slot, url in zip(slots, batch):
                     slot.setImage(url)
             except Exception:
                 return
-            if monitor.waitForAbort(_HOLD_SECONDS):
-                return
+            if stop is None:
+                if monitor.waitForAbort(_HOLD_SECONDS):
+                    return
+            else:
+                # Home close is independent of Kodi shutdown. Short timed
+                # waits release the slots while the window is still owned.
+                import time
+
+                until = time.monotonic() + _HOLD_SECONDS
+                while time.monotonic() < until:
+                    if stop.wait(min(0.1, until - time.monotonic())) or monitor.abortRequested():
+                        return
     finally:
         _clear(slots)
 
@@ -156,6 +169,12 @@ def _drain():
             batch = list(_queue)
             del _queue[:]
             window = _target['window']
+            stop = getattr(window, '_home_stop', None)
+            if stop is not None and stop.is_set():
+                del _queue[:]
+                _target['window'] = None
+                _running = False
+                return
             if not batch:
                 _running = False
                 return

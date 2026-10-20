@@ -44,18 +44,20 @@ def test_a_missing_or_wrong_answer_is_not(monkeypatch):
 
 
 def test_the_worker_records_the_answer_and_repaints(monkeypatch):
-    repaints = []
-    monkeypatch.setattr(logocheck, 'fetch_is_image', lambda url: url.endswith('good.png'))
-    monkeypatch.setattr(logocheck, '_repaint', lambda: repaints.append(True))
-    monkeypatch.setattr(logocheck._WAKE, 'wait', lambda timeout=None: False)
-    logocheck._PENDING[:] = ['https://img/bad.png', 'https://img/good.png']
+    with install_kodi_stubs(reload=('lib.ui.logocheck',)) as ctx:
+        logocheck = ctx.logocheck
+        repaints = []
+        monkeypatch.setattr(logocheck, 'fetch_is_image', lambda url: url.endswith('good.png'))
+        monkeypatch.setattr(logocheck, '_repaint', lambda: repaints.append(True))
+        monkeypatch.setattr(logocheck._WAKE, 'wait', lambda timeout=None: False)
+        logocheck._PENDING[:] = ['https://img/bad.png', 'https://img/good.png']
 
-    logocheck._run()
+        logocheck._run()
 
-    assert logocheck.state('https://img/good.png') is True
-    assert logocheck.state('https://img/bad.png') is False
-    assert repaints == [True]
-    assert logocheck._WORKER == []
+        assert logocheck.state('https://img/good.png') is True
+        assert logocheck.state('https://img/bad.png') is False
+        assert repaints == [True]
+        assert logocheck._WORKER == []
 
 
 def test_remember_and_forget(monkeypatch):

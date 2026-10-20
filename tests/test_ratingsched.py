@@ -284,7 +284,8 @@ def test_the_worker_loop_waits_skips_and_fetches(sched, cache, monkeypatch):
     s._loop()
     # It waited out the dwell once, skipped the cached and the in-flight
     # titles, fetched the rest in order, then stopped.
-    assert waits == [pytest.approx(s._DWELL_SECONDS)]
+    assert sum(waits) == pytest.approx(s._DWELL_SECONDS)
+    assert max(waits) <= 0.1
     assert fetched == [('tt0000002', ''), ('tt0000004', 'series')]
     assert 'tt0000001' not in s._inflight
     assert s._plan['running'] is False

@@ -11,6 +11,7 @@ a device check; these tests verify rows, focus, properties and handoffs.
 import contextlib
 import os
 import threading
+import weakref
 
 import pytest
 
@@ -111,6 +112,24 @@ def load_homewindow():
                 settings=settings,
             ))
             ctx.homewindow = ctx.newhome
+            windows = weakref.WeakSet()
+            home_stop = ctx.newhome._home_stop
+
+            def track(window):
+                windows.add(window)
+                return home_stop(window)
+
+            ctx.newhome._home_stop = track
+
+            def close_sessions():
+                for window in list(windows):
+                    window.close()
+                    thread = getattr(window, '_library_meta_thread', None)
+                    if thread is not None:
+                        thread.join(1)
+                    ctx.newhome._join_shelf_extends(window)
+
+            stack.callback(close_sessions)
             return ctx
 
         yield _load
@@ -237,7 +256,7 @@ def test_library_focus_fetches_meta_and_paints_the_backdrop(load_homewindow, mon
     ctx.homewindow._focus_first(win)
     ctx.homewindow.paint_hero(win)
     assert time.time() - opened < 0.5
-    assert started.is_set()
+    assert started.wait(0.5)
     # Still the poster, covering the frame, while the request is in flight.
     assert win.getProperty('HeroFill') == '1'
     assert win.getControl(ctx.homewindow.BACKGROUND).image == 's'

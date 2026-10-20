@@ -55,6 +55,7 @@ _cache_keys = ('', '')
 #: and the monotonic time it was set.
 _plan = {'items': [], 'at': 0.0, 'running': False}
 _wake = threading.Event()
+_stop = threading.Event()
 
 
 def _token(key):
@@ -174,6 +175,7 @@ def _schedule(imdb_id, omdb_key, mdblist_key, cache, prefetch=(), stype=''):
     if not items:
         return
     with _lock:
+        _stop.clear()
         _plan['items'] = items
         _plan['at'] = time.monotonic()
         start = not _plan['running']
@@ -184,12 +186,22 @@ def _schedule(imdb_id, omdb_key, mdblist_key, cache, prefetch=(), stype=''):
         threading.Thread(target=_loop, name='rivulet-ratings', daemon=True).start()
 
 
+def stop():
+    """Discard Home's dwell/prefetch plan and wake its worker on close."""
+    with _lock:
+        _stop.set()
+        _plan['items'] = []
+        _wake.set()
+
+
 def _next_due():
     """The plan's head once its dwell has passed: `(item, None)`, or
     `(None, seconds)` to wait, or `(None, None)` when the plan is empty
     (the worker then stops)."""
+    import xbmc
+
     with _lock:
-        if not _plan['items']:
+        if _stop.is_set() or xbmc.Monitor().abortRequested() or not _plan['items']:
             _plan['running'] = False
             return None, None
         left = _plan['at'] + _DWELL_SECONDS - time.monotonic()
@@ -212,7 +224,7 @@ def _loop():
             return
         if item is None:
             _wake.clear()
-            _wake.wait(wait)
+            _wake.wait(min(wait, 0.1))
             continue
         if not item:
             continue
@@ -284,6 +296,8 @@ def _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id, stype=''):
             _cap(_failed_until)
     with _lock:
         _inflight.discard(imdb_id)
+    if _stop.is_set():
+        return
     try:
         import xbmc
         xbmc.executebuiltin('Action(noop)')

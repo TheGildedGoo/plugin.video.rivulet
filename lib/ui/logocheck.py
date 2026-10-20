@@ -28,6 +28,7 @@ _PENDING = []  # type: list
 _LOCK = threading.Lock()
 _WAKE = threading.Event()
 _WORKER = []  # type: list
+_STOP = threading.Event()
 #: Per request. A slow host just means the text title stays a while.
 TIMEOUT_SECONDS = 4.0
 #: At most this many URLs wait; older asks are dropped first (the remote
@@ -85,11 +86,21 @@ def ask(urls):
             queued = True
         while len(_PENDING) > _MAX_PENDING:
             _PENDING.pop(0)
+        if queued:
+            _STOP.clear()
         if queued and not _WORKER:
             worker = threading.Thread(target=_run, name='rivulet-logocheck', daemon=True)
             _WORKER.append(worker)
             worker.start()
     if queued:
+        _WAKE.set()
+
+
+def stop():
+    """Home closed: discard queued asks and wake the idle worker now."""
+    with _LOCK:
+        del _PENDING[:]
+        _STOP.set()
         _WAKE.set()
 
 
@@ -105,12 +116,20 @@ def _next():
 
 
 def _run():
+    import xbmc
+
+    monitor = xbmc.Monitor()
     retired = False
     try:
         while True:
+            with _LOCK:
+                if _STOP.is_set() or monitor.abortRequested():
+                    del _WORKER[:]
+                    retired = True
+                    return
             url = _next()
             if url is None:
-                if not _WAKE.wait(30):
+                if not _WAKE.wait(0.1):
                     with _LOCK:
                         if _PENDING:
                             continue
@@ -121,6 +140,8 @@ def _run():
                     return
                 continue
             good = fetch_is_image(url)
+            if _STOP.is_set() or monitor.abortRequested():
+                return
             remember(url, good)
             if good:
                 _repaint()

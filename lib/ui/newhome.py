@@ -307,6 +307,20 @@ def _log_row_end(state):
     state['end_logged'] = True
 
 
+def _stopping(stop=None):
+    import xbmc
+
+    return (stop is not None and stop.is_set()) or xbmc.Monitor().abortRequested()
+
+
+def _home_stop(window):
+    stop = getattr(window, '_home_stop', None)
+    if stop is None:
+        stop = threading.Event()
+        window._home_stop = stop
+    return stop
+
+
 def _pull_more(state, room, max_pages=5):
     """Fill at most 24 matching posters, bounded to five raw pages.
 
@@ -317,7 +331,7 @@ def _pull_more(state, room, max_pages=5):
     from lib.stremio.addons import addon_error_detail
     from lib.ui.compat import log
 
-    if not state or room <= 0 or state.get('exhausted') or _row_waiting(state):
+    if not state or _stopping(state.get('_stop')) or room <= 0 or state.get('exhausted') or _row_waiting(state):
         return []
     result = []
     pending = state.get('pending') or []
@@ -327,6 +341,8 @@ def _pull_more(state, room, max_pages=5):
         return result
     gen = _shelf_page_gen(state)
     for _ in range(max_pages):
+        if _stopping(state.get('_stop')):
+            break
         if len(result) >= room:
             break
         try:
@@ -361,6 +377,9 @@ def _open_shelf(descriptor):
 
     state = dict(descriptor)
     state.update({'pending': [], 'served': 0, 'seen_ids': set(), 'exhausted': False})
+    if _stopping(state.get('_stop')):
+        state['metas'] = []
+        return state
     try:
         first = _one_catalog_page(state['transport'], state['manifest'], state['catalog'])
     except CatalogUnavailable:
@@ -600,7 +619,8 @@ def _make_row_states(store, auth, entries, plan, fetched, suppressed=None):
                  'heading': heading_text(heading, L).upper(), 'descriptor': descriptor,
                  'pending': [], 'exhausted': True, 'metas': [], 'items': []}
         if kind == 'catalog':
-            state.update(fetched[list_id])
+            state.update(fetched.get(list_id, {}))
+            state.pop('_stop', None)
             state['kind'] = 'catalog'
             state['items'] = [_poster_item(meta) for meta in state['metas']]
         elif kind == 'continue':
@@ -622,6 +642,20 @@ def _make_row_states(store, auth, entries, plan, fetched, suppressed=None):
     return rows
 
 
+def _collect_home_rows(results, count, threads, stopped):
+    """Cancellation and a dead worker both end the first-paint collector."""
+    fetched = {}
+    while len(fetched) < count and not stopped():
+        try:
+            key, value = results.get(timeout=0.1)
+            fetched[key] = value
+        except queue.Empty:
+            # A worker dying outside Exception handling must not strand us.
+            if not any(thread.is_alive() for thread in threads):
+                break
+    return fetched
+
+
 def _load_rows(window, store, addons, auth):
     """Fetch only this tab's plan. One account read feeds every personal row."""
     from lib.homelayout import resolve
@@ -632,6 +666,14 @@ def _load_rows(window, store, addons, auth):
     if tab == 'anime' and not setting_bool('home_show_anime', True):
         return []
     plan = resolve(window._layout, tab, window._catalogs)
+    session_stop = _home_stop(window)
+    cancelled = threading.Event()
+    load_stops = getattr(window, '_home_load_stops', [])
+    window._home_load_stops = load_stops
+    load_stops.append(cancelled)
+
+    def stopped():
+        return cancelled.is_set() or _stopping(session_stop)
 
     def load():
         work, results = queue.Queue(), queue.Queue()
@@ -645,33 +687,43 @@ def _load_rows(window, store, addons, auth):
         count = work.qsize()
 
         def worker():
-            while True:
+            while not stopped():
                 try:
                     key, descriptor = work.get_nowait()
                 except queue.Empty:
                     return
                 try:
-                    value = _fetch_library(store, auth) if descriptor is None else _open_shelf(descriptor)
+                    value = _fetch_library(store, auth) if descriptor is None else _open_shelf(dict(descriptor, _stop=cancelled))
                 except Exception as exc:
                     from lib.stremio.addons import addon_error_detail
                     from lib.ui.compat import log
 
                     log('home: row load failed: %s' % addon_error_detail(exc))
                     value = [] if descriptor is None else {'metas': [], 'exhausted': True}
-                results.put((key, value))
+                if not stopped():
+                    results.put((key, value))
 
         from lib.ui.catalogpages import deferred_saves
 
         with deferred_saves():
+            threads = []
             for _ in range(min(count, _MAX_HOME_WORKERS)):
-                threading.Thread(target=worker, name='rivulet-home-load', daemon=True).start()
-            fetched = dict(results.get() for _ in range(count))
+                thread = threading.Thread(target=worker, name='rivulet-home-load', daemon=True)
+                threads.append(thread)
+                thread.start()
+            fetched = _collect_home_rows(results, count, threads, stopped)
+        if stopped():
+            return None
         entries = fetched.pop('library', cached or [])
         rows = _make_row_states(store, auth, entries, plan, fetched,
                                 getattr(window, '_continue_suppressed', None))
         return entries if needs_library or cached is not None else None, rows
 
-    loaded = run_cancellable(load, L(30033))
+    try:
+        loaded = run_cancellable(load, L(30033))
+    finally:
+        cancelled.set()
+        load_stops.remove(cancelled)
     if loaded is CANCELLED or not isinstance(loaded, tuple):
         return []
     window._library_entries, rows = loaded
@@ -1181,7 +1233,8 @@ def _cancel_shelf_extends(window):
 
 
 def _current_shelf(window, generation, panel, state):
-    return (generation == getattr(window, '_tab_generation', 0)
+    return (not _stopping(_home_stop(window))
+            and generation == getattr(window, '_tab_generation', 0)
             and getattr(window, '_rows', {}).get(panel) is state
             and _focusable(window, panel))
 
@@ -1194,7 +1247,7 @@ def _schedule_shelf_extend(window, panel, room):
     from that tab's saved snapshot. Running HTTP is never interrupted.
     """
     state = getattr(window, '_rows', {}).get(panel)
-    if not state:
+    if not state or _stopping(_home_stop(window)):
         return
     with _shelf_lock(window):
         inflight = getattr(window, '_shelf_inflight', {})
@@ -1220,7 +1273,7 @@ def _schedule_shelf_extend(window, panel, room):
 def _shelf_worker(window):
     while True:
         with _shelf_lock(window):
-            if not window._shelf_queue:
+            if _stopping(_home_stop(window)) or not window._shelf_queue:
                 window._shelf_running -= 1
                 return
             generation, panel, state, room = window._shelf_queue.pop()
@@ -1228,6 +1281,7 @@ def _shelf_worker(window):
                 window._shelf_inflight.pop(panel, None)
                 continue
         private = dict(state)
+        private['_stop'] = _home_stop(window)
         private['pending'] = list(state.get('pending', []))
         private['seen_ids'] = set(state.get('seen_ids', set()))
         metas = _pull_more(private, room)
@@ -1315,6 +1369,8 @@ def _schedule_library_meta(window, item):
     next action. A title already fetched, or one in flight, is not
     asked again.
     """
+    if _stopping(_home_stop(window)):
+        return
     if item is None or item.getProperty('needs_meta') != '1':
         with _library_meta_lock(window):
             previous = getattr(window, '_library_meta_latest', None)
@@ -1354,38 +1410,52 @@ def _schedule_library_meta(window, item):
             window._library_meta_idle.clear()
             window._library_meta_wake.set()
             return
-        window._library_meta_running = True
-        wake = threading.Event()
-        idle = threading.Event()
-        window._library_meta_wake = wake
-        window._library_meta_idle = idle
-        wake.set()
+        _start_library_meta(window)
 
-    # Keep one worker even between completed fetches. A weak reference lets
-    # a discarded window wake and release its idle daemon without retaining
-    # the whole Home session until process exit.
+
+def _start_library_meta(window):
+    """Caller holds the slot lock, including a playback reopen handoff."""
+    window._library_meta_running = True
+    wake = threading.Event()
+    idle = threading.Event()
+    window._library_meta_wake = wake
+    window._library_meta_idle = idle
+    wake.set()
+
+    # Reuse one worker while Home is open; close wakes it explicitly even
+    # while Kodi (or a caller) still owns the window object.
     window_ref = weakref.ref(window, lambda ref: wake.set())
-    thread = threading.Thread(target=_library_meta_worker, args=(window_ref, wake, idle),
+    thread = threading.Thread(target=_library_meta_worker, args=(window_ref, wake, idle, _home_stop(window)),
                               name='rivulet-library-meta', daemon=True)
     window._library_meta_thread = thread
     thread.start()
 
 
-def _library_meta_worker(window_ref, wake, idle):
-    """Serve a single latest-wins slot for the window's whole lifetime."""
+def _library_meta_worker(window_ref, wake, idle, stop):
+    """Serve one Home session; neither GC nor another key press ends it."""
     while True:
-        wake.wait()
+        wake.wait(timeout=0.1)
         wake.clear()
         window = window_ref()
         if window is None:
             return
-        _drain_library_meta(window, idle)
+        with _library_meta_lock(window):
+            if _stopping(stop):
+                window._library_meta_running = False
+                idle.set()
+                if window._library_meta_pending is not None and not _stopping(_home_stop(window)):
+                    _start_library_meta(window)
+                return
+        _drain_library_meta(window, idle, stop)
         del window
 
 
-def _drain_library_meta(window, idle):
+def _drain_library_meta(window, idle, stop):
     while True:
         with _library_meta_lock(window):
+            if _stopping(stop):
+                idle.set()
+                return
             wanted = window._library_meta_pending
             window._library_meta_pending = None
             if wanted is None:
@@ -1397,7 +1467,7 @@ def _drain_library_meta(window, idle):
         except Exception:
             meta = None
         with _library_meta_lock(window):
-            if window._library_meta_latest is not wanted:
+            if _stopping(stop) or window._library_meta_latest is not wanted:
                 continue
             window._library_meta_ready = [(wanted_type, wanted_id, meta)]
         try:
@@ -1808,6 +1878,10 @@ class NewHomeWindow(BaseWindow):
     """See module docstring. Built/run by `homewindow.open_home()`."""
 
     def onInit(self):
+        # Playback reopens this same SWIG window. A fresh event must never
+        # revive workers carrying the previous session's cancellation token.
+        if _home_stop(self).is_set():
+            self._home_stop = threading.Event()
         # Kodi re-runs onInit when this dialog is opened again, which is
         # the reopen after playback. That refreshes Continue in place and
         # keeps the remote where it was. The first open builds the rows.
@@ -1816,6 +1890,27 @@ class NewHomeWindow(BaseWindow):
             return
         self._build()
         self._built = True
+
+    def close(self):
+        _home_stop(self).set()
+        for stop in getattr(self, '_home_load_stops', []):
+            stop.set()
+        _cancel_shelf_extends(self)
+        with _library_meta_lock(self):
+            previous = getattr(self, '_library_meta_latest', None)
+            if previous is not None:
+                previous[0].setProperty('meta_state', '')
+            self._library_meta_latest = None
+            self._library_meta_pending = None
+            self._library_meta_ready = []
+            wake = getattr(self, '_library_meta_wake', None)
+            if wake is not None:
+                wake.set()
+        from lib.ui import logocheck, ratingsched
+
+        logocheck.stop()
+        ratingsched.stop()
+        super().close()
 
     def _build(self, place=None):
         """Keep a failed build on Home, with empty/hidden poster rows.
