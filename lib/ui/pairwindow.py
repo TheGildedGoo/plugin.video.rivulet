@@ -11,6 +11,10 @@
   configurable addon (the page links to its configure page).
 - `phone_search`: a search, from the Search screen.
 
+`link_sign_in` is the other phone flow: Stremio's own code sign-in
+(`lib.stremio.linklogin`). The TV shows a code, the viewer approves it
+on a phone where they are signed in, and no password is typed here.
+
 A value is handed to its caller and then dropped. A failure is logged
 as the exception class, never `str(exc)`, because a message built from
 the value would be the value.
@@ -234,3 +238,89 @@ def phone_search():
         messages={'empty': L(30486), 'long': L(30487)},
     )
     return value or ''
+
+
+#: How often the TV asks whether the code has been approved, and for how
+#: long. The service's own code lifetime is not published; five minutes
+#: is long enough to sign in on a phone.
+_LINK_POLL_SECONDS = 2.0
+_LINK_TIMEOUT_SECONDS = 300
+
+
+def link_sign_in(api=None, sleep=None, timeout=_LINK_TIMEOUT_SECONDS):
+    """Stremio's code sign-in. ``{'authKey', 'user'}``, or None.
+
+    None when the viewer backs out, the code times out, or the service
+    cannot be reached (a toast says which). The auth key is never
+    logged.
+    """
+    import xbmc
+
+    from lib.stremio.api import ApiError
+    from lib.stremio.linklogin import LinkError, create_code, read_auth_key
+    from lib.ui.compat import L, log, notify
+    from lib.ui.dependencies import get_api
+    from lib.ui.uicommon import (
+        open_window,
+        register_transient_dialog,
+        unregister_transient_dialog,
+    )
+
+    try:
+        code, link = create_code()
+    except LinkError as exc:
+        log('signin: link code failed: %s' % exc, xbmc.LOGWARNING)
+        notify(L(30023))
+        return None
+    sleep = sleep or _sleep
+    qr_path = os.path.join(tempfile.gettempdir(), 'rivulet-link-%s.bmp' % code)
+    try:
+        write_qr_bmp(link, qr_path)
+    except Exception as exc:
+        log('signin: qr failed: %s' % type(exc).__name__, xbmc.LOGDEBUG)
+        qr_path = ''
+    window = None
+    try:
+        window = open_window(_PairWindow, 'PairDialog.xml')
+        register_transient_dialog(window)
+        window.show()
+        _paint(window, L(30480), code, link, L(30482), qr_path, L(30223))
+        deadline = time.monotonic() + timeout
+        next_read = 0.0
+        auth_key = None
+        while True:
+            if window.iscanceled():
+                return None
+            now = time.monotonic()
+            if now >= deadline:
+                notify(L(30462))
+                return None
+            if now >= next_read:
+                next_read = now + _LINK_POLL_SECONDS
+                try:
+                    auth_key = read_auth_key(code)
+                except LinkError as exc:
+                    log('signin: link read failed: %s' % exc, xbmc.LOGDEBUG)
+                if auth_key:
+                    break
+            # Short naps so Back answers at once; the service is only
+            # asked every `_LINK_POLL_SECONDS`.
+            if sleep(min(0.25, max(0.0, deadline - now))):
+                return None
+        try:
+            user = (api or get_api()).get_user(auth_key)
+        except ApiError as exc:
+            log('signin: user lookup failed: %s' % type(exc).__name__, xbmc.LOGWARNING)
+            user = {}
+        if not isinstance(user, dict):
+            user = {}
+        return {'authKey': auth_key, 'user': user}
+    finally:
+        if window is not None:
+            unregister_transient_dialog(window)
+            window.close()
+        if qr_path:
+            try:
+                os.remove(qr_path)
+            except OSError:
+                pass

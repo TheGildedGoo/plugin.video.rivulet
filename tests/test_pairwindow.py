@@ -271,3 +271,90 @@ class _FakeApi:
         if self.exc is not None:
             raise self.exc
         return self.user
+
+
+def _link_stubs(monkeypatch, ctx, answers, created=('WUS8', 'https://link.stremio.com/WUS8')):
+    import lib.stremio.linklogin as linklogin
+
+    reads = []
+
+    def create_code():
+        if isinstance(created, Exception):
+            raise created
+        return created
+
+    def read_auth_key(code):
+        reads.append(code)
+        answer = answers.pop(0) if answers else None
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(linklogin, 'create_code', create_code)
+    monkeypatch.setattr(linklogin, 'read_auth_key', read_auth_key)
+    monkeypatch.setattr(ctx.pairwindow, '_LINK_POLL_SECONDS', 0)
+    windows = []
+    real_open = ctx.uicommon.open_window
+    monkeypatch.setattr(ctx.uicommon, 'open_window', lambda *a, **k: windows.append(real_open(*a, **k)) or windows[-1])
+    return reads, windows
+
+
+def test_link_sign_in_waits_for_approval_then_returns_the_account(kodi_stubs, monkeypatch):
+    from lib.stremio.linklogin import LinkError
+
+    ctx = _load_with(kodi_stubs)
+    reads, windows = _link_stubs(monkeypatch, ctx, [None, LinkError('blip'), 'auth-key-1'])
+    api = _FakeApi(user={'email': 'a@b.com'})
+
+    result = ctx.pairwindow.link_sign_in(api=api, sleep=lambda _s: False)
+
+    assert result == {'authKey': 'auth-key-1', 'user': {'email': 'a@b.com'}}
+    assert reads == ['WUS8', 'WUS8', 'WUS8']
+    assert api.keys == ['auth-key-1']
+    window = windows[0]
+    assert window.getControl(ctx.pairwindow.PAIR_HEADING).label == 'STR30480'
+    assert window.getControl(ctx.pairwindow.PAIR_CODE).label == 'WUS8'
+    assert window.getControl(ctx.pairwindow.PAIR_URL).label == 'https://link.stremio.com/WUS8'
+    assert window.closed is True
+    assert 'auth-key-1' not in _logged(ctx)
+    assert ctx.env.notifications == []
+
+
+def test_link_sign_in_back_returns_nothing(kodi_stubs, monkeypatch):
+    ctx = _load_with(kodi_stubs)
+    _reads, windows = _link_stubs(monkeypatch, ctx, [])
+
+    def sleep(_seconds):
+        windows[0].cancel()
+        return False
+
+    assert ctx.pairwindow.link_sign_in(api=_FakeApi(), sleep=sleep) is None
+    assert windows[0].closed is True
+    assert ctx.env.notifications == []
+
+
+def test_link_sign_in_times_out_with_a_toast(kodi_stubs, monkeypatch):
+    ctx = _load_with(kodi_stubs)
+    _link_stubs(monkeypatch, ctx, [])
+    assert ctx.pairwindow.link_sign_in(api=_FakeApi(), sleep=lambda _s: False, timeout=0) is None
+    assert 'STR30462' in _notes(ctx)
+
+
+def test_link_sign_in_without_the_service_says_sign_in_failed(kodi_stubs, monkeypatch):
+    from lib.stremio.linklogin import LinkError
+
+    ctx = _load_with(kodi_stubs)
+    _reads, windows = _link_stubs(monkeypatch, ctx, [], created=LinkError('ConnectionError'))
+    assert ctx.pairwindow.link_sign_in(api=_FakeApi(), sleep=lambda _s: False) is None
+    assert windows == []
+    assert 'STR30023' in _notes(ctx)
+
+
+def test_link_sign_in_keeps_the_key_when_the_account_lookup_fails(kodi_stubs, monkeypatch):
+    from lib.stremio.api import ApiError
+
+    ctx = _load_with(kodi_stubs)
+    _link_stubs(monkeypatch, ctx, ['auth-key-2'])
+    result = ctx.pairwindow.link_sign_in(api=_FakeApi(exc=ApiError('nope')), sleep=lambda _s: False)
+    assert result == {'authKey': 'auth-key-2', 'user': {}}
+    assert 'auth-key-2' not in _logged(ctx)

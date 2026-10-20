@@ -534,16 +534,17 @@ def test_onclick_continue_poster_opens_detail(load_homewindow, monkeypatch):
 
 
 
-def test_onclick_library_signin_poster_opens_settings(load_homewindow, monkeypatch):
+def test_onclick_library_signin_poster_opens_login(load_homewindow, monkeypatch):
     """Rivulet's auth.json is empty on a fresh profile even when the
-    Stremio app is signed in. The Library row's Sign in cell opens
-    Settings, where Account > Login is."""
+    Stremio app is signed in. The Library row's Sign in cell opens the
+    existing login dialog."""
     ctx = load_homewindow()
     calls = []
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
 
     import lib.ui.views as views
-    # Home never ends a plugin handle: views.login() would.
+    monkeypatch.setattr(views, 'sign_in', lambda: calls.append('login'))
+    # Home never ends a plugin handle (#22): login() would.
     monkeypatch.setattr(views, 'login', lambda: calls.append('handle'))
     import xbmcgui
     win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
@@ -553,9 +554,9 @@ def test_onclick_library_signin_poster_opens_settings(load_homewindow, monkeypat
 
     win.onClick(ctx.homewindow.LIBRARY_SHELF)
 
-    assert calls == []
-    assert ctx.env.opened_settings is True
+    assert calls == ['login']
     assert win.closed is False
+    assert ctx.env.opened_settings is False
 
 
 
@@ -1039,11 +1040,13 @@ def test_a_sign_in_rebuilds_the_rows_for_the_new_account(load_homewindow, monkey
     builds = []
     real_build = win._build
     monkeypatch.setattr(win, '_build', lambda place=None: (builds.append(place), real_build(place=place)))
-    def fake_settings():
-        # Account > Login, in Settings.
-        store._auth = {'authKey': 'other', 'user': {'email': 'x@y.z'}}
+    import lib.ui.views as views
 
-    monkeypatch.setattr(ctx.compat.ADDON, 'openSettings', fake_settings)
+    def fake_sign_in():
+        store._auth = {'authKey': 'other', 'user': {'email': 'x@y.z'}}
+        return store._auth
+
+    monkeypatch.setattr(views, 'sign_in', fake_sign_in)
 
     ctx.homewindow._open_signin(win)
 
@@ -1385,3 +1388,19 @@ def test_a_stale_library_result_does_not_leave_its_poster_loading(load_homewindo
     hw._join_library_meta(win)
     hw._apply_library_meta(win)
     assert item.getProperty('hero_plot') == 'loaded'
+
+
+def test_signin_button_opens_sign_in_without_settings_or_a_plugin_handle(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    import lib.ui.views as views
+    calls = []
+    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
+    monkeypatch.setattr(views, 'sign_in', lambda: calls.append('sign_in'))
+    monkeypatch.setattr(views, 'login', lambda: calls.append('plugin_handle'))
+    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.setProperty('HomeSignedOut', '1')
+    win.onClick(ctx.homewindow.BTN_SIGNIN)
+    assert calls == ['sign_in']
+    assert ctx.env.opened_settings is False
+    assert ctx.env.end_of_directory == []
+    assert not win.closed

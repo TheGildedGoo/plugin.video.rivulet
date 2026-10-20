@@ -106,6 +106,14 @@ class StremioAPI:
             },
         )
 
+    def get_user(self, auth_key):
+        """The account behind ``auth_key`` (``email``, ``_id``, ...).
+
+        The phone sign-in (``lib.stremio.linklogin``) yields only the key;
+        this fills in the user the status line and sync read.
+        """
+        return self._call("getUser", {"type": "GetUser", "authKey": auth_key})
+
     def logout(self, auth_key):
         """Invalidate ``auth_key`` server-side."""
         self._call("logout", {"type": "Logout", "authKey": auth_key})

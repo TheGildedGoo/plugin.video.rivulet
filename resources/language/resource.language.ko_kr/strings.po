@@ -1138,6 +1138,18 @@ msgctxt "#30479"
 msgid "That link is too long."
 msgstr "이 링크는 너무 깁니다."
 
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "휴대폰으로 로그인"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "이메일과 비밀번호 입력"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "휴대폰으로 QR을 스캔하거나 주소를 열고 그곳에서 Stremio에 로그인하세요."
+
 msgctxt "#30483"
 msgid "Search from your phone"
 msgstr "휴대폰으로 검색"

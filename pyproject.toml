@@ -108,5 +108,6 @@ files = ["lib", "default.py", "service.py"]
 module = [
     "lib.stremio.addons", "lib.stremio.api", "lib.stremio.server", "lib.serverbin",
     "lib.stremio.ratings", "lib.ui.logocheck", "lib.ui.trailer",
+    "lib.stremio.linklogin",
 ]
 disable_error_code = ["import-untyped"]

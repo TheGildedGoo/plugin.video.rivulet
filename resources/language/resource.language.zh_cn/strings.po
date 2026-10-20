@@ -1138,6 +1138,18 @@ msgctxt "#30479"
 msgid "That link is too long."
 msgstr "此链接太长。"
 
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "用手机登录"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "输入邮箱和密码"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "用手机扫描二维码或打开该地址，然后在那里登录 Stremio。"
+
 msgctxt "#30483"
 msgid "Search from your phone"
 msgstr "从手机搜索"
