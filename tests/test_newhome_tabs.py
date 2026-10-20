@@ -621,3 +621,14 @@ def test_cache_generation_clears_later_pages_before_rebuild(load_homewindow, mon
     ctx.compat.ADDON.setSetting('cache_generation', 'new')
     ctx.newhome._after_child(win)
     assert not catalogpages._later_pages
+
+
+def test_reopen_signed_out_keeps_only_one_library_signin_card(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    win, _, _ = build(ctx, monkeypatch)
+    ctx.newhome._switch_tab(win, 'mystuff')
+    win.onInit()
+    assert win.getControl(30041).size() == 1
+    assert win.getControl(30041).items[0].getProperty('action') == 'signin'
+    assert win.getControl(30042).size() == 0
+    assert win.getProperty('shelf_slot1') == ''

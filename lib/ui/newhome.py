@@ -687,9 +687,7 @@ def refresh_library_row(window):
 def _refresh_saved_rows(window, store=None):
     """Refresh personal rows only, retaining their loaded slice and cursor."""
     global _library_dirty
-    from lib.homelayout import matches_library
     from lib.ui.compat import L
-    from lib.ui.mystuff import library_metas
     from lib.ui.uicommon import CANCELLED, run_cancellable
 
     store = store or get_store()
@@ -702,23 +700,10 @@ def _refresh_saved_rows(window, store=None):
     window._library_entries = entries
     # Cached tabs may contain personal rows too. Rebuild them when revisited.
     place = _remember_place(window)
+    _refresh_snapshot_personal(list(getattr(window, '_rows', {}).values()), store, entries, auth)
     for panel, state in getattr(window, '_rows', {}).items():
         if state['kind'] == 'catalog':
             continue
-        if state['kind'] == 'continue':
-            state['items'][:] = _played_posters(store, entries, state['filter'])
-        else:
-            metas = [meta for meta in library_metas(_newest_first(entries))
-                     if matches_library(meta, state['filter'])]
-            count = max(_ROW_INITIAL, len(state['items']))
-            state['metas'] = metas[:count]
-            state['pending'] = metas[count:]
-            state['exhausted'] = not state['pending']
-            state['items'][:] = [_poster_item(meta, sparse=True) for meta in state['metas']]
-            if not state['items']:
-                number = 30426 if auth else 30427
-                state['items'][:] = [_poster_item({'name': L(number), 'description': L(30423 if auth else 30428)},
-                                                action='' if auth else 'signin')]
         label = 30140 if panel == CONTINUE_SHELF else next(h for _, p, h in _SHELVES if p == panel)
         prop = next(prop for p, prop, _ in _ROW_COUNTERS if p == panel)
         _set_shelf(window, panel, label, prop, state['heading'], state['items'])
@@ -734,10 +719,15 @@ def _refresh_snapshot_personal(states, store, entries, auth):
     from lib.homelayout import matches_library
     from lib.ui.mystuff import library_metas
 
+    signed_out_card = False
     for state in states:
         if state['kind'] == 'continue':
             state['items'][:] = _played_posters(store, entries, state['filter'])
         elif state['kind'] == 'library':
+            if not auth and signed_out_card:
+                state['items'][:] = []
+                continue
+            signed_out_card = True
             metas = [meta for meta in library_metas(_newest_first(entries))
                      if matches_library(meta, state['filter'])]
             count = max(_ROW_INITIAL, len(state['items']))
