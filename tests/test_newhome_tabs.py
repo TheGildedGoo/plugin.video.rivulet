@@ -197,6 +197,7 @@ def test_tab_snapshot_restores_all_loaded_posters_and_positions_without_http(loa
     win, _, calls = build(ctx, monkeypatch)
     hw._append_to_shelf(win, 30041, metas(30, 100))
     win.getControl(30041).selectItem(90)
+    win.getControl(30042).selectItem(11)
     win.setFocusId(30041)
     hw._switch_tab(win, 'mystuff')
     assert win._tab_snapshots['home'][1] == 30041
@@ -205,8 +206,14 @@ def test_tab_snapshot_restores_all_loaded_posters_and_positions_without_http(loa
     assert len(calls) == count
     assert win.getControl(30041).size() == 124
     assert win.getControl(30041).getSelectedPosition() == 90
-    # R2's chip focus is retained pending resolution of R10's conflicting instruction.
+    assert win.getControl(30042).getSelectedPosition() == 11
+    # Returning keeps chip focus; Down enters the first visible row.
     assert win.getFocusId() == 30010
+    assert win.getControl(30010).getSelectedItem().getProperty('action') == 'home'
+    import xbmcgui
+    win.onAction(xbmcgui.Action(4))
+    assert win.getFocusId() == 30041
+    assert win.getControl(30041).getSelectedPosition() == 90
 
 
 def test_active_tab_survives_playback_and_settings_generation_clears_snapshots(load_homewindow, monkeypatch):
