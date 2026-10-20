@@ -10,18 +10,18 @@ cropped, fading to black toward the left and the bottom. The clearlogo
 (or the name), one line of facts, three lines of plot and the scores sit
 on the left (`newlook.paint_hero`). One row is visible, pinned to the
 bottom of the screen. Down moves to the next row and Up moves back; the
-hero follows the focused poster. The type chips (Movies, Series, Anime,
-Other) sit in a pill row under the clock, and Search, Add-ons and
+hero follows the focused poster. The tabs (Home, My Stuff, Movies, Series, Anime) sit in a pill row under the clock, and Search, Add-ons and
 Settings are icon buttons in a right-aligned grouplist so they stay on
-the right edge at any resolution. Under that, horizontal rows: Continue
-(in progress), Library (the Stremio library), and one poster preview per
-installed type.
+the right edge at any resolution. The active tab resolves a saved layout into
+one pinned landscape Continue slot and up to twelve poster slots. OK switches
+on the chip bar; Left/Right only move focus. Back first resets the row, then
+moves to the active chip, then Home, then closes. Native Up/Down never rebuild
+rows. Snapshots retain each tab's loaded pages and positions for this window.
 
-Picking a poster opens its page, except a Continue poster that is
-actually mid-playback: that one asks Resume or Episode list (Details,
-for a movie). The menu button (long-press on a remote) offers Add to
-Library or Remove from Library, and Trailer. Picking a type chip opens
-that type's stock catalog picker.
+Picking a poster opens its page, except a Continue poster mid-playback, which
+asks Resume or Episode list. Poster menus offer Library/Trailer, Remove from
+Continue, and Browse full catalog for catalog rows. Pages append in place,
+with two workers and a 2000-item safety ceiling per row.
 
 Shared helpers this module calls and does not modify:
 `lib.ui.mystuff` (`merge_entries`, `library_metas`, `_fetch_library_entries`,
@@ -40,7 +40,7 @@ from lib.ui.uicommon import BaseWindow, gated_input
 
 BACKGROUND = 30000
 STATUS_LABEL = 30005
-BROWSE_LIST = 30010  # type chips (Movies, Series, Anime, Other)
+BROWSE_LIST = 30010  # permanent Home/My Stuff plus renderable type tabs
 TOOLS_LIST = 30011  # right-aligned grouplist: Sign in, Search, Add-ons, Settings
 HERO_TITLE = 30020
 HERO_META = 30021  # textbox in the right quarter; setText(), not setLabel()
@@ -63,37 +63,26 @@ BTN_SIGNIN = 30073
 #: approaches the end (`_maybe_extend_focused_shelf`).
 SHELF_CAP = 12
 
-#: First paint of a catalog row, and the most it will grow to. The first
-#: page is often longer than the screen; cutting it at 12 is what made
-#: the row stop, drop the hero, and ignore the remote once the visible
-#: window was past.
+#: First paint/append batch. Rows keep loading to the end, with a safety
+#: ceiling for broken addons that keep producing distinct ids forever.
 _ROW_INITIAL = 24
-_ROW_LIMIT = 80
+_ROW_CEILING = 2000
+PREFETCH_THRESHOLD = 5
 
 #: Set when a hub poster changes the account library. Home has no handle
 #: on that window, and its row cache would otherwise keep the old
 #: Library row until the auth key changed.
 _library_dirty = False
 
-#: (action, panel id, header label id) for the poster rows under the
-#: chips. Must match NewHomeWindow.xml, including each row's
-#: `Window.Property(shelf_<action>)` visibility gate.
-_SHELVES = (
-    ('movies', 30042, 30142),
-    ('series', 30043, 30143),
-    ('anime', 30044, 30144),
-    ('other', 30045, 30145),
+#: One landscape Continue slot is pinned first, followed by twelve poster
+#: slots. New header ids use the 30160s to avoid the old counter ids.
+#: The same slots are reused by each tab; its state lives in snapshots.
+_SHELVES = tuple(
+    ('slot%d' % index, 30041 + index, 30141 + index if index < 5 else 30160 + index - 5)
+    for index in range(12)
 )
-
-_CLICKABLE = frozenset(
-    (BROWSE_LIST, CONTINUE_SHELF, LIBRARY_SHELF)
-    + tuple(list_id for _action, list_id, _label in _SHELVES)
-)
-
-#: Every poster row, in screen order.
-_SHELF_IDS = (CONTINUE_SHELF, LIBRARY_SHELF) + tuple(
-    list_id for _action, list_id, _label in _SHELVES
-)
+_CLICKABLE = frozenset((BROWSE_LIST, CONTINUE_SHELF) + tuple(p for _, p, _ in _SHELVES))
+_SHELF_IDS = (CONTINUE_SHELF,) + tuple(p for _, p, _ in _SHELVES)
 
 _BUTTON_ACTIONS = {
     BTN_SEARCH: 'search',
@@ -102,99 +91,33 @@ _BUTTON_ACTIONS = {
     BTN_SIGNIN: 'signin',
 }
 
-#: The content-type rows, in menu order: (action, {Stremio base catalog
-#: types} or None, setting id). A catalog's type is reduced to its base
-#: - everything before the first '.', lowercased, via `_base_type()` -
-#: before matching one of these sets, so `anime.movie`/`anime.series`
-#: join Anime and a stray `TV` joins Series the same as `tv`.
-#:
-#: `series` deliberately carries `tv` alongside it. An addon that
-#: publishes live/linear channels types them "tv", and those are episodic
-#: listings a viewer thinks of as television. `other` carries `None`
-#: instead of a fixed set: it is a catch-all computed live by
-#: `_remainder_types()`. Every consumer of `TYPE_ROW_TYPES` must treat
-#: `None` as that sentinel, not as "unfiltered".
-_TYPE_ROWS = (
-    ('movies', frozenset({'movie'}), 'home_show_movies'),
-    ('series', frozenset({'series', 'tv'}), 'home_show_series'),
-    ('anime', frozenset({'anime'}), 'home_show_anime'),
-    ('other', None, 'home_show_other'),
-)
-
-TYPE_ROW_TYPES = {action: types for action, types, _ in _TYPE_ROWS}
-
-
-def _remainder_types(available):
-    """The `other` row's type set: every base type in `available` that no
-    curated row claims. Computed live rather than declared as a constant,
-    because unlike Movies/Series/Anime its membership depends entirely on
-    what is installed."""
-    claimed = frozenset().union(*(types for _, types, _ in _TYPE_ROWS if types is not None))
-    return available - claimed
-
-
-#: (localized-string id, action). The chips only. Continue and Library
-#: are poster rows, and Search / Add-ons / Settings are the top-bar
-#: buttons. They are not list items: a Kodi list has one item size, and
-#: the large cards that used to live here are what this screen dropped.
-_MENU = (
-    (30213, 'movies'),
-    (30214, 'series'),
-    (30215, 'anime'),
-    (30227, 'other'),
-)
-
-_SUBTITLES = {
-    'movies': 30216,
-    'series': 30217,
-    'anime': 30218,
-    'other': 30228,
-}
-
+# Tabs have a fixed order. Eligibility is the same pure catalog rule used by
+# the configurator; unsupported base types never create a Home row or chip.
+TYPE_ROW_TYPES = {'movies': frozenset({'movie'}), 'series': frozenset({'series', 'tv'}),
+                  'anime': frozenset({'anime'})}
+_MENU = ((30495, 'home'), (30516, 'mystuff'), (30213, 'movies'),
+         (30214, 'series'), (30215, 'anime'))
+_SUBTITLES = {'mystuff': 30232, 'movies': 30216, 'series': 30217, 'anime': 30218}
 L_FOR_ACTION = {action: string_id for string_id, action in _MENU}
 
 
-def _available_types(addons):
-    """Return the set of base catalog types `addons` actually publish,
-    reduced via `lib.stremio.addons._base_type()` - the same rule the
-    picker's own `types=` filter applies."""
-    from lib.stremio.addons import _base_type, iter_catalogs
+def _menu_items(addons=None, layout=None, active='home', progress=None):
+    from lib.homelayout import default_layout, installed_catalogs, matches_continue, resolve
+    from lib.ui.compat import L, setting_bool
 
-    return {_base_type(catalog.get('type')) for _, _, catalog in iter_catalogs(addons)}
-
-
-def _type_row_enabled(action, available):
-    """Whether the type row `action` should appear: its setting must be
-    on (all four default True) AND something installed must publish a
-    catalog of one of its types."""
-    from lib.ui.compat import setting_bool
-
-    types = TYPE_ROW_TYPES.get(action)
-    if types is None:
-        types = _remainder_types(available)
-    if not types & available:
-        return False
-    setting_id = next(sid for act, _, sid in _TYPE_ROWS if act == action)
-    return setting_bool(setting_id, True)
-
-
-def _menu_items(addons=None):
-    from lib.ui.compat import L, addon_media_path
-
-    available = _available_types(addons or [])
+    catalogs = installed_catalogs(addons or [], setting_bool('home_hide_adult', True))
+    layout = layout or default_layout()
     items = []
-    for string_id, action in _MENU:
-        if action in TYPE_ROW_TYPES and not _type_row_enabled(action, available):
+    for string_id, tab in _MENU:
+        plan = resolve(layout, tab, catalogs)
+        renderable = any(kind != 'continue' or any(matches_continue(meta, variant)
+                         for meta in progress or []) for _, kind, _, variant, _ in plan)
+        if tab not in ('home', 'mystuff') and not renderable:
             continue
         item = xbmcgui.ListItem(L(string_id))
-        subtitle = L(_SUBTITLES[action])
-        item.setProperties({
-            'action': action,
-            'subtitle': subtitle,
-            'hero_title': L(string_id),
-            'hero_plot': subtitle,
-        })
-        item.setArt({'icon': addon_media_path('%s.png' % action)})
+        plot = L(_SUBTITLES[tab]) if tab in _SUBTITLES else ''
+        item.setProperties({'action': tab, 'subtitle': plot, 'hero_title': L(string_id),
+                            'hero_plot': plot, 'active': '1' if tab == active else ''})
         items.append(item)
     return items
 
@@ -286,16 +209,6 @@ def _poster_item(meta, action='', sparse=False):
     return item
 
 
-def _more_item(action):
-    from lib.ui.compat import L
-
-    item = xbmcgui.ListItem(L(30425))
-    item.setProperties({
-        'action': action,
-        'hero_title': L(L_FOR_ACTION[action]),
-        'hero_plot': L(_SUBTITLES[action]),
-    })
-    return item
 
 
 class CatalogUnavailable(Exception):
@@ -338,93 +251,91 @@ def _one_catalog_page(transport, manifest, catalog, extra=None):
 
 
 def _shelf_page_gen(state):
-    """The catalog generator positioned on page 2.
+    """Resume after raw served metas, sharing Home's later-page LRU.
 
-    Page 1 is already on the row (and in `state['pending']` when it did
-    not fit). The generator starts at `skip` = page one's length, with
-    page one's ids already seen, so page one is not fetched again.
+    A new iterator per step makes paging state snapshotable. No generator
+    runs against a snapshot that another tab can restore underneath it.
     """
-    if not state or not state.get('transport') or not state.get('catalog'):
-        return None
-    gen = state.get('gen')
-    if gen is not None:
-        return gen
+    from lib.ui.catalogpages import cached_later_page
     from lib.ui.views import iter_catalog_pages_after
 
+    if not state.get('catalog'):
+        return iter(())
+
+    def fetch(transport, ctype, cid, extra=None):
+        page = cached_later_page(transport, ctype, cid, extra)
+        state['served'] += len(page)
+        state['seen_ids'].update(meta.get('id') for meta in page if isinstance(meta, dict))
+        return page
+
     catalog = state['catalog']
-    first = [meta for meta in (state.get('metas') or []) if isinstance(meta, dict)]
-    gen = iter_catalog_pages_after(
+    return iter_catalog_pages_after(
         state['transport'], catalog.get('type'), catalog.get('id'),
-        len(first), [meta.get('id') for meta in first],
-        extra=state.get('extra'), catalog=catalog, manifest=state.get('manifest'),
+        state['served'], state['seen_ids'], extra=state.get('extra'),
+        catalog=catalog, manifest=state['manifest'], page_limit=None,
+        fetch_page=fetch, stop_short=False,
     )
-    state['gen'] = gen
-    return gen
 
 
-def _pull_more(state, room):
-    """Up to `room` more metas for a row that is about to run out.
+def _pull_more(state, room, max_pages=5):
+    """Fill at most 24 matching posters, bounded to five raw pages.
 
-    Leftover metas from the page already fetched come first, so reaching
-    the end of the first screen does not hit the network. A later page
-    is fetched only once that leftover is on screen. An empty answer
-    marks the row finished; the hero stays on the last real poster.
+    Empty filtered anime pages are not catalog exhaustion. Raw ids and
+    offsets advance even when that view shows none of the fetched page.
     """
+    from lib.homelayout import matches_catalog
+    from lib.stremio.addons import addon_error_detail
+    from lib.ui.compat import log
+
     if not state or room <= 0 or state.get('exhausted'):
         return []
-    pending = list(state.get('pending') or [])
-    if pending:
-        state['pending'] = pending[room:]
-        return pending[:room]
+    result = []
+    pending = state.get('pending') or []
+    result.extend(pending[:room])
+    state['pending'] = pending[room:]
+    if len(result) >= room:
+        return result
     gen = _shelf_page_gen(state)
-    if gen is None:
-        state['exhausted'] = True
-        return []
-    try:
-        page = next(gen)
-    except StopIteration:
-        state['exhausted'] = True
-        return []
-    except Exception as exc:
-        if isinstance(exc, AssertionError):
-            raise
-        from lib.stremio.addons import addon_error_detail
-        from lib.ui.compat import log
-        log('home: next catalog page failed: %s' % addon_error_detail(exc))
-        state['exhausted'] = True
-        return []
-    batch = [meta for meta in (page or []) if isinstance(meta, dict)]
-    if not batch:
-        state['exhausted'] = True
-        return []
-    state['pending'] = batch
-    return _pull_more(state, room)
-
-
-def _open_shelf(addons, types):
-    """The first catalog of `types`, plus the leftover metas past the
-    first screen. None when nothing of that type is installed."""
-    from lib.stremio.addons import _base_type, iter_catalogs
-
-    for transport, manifest, catalog in iter_catalogs(addons):
-        if _base_type(catalog.get('type')) not in types:
-            continue
+    for _ in range(max_pages):
+        if len(result) >= room:
+            break
         try:
-            metas = _one_catalog_page(transport, manifest, catalog)
-        except CatalogUnavailable:
-            # Logged already. Home's preview row stays hidden, as before.
-            metas = []
-        return {
-            'metas': metas,
-            'transport': transport,
-            'manifest': manifest,
-            'catalog': catalog,
-            'extra': None,
-            'pending': metas[_ROW_INITIAL:],
-            'gen': None,
-            'exhausted': False,
-        }
-    return None
+            page = next(gen)
+        except StopIteration:
+            state['exhausted'] = True
+            break
+        except Exception as exc:
+            log('home: next catalog page failed: %s' % addon_error_detail(exc))
+            state['exhausted'] = True
+            break
+        batch = [meta for meta in page if isinstance(meta, dict)
+                 and matches_catalog(meta, state.get('filter', ''))]
+        needed = room - len(result)
+        result.extend(batch[:needed])
+        state['pending'] = batch[needed:]
+    return result
+
+
+def _open_shelf(descriptor):
+    """One resolved catalog view; first paint includes at most five pages."""
+    from lib.homelayout import matches_catalog
+    from lib.ui.views import _dedupe_page
+
+    state = dict(descriptor)
+    state.update({'pending': [], 'served': 0, 'seen_ids': set(), 'exhausted': False})
+    try:
+        first = _one_catalog_page(state['transport'], state['manifest'], state['catalog'])
+    except CatalogUnavailable:
+        state['exhausted'] = True
+        first = []
+    state['served'] = len(first)
+    _fresh, first = _dedupe_page(first, state['seen_ids'], False)
+    state['pending'] = [meta for meta in first if isinstance(meta, dict)
+                        and matches_catalog(meta, state.get('filter', ''))]
+    if not first:
+        state['exhausted'] = True
+    state['metas'] = _pull_more(state, _ROW_INITIAL, max_pages=4)
+    return state
 
 
 def _set_shelf(window, list_id, label_id, prop, heading, items):
@@ -441,12 +352,9 @@ def _set_shelf(window, list_id, label_id, prop, heading, items):
 #: Row panel -> its "row / rows" label at the right end of the heading
 #: (NewHomeWindow.xml). Only one row is on screen at a time, so the count is
 #: the only cue to how far down the list you are (#20).
-_ROW_COUNTERS = (
-    (CONTINUE_SHELF, 'shelf_continue', 30150),
-    (LIBRARY_SHELF, 'shelf_library', 30151),
-) + tuple(
-    (list_id, 'shelf_%s' % action, 30152 + index)
-    for index, (action, list_id, _label) in enumerate(_SHELVES)
+_ROW_COUNTERS = ((CONTINUE_SHELF, 'shelf_continue', 30150),) + tuple(
+    (panel, 'shelf_%s' % slot, 30151 + index if index < 5 else 30170 + index - 5)
+    for index, (slot, panel, _header) in enumerate(_SHELVES)
 )
 
 
@@ -560,7 +468,7 @@ def _newest_first(entries):
     return sorted(kept, key=lambda entry: entry.get('_ctime') or entry.get('_mtime') or '', reverse=True)
 
 
-def _played_posters(store, library_entries):
+def _played_posters(store, library_entries, variant=''):
     """Resume, next-up and recently finished. Never the library band.
 
     `merge_entries()` is what copies a saved title's name and poster onto
@@ -574,7 +482,10 @@ def _played_posters(store, library_entries):
         merged = _merge_played(store.get_progress_entries(), library_entries)
     except Exception:
         merged = []
-    played = [entry for entry in merged if entry.get('band') != BAND_LIBRARY]
+    from lib.homelayout import matches_continue
+
+    played = [entry for entry in merged if entry.get('band') != BAND_LIBRARY
+              and matches_continue(entry, variant)]
     missing = [entry for entry in played if not (entry.get('name') or entry.get('poster'))]
     if missing:
         try:
@@ -592,6 +503,8 @@ def _played_posters(store, library_entries):
         if len(posters) >= SHELF_CAP:
             return posters
     for meta in _library_continue_metas(library_entries):
+        if not matches_continue(meta, variant):
+            continue
         key = (meta.get('type'), meta.get('id'))
         if key in seen:
             continue
@@ -602,33 +515,6 @@ def _played_posters(store, library_entries):
     return posters
 
 
-def _library_posters(auth, library_entries, more=None):
-    """Every non-removed libraryItem, as posters. Signed out, one Sign in
-    cell. Signed in and empty, the existing empty-library notice.
-
-    Build the same first slice as catalog rows. The rest stay as metas
-    until focus nears the end; the library keeps its whole order and has
-    no More tile or terminal catalog cap.
-    """
-    from lib.ui.compat import L
-    from lib.ui.mystuff import library_metas
-
-    if more is not None:
-        more.pop('library', None)
-    if not auth:
-        return [_poster_item(
-            {'name': L(30427), 'description': L(30428)}, action='signin',
-        )]
-    try:
-        metas = library_metas(_newest_first(library_entries))
-    except Exception:
-        metas = []
-    if more is not None:
-        more['library'] = {'pending': metas[_ROW_INITIAL:], 'exhausted': not metas}
-    posters = [_poster_item(meta, sparse=True) for meta in metas[:_ROW_INITIAL]]
-    if posters:
-        return posters
-    return [_poster_item({'name': L(30426), 'description': L(30423)})]
 
 
 def _fetch_library(store, auth):
@@ -657,201 +543,132 @@ def _fetch_library(store, auth):
     return fetched
 
 
-def _enabled_shelf_types(addons):
-    """`{action: type set}` for the poster rows that should exist.
-
-    Local: settings and the installed manifests. No HTTP.
-    """
-    available = _available_types(addons)
-    enabled = {}
-    for action, _list_id, _label_id in _SHELVES:
-        if not _type_row_enabled(action, available):
-            continue
-        types = TYPE_ROW_TYPES[action]
-        if types is None:
-            types = _remainder_types(available)
-        enabled[action] = types
-    return enabled
-
-
-#: Home's own bound on its first-screen fetches (the library read plus
-#: one page per row). Every fan-out point bounds its own pool on these
-#: low-power boxes; see AGENTS.md before sharing it with another one.
+# Each first-load fan-out has its own four-worker bound; later paging has
+# a separate two-worker bound because it runs while the remote is moving.
 _MAX_HOME_WORKERS = 4
 
 
-def _catalog_pages(addons, enabled):
-    """First screen per enabled shelf, and the state that appends the rest.
+def _make_row_states(store, auth, entries, plan, fetched):
+    from lib.homelayout import heading_text, matches_library
+    from lib.ui.compat import L
+    from lib.ui.mystuff import library_metas
 
-    `pages` is what the row draws now. `more` is what `_pull_more` walks
-    when the remote nears the end. One request per shelf at open, all at
-    once (#13): the rows used to be fetched one after another, so opening
-    Home cost the sum of every addon's answer instead of the slowest one.
-    """
-    pages = {}
-    more = {}
-    actions = list(enabled.items())
-    work = queue.Queue()
-    results = queue.Queue()
-    for index, (action, types) in enumerate(actions):
-        work.put((index, action, types))
-
-    def _worker():
-        while True:
-            try:
-                index, action, types = work.get_nowait()
-            except queue.Empty:
-                return
-            try:
-                shelf = _open_shelf(addons, types)
-            except Exception as exc:
-                from lib.stremio.addons import addon_error_detail
-                from lib.ui.compat import log
-
-                log('home: row %s failed: %s' % (action, addon_error_detail(exc)))
-                shelf = None
-            results.put((index, action, shelf))
-
-    # Reserve one of Home's slots for the account library read. Raw daemons
-    # have no executor atexit join: Back can abandon a slow addon at exit.
-    for _ in range(min(len(actions), _MAX_HOME_WORKERS - 1)):
-        threading.Thread(target=_worker, name='rivulet-home-load', daemon=True).start()
-    finished = {}
-    for _ in actions:
-        index, action, shelf = results.get()
-        finished[index] = (action, shelf)
-    shelves = [finished[index] for index in range(len(actions))]
-    for action, shelf in shelves:
-        if shelf is None:
-            pages[action] = []
-            more[action] = None
-            continue
-        pages[action] = shelf['metas'][:_ROW_INITIAL]
-        more[action] = shelf
-    return pages, more
+    rows = []
+    signed_out_card = False
+    for list_id, kind, descriptor, variant, heading in plan:
+        state = {'list_id': list_id, 'kind': kind, 'filter': variant,
+                 'heading': heading_text(heading, L).upper(), 'descriptor': descriptor,
+                 'pending': [], 'exhausted': True, 'metas': [], 'items': []}
+        if kind == 'catalog':
+            state.update(fetched[list_id])
+            state['kind'] = 'catalog'
+            state['items'] = [_poster_item(meta) for meta in state['metas']]
+        elif kind == 'continue':
+            state['items'] = _played_posters(store, entries, variant)
+        elif not auth:
+            if not signed_out_card:
+                state['items'] = [_poster_item({'name': L(30427), 'description': L(30428)}, action='signin')]
+                signed_out_card = True
+        else:
+            metas = [meta for meta in library_metas(_newest_first(entries))
+                     if matches_library(meta, variant)]
+            state['metas'] = metas[:_ROW_INITIAL]
+            state['pending'] = metas[_ROW_INITIAL:]
+            state['exhausted'] = not state['pending']
+            state['items'] = [_poster_item(meta, sparse=True) for meta in state['metas']]
+            if not state['items']:
+                state['items'] = [_poster_item({'name': L(30426), 'description': L(30423)})]
+        rows.append(state)
+    return rows
 
 
 def _load_rows(window, store, addons, auth):
-    """Continue, Library, and the catalog previews.
-
-    One cancellable spinner covers the account read and the catalog
-    pages. The result stays on the window so backing out of Search does
-    not fetch it again; a different auth key (the sign-in dialog) does.
-    """
+    """Fetch only this tab's plan. One account read feeds every personal row."""
+    from lib.homelayout import resolve
     from lib.ui.compat import L
     from lib.ui.uicommon import CANCELLED, run_cancellable
 
-    global _library_dirty
+    tab = window._active_tab
+    plan = resolve(window._layout, tab, window._catalogs)
 
-    enabled = _enabled_shelf_types(addons)
-    key = (auth or {}).get('authKey')
-    cached = getattr(window, '_row_key', None) == key and getattr(window, '_catalog_pages', None) is not None
-    if cached and not _library_dirty:
-        return window._continue_items, window._library_items, window._catalog_pages, enabled
-    if cached and _library_dirty:
-        _library_dirty = False
-        _refill_saved_rows(window, store, auth)
-        return window._continue_items, window._library_items, window._catalog_pages, enabled
+    def load():
+        work, results = queue.Queue(), queue.Queue()
+        needs_library = any(kind in ('continue', 'library') for _, kind, _, _, _ in plan)
+        cached = getattr(window, '_library_entries', None)
+        if needs_library and cached is None:
+            work.put(('library', None))
+        for list_id, kind, descriptor, _variant, _heading in plan:
+            if kind == 'catalog':
+                work.put((list_id, descriptor))
+        count = work.qsize()
 
-    def _load():
-        # The library read and every row's first page run together, and
-        # catalog_pages.json is written once at the end (#13).
+        def worker():
+            while True:
+                try:
+                    key, descriptor = work.get_nowait()
+                except queue.Empty:
+                    return
+                try:
+                    value = _fetch_library(store, auth) if descriptor is None else _open_shelf(descriptor)
+                except Exception as exc:
+                    from lib.stremio.addons import addon_error_detail
+                    from lib.ui.compat import log
+
+                    log('home: row load failed: %s' % addon_error_detail(exc))
+                    value = [] if descriptor is None else {'metas': [], 'exhausted': True}
+                results.put((key, value))
+
         from lib.ui.catalogpages import deferred_saves
 
-        library = queue.Queue()
-
-        def _read_library():
-            try:
-                entries = _fetch_library(store, auth)
-            except Exception as exc:
-                from lib.stremio.addons import addon_error_detail
-                from lib.ui.compat import log
-
-                log('home: library read failed: %s' % addon_error_detail(exc))
-                entries = []
-            library.put(entries)
-
         with deferred_saves():
-            threading.Thread(target=_read_library, name='rivulet-home-library', daemon=True).start()
-            pages, more = _catalog_pages(addons, enabled)
-            library_entries = library.get()
-        return (
-            _played_posters(store, library_entries),
-            _library_posters(auth, library_entries, more),
-            pages,
-            more,
-        )
+            for _ in range(min(count, _MAX_HOME_WORKERS)):
+                threading.Thread(target=worker, name='rivulet-home-load', daemon=True).start()
+            fetched = dict(results.get() for _ in range(count))
+        entries = fetched.pop('library', cached or [])
+        rows = _make_row_states(store, auth, entries, plan, fetched)
+        return entries if needs_library or cached is not None else None, rows
 
-    loaded = run_cancellable(_load, L(30033))
-    if loaded is CANCELLED or not isinstance(loaded, tuple) or len(loaded) != 4:
-        return [], [], {}, enabled
-    continue_items, library_items, pages, more = loaded
-    window._row_key = key
-    window._continue_items = continue_items
-    window._library_items = library_items
-    window._catalog_pages = pages
-    window._shelf_more = more
-    return continue_items, library_items, pages, enabled
+    loaded = run_cancellable(load, L(30033))
+    if loaded is CANCELLED or not isinstance(loaded, tuple):
+        return []
+    window._library_entries, rows = loaded
+    return rows
 
 
 def _warm_shelf_posters(window, pages):
-    """Poster textures for the first catalog rows, after they are on screen.
-
-    Continue and Library are not catalog pages. Backgrounds and logos
-    are not warmed. The worker waits on ``waitForAbort``.
-    """
     from lib.ui.posterwarm import collect_poster_urls, request_warm
 
-    groups = []
-    for action, _list_id, _label_id in _SHELVES:
-        groups.append(pages.get(action) or [])
-    request_warm(window, collect_poster_urls(groups))
+    request_warm(window, collect_poster_urls(list(pages.values())))
 
 
-def _fill_shelves(window, store, addons, auth, show_continue):
-    from lib.ui.compat import L
-
-    continue_items, library_items, pages, enabled = _load_rows(window, store, addons, auth)
-    if not show_continue:
-        continue_items = []
-    _set_shelf(
-        window, CONTINUE_SHELF, 30140, 'shelf_continue',
-        L(30241).upper(), continue_items,
-    )
-    _set_shelf(
-        window, LIBRARY_SHELF, 30141, 'shelf_library',
-        L(30422).upper(), library_items,
-    )
-    for action, list_id, label_id in _SHELVES:
-        items = []
-        if action in enabled:
-            items = [_poster_item(meta) for meta in pages.get(action, [])]
-            if items:
-                items.append(_more_item(action))
-        _set_shelf(
-            window, list_id, label_id, 'shelf_%s' % action,
-            L(L_FOR_ACTION[action]).upper(), items,
-        )
+def _paint_rows(window, states):
+    """Map this tab onto one landscape and twelve unchanged poster slots."""
+    for list_id, prop, _counter in _ROW_COUNTERS:
+        label = 30140 if list_id == CONTINUE_SHELF else next(
+            header for _slot, panel, header in _SHELVES if panel == list_id)
+        _set_shelf(window, list_id, label, prop, '', [])
+    window._rows = {}
+    slots = iter(_SHELVES)
+    for state in states:
+        if state['kind'] == 'continue':
+            list_id, header, prop = CONTINUE_SHELF, 30140, 'shelf_continue'
+        else:
+            slot, list_id, header = next(slots)
+            prop = 'shelf_%s' % slot
+        window._rows[list_id] = state
+        _set_shelf(window, list_id, header, prop, state['heading'], state['items'])
+        if state['items']:
+            window.getControl(list_id).selectItem(min(state.get('position', 0), len(state['items']) - 1))
+    window._shelf_more = window._rows
+    window._continue_items = next((s['items'] for s in states if s['kind'] == 'continue'), [])
+    window._library_items = next((s['items'] for s in states if s['kind'] == 'library'), [])
+    window._catalog_pages = {s['list_id']: s['metas'] for s in states if s['kind'] == 'catalog'}
     _number_rows(window)
-    _warm_shelf_posters(window, pages)
+    _warm_shelf_posters(window, {s['list_id']: s['metas'] for s in states})
 
 
-def _refill_saved_rows(window, store, auth, entries=None):
-    """Continue and Library from a fresh account read. Catalog pages stay
-    as they were: a library write does not change what a catalog returns."""
-    from lib.ui.compat import setting_bool
-
-    if entries is None:
-        entries = _fetch_library(store, auth)
-    show_continue = setting_bool('home_show_mystuff', True)
-    continue_items = _played_posters(store, entries) if show_continue else []
-    more = getattr(window, '_shelf_more', None)
-    if more is None:
-        more = {}
-        window._shelf_more = more
-    library_items = _library_posters(auth, entries, more)
-    window._continue_items = continue_items
-    window._library_items = library_items
+def _fill_shelves(window, store, addons, auth, show_continue=True):
+    _paint_rows(window, _load_rows(window, store, addons, auth))
 
 
 def mark_library_dirty():
@@ -861,70 +678,129 @@ def mark_library_dirty():
 
 
 def refresh_library_row(window):
-    """Re-read the account library into Home's Continue and Library rows.
-
-    A hub has no Library row. It marks the cache dirty, and Home refills
-    when the hub closes (`_after_child`). The read is the same
-    `_fetch_library` Home already uses, not a new API method. The row
-    keeps the poster the remote was on.
-    """
-    global _library_dirty
-
-    try:
-        window.getControl(LIBRARY_SHELF)
-    except Exception:
-        _library_dirty = True
+    if not hasattr(window, '_rows'):
+        mark_library_dirty()
         return
     _refresh_saved_rows(window)
 
 
 def _refresh_saved_rows(window, store=None):
-    """Continue and Library from a fresh account read, in place.
-
-    The read runs under the cancellable spinner. Back on it keeps the
-    rows that were there, still marked dirty. Each row then re-selects
-    the title it was on, so the remote does not jump to the first poster.
-    """
+    """Refresh personal rows only, retaining their loaded slice and cursor."""
     global _library_dirty
-
+    from lib.homelayout import matches_library
     from lib.ui.compat import L
+    from lib.ui.mystuff import library_metas
     from lib.ui.uicommon import CANCELLED, run_cancellable
 
     store = store or get_store()
-
-    def _read():
-        auth = store.get_auth()
-        return auth, _fetch_library(store, auth)
-
-    loaded = run_cancellable(_read, L(30033))
-    if loaded is CANCELLED or not isinstance(loaded, tuple):
+    auth = store.get_auth()
+    entries = run_cancellable(lambda: _fetch_library(store, auth), L(30033))
+    if entries is CANCELLED:
         _library_dirty = True
         return
-    auth, entries = loaded
+    _cancel_shelf_extends(window)
+    window._library_entries = entries
+    # Cached tabs may contain personal rows too. Rebuild them when revisited.
     place = _remember_place(window)
-    _refill_saved_rows(window, store, auth, entries=entries)
-    _set_shelf(
-        window, CONTINUE_SHELF, 30140, 'shelf_continue',
-        L(30241).upper(), window._continue_items,
-    )
-    _set_shelf(
-        window, LIBRARY_SHELF, 30141, 'shelf_library',
-        L(30422).upper(), window._library_items,
-    )
+    for panel, state in getattr(window, '_rows', {}).items():
+        if state['kind'] == 'catalog':
+            continue
+        if state['kind'] == 'continue':
+            state['items'][:] = _played_posters(store, entries, state['filter'])
+        else:
+            metas = [meta for meta in library_metas(_newest_first(entries))
+                     if matches_library(meta, state['filter'])]
+            count = max(_ROW_INITIAL, len(state['items']))
+            state['metas'] = metas[:count]
+            state['pending'] = metas[count:]
+            state['exhausted'] = not state['pending']
+            state['items'][:] = [_poster_item(meta, sparse=True) for meta in state['metas']]
+            if not state['items']:
+                number = 30426 if auth else 30427
+                state['items'][:] = [_poster_item({'name': L(number), 'description': L(30423 if auth else 30428)},
+                                                action='' if auth else 'signin')]
+        label = 30140 if panel == CONTINUE_SHELF else next(h for _, p, h in _SHELVES if p == panel)
+        prop = next(prop for p, prop, _ in _ROW_COUNTERS if p == panel)
+        _set_shelf(window, panel, label, prop, state['heading'], state['items'])
+    for states, _focus in getattr(window, '_tab_snapshots', {}).values():
+        _refresh_snapshot_personal(states, store, entries, auth)
     _number_rows(window)
     _library_dirty = False
     _restore_place(window, place)
 
 
+def _refresh_snapshot_personal(states, store, entries, auth):
+    """Personal writes invalidate personal data, never a tab's loaded catalogs."""
+    from lib.homelayout import matches_library
+    from lib.ui.mystuff import library_metas
+
+    for state in states:
+        if state['kind'] == 'continue':
+            state['items'][:] = _played_posters(store, entries, state['filter'])
+        elif state['kind'] == 'library':
+            metas = [meta for meta in library_metas(_newest_first(entries))
+                     if matches_library(meta, state['filter'])]
+            count = max(_ROW_INITIAL, len(state['items']))
+            state['metas'] = metas[:count]
+            state['pending'] = metas[count:]
+            state['exhausted'] = not state['pending']
+            state['items'][:] = [_poster_item(meta, sparse=True) for meta in state['metas']]
+            if not state['items']:
+                from lib.ui.compat import L
+
+                state['items'][:] = [_poster_item({'name': L(30426 if auth else 30427),
+                                                  'description': L(30423 if auth else 30428)},
+                                                 action='' if auth else 'signin')]
+
+
+def _snapshot_tab(window):
+    """Keep loaded rows (up to 2000 each), native positions and last row."""
+    rows = list(getattr(window, '_rows', {}).values())
+    for panel, state in getattr(window, '_rows', {}).items():
+        state['position'] = window.getControl(panel).getSelectedPosition()
+    focus = window.getFocusId()
+    if focus in getattr(window, '_rows', {}):
+        window._tab_last_row = focus
+    window._tab_snapshots[window._active_tab] = (rows, getattr(window, '_tab_last_row', None))
+
+
+def _select_active_chip(window):
+    control = window.getControl(BROWSE_LIST)
+    for index in range(control.size()):
+        item = control.getListItem(index)
+        active = item.getProperty('action') == window._active_tab
+        item.setProperty('active', '1' if active else '')
+        if active:
+            control.selectItem(index)
+
+
+def _switch_tab(window, tab):
+    """Switch on OK only. Discard old queued/ready loads before slot reuse."""
+    if tab == window._active_tab:
+        _select_active_chip(window)
+        window.setFocusId(BROWSE_LIST)
+        return
+    _snapshot_tab(window)
+    _cancel_shelf_extends(window)
+    window._active_tab = tab
+    snapshot = window._tab_snapshots.get(tab)
+    if snapshot:
+        rows, window._tab_last_row = snapshot
+        _paint_rows(window, rows)
+    else:
+        store = get_store()
+        _fill_shelves(window, store, store.get_enabled_addons(), store.get_auth())
+        window._tab_last_row = None
+    _select_active_chip(window)
+    window.setFocusId(BROWSE_LIST)
+    paint_hero(window)
+    _note_focus(window)
+
+
 #: Settings a Home row is built from. A Settings visit that changes none
 #: of them (and no sign-in, no addon change) leaves the rows, and the
 #: remote's place on them, alone.
-_ROW_SETTINGS = (
-    'home_show_mystuff', 'home_show_movies', 'home_show_series',
-    'home_show_anime', 'home_show_other', 'home_hide_adult',
-    # Settings > Refresh cached data bumps this (lib/ui/cacherefresh.py).
-    'cache_generation',
-)
+_ROW_SETTINGS = ('home_hide_adult', 'cache_generation', 'home_layout_generation')
 
 
 def _home_signature(store):
@@ -944,16 +820,13 @@ def _home_signature(store):
             settings.append(ADDON.getSetting(key))
         except Exception:
             settings.append('')
-    return (auth.get('authKey') if isinstance(auth, dict) else None, tuple(sorted(ids)), tuple(settings))
+    return (auth.get('authKey') if isinstance(auth, dict) else None, tuple(ids), tuple(settings))
 
 
 #: Lists whose selection survives a refresh. The chips list is matched
 #: by its `action`, a poster by its `sid`.
 def _place_lists():
-    return (BROWSE_LIST, CONTINUE_SHELF, LIBRARY_SHELF) + tuple(
-        list_id for _action, list_id, _label in _SHELVES
-    )
-
+    return (BROWSE_LIST,) + _SHELF_IDS
 
 def _item_key(item):
     if item is None:
@@ -989,7 +862,7 @@ def _focusable(window, control_id):
         return bool(window.getProperty('HomeSignedOut'))
     if control_id in _BUTTON_ACTIONS or control_id == TOOLS_LIST:
         return True
-    for prop, list_id in (('shelf_continue', CONTINUE_SHELF), ('shelf_library', LIBRARY_SHELF)):
+    for prop, list_id in (('shelf_continue', CONTINUE_SHELF),):
         if control_id == list_id:
             return bool(window.getProperty(prop))
     for action, list_id, _label in _SHELVES:
@@ -998,33 +871,12 @@ def _focusable(window, control_id):
     return False
 
 
-def _restore_library_slice(window, key, position):
-    """Materialize a saved selection before restoring it after a refresh.
-
-    Only posters are lazy; keeping the old focus must not clamp it to the
-    first slice when playback or an account write refreshes the library.
-    """
-    state = (getattr(window, '_shelf_more', None) or {}).get('library')
-    if not state or not state.get('pending'):
-        return
-    control = window.getControl(LIBRARY_SHELF)
-    if any(_item_key(control.getListItem(i)) == key for i in range(control.size())):
-        return
-    pending = state['pending']
-    needed = max(0, (position if isinstance(position, int) else 0) + 1 - control.size())
-    for index, meta in enumerate(pending):
-        if meta.get('id') == key:
-            needed = index + 1
-            break
-    _append_to_shelf(window, LIBRARY_SHELF, _pull_more(state, needed), sparse=True)
 
 
 def _restore_place(window, place):
     """Put every list back on the title it was on, then the focus."""
     focus, rows = place
     for list_id, (key, position) in rows.items():
-        if list_id == LIBRARY_SHELF:
-            _restore_library_slice(window, key, position)
         try:
             control = window.getControl(list_id)
             size = control.size()
@@ -1088,7 +940,8 @@ def _after_child(window, played=False):
     if signature != getattr(window, '_signature', None) or getattr(window, '_catalog_pages', None) is None:
         _drop_memory_if_refreshed(window)
         place = _remember_place(window)
-        window._row_key = None
+        window._tab_snapshots = {}
+        window._library_entries = None
         window._catalog_pages = None
         window._build(place=place)
         return
@@ -1114,21 +967,87 @@ def _open_child(window, opener):
     return False
 
 
-def _offer_library(window, item, control_id=None):
-    """Menu button on a poster. A chip or a notice has nothing to save.
+def _back(window):
+    """Exact four-rung Back ladder; only its first rung resets a row."""
+    focus = window.getFocusId()
+    if focus in _SHELF_IDS:
+        control = window.getControl(focus)
+        if control.getSelectedPosition() > 0:
+            control.selectItem(0)
+            state = getattr(window, '_rows', {}).get(focus)
+            if state:
+                state['position'] = 0
+        else:
+            _select_active_chip(window)
+            window.setFocusId(BROWSE_LIST)
+    elif focus == BROWSE_LIST and getattr(window, '_active_tab', 'home') != 'home':
+        _switch_tab(window, 'home')
+    else:
+        window.close()
+    paint_hero(window)
+    _note_focus(window)
 
-    A series card on Continue also offers Go to series: the show's page,
-    where OK on the card asks to resume the episode instead."""
+
+def _remove_continue(window, item):
+    import xbmc
+
+    from lib.ui import dialogs
+    from lib.ui.compat import L, log
+
+    if not dialogs.confirm(L(30517), L(30415), xbmc.getLocalizedString(107), xbmc.getLocalizedString(106)):
+        return
+    store = get_store()
+    try:
+        store.remove_progress_title(item.getProperty('stype'), item.getProperty('sid'))
+    except Exception as exc:
+        from lib.stremio.addons import addon_error_detail
+
+        log('home: progress removal failed: %s' % addon_error_detail(exc))
+        return
+    state = window._rows[CONTINUE_SHELF]
+    control = window.getControl(CONTINUE_SHELF)
+    position = control.getSelectedPosition()
+    state['items'][:] = _played_posters(store, getattr(window, '_library_entries', []), state['filter'])
+    _set_shelf(window, CONTINUE_SHELF, 30140, 'shelf_continue', state['heading'], state['items'])
+    if state['items']:
+        control.selectItem(min(position, len(state['items']) - 1))
+        window.setFocusId(CONTINUE_SHELF)
+    else:
+        _select_active_chip(window)
+        window.setFocusId(BROWSE_LIST)
+    for states, _focus in getattr(window, '_tab_snapshots', {}).values():
+        for saved in states:
+            if saved['kind'] == 'continue':
+                saved['items'][:] = _played_posters(store, getattr(window, '_library_entries', []), saved['filter'])
+    _number_rows(window)
+    paint_hero(window)
+
+
+def _browse_catalog(window, state):
+    from lib.stremio.addons import _base_type
+    from lib.ui.catalogpicker import open_catalog_picker
+
+    base = _base_type(state['descriptor']['catalog']['type'])
+    types = {'series', 'tv'} if base in ('series', 'tv') else {base}
+    _open_child(window, lambda: open_catalog_picker(types=types, heading=state['heading']))
+
+
+def _offer_library(window, item, control_id=None):
+    """Personal actions precede Library and Trailer in the existing menu."""
+    from lib.ui.compat import L
     from lib.ui.libraryaction import meta_from_item, poster_menu
 
     meta = meta_from_item(item)
     if meta is None:
         return
     extra = []
-    if control_id == CONTINUE_SHELF and item.getProperty('stype') == 'series':
-        from lib.ui.compat import L
-
-        extra.append((L(30514), lambda: _open_child(window, lambda: _open_detail_for(item))))
+    if control_id == CONTINUE_SHELF:
+        if item.getProperty('stype') == 'series':
+            extra.append((L(30514), lambda: _open_child(window, lambda: _open_detail_for(item))))
+        extra.append((L(30517), lambda: _remove_continue(window, item)))
+    state = getattr(window, '_rows', {}).get(control_id)
+    if state and state['kind'] == 'catalog':
+        extra.append((L(30537), lambda: _browse_catalog(window, state)))
     if poster_menu(meta, extra):
         refresh_library_row(window)
 
@@ -1138,32 +1057,21 @@ def _note_focus(window):
     from a move (`HomeWindow.onAction`)."""
     try:
         window._last_focus = window.getFocusId()
+        if window._last_focus in getattr(window, '_rows', {}):
+            window._tab_last_row = window._last_focus
     except Exception:
         window._last_focus = None
 
 
 def _focus_first(window):
-    """Land on the first row that actually has posters, else the chips,
-    else Settings. An empty hidden row must not take the remote."""
-    try:
-        for control_id, prop in (
-            (CONTINUE_SHELF, 'shelf_continue'),
-            (LIBRARY_SHELF, 'shelf_library'),
-        ):
-            if window.getProperty(prop):
-                window.setFocusId(control_id)
-                return
-        if window.getControl(BROWSE_LIST).size():
-            window.setFocusId(BROWSE_LIST)
+    """First visible row, preserving its native selected item."""
+    for panel, prop, _counter in _ROW_COUNTERS:
+        if window.getProperty(prop):
+            window.setFocusId(panel)
+            _note_focus(window)
             return
-        for _action, list_id, _label in _SHELVES:
-            if window.getProperty('shelf_%s' % _action):
-                window.setFocusId(list_id)
-                return
-        window.setFocusId(BTN_SETTINGS)
-    finally:
-        _note_focus(window)
-
+    window.setFocusId(BROWSE_LIST)
+    _note_focus(window)
 
 def _status_text(auth):
     """Home's top status line. Both states are prefixed with a
@@ -1190,32 +1098,21 @@ def _fit_hero_title(text):
 
 
 def _append_to_shelf(window, list_id, metas, sparse=False):
-    """Add `metas` to a shelf, keeping the poster the remote is on.
-
-    `addItems` sends the cursor back to the first cell. The saved
-    position is put back so a page landing under the thumb does not
-    jump the row, which is the same snap the coverflow already avoids.
-    The More cell, when the row has one, stays last.
-    """
+    """Append only; restoring Kodi's cursor never rebuilds existing cells."""
     if not metas:
         return
     control = window.getControl(list_id)
-    pos = control.getSelectedPosition()
-    if pos < 0:
-        pos = 0
-    items = [control.getListItem(index) for index in range(control.size())]
-    more = None
-    if items and items[-1].getProperty('action') and not items[-1].getProperty('sid'):
-        more = items.pop()
-    items.extend(_poster_item(meta, sparse=sparse) for meta in metas)
-    if more is not None:
-        items.append(more)
-    control.reset()
+    pos = max(0, control.getSelectedPosition())
+    items = [_poster_item(meta, sparse=sparse) for meta in metas]
     control.addItems(items)
-    if items:
-        control.selectItem(min(pos, len(items) - 1))
-    if list_id == LIBRARY_SHELF:
-        window._library_items = items
+    control.selectItem(pos)
+    state = getattr(window, '_rows', {}).get(list_id)
+    if state is not None:
+        state['items'].extend(items)
+        state['metas'].extend(metas)
+    elif list_id == LIBRARY_SHELF:
+        window._library_items.extend(items)
+    _warm_shelf_posters(window, {'appended': metas})
 
 
 def _shelf_lock(window):
@@ -1226,121 +1123,117 @@ def _shelf_lock(window):
     return lock
 
 
-def _schedule_shelf_extend(window, action, room):
-    """The next catalog page for one Home row, off the GUI thread.
+def _cancel_shelf_extends(window):
+    with _shelf_lock(window):
+        window._tab_generation = getattr(window, '_tab_generation', 0) + 1
+        window._shelf_queue = []
+        window._shelf_ready = []
+        window._shelf_inflight = {}
 
-    Page two used to be fetched inside onAction: the hero froze, Right
-    presses queued, and a slow addon held the row for its whole timeout.
-    The answer lands in `_shelf_ready` and is appended on the noop this
-    worker posts. One fetch per row at a time.
+
+def _current_shelf(window, generation, panel, state):
+    return (generation == getattr(window, '_tab_generation', 0)
+            and getattr(window, '_rows', {}).get(panel) is state
+            and _focusable(window, panel))
+
+
+def _schedule_shelf_extend(window, panel, room):
+    """One job per row, two daemon workers, newest queued request first.
+
+    Workers mutate private paging copies. Only a current result can commit
+    its offsets/pending ids, so leaving a tab during HTTP loses no posters
+    from that tab's saved snapshot. Running HTTP is never interrupted.
     """
-    inflight = getattr(window, '_shelf_inflight', None)
-    if inflight is None:
-        inflight = {}
-        window._shelf_inflight = inflight
-    if action in inflight:
-        return
-    state = (getattr(window, '_shelf_more', None) or {}).get(action)
+    state = getattr(window, '_rows', {}).get(panel)
     if not state:
         return
-    inflight[action] = state
+    with _shelf_lock(window):
+        inflight = getattr(window, '_shelf_inflight', {})
+        window._shelf_inflight = inflight
+        if panel in inflight:
+            return
+        generation = getattr(window, '_tab_generation', 0)
+        inflight[panel] = (generation, state)
+        jobs = getattr(window, '_shelf_queue', [])
+        window._shelf_queue = jobs
+        jobs.append((generation, panel, state, room))
+        running = getattr(window, '_shelf_running', 0)
+        threads = getattr(window, '_shelf_threads', [])
+        window._shelf_threads = [thread for thread in threads if thread.is_alive()]
+        if running < 2:
+            window._shelf_running = running + 1
+            thread = threading.Thread(target=_shelf_worker, args=(window,),
+                                      name='rivulet-home-page', daemon=True)
+            window._shelf_threads.append(thread)
+            thread.start()
 
-    def _work():
-        metas = []
-        try:
-            metas = _pull_more(state, room)
-        except Exception as exc:
-            if isinstance(exc, AssertionError):
-                raise
-            metas = []
+
+def _shelf_worker(window):
+    while True:
         with _shelf_lock(window):
-            if (getattr(window, '_shelf_more', None) or {}).get(action) is not state:
+            if not window._shelf_queue:
+                window._shelf_running -= 1
                 return
-            ready = getattr(window, '_shelf_ready', None)
-            if ready is None:
-                window._shelf_ready = [(action, state, metas)]
-            else:
-                ready.append((action, state, metas))
-            if inflight.get(action) is state:
-                inflight.pop(action, None)
+            generation, panel, state, room = window._shelf_queue.pop()
+            if not _current_shelf(window, generation, panel, state):
+                window._shelf_inflight.pop(panel, None)
+                continue
+        private = dict(state)
+        private['pending'] = list(state.get('pending', []))
+        private['seen_ids'] = set(state.get('seen_ids', set()))
+        metas = _pull_more(private, room)
+        with _shelf_lock(window):
+            if not _current_shelf(window, generation, panel, state):
+                continue
+            ready = getattr(window, '_shelf_ready', [])
+            window._shelf_ready = ready
+            ready.append((generation, panel, state, private, metas))
         try:
             import xbmc
             xbmc.executebuiltin('Action(noop)')
         except Exception:
             pass
 
-    thread = threading.Thread(target=_work, name='rivulet-home-shelf', daemon=True)
-    threads = getattr(window, '_shelf_threads', None)
-    if threads is None:
-        window._shelf_threads = [thread]
-    else:
-        threads[:] = [worker for worker in threads if worker.is_alive()]
-        threads.append(thread)
-    thread.start()
-
 
 def _join_shelf_extends(window):
-    """Test hook. Production appends on the noop the worker posts."""
-    for thread in list(getattr(window, '_shelf_threads', []) or []):
+    """Test hook; production applies results on Action(noop)."""
+    for thread in list(getattr(window, '_shelf_threads', [])):
         thread.join(timeout=2)
 
 
 def _apply_shelf_extends(window):
-    """Append what the row workers fetched. UI thread only."""
     with _shelf_lock(window):
-        ready = list(getattr(window, '_shelf_ready', None) or [])
+        ready = list(getattr(window, '_shelf_ready', []))
         window._shelf_ready = []
-    for action, state, metas in ready:
-        if (getattr(window, '_shelf_more', None) or {}).get(action) is not state:
+    for generation, panel, state, private, metas in ready:
+        if not _current_shelf(window, generation, panel, state):
             continue
-        for name, list_id, _label in _SHELVES:
-            if name == action and metas:
-                _append_to_shelf(window, list_id, metas)
+        for key in ('pending', 'seen_ids', 'served', 'exhausted'):
+            if key in private:
+                state[key] = private[key]
+        _append_to_shelf(window, panel, metas, sparse=(state['kind'] == 'library'))
+        window._shelf_inflight.pop(panel, None)
+        if len(state['metas']) >= _ROW_CEILING:
+            import xbmc
+
+            from lib.ui.compat import log
+
+            state['exhausted'] = True
+            log('home: row reached the %d-item safety ceiling' % _ROW_CEILING, xbmc.LOGINFO)
 
 
 def _maybe_extend_focused_shelf(window):
-    """Append the next posters when the remote is within four of the end.
-
-    The row only had the first slice. Moving into the unloaded part
-    left the container on a blank item, paint_hero cleared the title,
-    and the row stopped taking left and right. What page one still
-    holds is appended at once; a further page is fetched off the GUI
-    thread (`_schedule_shelf_extend`).
-    """
-    focus = window.getFocusId()
-    action = None
-    for name, list_id, _label in _SHELVES:
-        if list_id == focus:
-            action = name
-            break
-    if focus == LIBRARY_SHELF:
-        action = 'library'
-    if action is None:
+    """Prefetch within five cells; the GUI never waits on a page."""
+    panel = window.getFocusId()
+    state = getattr(window, '_rows', {}).get(panel)
+    if not state or state.get('exhausted') or state['kind'] == 'continue':
         return
-    state = (getattr(window, '_shelf_more', None) or {}).get(action)
-    if not state or state.get('exhausted'):
+    control = window.getControl(panel)
+    if control.getSelectedPosition() < max(0, control.size() - PREFETCH_THRESHOLD):
         return
-    if action in (getattr(window, '_shelf_inflight', None) or ()):
-        return
-    control = window.getControl(focus)
-    count = control.size()
-    pos = control.getSelectedPosition()
-    if count <= 0 or pos < max(0, count - 4):
-        return
-    shown = 0
-    for index in range(count):
-        if control.getListItem(index).getProperty('sid'):
-            shown += 1
-    room = _ROW_INITIAL if action == 'library' else _ROW_LIMIT - shown
-    if room <= 0:
-        return
-    if state.get('pending'):
-        _append_to_shelf(window, focus, _pull_more(state, room), sparse=(action == 'library'))
-        return
-    if action == 'library':
-        state['exhausted'] = True
-        return
-    _schedule_shelf_extend(window, action, room)
+    room = min(_ROW_INITIAL, _ROW_CEILING - len(state['metas']))
+    if room > 0:
+        _schedule_shelf_extend(window, panel, room)
 
 
 def _fetch_library_meta(stype, sid):
@@ -1599,7 +1492,9 @@ def _apply_library_meta(window):
     items = []
     # Library records and Continue entries both arrive without a
     # description; both rows get the same hero once the meta lands.
-    for shelf in (LIBRARY_SHELF, CONTINUE_SHELF):
+    rows = getattr(window, '_rows', None)
+    shelves = [panel for panel, state in rows.items() if state['kind'] in ('library', 'continue')] if rows is not None else (LIBRARY_SHELF, CONTINUE_SHELF)
+    for shelf in shelves:
         try:
             control = window.getControl(shelf)
             items.extend((shelf, control.getListItem(index)) for index in range(control.size()))
@@ -1884,11 +1779,9 @@ class NewHomeWindow(BaseWindow):
         uses the same hidden-row state as a failed catalog fetch and
         adds no error controls to the pinned skin.
         """
-        with _shelf_lock(self):
-            self._shelf_ready = []
-            self._shelf_inflight = {}
-            self._shelf_threads = []
-            self._shelf_more = {}
+        _cancel_shelf_extends(self)
+        self._active_tab = getattr(self, '_active_tab', 'home')
+        self._tab_snapshots = getattr(self, '_tab_snapshots', {})
         try:
             self._build_rows(place)
         except Exception as exc:
@@ -1905,6 +1798,7 @@ class NewHomeWindow(BaseWindow):
             _focus_first(self)
 
     def _build_rows(self, place=None):
+        from lib.homelayout import default_layout, installed_catalogs
         from lib.ui.compat import setting_bool
         from lib.ui.newlook import fanart as addon_fanart
 
@@ -1914,15 +1808,19 @@ class NewHomeWindow(BaseWindow):
         if place is None:
             self.getControl(BACKGROUND).setImage(addon_fanart())
         addons = store.get_enabled_addons()
-        browse = _menu_items(addons)
+        self._layout = store.get_home_layout() if hasattr(store, 'get_home_layout') else default_layout()
+        self._catalogs = installed_catalogs(addons, setting_bool('home_hide_adult', True))
+        browse = _menu_items(addons, self._layout, self._active_tab, store.get_progress_entries())
+        if self._active_tab not in [item.getProperty('action') for item in browse]:
+            self._active_tab = 'home'
         chips = self.getControl(BROWSE_LIST)
         chips.reset()
         chips.addItems(browse)
         self.setProperty('HomeBrowse', '1' if browse else '')
         self.setProperty('HomeSignedOut', '' if auth else '1')
         self.getControl(STATUS_LABEL).setLabel(_status_text(auth))
-        show_continue = setting_bool('home_show_mystuff', True)
-        _fill_shelves(self, store, addons, auth, show_continue)
+        _fill_shelves(self, store, addons, auth)
+        _select_active_chip(self)
         if place is None:
             _focus_first(self)
         else:
@@ -1945,26 +1843,19 @@ class NewHomeWindow(BaseWindow):
         _apply_shelf_extends(self)
         action_id = action.getId()
         if action_id in BACK_ACTIONS:
-            self.close()
+            _back(self)
             return
         if action_id == 117:
             focus = self.getFocusId()
             if focus in _CLICKABLE and focus != BROWSE_LIST:
                 _offer_library(self, self.getControl(focus).getSelectedItem(), focus)
             return
-        # The header is one row (#23): the pills on the left, the tools on
-        # the right, and a row's Up lands on the pills. With no types
-        # installed the pills are hidden, so that Up has nowhere to go.
-        # Kodi has already moved (or not) by the time this runs: an Up
-        # that left the remote on the shelf it started on was that dead
-        # end, and goes to the tools instead.
         focus = self.getFocusId()
-        if action_id == 3 and focus == getattr(self, '_last_focus', None) and focus in _SHELF_IDS:
-            if not self.getControl(BROWSE_LIST).size():
-                self.setFocusId(TOOLS_LIST)
-        # Right is what walks a shelf. Load the next posters before the
-        # hero is painted, so the cell the remote just reached already
-        # has a title.
+        if action_id == 4 and getattr(self, '_last_focus', None) == BROWSE_LIST:
+            _select_active_chip(self)
+            _focus_first(self)
+        elif focus != BROWSE_LIST and getattr(self, '_last_focus', None) == BROWSE_LIST:
+            _select_active_chip(self)
         if action_id == 2:
             _maybe_extend_focused_shelf(self)
         paint_hero(self)
@@ -2229,8 +2120,7 @@ def _handle_continue(window, item):
 
 def _activate(window, item, control_id=None):
     """A shelf poster with an id opens its page. Anything else is a
-    menu action (including More, which carries the row's action and
-    no id).
+    menu action.
 
     Continue is the exception, and only for a poster that is actually
     part-way through: that click asks first. Next-up, recently finished,
@@ -2239,6 +2129,11 @@ def _activate(window, item, control_id=None):
     if item is None:
         return
     action = item.getProperty('action')
+    if control_id == BROWSE_LIST:
+        if action not in L_FOR_ACTION:
+            return
+        _switch_tab(window, action)
+        return
     sid = item.getProperty('sid')
     if sid and not action:
         if control_id == CONTINUE_SHELF and _handle_continue(window, item):
@@ -2264,16 +2159,6 @@ def _open_detail_for(item, land_on=None):
     return open_detail(item.getProperty('stype'), item.getProperty('sid'))
 
 
-def _open_type_row(window, action):
-    """That type's catalog picker, over Home: the screen the stock Home's
-    row opens. Back returns here. Playback closes both."""
-    from lib.ui.catalogpicker import open_catalog_picker
-    from lib.ui.compat import L
-
-    types = TYPE_ROW_TYPES[action]
-    if types is None:
-        types = _remainder_types(_available_types(get_store().get_enabled_addons()))
-    _open_child(window, lambda: open_catalog_picker(types=types, heading=L(L_FOR_ACTION[action])))
 
 
 def _open_search(window):
@@ -2309,10 +2194,6 @@ def _open_settings(window):
 
 _ACTIONS = {
     'signin': _open_signin,
-    'movies': lambda window: _open_type_row(window, 'movies'),
-    'series': lambda window: _open_type_row(window, 'series'),
-    'anime': lambda window: _open_type_row(window, 'anime'),
-    'other': lambda window: _open_type_row(window, 'other'),
     'search': _open_search,
     'addons': _open_addons,
     'settings': _open_settings,

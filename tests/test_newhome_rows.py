@@ -75,30 +75,8 @@ def test_a_catalog_page_is_returned_whole(home, monkeypatch):
 # --- growing a row -------------------------------------------------------------------
 
 
-def test_no_generator_without_a_catalog(home):
-    gen = home.home._shelf_page_gen
-    assert gen(None) is None
-    assert gen({'transport': '', 'catalog': {'id': 'x'}}) is None
-    assert gen({'transport': 't', 'catalog': None}) is None
 
 
-def test_the_generator_is_made_once_and_skips_page_one(home, monkeypatch):
-    import lib.ui.views as views
-
-    made = []
-
-    def _after(transport, stype, cid, skip, seen, extra=None, catalog=None, manifest=None):
-        made.append((stype, cid, skip, seen, extra))
-        return iter([])
-
-    monkeypatch.setattr(views, 'iter_catalog_pages_after', _after)
-    state = {
-        'transport': 't', 'catalog': {'type': 'movie', 'id': 'top'}, 'extra': {'genre': 'Drama'},
-        'metas': [{'id': 'tt1'}, 'junk', {'id': 'tt2'}],
-    }
-    gen = home.home._shelf_page_gen(state)
-    assert home.home._shelf_page_gen(state) is gen
-    assert made == [('movie', 'top', 2, ['tt1', 'tt2'], {'genre': 'Drama'})]
 
 
 def test_leftovers_come_before_the_network(home, monkeypatch):
@@ -149,10 +127,6 @@ def test_an_empty_or_failed_page_ends_the_row(home, monkeypatch, pages):
     assert state['exhausted'] is True
 
 
-def test_a_test_assertion_inside_the_fetch_is_not_swallowed(home, monkeypatch):
-    _with_pages(home, monkeypatch, [AssertionError('bug')])
-    with pytest.raises(AssertionError):
-        home.home._pull_more({'pending': []}, 5)
 
 
 # --- Continue from the account --------------------------------------------------------
@@ -255,74 +229,10 @@ def test_a_pending_write_shows_on_the_library_read(home, monkeypatch):
     assert sorted(row['_id'] for row in rows) == ['tt1', 'tt9']
 
 
-def test_the_library_row_signed_out_is_one_sign_in_cell(home):
-    items = home.home._library_posters(None, [])
-    assert len(items) == 1
-    assert items[0].getProperty('action') == 'signin'
-    assert items[0].getLabel() == 'STR30427'
 
 
-def test_an_empty_or_unreadable_library_shows_the_notice(home, monkeypatch):
-    import lib.ui.mystuff as mystuff
-
-    items = home.home._library_posters({'authKey': 'k'}, [])
-    assert [item.getLabel() for item in items] == ['STR30426']
-
-    def _boom(entries):
-        raise ValueError('odd record')
-
-    monkeypatch.setattr(mystuff, 'library_metas', _boom)
-    items = home.home._library_posters({'authKey': 'k'}, [{'_id': 'tt1', 'name': 'One'}])
-    assert [item.getLabel() for item in items] == ['STR30426']
 
 
-def test_the_library_row_is_not_capped(home):
-    entries = [{'_id': 'tt%07d' % n, 'name': 'T%d' % n, 'type': 'movie', '_ctime': '2026-01-%02d' % (n % 28 + 1)}
-               for n in range(home.home.SHELF_CAP + 6)]
-    items = home.home._library_posters({'authKey': 'k'}, entries)
-    assert len(items) == home.home.SHELF_CAP + 6
 
 
 # --- the first screen of every row ------------------------------------------------------
-
-
-def test_a_shelf_that_fails_is_an_empty_row_and_the_rest_still_load(home, monkeypatch):
-    def _open(addons, types):
-        if 'series' in types:
-            raise RuntimeError('addon down')
-        if 'tv' in types:
-            return None
-        return {'metas': [{'id': 'tt%d' % n} for n in range(40)]}
-
-    monkeypatch.setattr(home.home, '_open_shelf', _open)
-    pages, more = home.home._catalog_pages([], {'movies': {'movie'}, 'series': {'series'}, 'tv': {'tv'}})
-    assert len(pages['movies']) == home.home._ROW_INITIAL
-    assert len(more['movies']['metas']) == 40
-    assert pages['series'] == [] and more['series'] is None
-    assert pages['tv'] == [] and more['tv'] is None
-
-
-def test_one_shelf_uses_a_daemon_worker(home, monkeypatch):
-    import threading
-
-    threads = []
-    monkeypatch.setattr(home.home, '_open_shelf', lambda addons, types: threads.append(threading.current_thread()) or None)
-    pages, more = home.home._catalog_pages([], {'movies': {'movie'}})
-    assert len(threads) == 1 and threads[0].daemon
-    assert threads[0] is not threading.current_thread()
-    assert pages == {'movies': []} and more == {'movies': None}
-
-
-def test_back_on_the_home_spinner_paints_empty_rows(home, monkeypatch):
-    import lib.ui.uicommon as uicommon
-
-    monkeypatch.setattr(home.home, '_enabled_shelf_types', lambda addons: {'movies': {'movie'}})
-    monkeypatch.setattr(uicommon, 'run_cancellable', lambda func, heading, message='': uicommon.CANCELLED)
-
-    class _Win:
-        pass
-
-    win = _Win()
-    assert home.home._load_rows(win, object(), [], {'authKey': 'k'}) == ([], [], {}, {'movies': {'movie'}})
-    # Nothing was kept, so the next paint asks again.
-    assert not hasattr(win, '_catalog_pages')

@@ -218,10 +218,11 @@ def test_newlook_home_builds_its_rows(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     store = _FakeStore(auth={'authKey': 'k', 'user': {'email': 'a@b.c'}})
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: store)
-    monkeypatch.setattr(ctx.homewindow, '_catalog_pages', lambda addons, enabled: ({}, {}))
+    monkeypatch.setattr(ctx.homewindow, '_one_catalog_page', lambda *args: [])
     _patch_library(monkeypatch, ctx, _THREE)
     win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
     win.onInit()
+    ctx.homewindow._switch_tab(win, 'mystuff')
     sids = [i.getProperty('sid') for i in win.getControl(ctx.homewindow.LIBRARY_SHELF).items]
     assert sids[:3] == ['tt1', 'tt2', 'tt3']
 
@@ -378,7 +379,7 @@ def test_a_series_card_on_continue_offers_go_to_series(load_homewindow, monkeypa
     item = hw._continue_item({'id': 'tt9253284', 'type': 'series', 'name': 'Andor', 'video_id': 'tt9253284:1:3'})
     win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
     hw._offer_library(win, item, hw.CONTINUE_SHELF)
-    assert shown == [['STR30514', 'STR30499']]
+    assert shown == [['STR30514', 'STR30517', 'STR30499']]
     assert len(opened) == 1
 
     import lib.ui.detailwindow as detailwindow
@@ -398,5 +399,5 @@ def test_a_movie_on_continue_or_a_series_elsewhere_has_no_go_to_series(load_home
     hw._offer_library(win, movie, hw.CONTINUE_SHELF)
     series = hw._poster_item({'id': 'tt2', 'type': 'series', 'name': 'Andor'})
     hw._offer_library(win, series, hw.LIBRARY_SHELF)
-    assert shown == [['STR30499'], ['STR30499']]
+    assert shown == [['STR30517', 'STR30499'], ['STR30499']]
     assert opened == []

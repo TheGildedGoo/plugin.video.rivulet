@@ -381,6 +381,7 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             self.selected_index = 0
 
         def reset(self):
+            self.reset_calls = getattr(self, 'reset_calls', 0) + 1
             self.items = []
 
         def setImage(self, image):

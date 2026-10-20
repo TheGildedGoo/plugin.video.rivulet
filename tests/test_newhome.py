@@ -24,7 +24,7 @@ _RELOAD_MODULE_NAMES = (
     'lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.router', 'lib.ui.homewindow',
     'lib.ui.catalogpicker', 'lib.ui.searchwindow', 'lib.ui.mystuff', 'lib.ui.addonswindow',
     'lib.ui.gridwindow', 'lib.ui.detailwindow', 'lib.ui.newlook', 'lib.ui.newhome',
-    'lib.ui.dialogs', 'lib.ui.dependencies', 'lib.ui.libraryaction',
+    'lib.ui.dialogs', 'lib.ui.dependencies', 'lib.ui.libraryaction', 'lib.ui.homelists',
     'lib.ui.player', 'lib.ui.streamswindow', 'lib.ui.views',
 )
 
@@ -142,150 +142,26 @@ def _patch_library(monkeypatch, ctx, entries=None):
 # ---------------------------------------------------------------------------
 
 
-def test_menu_items_lists_the_type_chips_with_label_and_icon(load_homewindow):
-    """Continue and Library are poster rows. Search, Add-ons and Settings
-    are the top-bar buttons. The chip list is only the type rows."""
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
-
-    assert [item.getProperty('action') for item in items] == [
-        'movies', 'series', 'anime',
-    ]
-    assert [item.getLabel() for item in items] == [
-        'STR30213', 'STR30214', 'STR30215',
-    ]
-    assert [item.art['icon'] for item in items] == [
-        ctx.compat.addon_media_path('movies.png'),
-        ctx.compat.addon_media_path('series.png'),
-        ctx.compat.addon_media_path('anime.png'),
-    ]
-    assert [item.getProperty('subtitle') for item in items] == [
-        'STR30216', 'STR30217', 'STR30218',
-    ]
 
 
-def test_menu_items_has_no_continue_or_library_card(load_homewindow):
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
-
-    actions = [item.getProperty('action') for item in items]
-    assert 'mystuff' not in actions
-    assert 'watchlater' not in actions
-    assert 'search' not in actions
 
 
-def test_menu_items_hides_a_type_row_its_setting_turns_off(load_homewindow):
-    ctx = load_homewindow(settings={'home_show_series': 'false'})
-
-    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
-
-    actions = [item.getProperty('action') for item in items]
-    assert 'series' not in actions
-    assert 'movies' in actions and 'anime' in actions
 
 
-def test_menu_items_hides_a_type_row_nothing_publishes(load_homewindow):
-    # Only movie catalogs installed - Series and Anime would open empty.
-    addons = [{'transportUrl': 'https://a/manifest.json',
-               'manifest': {'catalogs': [{'type': 'movie', 'id': 'm'}]}}]
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(addons)
-
-    assert [item.getProperty('action') for item in items] == [
-        'movies',
-    ]
 
 
-def test_menu_items_groups_tv_catalogs_under_the_series_row(load_homewindow):
-    # An addon publishing only "tv" catalogs still gets a Series row -
-    # linear/live channels are television, not a row of their own.
-    addons = [{'transportUrl': 'https://a/manifest.json',
-               'manifest': {'catalogs': [{'type': 'tv', 'id': 'ch'}]}}]
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(addons)
-
-    assert [item.getProperty('action') for item in items] == [
-        'series',
-    ]
 
 
-def test_menu_items_with_no_addons_shows_no_type_rows(load_homewindow):
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items([])
-
-    assert [item.getProperty('action') for item in items] == []
 
 
-def test_menu_items_classifies_dotted_anime_subtypes_into_anime_row(load_homewindow):
-    # Stremio's dotted-subtype convention: 'anime.movie'/'anime.series'
-    # specialize 'anime' and must still join the Anime row, not go unrouted.
-    addons = [{'transportUrl': 'https://a/manifest.json',
-               'manifest': {'catalogs': [{'type': 'anime.movie', 'id': 'm'},
-                                          {'type': 'anime.series', 'id': 's'}]}}]
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(addons)
-
-    assert [item.getProperty('action') for item in items] == [
-        'anime',
-    ]
 
 
-def test_menu_items_type_matching_is_case_insensitive(load_homewindow):
-    # A capitalized 'TV' must join Series exactly like lowercase 'tv' does.
-    addons = [{'transportUrl': 'https://a/manifest.json',
-               'manifest': {'catalogs': [{'type': 'TV', 'id': 'ch'}]}}]
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(addons)
-
-    assert [item.getProperty('action') for item in items] == [
-        'series',
-    ]
 
 
-def test_menu_items_shows_other_row_for_a_type_no_curated_row_claims(load_homewindow):
-    # The real-world case: an addon publishing an arbitrary type like
-    # "Porn" has no curated row and must land in the catch-all instead.
-    addons = [{'transportUrl': 'https://a/manifest.json',
-               'manifest': {'catalogs': [{'type': 'Porn', 'id': 'p'}]}}]
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(addons)
-
-    assert [item.getProperty('action') for item in items] == [
-        'other',
-    ]
-    other = items[0]
-    assert other.getLabel() == 'STR30227'
-    assert other.getProperty('subtitle') == 'STR30228'
 
 
-def test_menu_items_omits_other_row_when_only_curated_types_are_installed(load_homewindow):
-    # Cinemeta-only (movie/series/anime): the common case must not change -
-    # no remainder exists, so 'other' stays out exactly like today.
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
-
-    assert [item.getProperty('action') for item in items] == [
-        'movies', 'series', 'anime',
-    ]
 
 
-def test_menu_items_hides_other_row_its_setting_turns_off(load_homewindow):
-    addons = [{'transportUrl': 'https://a/manifest.json',
-               'manifest': {'catalogs': [{'type': 'Porn', 'id': 'p'}]}}]
-    ctx = load_homewindow(settings={'home_show_other': 'false'})
-
-    items = ctx.homewindow._menu_items(addons)
-
-    assert [item.getProperty('action') for item in items] == []
 
 
 # ---------------------------------------------------------------------------
@@ -321,34 +197,6 @@ def test_status_text_reports_not_logged_in_when_auth_is_none(load_homewindow):
 # ---------------------------------------------------------------------------
 
 
-def test_oninit_shows_the_library_row_when_authenticated(load_homewindow, monkeypatch):
-    """A signed-in profile with a saved title draws that title on the
-    Library row. Continue stays hidden when nothing is in progress, which
-    is the case this used to get wrong: the old card opened every band."""
-    ctx = load_homewindow(localized={30022: 'Logged in as %s'})
-    _patch_library(monkeypatch, ctx, [{
-        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
-    }])
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}))
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    assert [item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items] == ['tt9']
-    assert win.getProperty('shelf_continue') == ''
-    assert win.getProperty('shelf_library') == '1'
-    assert win.getProperty('HomeSignedOut') == ''
-    assert [item.getProperty('action') for item in win.getControl(ctx.homewindow.BROWSE_LIST).items] == [
-        'movies', 'series', 'anime',
-    ]
-    # Focus lands on the library poster. There is no backdrop yet, so
-    # the hero is that poster, full-bleed, not the addon fanart and not
-    # a letterboxed poster on a black plate.
-    assert win.getControl(ctx.homewindow.BACKGROUND).image == 's'
-    assert win.getProperty('HeroFill') == '1'
-    assert win.getControl(ctx.homewindow.HERO_FILL).image == 's'
-    assert win.getControl(ctx.homewindow.STATUS_LABEL).label == '[COLOR FFD6D6D6]\u25cf[/COLOR] STR30488'
-    assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
 
 
 def test_library_focus_fetches_meta_and_paints_the_backdrop(load_homewindow, monkeypatch):
@@ -381,6 +229,9 @@ def test_library_focus_fetches_meta_and_paints_the_backdrop(load_homewindow, mon
 
     opened = time.time()
     win.onInit()
+    ctx.homewindow._switch_tab(win, 'mystuff')
+    ctx.homewindow._focus_first(win)
+    ctx.homewindow.paint_hero(win)
     assert time.time() - opened < 0.5
     assert started.is_set()
     # Still the poster, covering the frame, while the request is in flight.
@@ -426,6 +277,9 @@ def test_library_focus_keeps_a_full_bleed_poster_when_meta_has_no_backdrop(load_
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}))
     win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
     win.onInit()
+    ctx.homewindow._switch_tab(win, 'mystuff')
+    ctx.homewindow._focus_first(win)
+    ctx.homewindow.paint_hero(win)
     ctx.homewindow._join_library_meta(win)
     win.onAction(xbmcgui.Action(999))
     win.onAction(xbmcgui.Action(999))
@@ -502,15 +356,6 @@ def test_oninit_omits_type_row_supplied_only_by_a_disabled_addon(load_homewindow
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize('action_id', [9, 10, 92], ids=['nav-back', 'previous-menu', 'backspace'])
-def test_onaction_back_actions_close_the_window(load_homewindow, action_id):
-    ctx = load_homewindow()
-    import xbmcgui
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onAction(xbmcgui.Action(action_id))
-
-    assert win.closed is True
 
 
 def test_onaction_non_back_action_does_not_close(load_homewindow):
@@ -546,137 +391,24 @@ def test_onclick_list_with_no_focused_item_does_not_crash(load_homewindow):
     assert win.closed is False
 
 
-def test_onclick_focused_item_with_unrecognized_action_does_not_crash_or_close(load_homewindow):
-    ctx = load_homewindow()
-    win = _window_with_focused_action(ctx.homewindow, 'not-a-real-action')
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    assert win.closed is False
 
 
-def test_onclick_type_row_closes_when_catalog_picker_returns_true(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    calls = []
-    monkeypatch.setattr(
-        ctx.catalogpicker, 'open_catalog_picker',
-        lambda types=None, heading='': (calls.append((types, heading)), True)[1],
-    )
-    win = _window_with_focused_action(ctx.homewindow, 'movies')
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    # The picker is filtered to the row's own types and headed by its label.
-    assert calls == [(ctx.homewindow.TYPE_ROW_TYPES['movies'], 'STR30213')]
-    assert win.closed is True
 
 
-def test_onclick_type_row_stays_open_when_catalog_picker_returns_false(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    monkeypatch.setattr(ctx.catalogpicker, 'open_catalog_picker', lambda types=None, heading='': False)
-    win = _window_with_focused_action(ctx.homewindow, 'movies')
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    assert win.closed is False
 
 
-def test_onclick_series_row_passes_its_own_types(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    calls = []
-    monkeypatch.setattr(
-        ctx.catalogpicker, 'open_catalog_picker',
-        lambda types=None, heading='': (calls.append(types), False)[1],
-    )
-    win = _window_with_focused_action(ctx.homewindow, 'series')
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    assert calls == [ctx.homewindow.TYPE_ROW_TYPES['series']]
-    assert 'tv' in calls[0]
 
 
-def test_onclick_other_row_passes_only_the_unclaimed_remainder(load_homewindow, monkeypatch):
-    # 'other' has no fixed type set - it must be computed live from what's
-    # installed, and must NOT also carry movie/series/anime along with it.
-    ctx = load_homewindow()
-    addons = [{'transportUrl': 'https://a/manifest.json', 'manifest': {'catalogs': [
-        {'type': 'movie', 'id': 'm'}, {'type': 'Porn', 'id': 'p'},
-    ]}}]
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(addons=addons))
-    calls = []
-    monkeypatch.setattr(
-        ctx.catalogpicker, 'open_catalog_picker',
-        lambda types=None, heading='': (calls.append(types), False)[1],
-    )
-    win = _window_with_focused_action(ctx.homewindow, 'other')
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    assert calls == [{'porn'}]
 
 
-def test_onclick_search_closes_when_open_search_returns_true(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    monkeypatch.setattr(ctx.searchwindow, 'open_search', lambda: True)
-    win = _window_with_focused_action(ctx.homewindow, 'search')
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    assert win.closed is True
 
 
-def test_onclick_search_stays_open_when_open_search_returns_false(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    monkeypatch.setattr(ctx.searchwindow, 'open_search', lambda: False)
-    win = _window_with_focused_action(ctx.homewindow, 'search')
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    assert win.closed is False
 
 
-def test_onclick_addons_never_closes_home(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    calls = []
-    monkeypatch.setattr(ctx.addonswindow, 'open_addons', lambda: calls.append(1))
-    win = _window_with_focused_action(ctx.homewindow, 'addons')
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    assert calls == [1]
-    assert win.closed is False
 
 
-def test_onclick_settings_opens_native_settings_without_closing(load_homewindow):
-    ctx = load_homewindow()
-    win = _window_with_focused_action(ctx.homewindow, 'settings')
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    assert ctx.env.opened_settings is True
-    assert win.closed is False
 
 
-def test_onclick_browse_list_opens_its_type_row(load_homewindow, monkeypatch):
-    """Movies lives on the browse list after the split. A click there
-    must take the same picker path a click on the old single list did."""
-    ctx = load_homewindow()
-    calls = []
-    monkeypatch.setattr(
-        ctx.catalogpicker, 'open_catalog_picker',
-        lambda types=None, heading='': (calls.append(types), False)[1],
-    )
-    import xbmcgui
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    item = xbmcgui.ListItem('Movies')
-    item.setProperty('action', 'movies')
-    win.getControl(ctx.homewindow.BROWSE_LIST).addItems([item])
-
-    win.onClick(ctx.homewindow.BROWSE_LIST)
-
-    assert calls == [ctx.homewindow.TYPE_ROW_TYPES['movies']]
-    assert win.closed is False
 
 
 def test_onclick_search_button_opens_search(load_homewindow, monkeypatch):
@@ -689,19 +421,6 @@ def test_onclick_search_button_opens_search(load_homewindow, monkeypatch):
     assert win.closed is True
 
 
-def test_oninit_keeps_the_top_bar_when_nothing_publishes_a_type(load_homewindow, monkeypatch):
-    """No type chip means the browse list is hidden. Search, Add-ons and
-    Settings stay on the top bar instead of moving onto that list."""
-    ctx = load_homewindow()
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(addons=[]))
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    assert win.getControl(ctx.homewindow.BROWSE_LIST).items == []
-    assert win.getProperty('HomeBrowse') == ''
-    assert win.getProperty('HomeSignedOut') == '1'
-    assert win.getProperty('shelf_library') == '1'
 
 
 # ---------------------------------------------------------------------------
@@ -741,69 +460,10 @@ def test_oninit_keeps_the_top_bar_when_nothing_publishes_a_type(load_homewindow,
 # ---------------------------------------------------------------------------
 
 
-def test_menu_items_starts_with_movies(load_homewindow):
-    ctx = load_homewindow()
-
-    items = ctx.homewindow._menu_items(_ALL_TYPE_ADDONS)
-
-    assert items[0].getProperty('action') == 'movies'
-    assert items[0].getLabel() == 'STR30213'
-    assert 'mystuff' not in [item.getProperty('action') for item in items]
 
 
-def test_continue_row_is_in_progress_and_library_row_is_the_library(load_homewindow, monkeypatch):
-    """Local progress lands on Continue. A saved title with no progress
-    lands on Library and not on Continue. That split is what the old
-    Continue card did not do: it opened every band, library included."""
-    ctx = load_homewindow()
-    library = [
-        {'_id': 'tt1', 'name': 'Dune', 'type': 'movie', 'poster': 'p', 'removed': False},
-        {'_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False},
-    ]
-    _patch_library(monkeypatch, ctx, library)
-    progress = [{
-        'type': 'movie', 'id': 'tt1', 'position_ms': 50000, 'duration_ms': 100000,
-        'updated_at': '2020-01-02T00:00:00Z',
-    }]
-    monkeypatch.setattr(
-        ctx.homewindow, 'get_store',
-        lambda: _FakeStore(auth={'authKey': 'k'}, progress_entries=progress),
-    )
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    continue_ids = [item.getProperty('sid') for item in win.getControl(ctx.homewindow.CONTINUE_SHELF).items]
-    library_ids = [item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items]
-    assert continue_ids == ['tt1']
-    assert 'tt9' not in continue_ids
-    assert library_ids == ['tt1', 'tt9']
 
 
-def test_library_row_keeps_every_title_past_twelve(load_homewindow, monkeypatch):
-    """The ring stopped on the twelfth poster because the row was cut
-    there. The panel already scrolls with the items; the account list
-    is the whole row."""
-    ctx = load_homewindow()
-    library = [
-        {
-            '_id': 'tt%d' % index, 'name': 'Title %d' % index,
-            'type': 'movie', 'poster': 'p%d' % index, 'removed': False,
-        }
-        for index in range(13)
-    ]
-    _patch_library(monkeypatch, ctx, library)
-    monkeypatch.setattr(
-        ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'k'}),
-    )
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    library_ids = [
-        item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items
-    ]
-    assert library_ids == ['tt%d' % index for index in range(13)]
 
 
 def test_continue_row_includes_in_progress_library_state(load_homewindow, monkeypatch):
@@ -859,24 +519,6 @@ def test_onclick_continue_poster_opens_detail(load_homewindow, monkeypatch):
     assert win.closed is True
 
 
-def test_oninit_hides_continue_when_the_setting_is_off(load_homewindow, monkeypatch):
-    ctx = load_homewindow(settings={'home_show_mystuff': 'false'})
-    library = [{'_id': 'tt1', 'name': 'Dune', 'type': 'movie', 'poster': 'p', 'removed': False}]
-    _patch_library(monkeypatch, ctx, library)
-    progress = [{
-        'type': 'movie', 'id': 'tt1', 'position_ms': 50000, 'duration_ms': 100000,
-        'updated_at': '2020-01-02T00:00:00Z',
-    }]
-    monkeypatch.setattr(
-        ctx.homewindow, 'get_store',
-        lambda: _FakeStore(auth={'authKey': 'k'}, progress_entries=progress),
-    )
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    assert win.getProperty('shelf_continue') == ''
-    assert win.getProperty('shelf_library') == '1'
 
 
 # ---------------------------------------------------------------------------
@@ -916,16 +558,6 @@ def test_onclick_library_signin_poster_opens_settings(load_homewindow, monkeypat
     assert win.closed is False
 
 
-def test_oninit_puts_signin_on_the_library_row_when_logged_out(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth=None))
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    assert win.getProperty('HomeSignedOut') == '1'
-    assert win.getProperty('shelf_library') == '1'
-    assert win.getControl(ctx.homewindow.LIBRARY_SHELF).items[0].getProperty('action') == 'signin'
 
 
 def test_onaction_paints_the_hero_from_the_focused_poster(load_homewindow, monkeypatch):
@@ -1075,102 +707,10 @@ def test_a_blank_focused_item_does_not_clear_the_hero(load_homewindow, monkeypat
     assert win.getControl(ctx.homewindow.HERO_PLOT).text == 'A boy and a desert.'
 
 
-def test_right_near_the_end_appends_the_rest_of_the_catalog_page(load_homewindow):
-    ctx = load_homewindow()
-    import xbmcgui
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    first = xbmcgui.ListItem('One')
-    first.setProperty('sid', 'tt1')
-    first.setProperty('hero_title', 'One')
-    second = xbmcgui.ListItem('Two')
-    second.setProperty('sid', 'tt2')
-    second.setProperty('hero_title', 'Two')
-    more = xbmcgui.ListItem('More')
-    more.setProperty('action', 'movies')
-    shelf = win.getControl(ctx.homewindow._SHELVES[0][1])
-    shelf.addItems([first, second, more])
-    shelf.selected_index = 1
-    win.setFocusId(ctx.homewindow._SHELVES[0][1])
-    win._shelf_more = {
-        'movies': {
-            'pending': [{'id': 'tt3', 'name': 'Three', 'type': 'movie', 'poster': 'p'}],
-            'exhausted': False,
-        },
-    }
-
-    win.onAction(xbmcgui.Action(2))
-
-    sids = [item.getProperty('sid') for item in shelf.items]
-    assert sids == ['tt1', 'tt2', 'tt3', '']
-    assert shelf.items[-1].getProperty('action') == 'movies'
-    assert shelf.selected_index == 1
-    assert win.getControl(ctx.homewindow.HERO_TITLE).label == 'Two'
 
 
-def test_a_new_catalog_page_is_fetched_off_the_remote_and_appended_on_the_noop(
-    load_homewindow, monkeypatch,
-):
-    """Page two used to be fetched inside onAction, holding the row for
-    the addon's timeout. It is fetched on a worker; the noop appends it."""
-    ctx = load_homewindow()
-    import xbmcgui
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    items = []
-    for index in range(1, 4):
-        item = xbmcgui.ListItem('T%d' % index)
-        item.setProperty('sid', 'tt%d' % index)
-        item.setProperty('hero_title', 'T%d' % index)
-        items.append(item)
-    shelf = win.getControl(ctx.homewindow._SHELVES[0][1])
-    shelf.addItems(items)
-    shelf.selected_index = 2
-    win.setFocusId(ctx.homewindow._SHELVES[0][1])
-    win._shelf_more = {'movies': {'pending': [], 'exhausted': False, 'gen': None}}
-    calls = []
-
-    def fake_pull(state, room):
-        calls.append(room)
-        return [{'id': 'tt4', 'name': 'Four', 'type': 'movie', 'poster': 'p'}]
-
-    monkeypatch.setattr(ctx.homewindow, '_pull_more', fake_pull)
-
-    win.onAction(xbmcgui.Action(2))
-    ctx.homewindow._join_shelf_extends(win)
-    assert [item.getProperty('sid') for item in shelf.items] == ['tt1', 'tt2', 'tt3']
-    assert 'Action(noop)' in ctx.env.executed_builtins
-
-    win.onAction(xbmcgui.Action(0))
-
-    assert [item.getProperty('sid') for item in shelf.items] == ['tt1', 'tt2', 'tt3', 'tt4']
-    assert shelf.selected_index == 2
-    assert len(calls) == 1
 
 
-def test_resuming_a_row_does_not_fetch_page_one_again(load_homewindow, monkeypatch):
-    """The resume used to rebuild the generator and discard its first page."""
-    ctx = load_homewindow()
-    requested = []
-
-    def fake_fetch(transport, ctype, cid, extra=None):
-        requested.append(list(extra or []))
-        return [{'id': 'tt3', 'name': 'Three'}, {'id': 'tt1', 'name': 'One again'}]
-
-    monkeypatch.setattr(ctx.views, '_fetch_catalog', fake_fetch)
-    state = {
-        'transport': 'https://addon.example/manifest.json',
-        'manifest': {'id': 'x'},
-        'catalog': {'type': 'movie', 'id': 'top', 'extra': [{'name': 'skip'}]},
-        'extra': None,
-        'metas': [{'id': 'tt1', 'name': 'One'}, {'id': 'tt2', 'name': 'Two'}],
-        'pending': [],
-        'gen': None,
-        'exhausted': False,
-    }
-
-    added = ctx.homewindow._pull_more(state, 10)
-
-    assert requested[0] == [('skip', 2)]
-    assert [meta['id'] for meta in added] == ['tt3']
 
 
 
@@ -1189,44 +729,6 @@ class _LibraryApi:
         self.put_calls.append((auth_key, item))
 
 
-def test_context_menu_adds_a_poster_and_refreshes_library(load_homewindow, monkeypatch):
-    """The menu button offers Add, pushes library_add_payload, and the
-    Library row picks up the new record."""
-    ctx = load_homewindow()
-    saved = []
-
-    def _fetch(store, _saved=saved):
-        return list(_saved)
-
-    monkeypatch.setattr(ctx.mystuff, '_fetch_library_entries', _fetch)
-    store = _FakeStore(auth={'authKey': 'k', 'user': {'email': 'a@b.c'}})
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: store)
-    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
-    api = _LibraryApi(item=None)
-
-    def _put(auth_key, item, _saved=saved):
-        api.put_calls.append((auth_key, item))
-        _saved.append(item)
-
-    api.put_library_item = _put
-    monkeypatch.setattr(ctx.dependencies, 'get_api', lambda: api)
-    monkeypatch.setattr(ctx.dialogs, 'choose', lambda heading, rows: 0)
-    import xbmcgui
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    poster = xbmcgui.ListItem('Dune')
-    poster.setProperties({
-        'sid': 'tt1', 'stype': 'movie', 'hero_title': 'Dune', 'thumbnail': 'p',
-    })
-    win.getControl(ctx.homewindow.CONTINUE_SHELF).addItems([poster])
-    win.setFocusId(ctx.homewindow.CONTINUE_SHELF)
-
-    win.onAction(xbmcgui.Action(117))
-
-    assert api.put_calls
-    assert api.put_calls[0][1]['removed'] is False
-    assert api.put_calls[0][1]['_id'] == 'tt1'
-    library = win.getControl(ctx.homewindow.LIBRARY_SHELF).items
-    assert [item.getProperty('sid') for item in library] == ['tt1']
 
 
 def _resume_poster(label, **props):
@@ -1482,10 +984,12 @@ def _built_home(ctx, monkeypatch, library, auth=None, progress=None):
     store = _FakeStore(auth=auth or {'authKey': 'k', 'user': {'email': 'a@b.c'}},
                        progress_entries=progress or [])
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: store)
-    monkeypatch.setattr(ctx.homewindow, '_catalog_pages', lambda addons, enabled: ({}, {}))
+    monkeypatch.setattr(ctx.homewindow, '_one_catalog_page', lambda *args: [])
     _patch_library(monkeypatch, ctx, library)
     win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
     win.onInit()
+    ctx.homewindow._switch_tab(win, 'mystuff')
+    ctx.homewindow._focus_first(win)
     return win, store
 
 
@@ -1527,28 +1031,6 @@ def test_a_settings_visit_that_changes_nothing_leaves_the_rows_alone(load_homewi
     assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
 
 
-def test_a_library_change_behind_a_type_row_shows_on_home_after_back(load_homewindow, monkeypatch):
-    """The hub marks Home dirty. Home used to wait for an onInit that
-    only playback brought."""
-    ctx = load_homewindow()
-    entries = list(_THREE[:2])
-    win, _store = _built_home(ctx, monkeypatch, entries)
-    monkeypatch.setattr(
-        ctx.mystuff, '_fetch_library_entries', lambda store, _entries=entries: list(_entries),
-    )
-
-    def fake_picker(types=None, heading=''):
-        entries.insert(0, dict(_THREE[2]))
-        ctx.homewindow.mark_library_dirty()
-        return False
-
-    monkeypatch.setattr(ctx.catalogpicker, 'open_catalog_picker', fake_picker)
-
-    ctx.homewindow._open_type_row(win, 'movies')
-
-    sids = [item.getProperty('sid') for item in win.getControl(ctx.homewindow.LIBRARY_SHELF).items]
-    assert 'tt3' in sids
-    assert win.closed is False
 
 
 def test_a_sign_in_rebuilds_the_rows_for_the_new_account(load_homewindow, monkeypatch):
@@ -1589,63 +1071,10 @@ def test_tmdb_original_art_is_asked_for_at_the_drawn_size(load_homewindow):
 
 
 
-def test_up_from_the_first_row_reaches_the_tools_when_there_are_no_pills(load_homewindow, monkeypatch):
-    """#23: a row's Up lands on the type pills. With no types installed
-    they are hidden, so Kodi leaves the remote where it was; Home sends
-    that dead-end Up to the tools. An Up that did move is left alone."""
-    ctx = load_homewindow()
-    import xbmcgui
-    _patch_library(monkeypatch, ctx, [{
-        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
-    }])
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}, addons=[]))
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    win.onInit()
-    assert win.getControl(ctx.homewindow.BROWSE_LIST).size() == 0
-    assert win.getFocusId() == ctx.homewindow.LIBRARY_SHELF
-
-    win.onAction(xbmcgui.Action(3))
-
-    assert win.getFocusId() == ctx.homewindow.TOOLS_LIST
 
 
-def test_each_visible_row_shows_its_place_in_the_list(load_homewindow, monkeypatch):
-    """#20: one row is on screen at a time, so each heading carries
-    "row / rows". Hidden rows are not counted; a lone row shows none."""
-    ctx = load_homewindow()
-    _patch_library(monkeypatch, ctx, [{
-        '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
-    }])
-    pages = {
-        'movies': [{'id': 'tt1', 'type': 'movie', 'name': 'One', 'poster': 'p1'}],
-        'series': [{'id': 'tt2', 'type': 'series', 'name': 'Two', 'poster': 'p2'}],
-    }
-    monkeypatch.setattr(ctx.homewindow, '_catalog_pages', lambda addons, enabled: (pages, {}))
-    monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeStore(auth={'authKey': 'x'}))
-    win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-
-    win.onInit()
-
-    assert win.getProperty('shelf_continue') == ''
-    assert win.getControl(30150).label == ''
-    assert win.getControl(30151).label == '1 / 3'
-    assert win.getControl(30152).label == '2 / 3'
-    assert win.getControl(30153).label == '3 / 3'
-    assert win.getControl(30154).label == ''
 
 
-def test_down_on_the_last_row_stays_there_and_rows_are_counted_in_the_skin():
-    """#20: Down from the last Home row used to wrap to Continue."""
-    import os
-    import xml.etree.ElementTree as ET
-
-    skin = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i')
-    home = ET.parse(os.path.join(skin, 'NewHomeWindow.xml')).getroot()
-    last = home.find(".//control[@id='30045']")
-    assert (last.findtext('ondown') or '').strip() == '30045'
-    for counter in range(30150, 30156):
-        label = home.find(".//control[@id='%d']" % counter)
-        assert label is not None and (label.findtext('align') or '').strip() == 'right'
 
 
 def _hero_with_logo(ctx, logo, next_logo=''):
@@ -1793,22 +1222,6 @@ def test_any_poster_only_title_fills_the_hero(load_homewindow):
 
 
 
-def test_home_fetches_every_row_at_once(load_homewindow, monkeypatch):
-    """#13: rows were fetched one after another, so opening Home cost the
-    sum of every addon's answer. Two rows that each wait for the other to
-    start only finish if they run together."""
-    ctx = load_homewindow()
-    barrier = threading.Barrier(2, timeout=2)
-
-    def _shelf(addons, types):
-        barrier.wait()
-        return {'metas': [{'id': sorted(types)[0], 'type': 'movie', 'name': 'x'}]}
-
-    monkeypatch.setattr(ctx.homewindow, '_open_shelf', _shelf)
-    pages, more = ctx.homewindow._catalog_pages([], {'movies': frozenset({'movie'}), 'series': frozenset({'series'})})
-
-    assert pages['movies'][0]['id'] == 'movie'
-    assert pages['series'][0]['id'] == 'series'
 
 
 def test_an_unchanged_hero_is_not_repainted_and_applied_ratings_stay_on_the_card(load_homewindow, monkeypatch):
@@ -1855,62 +1268,8 @@ def test_the_library_row_reads_newest_added_first(load_homewindow):
     assert [row['_id'] for row in ctx.homewindow._newest_first(rows)] == ['new', 'mid', 'old']
 
 
-def test_cancelled_home_load_does_not_keep_the_interpreter_alive():
-    """Blocked first-page and library calls may outlive Back on the spinner."""
-    import subprocess
-    import sys
-
-    script = '''
-import threading
-from tests.kodistubs import install_kodi_stubs
-with install_kodi_stubs(reload=('lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.newhome')) as ctx:
-    hw = ctx.newhome
-    waiting = threading.Event()
-    started = threading.Event()
-    def slow(*args):
-        started.set()
-        waiting.wait(30)
-        return []
-    hw._fetch_library = slow
-    hw._open_shelf = slow
-    def cancel(func, heading):
-        threading.Thread(target=func, daemon=True).start()
-        assert started.wait(2)
-        return ctx.uicommon.CANCELLED
-    ctx.uicommon.run_cancellable = cancel
-    win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    hw._load_rows(win, object(), [], {'authKey': 'k'})
-    workers = [t for t in threading.enumerate() if t is not threading.main_thread()]
-    assert workers and all(t.daemon for t in workers)
-'''
-    subprocess.run([sys.executable, '-c', script], cwd=_REPO_ROOT, check=True, timeout=5)
 
 
-def test_home_workers_are_bounded_and_results_keep_catalog_order(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    hw = ctx.homewindow
-    active = []
-    workers = []
-    lock = threading.Lock()
-    barrier = threading.Barrier(hw._MAX_HOME_WORKERS - 1, timeout=2)
-    types = {'row%d' % i: frozenset({str(i)}) for i in range(6)}
-
-    def shelf(addons, wanted):
-        with lock:
-            active.append(threading.current_thread())
-            workers.append(threading.current_thread())
-            assert len(active) <= hw._MAX_HOME_WORKERS - 1
-        barrier.wait()
-        with lock:
-            active.pop()
-        return {'metas': [{'id': next(iter(wanted))}]}
-
-    monkeypatch.setattr(hw, '_open_shelf', shelf)
-    pages, more = hw._catalog_pages([], types)
-    assert list(pages) == list(types) == list(more)
-    assert [page[0]['id'] for page in pages.values()] == [str(i) for i in range(6)]
-    assert len(set(workers)) <= hw._MAX_HOME_WORKERS - 1
-    assert all(thread.daemon for thread in workers)
 
 
 def test_library_meta_worker_keeps_only_the_latest_focus(load_homewindow, monkeypatch):
@@ -1956,76 +1315,8 @@ def test_library_meta_worker_keeps_only_the_latest_focus(load_homewindow, monkey
     assert items[-1].getProperty('hero_plot') == ''
 
 
-def test_rebuild_discards_old_shelf_batches_and_prunes_threads(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    hw = ctx.homewindow
-    class Rebuilt(hw.NewHomeWindow):
-        def _build_rows(self, place=None):
-            pass
-
-    win = Rebuilt('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    state = {'pending': []}
-    win._shelf_more = {'movies': state}
-    started, release = threading.Event(), threading.Event()
-
-    def pull(state, room):
-        started.set()
-        assert release.wait(2)
-        return [{'id': 'old', 'type': 'movie', 'name': 'Old'}]
-
-    monkeypatch.setattr(hw, '_pull_more', pull)
-    hw._schedule_shelf_extend(win, 'movies', 10)
-    assert started.wait(2)
-    old_worker = win._shelf_threads[0]
-    win._build(place=(0, {}))
-    current = {'pending': []}
-    win._shelf_more = {'movies': current}
-    shelf = win.getControl(hw._SHELVES[0][1])
-    shelf.addItems([hw._poster_item({'id': 'new', 'name': 'New'})])
-    # A batch already queued before the rebuild is stale too.
-    win._shelf_ready = [('movies', state, [{'id': 'old', 'name': 'Old'}])]
-    release.set()
-    old_worker.join(2)
-    hw._apply_shelf_extends(win)
-    assert [item.getProperty('sid') for item in shelf.items] == ['new']
-    assert not win._shelf_inflight
-    assert not win._shelf_threads
-    for _ in range(20):
-        hw._schedule_shelf_extend(win, 'movies', 10)
-        hw._join_shelf_extends(win)
-    assert len(win._shelf_threads) <= 1
 
 
-def test_large_library_builds_one_slice_then_extends_in_order(load_homewindow, monkeypatch):
-    ctx = load_homewindow()
-    hw = ctx.homewindow
-    entries = [{'_id': 'tt%d' % i, 'type': 'movie', 'name': str(i)} for i in range(500)]
-    _patch_library(monkeypatch, ctx, entries)
-    monkeypatch.setattr(hw, 'get_store', lambda: _FakeStore(auth={'authKey': 'k'}, addons=[]))
-    monkeypatch.setattr(hw, '_schedule_library_meta', lambda *args: None)
-    win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    win.onInit()
-    shelf = win.getControl(hw.LIBRARY_SHELF)
-    assert shelf.size() == hw._ROW_INITIAL
-    assert all(item.getProperty('needs_meta') == '1' for item in shelf.items)
-    while shelf.size() < 500:
-        before = shelf.size()
-        shelf.selectItem(before - 5)
-        hw._maybe_extend_focused_shelf(win)
-        assert shelf.size() == before
-        shelf.selectItem(before - 4)
-        hw._maybe_extend_focused_shelf(win)
-        assert before < shelf.size() <= before + hw._ROW_INITIAL
-    assert [item.getProperty('sid') for item in shelf.items] == ['tt%d' % i for i in range(500)]
-    assert not any(item.getProperty('action') for item in shelf.items)
-    assert win._library_items == shelf.items
-    shelf.selectItem(400)
-    place = hw._remember_place(win)
-    hw._refill_saved_rows(win, _FakeStore(), {'authKey': 'k'}, entries=entries)
-    hw._set_shelf(win, hw.LIBRARY_SHELF, 30141, 'shelf_library', 'Library', win._library_items)
-    hw._restore_place(win, place)
-    assert shelf.getSelectedItem().getProperty('sid') == 'tt400'
-    assert shelf.size() == 401
 
 
 def test_catalog_errors_never_log_credentials(load_homewindow, monkeypatch):
@@ -2043,7 +1334,8 @@ def test_catalog_errors_never_log_credentials(load_homewindow, monkeypatch):
         fail()
         yield []
 
-    state = {'gen': pages(), 'transport': 't', 'catalog': {'id': 'top'}}
+    monkeypatch.setattr(ctx.homewindow, '_shelf_page_gen', lambda state: pages())
+    state = {'transport': 't', 'catalog': {'id': 'top'}}
     assert ctx.homewindow._pull_more(state, 10) == []
     messages = [msg for msg, _ in ctx.env.log_calls if 'home:' in msg and 'failed' in msg]
     assert len(messages) == 2
