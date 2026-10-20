@@ -1223,3 +1223,8 @@ msgstr "Seriale anime"
 msgctxt "#30537"
 msgid "Browse full catalog"
 msgstr "Przeglądaj cały katalog"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "Zastąpić listę Kontynuuj na tej karcie?"

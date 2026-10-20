@@ -1223,3 +1223,8 @@ msgstr "애니메이션 시리즈"
 msgctxt "#30537"
 msgid "Browse full catalog"
 msgstr "전체 카탈로그 탐색"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "이 탭의 계속 보기 목록을 바꿀까요?"

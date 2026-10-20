@@ -1223,3 +1223,8 @@ msgstr "Séries d’animation japonaise"
 msgctxt "#30537"
 msgid "Browse full catalog"
 msgstr "Parcourir le catalogue complet"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "Remplacer la liste Reprendre de cet onglet ?"

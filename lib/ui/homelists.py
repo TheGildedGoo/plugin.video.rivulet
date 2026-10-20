@@ -35,12 +35,10 @@ def _label(list_id, catalogs):
 
 
 def _replace_continue():
-    """Await the requested wording decision: 30415 deletes watch progress.
+    """Replacing a list leaves watch progress untouched; confirm that edit."""
+    import xbmc
 
-    Refuse replacement until its new prompt is approved; removing the old
-    variant and adding another separately remains available in the editor.
-    """
-    return False
+    return dialogs.confirm(L(30241), L(30538), xbmc.getLocalizedString(107), xbmc.getLocalizedString(106))
 
 
 def _append(store, layout, tab, list_id):

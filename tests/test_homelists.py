@@ -79,14 +79,15 @@ def test_also_show_materializes_target_and_appends_without_removing_source(load_
 
 def test_add_library_and_continue_replacement_rule(load_homewindow, monkeypatch):
     ctx = load_homewindow()
-    mod, store, _ = setup(ctx, monkeypatch, [0, 3, 3, -1, -1])
+    mod, store, _ = setup(ctx, monkeypatch, [0, 3, 3, -1, -1], confirms=[False, True])
     mod.open_configurator()
     assert store.layout['tabs']['home'][-1] == 'library:movie'
     before = len(store.saved)
-    # The wording decision is pending; no accidental replacement on Back.
+    # No leaves both the saved layout and generation alone.
+    generation = ctx.compat.ADDON.getSetting('home_layout_generation')
     assert mod._append(store, store.layout, 'home', 'continue:movie') == store.layout
     assert len(store.saved) == before
-    monkeypatch.setattr(mod, '_replace_continue', lambda: True)
+    assert ctx.compat.ADDON.getSetting('home_layout_generation') == generation
     changed = mod._append(store, store.layout, 'home', 'continue:movie')
     assert changed['tabs']['home'][0] == 'continue:movie'
     assert 'continue' not in changed['tabs']['home']
@@ -151,3 +152,27 @@ def test_missing_catalog_label_survives_reinstall_and_router_is_lazy(load_homewi
     monkeypatch.setattr(mod, 'open_configurator', lambda: opened.append(True))
     ctx.router._home_lists()
     assert opened == [True]
+
+
+def test_continue_replacement_confirms_the_localized_prompt_and_persists(load_homewindow, monkeypatch):
+    ctx = load_homewindow(localized={30538: 'Replace this tab’s Continue list?'})
+    mod, store, _ = setup(ctx, monkeypatch, [0, 3, 0, -1, -1])
+    prompted = []
+    monkeypatch.setattr(mod.dialogs, 'confirm', lambda *args: prompted.append(args) or True)
+    mod.open_configurator()
+    assert prompted[0][:2] == ('STR30241', 'Replace this tab’s Continue list?')
+    assert store.layout['tabs']['home'][0] == 'continue:movie'
+    assert sum(value in h.CONTINUE_IDS for value in store.layout['tabs']['home']) == 1
+    assert len(store.saved) == 2
+    assert ctx.compat.ADDON.getSetting('home_layout_generation')
+
+
+def test_continue_replacement_back_keeps_the_saved_layout(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    mod, store, _ = setup(ctx, monkeypatch, [0, 3, -1, -1, -1])
+    confirmations = []
+    monkeypatch.setattr(mod.dialogs, 'confirm', lambda *args: confirmations.append(args) or False)
+    mod.open_configurator()
+    assert store.layout['tabs']['home'][0] == 'continue'
+    assert len(store.saved) == 1  # Materialisation only, before opening Add.
+    assert not confirmations

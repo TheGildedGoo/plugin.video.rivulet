@@ -1223,3 +1223,8 @@ msgstr "Аниме-сериалы"
 msgctxt "#30537"
 msgid "Browse full catalog"
 msgstr "Открыть полный каталог"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "Заменить список «Продолжить» этой вкладки?"

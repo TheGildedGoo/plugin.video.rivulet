@@ -1223,3 +1223,8 @@ msgstr "Animeseries"
 msgctxt "#30537"
 msgid "Browse full catalog"
 msgstr "Volledige catalogus bekijken"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "De lijst Verder kijken van dit tabblad vervangen?"
