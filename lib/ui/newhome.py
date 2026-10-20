@@ -1197,14 +1197,14 @@ def _schedule_shelf_extend(window, action, room):
     """
     inflight = getattr(window, '_shelf_inflight', None)
     if inflight is None:
-        inflight = set()
+        inflight = {}
         window._shelf_inflight = inflight
     if action in inflight:
         return
     state = (getattr(window, '_shelf_more', None) or {}).get(action)
     if not state:
         return
-    inflight.add(action)
+    inflight[action] = state
 
     def _work():
         metas = []
@@ -1215,12 +1215,15 @@ def _schedule_shelf_extend(window, action, room):
                 raise
             metas = []
         with _shelf_lock(window):
+            if (getattr(window, '_shelf_more', None) or {}).get(action) is not state:
+                return
             ready = getattr(window, '_shelf_ready', None)
             if ready is None:
-                window._shelf_ready = [(action, metas)]
+                window._shelf_ready = [(action, state, metas)]
             else:
-                ready.append((action, metas))
-            inflight.discard(action)
+                ready.append((action, state, metas))
+            if inflight.get(action) is state:
+                inflight.pop(action, None)
         try:
             import xbmc
             xbmc.executebuiltin('Action(noop)')
@@ -1232,6 +1235,7 @@ def _schedule_shelf_extend(window, action, room):
     if threads is None:
         window._shelf_threads = [thread]
     else:
+        threads[:] = [worker for worker in threads if worker.is_alive()]
         threads.append(thread)
     thread.start()
 
@@ -1247,7 +1251,9 @@ def _apply_shelf_extends(window):
     with _shelf_lock(window):
         ready = list(getattr(window, '_shelf_ready', None) or [])
         window._shelf_ready = []
-    for action, metas in ready:
+    for action, state, metas in ready:
+        if (getattr(window, '_shelf_more', None) or {}).get(action) is not state:
+            continue
         for name, list_id, _label in _SHELVES:
             if name == action and metas:
                 _append_to_shelf(window, list_id, metas)
@@ -1327,6 +1333,13 @@ def _schedule_library_meta(window, item):
     asked again.
     """
     if item is None or item.getProperty('needs_meta') != '1':
+        with _library_meta_lock(window):
+            previous = getattr(window, '_library_meta_latest', None)
+            if previous is not None:
+                previous[0].setProperty('meta_state', '')
+            window._library_meta_latest = None
+            window._library_meta_pending = None
+            window._library_meta_ready = []
         return
     state = item.getProperty('meta_state')
     if state in ('loading', 'done'):
@@ -1345,38 +1358,54 @@ def _schedule_library_meta(window, item):
     sid = item.getProperty('sid')
     if not stype or not sid:
         return
-    item.setProperty('meta_state', 'loading')
+    request = (item, stype, sid)
+    with _library_meta_lock(window):
+        previous = getattr(window, '_library_meta_latest', None)
+        if previous is not None and previous[0] is not item:
+            previous[0].setProperty('meta_state', '')
+        item.setProperty('meta_state', 'loading')
+        window._library_meta_latest = request
+        window._library_meta_pending = request
+        window._library_meta_ready = []
+        if getattr(window, '_library_meta_running', False):
+            return
+        window._library_meta_running = True
 
-    def _work():
-        meta = None
+    thread = threading.Thread(target=_library_meta_worker, args=(window,), name='rivulet-library-meta', daemon=True)
+    window._library_meta_thread = thread
+    thread.start()
+
+
+def _library_meta_worker(window):
+    """Drain one latest-wins slot; stale answers never reach the GUI."""
+    while True:
+        with _library_meta_lock(window):
+            wanted = window._library_meta_pending
+            window._library_meta_pending = None
+            if wanted is None:
+                window._library_meta_running = False
+                return
+        _item, wanted_type, wanted_id = wanted
         try:
-            meta = _fetch_library_meta(stype, sid)
+            meta = _fetch_library_meta(wanted_type, wanted_id)
         except Exception:
             meta = None
         with _library_meta_lock(window):
-            ready = getattr(window, '_library_meta_ready', None)
-            if ready is None:
-                window._library_meta_ready = [(stype, sid, meta)]
-            else:
-                ready.append((stype, sid, meta))
+            if window._library_meta_latest is not wanted:
+                continue
+            window._library_meta_ready = [(wanted_type, wanted_id, meta)]
         try:
             import xbmc
             xbmc.executebuiltin('Action(noop)')
         except Exception:
             pass
 
-    thread = threading.Thread(target=_work, name='rivulet-library-meta', daemon=True)
-    threads = getattr(window, '_library_meta_threads', None)
-    if threads is None:
-        window._library_meta_threads = [thread]
-    else:
-        threads.append(thread)
-    thread.start()
 
 
 def _join_library_meta(window):
-    """Test hook. Production applies the answer on the noop the worker wakes."""
-    for thread in list(getattr(window, '_library_meta_threads', []) or []):
+    """Test hook. Production applies the answer on the worker's noop."""
+    thread = getattr(window, '_library_meta_thread', None)
+    if thread is not None:
         thread.join(timeout=2)
 
 
@@ -1484,6 +1513,14 @@ def _apply_library_meta(window):
     with _library_meta_lock(window):
         ready = list(getattr(window, '_library_meta_ready', None) or [])
         window._library_meta_ready = []
+    if getattr(window, '_library_meta_latest', None) is not None:
+        try:
+            focused = window.getControl(window.getFocusId()).getSelectedItem()
+        except Exception:
+            focused = None
+        ready = [(stype, sid, meta) for stype, sid, meta in ready
+                 if focused is not None and focused.getProperty('stype') == stype
+                 and focused.getProperty('sid') == sid]
     if not ready:
         return
     import time
@@ -1776,6 +1813,11 @@ class NewHomeWindow(BaseWindow):
         uses the same hidden-row state as a failed catalog fetch and
         adds no error controls to the pinned skin.
         """
+        with _shelf_lock(self):
+            self._shelf_ready = []
+            self._shelf_inflight = {}
+            self._shelf_threads = []
+            self._shelf_more = {}
         try:
             self._build_rows(place)
         except Exception as exc:

@@ -1934,3 +1934,86 @@ def test_home_workers_are_bounded_and_results_keep_catalog_order(load_homewindow
     assert [page[0]['id'] for page in pages.values()] == [str(i) for i in range(6)]
     assert len(set(workers)) <= hw._MAX_HOME_WORKERS - 1
     assert all(thread.daemon for thread in workers)
+
+
+def test_library_meta_worker_keeps_only_the_latest_focus(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+
+    win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
+    items = [hw._poster_item({'id': 'tt%d' % i, 'type': 'movie', 'name': str(i)},
+                             sparse=True) for i in range(40)]
+    shelf = win.getControl(hw.LIBRARY_SHELF)
+    shelf.addItems(items)
+    win.setFocusId(hw.LIBRARY_SHELF)
+    started, release = threading.Event(), threading.Event()
+    fetched = []
+
+    def meta(stype, sid):
+        fetched.append(sid)
+        started.set()
+        assert release.wait(2)
+        return {'id': sid, 'type': stype, 'description': sid}
+
+    monkeypatch.setattr(hw, '_fetch_library_meta', meta)
+    hw._schedule_library_meta(win, items[0])
+    assert started.wait(2)
+    worker = win._library_meta_thread
+    for index, item in enumerate(items[1:], 1):
+        shelf.selectItem(index)
+        hw._schedule_library_meta(win, item)
+        assert win._library_meta_thread is worker
+    release.set()
+    hw._join_library_meta(win)
+    hw._apply_library_meta(win)
+    assert fetched == ['tt0', 'tt39']
+    assert all(not item.getProperty('hero_plot') for item in items[:-1])
+    assert items[-1].getProperty('hero_plot') == 'tt39'
+    assert not hasattr(win, '_library_meta_threads')
+    assert worker.daemon
+    # Already published results are also stale once Kodi changes selection.
+    items[-1].setProperty('hero_plot', '')
+    win._library_meta_ready = [('movie', 'tt39', {'description': 'stale'})]
+    shelf.selectItem(0)
+    hw._apply_library_meta(win)
+    assert items[-1].getProperty('hero_plot') == ''
+
+
+def test_rebuild_discards_old_shelf_batches_and_prunes_threads(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    class Rebuilt(hw.NewHomeWindow):
+        def _build_rows(self, place=None):
+            pass
+
+    win = Rebuilt('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
+    state = {'pending': []}
+    win._shelf_more = {'movies': state}
+    started, release = threading.Event(), threading.Event()
+
+    def pull(state, room):
+        started.set()
+        assert release.wait(2)
+        return [{'id': 'old', 'type': 'movie', 'name': 'Old'}]
+
+    monkeypatch.setattr(hw, '_pull_more', pull)
+    hw._schedule_shelf_extend(win, 'movies', 10)
+    assert started.wait(2)
+    old_worker = win._shelf_threads[0]
+    win._build(place=(0, {}))
+    current = {'pending': []}
+    win._shelf_more = {'movies': current}
+    shelf = win.getControl(hw._SHELVES[0][1])
+    shelf.addItems([hw._poster_item({'id': 'new', 'name': 'New'})])
+    # A batch already queued before the rebuild is stale too.
+    win._shelf_ready = [('movies', state, [{'id': 'old', 'name': 'Old'}])]
+    release.set()
+    old_worker.join(2)
+    hw._apply_shelf_extends(win)
+    assert [item.getProperty('sid') for item in shelf.items] == ['new']
+    assert not win._shelf_inflight
+    assert not win._shelf_threads
+    for _ in range(20):
+        hw._schedule_shelf_extend(win, 'movies', 10)
+        hw._join_shelf_extends(win)
+    assert len(win._shelf_threads) <= 1
