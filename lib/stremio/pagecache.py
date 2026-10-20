@@ -19,6 +19,7 @@ fetch it, not on every remote click.
 """
 
 import json
+import math
 import os
 import tempfile
 import threading
@@ -141,6 +142,22 @@ def _atomic_write(path, payload):
         raise
 
 
+def _valid_entry(entry):
+    """Reject malformed disk entries before they reach age/eviction math."""
+    if not isinstance(entry, dict):
+        return False
+    stamp = entry.get('stored_at')
+    if isinstance(stamp, bool) or not isinstance(stamp, (int, float)):
+        return False
+    try:
+        if not math.isfinite(stamp):
+            return False
+    except OverflowError:
+        return False
+    metas = entry.get('metas')
+    return isinstance(metas, list) and all(isinstance(meta, dict) for meta in metas)
+
+
 class PageCache:
     """In-memory pages plus one JSON file. ``clock`` is injectable."""
 
@@ -162,7 +179,7 @@ class PageCache:
             return
         entries = payload.get('entries') if isinstance(payload, dict) else None
         if isinstance(entries, dict):
-            self._entries = entries
+            self._entries = {key: entry for key, entry in entries.items() if _valid_entry(entry)}
 
     def lookup(self, key, now=None, allow_expired=False):
         """``('fresh'|'stale'|'expired'|'miss', metas or None)``.
@@ -213,6 +230,7 @@ class PageCache:
 
     def _evict(self):
         """Drop the oldest entry until the payload fits, keeping at least one."""
+        self._entries = {key: entry for key, entry in self._entries.items() if _valid_entry(entry)}
         while len(self._entries) > 1 and self._encoded_size() > BUDGET_BYTES:
             oldest = min(self._entries, key=lambda key: self._entries[key].get('stored_at') or 0)
             del self._entries[oldest]

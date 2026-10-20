@@ -18,6 +18,7 @@ No xbmc import. The 24-hour cache is a JSON file the caller points at.
 
 import hashlib
 import json
+import math
 import os
 import re
 import tempfile
@@ -367,6 +368,25 @@ def _atomic_write(path, payload):
         raise
 
 
+def _valid_entry(entry):
+    """Reject malformed disk entries before they reach age/eviction math."""
+    if not isinstance(entry, dict):
+        return False
+    stamp = entry.get('at')
+    if isinstance(stamp, bool) or not isinstance(stamp, (int, float)):
+        return False
+    try:
+        if not math.isfinite(stamp):
+            return False
+    except OverflowError:
+        return False
+    scores = entry.get('scores')
+    if not isinstance(scores, dict):
+        return False
+    return all(key in _SCORE_KEYS and isinstance(value, (str, int, float))
+               and not isinstance(value, bool) for key, value in scores.items())
+
+
 class RatingsCache:
     """IMDb id to scores, fresh for `TTL_SECONDS`. `clock` is injectable.
 
@@ -396,7 +416,7 @@ class RatingsCache:
             return
         if not isinstance(payload, dict):
             return
-        self._entries = payload
+        self._entries = {key: entry for key, entry in payload.items() if _valid_entry(entry)}
 
     def _entry_key(self, imdb_id):
         return '%s\n%s' % (imdb_id, self._key_token) if self._key_token else imdb_id
@@ -443,6 +463,7 @@ class RatingsCache:
 
     def _trim(self):
         """Bound the file. Oldest stamps go first. Called with the lock."""
+        self._entries = {key: entry for key, entry in self._entries.items() if _valid_entry(entry)}
         if len(self._entries) <= 400:
             return
         ordered = sorted(

@@ -642,3 +642,23 @@ def test_the_file_is_bounded_oldest_first(tmp_path):
     # The junk entry and the oldest stamp went first.
     assert 'tt9999999' not in cache._entries and 'tt0000001' not in cache._entries
     assert 'tt0000002' in cache._entries and 'tt0000999' in cache._entries
+
+
+def test_malformed_loaded_ratings_do_not_break_save_or_trim(tmp_path):
+    import json
+
+    path = tmp_path / 'ratings.json'
+    entries = {'bad%d' % i: value for i, value in enumerate([
+        None, [], 'junk', {'at': 'yesterday', 'scores': {}},
+        {'at': None, 'scores': {}}, {'at': True, 'scores': {}},
+        {'at': float('nan'), 'scores': {}}, {'at': float('inf'), 'scores': {}},
+        {'at': 10 ** 500, 'scores': {}}, {'at': 1, 'scores': []},
+        {'at': 1, 'scores': {'imdbRating': []}},
+    ])}
+    entries.update({'tt%07d' % i: {'at': i, 'scores': {}} for i in range(401)})
+    path.write_text(json.dumps(entries))
+    cache = RatingsCache(str(path), clock=lambda: 1000)
+    assert not any(key.startswith('bad') for key in cache._entries)
+    cache.store('tt9999999', {'imdbRating': '8.0'})
+    assert len(cache._entries) == 400
+    assert RatingsCache(str(path), clock=lambda: 1000).lookup('tt9999999') == {'imdbRating': '8.0'}

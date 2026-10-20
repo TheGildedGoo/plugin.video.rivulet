@@ -302,3 +302,25 @@ def test_concurrent_saves_can_create_the_same_directory(tmp_path):
     assert not errors
     assert all(not thread.is_alive() for thread in threads)
     assert json.loads(path.read_text()) == {'entries': {}}
+
+
+def test_malformed_loaded_pages_do_not_break_save_or_eviction(tmp_path, monkeypatch):
+    from lib.stremio import pagecache
+
+    path = tmp_path / 'pages.json'
+    entries = {'bad%d' % i: value for i, value in enumerate([
+        None, [], 'junk', {'stored_at': 'yesterday', 'metas': []},
+        {'stored_at': None, 'metas': []}, {'stored_at': True, 'metas': []},
+        {'stored_at': float('nan'), 'metas': []}, {'stored_at': float('inf'), 'metas': []},
+        {'stored_at': 10 ** 500, 'metas': []}, {'stored_at': 1, 'metas': {}},
+        {'stored_at': 1, 'metas': ['bad']},
+    ])}
+    entries['old'] = {'stored_at': 1, 'metas': [{'id': 'old', 'name': 'x' * 100}]}
+    path.write_text(json.dumps({'entries': entries}))
+    cache = PageCache(str(path), clock=lambda: 2)
+    assert set(cache._entries) == {'old'}
+    monkeypatch.setattr(pagecache, 'BUDGET_BYTES', 180)
+    cache.store('new', [{'id': 'new', 'name': 'y' * 100}])
+    cache.save()
+    assert set(json.loads(path.read_text())['entries']) == {'new'}
+    assert PageCache(str(path), clock=lambda: 2).lookup('new')[0] == 'fresh'
