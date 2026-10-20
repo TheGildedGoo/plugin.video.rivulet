@@ -175,123 +175,13 @@ def test_the_account_catching_up_retires_the_write(mystuff):
     assert mystuff.apply_library_writes([]) == []
 
 
-# --- the switch ---------------------------------------------------------------------
 
-@pytest.fixture
-def home():
-    with contextlib.ExitStack() as stack:
-        def _load(settings=None):
-            return stack.enter_context(install_kodi_stubs(
-                reload=('lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.newlook', 'lib.ui.homewindow'),
-                addon_info={'path': '/addon/path'},
-                settings=settings,
-            ))
-
-        yield _load
-
-
-def test_new_look_is_off_by_default(home):
-    ctx = home()
-    assert ctx.newlook.enabled() is False
-
-
-def test_off_opens_the_stock_home_and_never_imports_the_new_one(home, monkeypatch):
-    import sys
-
-    ctx = home(settings={'ui_new_look': 'false'})
-    sys.modules.pop('lib.ui.newhome', None)
-    opened = []
-    monkeypatch.setattr(ctx.homewindow, 'open_window', lambda cls, xml: opened.append((cls, xml)) or cls(xml))
-
-    ctx.homewindow.open_home()
-
-    assert opened == [(ctx.homewindow.HomeWindow, 'HomeWindow.xml')]
-    assert 'lib.ui.newhome' not in sys.modules
-
-
-def test_on_opens_the_new_look_home(home, monkeypatch):
-    ctx = home(settings={'ui_new_look': 'true'})
-    opened = []
-
-    class _Win:
-        def doModal(self):
-            pass
-
-        def close(self):
-            pass
-
-    monkeypatch.setattr(ctx.homewindow, 'open_window', lambda cls, xml: opened.append((cls.__name__, xml)) or _Win())
-
-    ctx.homewindow.open_home()
-
-    assert opened == [('NewHomeWindow', 'NewHomeWindow.xml')]
-
-
-def test_a_home_closed_for_a_look_change_opens_again(home, monkeypatch):
-    ctx = home()
-    opened = []
-
-    class _Win:
-        def __init__(self, restyle):
-            self._restyle = restyle
-
-        def doModal(self):
-            pass
-
-        def close(self):
-            pass
-
-    wins = [_Win(True), _Win(False)]
-    monkeypatch.setattr(ctx.homewindow, 'open_window', lambda cls, xml: opened.append(xml) or wins.pop(0))
-
-    ctx.homewindow.open_home()
-
-    assert opened == ['HomeWindow.xml', 'HomeWindow.xml']
-
-
-def test_turning_the_new_look_on_in_settings_closes_the_stock_home(home, monkeypatch):
-    ctx = home(settings={'ui_new_look': 'false'})
-    win = ctx.homewindow.HomeWindow('HomeWindow.xml')
-    monkeypatch.setattr(ctx.compat.ADDON, 'openSettings', lambda: ctx.env.addon.settings.update(ui_new_look='true'))
-
-    ctx.homewindow._open_settings(win)
-
-    assert win._restyle is True and win.closed is True
-
-
-def test_settings_without_the_new_look_leave_the_stock_home_open(home, monkeypatch):
-    ctx = home(settings={'ui_new_look': 'false'})
-    win = ctx.homewindow.HomeWindow('HomeWindow.xml')
-    monkeypatch.setattr(ctx.compat.ADDON, 'openSettings', lambda: None)
-
-    ctx.homewindow._open_settings(win)
-
-    assert getattr(win, '_restyle', False) is False and win.closed is False
-
-
-@pytest.mark.parametrize('settings, expected', [
-    ({}, 'OptionListDialog.xml'),
-    ({'ui_dark_dialogs': 'true'}, 'DarkOptionListDialog.xml'),
-    ({'ui_new_look': 'true'}, 'DarkOptionListDialog.xml'),
-])
-def test_the_new_look_draws_its_dialogs_dark(home, settings, expected):
-    ctx = home(settings=settings)
-    assert ctx.uicommon.skin_name('OptionListDialog.xml') == expected
-    assert ctx.uicommon.skin_name('StreamsWindow.xml') == 'StreamsWindow.xml'
-
-
-def test_the_new_look_settings_only_show_with_it_on():
+def test_home_controls_are_available_without_a_visibility_dependency():
     import os
     import xml.etree.ElementTree as ET
 
-    root = ET.parse(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    root = ET.parse(os.path.join(os.path.dirname(os.path.dirname(__file__)),
                                  'resources', 'settings.xml')).getroot()
-    home_page = next(el for el in root.iter('category') if el.get('id') == 'home')
-    settings = {el.get('id'): el for el in home_page.iter('setting')}
-    look = settings['ui_new_look']
-    assert look.findtext('default') == 'false' and look.get('label') == '30493'
     for key in ('refresh_cache', 'ratings_omdb_key', 'ratings_mdblist_key'):
-        dependency = settings[key].find('dependencies/dependency')
-        assert dependency.get('type') == 'visible' and dependency.get('setting') == 'ui_new_look'
-        assert dependency.text == 'true'
-    assert settings['cache_generation'].findtext('visible') == 'false'
+        assert root.find(".//setting[@id='%s']/dependencies" % key) is None
+    assert root.find(".//setting[@id='cache_generation']/visible").text == 'false'

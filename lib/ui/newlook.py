@@ -1,30 +1,14 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
-"""The "New look" (Settings > Home screen), off by default.
+"""Hero layout for Rivulet's Home, drawn by NewHomeWindow.xml.
 
-The new look draws a title the way a full-screen media skin does: the
-backdrop fills the screen and fades to black toward the left and the
-bottom, the clearlogo is the title, one line of facts sits under it,
-three lines of plot, then the scores and when the title would end.
-There is no bar behind the text.
-
-Each screen it covers keeps its stock window untouched and adds a second
-window that is only opened while the setting is on, so with it off
-nothing runs differently. Home is the first (`lib.ui.newhome`,
-NewHomeWindow.xml); the hubs, search and the episode page follow the
-same way. The setting is read when a window opens, so Home reopens
-itself when it changes (`newhome._restyle_if_changed`,
-`homewindow._open_settings`).
-
-The textures are drawn by `tools/make_new_look_textures.py`, and the
-text uses whatever fonts the active Kodi skin defines for the standard
-names (Estuary: Noto Sans).
+The backdrop fills the screen and fades to black toward the left and
+bottom. The clearlogo, facts, plot, scores and end time share the pinned
+RevRivulet layout. Textures are drawn by tools/make_new_look_textures.py;
+text uses the active Kodi skin's standard font names.
 """
 
 import time
-
-#: The settings.xml id.
-SETTING_ID = 'ui_new_look'
 
 #: The backdrop behind a screen with no title focused: the addon's
 #: artwork in greyscale, so the new look's black and white is not broken
@@ -59,15 +43,6 @@ _STACK = {
 }
 
 
-def enabled():
-    """True when Settings asks for the new look. Any failure reading it
-    means the stock look."""
-    from lib.ui.compat import setting_bool
-
-    try:
-        return setting_bool(SETTING_ID, False)
-    except Exception:
-        return False
 
 
 def fanart():

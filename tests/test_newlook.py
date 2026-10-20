@@ -16,7 +16,6 @@ from tests.kodistubs import install_kodi_stubs
 from tests.test_newhome import (
     _RELOAD_MODULE_NAMES,
     _THREE,
-    _built_home,
     _FakeStore,
     _patch_library,
 )
@@ -241,24 +240,8 @@ def test_newlook_home_builds_its_rows(load_homewindow, monkeypatch):
 
 # --- switching looks ---------------------------------------------------------
 
-def test_switching_the_setting_off_closes_home_to_reopen_it(load_homewindow, monkeypatch):
-    ctx = load_homewindow(settings={'ui_new_look': 'true'})
-    win, _store = _built_home(ctx, monkeypatch, _THREE)
-    assert win._built_new_look is True
-    ctx.env.addon.settings['ui_new_look'] = 'false'
-
-    ctx.homewindow._after_child(win)
-
-    assert win.closed is True and win._restyle is True
 
 
-def test_an_unchanged_setting_keeps_home_open(load_homewindow, monkeypatch):
-    ctx = load_homewindow(settings={'ui_new_look': 'true'})
-    win, _store = _built_home(ctx, monkeypatch, _THREE)
-
-    ctx.homewindow._after_child(win)
-
-    assert win.closed is False and not getattr(win, '_restyle', False)
 
 
 def test_every_new_home_card_has_a_mirror_image():

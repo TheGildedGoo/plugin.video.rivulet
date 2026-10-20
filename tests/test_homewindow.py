@@ -42,7 +42,7 @@ from tests.kodistubs import install_kodi_stubs
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _RELOAD_MODULE_NAMES = (
-    'lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.router', 'lib.ui.homewindow',
+    'lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.router', 'lib.ui.homewindow', 'lib.ui.newhome',
     'lib.ui.catalogpicker', 'lib.ui.searchwindow', 'lib.ui.mystuff', 'lib.ui.addonswindow',
     'lib.ui.gridwindow', 'lib.ui.detailwindow',
 )
@@ -621,17 +621,17 @@ def test_open_home_builds_the_window_against_the_skin_path_and_blocks_on_domodal
     ctx = load_homewindow(addon_info={'path': '/addon/path'})
     captured = {}
 
-    class RecordingWindow(ctx.homewindow.HomeWindow):
+    class RecordingWindow(ctx.newhome.NewHomeWindow):
         def __init__(self, *args, **kwargs):
             captured['init_args'] = args
             super().__init__(*args, **kwargs)
             captured['instance'] = self
 
-    monkeypatch.setattr(ctx.homewindow, 'HomeWindow', RecordingWindow)
+    monkeypatch.setattr(ctx.newhome, 'NewHomeWindow', RecordingWindow)
 
     ctx.homewindow.open_home()
 
-    assert captured['init_args'] == ('HomeWindow.xml', '/addon/path', 'Default', '1080i')
+    assert captured['init_args'] == ('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
     assert captured['instance'].modal_calls == 1
 
 
@@ -641,7 +641,7 @@ def test_open_home_closes_the_window_exactly_once_and_reraises_when_domodal_rais
     ctx = load_homewindow(addon_info={'path': '/addon/path'})
     captured = {}
 
-    class ExplodingWindow(ctx.homewindow.HomeWindow):
+    class ExplodingWindow(ctx.newhome.NewHomeWindow):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.close_calls = 0
@@ -657,7 +657,7 @@ def test_open_home_closes_the_window_exactly_once_and_reraises_when_domodal_rais
             # never gets a chance to run.
             raise RuntimeError('onInit blew up')
 
-    monkeypatch.setattr(ctx.homewindow, 'HomeWindow', ExplodingWindow)
+    monkeypatch.setattr(ctx.newhome, 'NewHomeWindow', ExplodingWindow)
 
     # default.py wraps open_home() itself and falls back to the recovery
     # home directory on ANY exception - that contract requires the
@@ -687,12 +687,12 @@ def test_open_home_still_opens_the_window_when_the_store_raises(load_homewindow,
     monkeypatch.setattr(ctx.homewindow, 'get_store', lambda: _FakeVersionStore(raise_on_get=True))
     captured = {}
 
-    class RecordingWindow(ctx.homewindow.HomeWindow):
+    class RecordingWindow(ctx.newhome.NewHomeWindow):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             captured['instance'] = self
 
-    monkeypatch.setattr(ctx.homewindow, 'HomeWindow', RecordingWindow)
+    monkeypatch.setattr(ctx.newhome, 'NewHomeWindow', RecordingWindow)
 
     ctx.homewindow.open_home()
 
@@ -706,14 +706,14 @@ def test_open_home_holds_a_ui_heartbeat_for_the_whole_session_and_clears_it_afte
     ctx = load_homewindow(addon_info={'path': '/addon/path'})
     seen = {}
 
-    class RecordingWindow(ctx.homewindow.HomeWindow):
+    class RecordingWindow(ctx.newhome.NewHomeWindow):
         def doModal(self):
             # While Home is up a second interpreter must see a live owner.
             seen['alive'] = ctx.uicommon.ui_owner_alive()
             seen['threads'] = [t.name for t in threading.enumerate()]
             super().doModal()
 
-    monkeypatch.setattr(ctx.homewindow, 'HomeWindow', RecordingWindow)
+    monkeypatch.setattr(ctx.newhome, 'NewHomeWindow', RecordingWindow)
 
     ctx.homewindow.open_home()
 
@@ -728,11 +728,11 @@ def test_open_home_holds_a_ui_heartbeat_for_the_whole_session_and_clears_it_afte
 def test_open_home_clears_the_heartbeat_when_the_window_raises(load_homewindow, monkeypatch):
     ctx = load_homewindow(addon_info={'path': '/addon/path'})
 
-    class ExplodingWindow(ctx.homewindow.HomeWindow):
+    class ExplodingWindow(ctx.newhome.NewHomeWindow):
         def doModal(self):
             raise RuntimeError('onInit blew up')
 
-    monkeypatch.setattr(ctx.homewindow, 'HomeWindow', ExplodingWindow)
+    monkeypatch.setattr(ctx.newhome, 'NewHomeWindow', ExplodingWindow)
 
     with pytest.raises(RuntimeError, match='onInit blew up'):
         ctx.homewindow.open_home()

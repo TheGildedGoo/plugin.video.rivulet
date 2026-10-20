@@ -308,7 +308,7 @@ def skin_name(xml_name):
     from lib.ui.compat import setting_bool
 
     try:
-        dark = setting_bool('ui_dark_dialogs', False) or setting_bool('ui_new_look', False)
+        dark = setting_bool('ui_dark_dialogs', False)
     except Exception:  # noqa: BLE001 - a broken setting read keeps the classic dialog
         dark = False
     return 'Dark' + xml_name if dark else xml_name

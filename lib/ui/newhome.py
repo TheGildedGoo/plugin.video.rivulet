@@ -1,11 +1,9 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""NewHomeWindow: Home with the "New look" setting on.
+"""NewHomeWindow: Rivulet's Home, drawn by NewHomeWindow.xml.
 
-Opened by `homewindow.open_home()` in place of the stock `HomeWindow`
-while the setting is on (`lib.ui.newlook`); with it off none of this
-module is imported. Drawn by NewHomeWindow.xml.
+Opened by `homewindow.open_home()`.
 
 A full-bleed backdrop for the focused title, drawn whole rather than
 cropped, fading to black toward the left and the bottom. The clearlogo
@@ -984,21 +982,6 @@ def _restore_place(window, place):
         _focus_first(window)
 
 
-def _restyle_if_changed(window):
-    """Close Home so `open_home` reopens it in the stock look.
-
-    The window is chosen when Home opens, so switching "New look" off
-    cannot restyle the window that is already up. True when Home is
-    closing for that. A window that was not built under the setting
-    (`_built_new_look`, set by `_build`) is left alone.
-    """
-    from lib.ui import newlook
-
-    if not getattr(window, '_built_new_look', False) or newlook.enabled():
-        return False
-    window._restyle = True
-    window.close()
-    return True
 
 
 def _drop_memory_if_refreshed(window):
@@ -1031,8 +1014,6 @@ def _after_child(window, played=False):
     re-reads Continue and Library in place; anything else just repaints.
     """
     window._child_refreshed = True
-    if _restyle_if_changed(window):
-        return
     try:
         store = get_store()
         signature = _home_signature(store)
@@ -1760,13 +1741,11 @@ class NewHomeWindow(BaseWindow):
         self._built = True
 
     def _build(self, place=None):
-        from lib.ui import newlook
         from lib.ui.compat import setting_bool
         from lib.ui.newlook import fanart as addon_fanart
 
         store = get_store()
         auth = store.get_auth()
-        self._built_new_look = newlook.enabled()
         self._hero_painted = None
         if place is None:
             self.getControl(BACKGROUND).setImage(addon_fanart())

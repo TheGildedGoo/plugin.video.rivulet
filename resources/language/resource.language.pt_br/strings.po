@@ -1086,10 +1086,6 @@ msgctxt "#30488"
 msgid "Signed in"
 msgstr "Conectado"
 
-msgctxt "#30493"
-msgid "New look (beta)"
-msgstr "Novo visual (beta)"
-
 msgctxt "#30494"
 msgid "Ends at %s"
 msgstr "Termina às %s"
@@ -1097,10 +1093,6 @@ msgstr "Termina às %s"
 msgctxt "#30495"
 msgid "Home"
 msgstr "Início"
-
-msgctxt "#30496"
-msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
-msgstr "A imagem de fundo preenche a tela e escurece até o preto, o logotipo do título vira o título e o cartão selecionado ganha um contorno branco. Primeiro o Início; as outras telas virão depois."
 
 msgctxt "#30497"
 msgid "No trailer for this title."

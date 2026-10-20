@@ -1086,10 +1086,6 @@ msgctxt "#30488"
 msgid "Signed in"
 msgstr "로그인됨"
 
-msgctxt "#30493"
-msgid "New look (beta)"
-msgstr "새로운 디자인(베타)"
-
 msgctxt "#30494"
 msgid "Ends at %s"
 msgstr "%s 종료"
@@ -1097,10 +1093,6 @@ msgstr "%s 종료"
 msgctxt "#30495"
 msgid "Home"
 msgstr "홈"
-
-msgctxt "#30496"
-msgid "The backdrop fills the screen and fades to black, the title's logo is the title, and the focused card gets a white ring. Home first; the other screens follow."
-msgstr "배경 이미지가 화면을 채우고 검은색으로 사라지며, 타이틀 로고가 제목이 되고, 선택한 카드에 흰색 테두리가 생깁니다. 먼저 홈부터, 다른 화면은 이어서 적용됩니다."
 
 msgctxt "#30497"
 msgid "No trailer for this title."
