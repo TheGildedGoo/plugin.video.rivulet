@@ -2017,3 +2017,35 @@ def test_rebuild_discards_old_shelf_batches_and_prunes_threads(load_homewindow, 
         hw._schedule_shelf_extend(win, 'movies', 10)
         hw._join_shelf_extends(win)
     assert len(win._shelf_threads) <= 1
+
+
+def test_large_library_builds_one_slice_then_extends_in_order(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    entries = [{'_id': 'tt%d' % i, 'type': 'movie', 'name': str(i)} for i in range(500)]
+    _patch_library(monkeypatch, ctx, entries)
+    monkeypatch.setattr(hw, 'get_store', lambda: _FakeStore(auth={'authKey': 'k'}, addons=[]))
+    monkeypatch.setattr(hw, '_schedule_library_meta', lambda *args: None)
+    win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.onInit()
+    shelf = win.getControl(hw.LIBRARY_SHELF)
+    assert shelf.size() == hw._ROW_INITIAL
+    assert all(item.getProperty('needs_meta') == '1' for item in shelf.items)
+    while shelf.size() < 500:
+        before = shelf.size()
+        shelf.selectItem(before - 5)
+        hw._maybe_extend_focused_shelf(win)
+        assert shelf.size() == before
+        shelf.selectItem(before - 4)
+        hw._maybe_extend_focused_shelf(win)
+        assert before < shelf.size() <= before + hw._ROW_INITIAL
+    assert [item.getProperty('sid') for item in shelf.items] == ['tt%d' % i for i in range(500)]
+    assert not any(item.getProperty('action') for item in shelf.items)
+    assert win._library_items == shelf.items
+    shelf.selectItem(400)
+    place = hw._remember_place(win)
+    hw._refill_saved_rows(win, _FakeStore(), {'authKey': 'k'}, entries=entries)
+    hw._set_shelf(win, hw.LIBRARY_SHELF, 30141, 'shelf_library', 'Library', win._library_items)
+    hw._restore_place(win, place)
+    assert shelf.getSelectedItem().getProperty('sid') == 'tt400'
+    assert shelf.size() == 401

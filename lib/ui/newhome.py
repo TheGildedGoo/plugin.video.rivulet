@@ -600,17 +600,19 @@ def _played_posters(store, library_entries):
     return posters
 
 
-def _library_posters(auth, library_entries):
+def _library_posters(auth, library_entries, more=None):
     """Every non-removed libraryItem, as posters. Signed out, one Sign in
     cell. Signed in and empty, the existing empty-library notice.
 
-    Not sliced at `SHELF_CAP`. Continue is a short resume row, so that
-    cap belongs there. The library is the whole list: twelve was where
-    the focus ring stopped, on a panel that was ready to scroll further.
+    Build the same first slice as catalog rows. The rest stay as metas
+    until focus nears the end; the library keeps its whole order and has
+    no More tile or terminal catalog cap.
     """
     from lib.ui.compat import L
     from lib.ui.mystuff import library_metas
 
+    if more is not None:
+        more.pop('library', None)
     if not auth:
         return [_poster_item(
             {'name': L(30427), 'description': L(30428)}, action='signin',
@@ -619,7 +621,9 @@ def _library_posters(auth, library_entries):
         metas = library_metas(_newest_first(library_entries))
     except Exception:
         metas = []
-    posters = [_poster_item(meta, sparse=True) for meta in metas]
+    if more is not None:
+        more['library'] = {'pending': metas[_ROW_INITIAL:], 'exhausted': not metas}
+    posters = [_poster_item(meta, sparse=True) for meta in metas[:_ROW_INITIAL]]
     if posters:
         return posters
     return [_poster_item({'name': L(30426), 'description': L(30423)})]
@@ -767,7 +771,7 @@ def _load_rows(window, store, addons, auth):
             library_entries = library.get()
         return (
             _played_posters(store, library_entries),
-            _library_posters(auth, library_entries),
+            _library_posters(auth, library_entries, more),
             pages,
             more,
         )
@@ -835,7 +839,11 @@ def _refill_saved_rows(window, store, auth, entries=None):
         entries = _fetch_library(store, auth)
     show_continue = setting_bool('home_show_mystuff', True)
     continue_items = _played_posters(store, entries) if show_continue else []
-    library_items = _library_posters(auth, entries)
+    more = getattr(window, '_shelf_more', None)
+    if more is None:
+        more = {}
+        window._shelf_more = more
+    library_items = _library_posters(auth, entries, more)
     window._continue_items = continue_items
     window._library_items = library_items
 
@@ -984,10 +992,33 @@ def _focusable(window, control_id):
     return False
 
 
+def _restore_library_slice(window, key, position):
+    """Materialize a saved selection before restoring it after a refresh.
+
+    Only posters are lazy; keeping the old focus must not clamp it to the
+    first slice when playback or an account write refreshes the library.
+    """
+    state = (getattr(window, '_shelf_more', None) or {}).get('library')
+    if not state or not state.get('pending'):
+        return
+    control = window.getControl(LIBRARY_SHELF)
+    if any(_item_key(control.getListItem(i)) == key for i in range(control.size())):
+        return
+    pending = state['pending']
+    needed = max(0, (position if isinstance(position, int) else 0) + 1 - control.size())
+    for index, meta in enumerate(pending):
+        if meta.get('id') == key:
+            needed = index + 1
+            break
+    _append_to_shelf(window, LIBRARY_SHELF, _pull_more(state, needed), sparse=True)
+
+
 def _restore_place(window, place):
     """Put every list back on the title it was on, then the focus."""
     focus, rows = place
     for list_id, (key, position) in rows.items():
+        if list_id == LIBRARY_SHELF:
+            _restore_library_slice(window, key, position)
         try:
             control = window.getControl(list_id)
             size = control.size()
@@ -1152,7 +1183,7 @@ def _fit_hero_title(text):
     return text[:47].rstrip() + '\u2026'
 
 
-def _append_to_shelf(window, list_id, metas):
+def _append_to_shelf(window, list_id, metas, sparse=False):
     """Add `metas` to a shelf, keeping the poster the remote is on.
 
     `addItems` sends the cursor back to the first cell. The saved
@@ -1170,13 +1201,15 @@ def _append_to_shelf(window, list_id, metas):
     more = None
     if items and items[-1].getProperty('action') and not items[-1].getProperty('sid'):
         more = items.pop()
-    items.extend(_poster_item(meta) for meta in metas)
+    items.extend(_poster_item(meta, sparse=sparse) for meta in metas)
     if more is not None:
         items.append(more)
     control.reset()
     control.addItems(items)
     if items:
         control.selectItem(min(pos, len(items) - 1))
+    if list_id == LIBRARY_SHELF:
+        window._library_items = items
 
 
 def _shelf_lock(window):
@@ -1274,6 +1307,8 @@ def _maybe_extend_focused_shelf(window):
         if list_id == focus:
             action = name
             break
+    if focus == LIBRARY_SHELF:
+        action = 'library'
     if action is None:
         return
     state = (getattr(window, '_shelf_more', None) or {}).get(action)
@@ -1290,11 +1325,14 @@ def _maybe_extend_focused_shelf(window):
     for index in range(count):
         if control.getListItem(index).getProperty('sid'):
             shown += 1
-    room = _ROW_LIMIT - shown
+    room = _ROW_INITIAL if action == 'library' else _ROW_LIMIT - shown
     if room <= 0:
         return
     if state.get('pending'):
-        _append_to_shelf(window, focus, _pull_more(state, room))
+        _append_to_shelf(window, focus, _pull_more(state, room), sparse=(action == 'library'))
+        return
+    if action == 'library':
+        state['exhausted'] = True
         return
     _schedule_shelf_extend(window, action, room)
 
