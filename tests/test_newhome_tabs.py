@@ -676,3 +676,34 @@ def test_removed_account_continue_stays_hidden_for_all_variants_until_a_fresh_wi
     fresh, _, _ = build(ctx, monkeypatch, auth={'authKey': 'k'}, library=entries)
     assert fresh.getControl(30040).items[0].getProperty('sid') == 'tt9'
     assert not getattr(fresh, '_continue_suppressed', set())
+
+
+@pytest.mark.parametrize('child_result', [False, True])
+def test_addons_button_never_closes_home(load_homewindow, monkeypatch, child_result):
+    ctx = load_homewindow()
+    win, _, _ = build(ctx, monkeypatch)
+    opened = []
+    monkeypatch.setattr(ctx.addonswindow, 'open_addons', lambda: opened.append(True) or child_result)
+    win.onClick(ctx.newhome.BTN_ADDONS)
+    assert opened == [True]
+    assert not win.closed
+
+
+def test_context_key_dispatches_poster_menu_and_refreshes_after_a_library_write(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    import xbmcgui
+    from lib.ui import libraryaction
+    hw = ctx.newhome
+    win, _, _ = build(ctx, monkeypatch, auth={'authKey': 'k'})
+    menus, refreshes = [], []
+    monkeypatch.setattr(libraryaction, 'poster_menu', lambda meta, extra: menus.append(meta['id']) or 'added')
+    monkeypatch.setattr(hw, '_fetch_library', lambda *_: refreshes.append(True) or [])
+    win.setFocusId(30041)
+    win.onAction(xbmcgui.Action(117))
+    assert menus == ['tt0']
+    assert refreshes == [True]
+    assert win.getFocusId() == 30041
+    assert not win.closed
+    win.setFocusId(hw.BROWSE_LIST)
+    win.onAction(xbmcgui.Action(117))
+    assert len(menus) == 1

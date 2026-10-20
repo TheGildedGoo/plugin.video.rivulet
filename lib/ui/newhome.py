@@ -209,8 +209,6 @@ def _poster_item(meta, action='', sparse=False):
     return item
 
 
-
-
 class CatalogUnavailable(Exception):
     """A catalog's first page failed (timeout, HTTP error, addon error).
 
@@ -514,8 +512,6 @@ def _played_posters(store, library_entries, variant='', suppressed=None):
         if len(posters) >= SHELF_CAP:
             break
     return posters
-
-
 
 
 def _fetch_library(store, auth):
@@ -865,8 +861,6 @@ def _focusable(window, control_id):
     return False
 
 
-
-
 def _restore_place(window, place):
     """Put every list back on the title it was on, then the focus."""
     focus, rows = place
@@ -892,8 +886,6 @@ def _restore_place(window, place):
         _note_focus(window)
     else:
         _focus_first(window)
-
-
 
 
 def _drop_memory_if_refreshed(window):
@@ -1566,7 +1558,6 @@ LOGO_WARM_SLOTS = (30098, 30099)
 _LOGO_RECHECK_SECONDS = 3.0
 
 
-
 def _texture_cached(url):
     """True when Kodi's texture cache holds `url`, i.e. it loaded before.
 
@@ -2156,8 +2147,6 @@ def _open_detail_for(item, land_on=None):
     from lib.ui.detailwindow import open_detail
 
     return open_detail(item.getProperty('stype'), item.getProperty('sid'))
-
-
 
 
 def _open_search(window):
