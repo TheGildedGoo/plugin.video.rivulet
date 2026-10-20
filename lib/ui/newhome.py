@@ -468,7 +468,7 @@ def _newest_first(entries):
     return sorted(kept, key=lambda entry: entry.get('_ctime') or entry.get('_mtime') or '', reverse=True)
 
 
-def _played_posters(store, library_entries, variant=''):
+def _played_posters(store, library_entries, variant='', suppressed=None):
     """Resume, next-up and recently finished. Never the library band.
 
     `merge_entries()` is what copies a saved title's name and poster onto
@@ -484,8 +484,9 @@ def _played_posters(store, library_entries, variant=''):
         merged = []
     from lib.homelayout import matches_continue
 
+    suppressed = suppressed or set()
     played = [entry for entry in merged if entry.get('band') != BAND_LIBRARY
-              and matches_continue(entry, variant)]
+              and entry.get('id') not in suppressed and matches_continue(entry, variant)]
     missing = [entry for entry in played if not (entry.get('name') or entry.get('poster'))]
     if missing:
         try:
@@ -503,7 +504,7 @@ def _played_posters(store, library_entries, variant=''):
         if len(posters) >= SHELF_CAP:
             return posters
     for meta in _library_continue_metas(library_entries):
-        if not matches_continue(meta, variant):
+        if meta.get('id') in suppressed or not matches_continue(meta, variant):
             continue
         key = (meta.get('type'), meta.get('id'))
         if key in seen:
@@ -548,7 +549,7 @@ def _fetch_library(store, auth):
 _MAX_HOME_WORKERS = 4
 
 
-def _make_row_states(store, auth, entries, plan, fetched):
+def _make_row_states(store, auth, entries, plan, fetched, suppressed=None):
     from lib.homelayout import heading_text, matches_library
     from lib.ui.compat import L
     from lib.ui.mystuff import library_metas
@@ -564,7 +565,7 @@ def _make_row_states(store, auth, entries, plan, fetched):
             state['kind'] = 'catalog'
             state['items'] = [_poster_item(meta) for meta in state['metas']]
         elif kind == 'continue':
-            state['items'] = _played_posters(store, entries, variant)
+            state['items'] = _played_posters(store, entries, variant, suppressed)
         elif not auth:
             if not signed_out_card:
                 state['items'] = [_poster_item({'name': L(30427), 'description': L(30428)}, action='signin')]
@@ -625,7 +626,8 @@ def _load_rows(window, store, addons, auth):
                 threading.Thread(target=worker, name='rivulet-home-load', daemon=True).start()
             fetched = dict(results.get() for _ in range(count))
         entries = fetched.pop('library', cached or [])
-        rows = _make_row_states(store, auth, entries, plan, fetched)
+        rows = _make_row_states(store, auth, entries, plan, fetched,
+                                getattr(window, '_continue_suppressed', None))
         return entries if needs_library or cached is not None else None, rows
 
     loaded = run_cancellable(load, L(30033))
@@ -700,7 +702,8 @@ def _refresh_saved_rows(window, store=None):
     window._library_entries = entries
     # Cached tabs may contain personal rows too. Rebuild them when revisited.
     place = _remember_place(window)
-    _refresh_snapshot_personal(list(getattr(window, '_rows', {}).values()), store, entries, auth)
+    _refresh_snapshot_personal(list(getattr(window, '_rows', {}).values()), store, entries, auth,
+                               getattr(window, '_continue_suppressed', None))
     for panel, state in getattr(window, '_rows', {}).items():
         if state['kind'] == 'catalog':
             continue
@@ -708,13 +711,14 @@ def _refresh_saved_rows(window, store=None):
         prop = next(prop for p, prop, _ in _ROW_COUNTERS if p == panel)
         _set_shelf(window, panel, label, prop, state['heading'], state['items'])
     for states, _focus in getattr(window, '_tab_snapshots', {}).values():
-        _refresh_snapshot_personal(states, store, entries, auth)
+        _refresh_snapshot_personal(states, store, entries, auth,
+                                   getattr(window, '_continue_suppressed', None))
     _number_rows(window)
     _library_dirty = False
     _restore_place(window, place)
 
 
-def _refresh_snapshot_personal(states, store, entries, auth):
+def _refresh_snapshot_personal(states, store, entries, auth, suppressed=None):
     """Personal writes invalidate personal data, never a tab's loaded catalogs."""
     from lib.homelayout import matches_library
     from lib.ui.mystuff import library_metas
@@ -722,7 +726,7 @@ def _refresh_snapshot_personal(states, store, entries, auth):
     signed_out_card = False
     for state in states:
         if state['kind'] == 'continue':
-            state['items'][:] = _played_posters(store, entries, state['filter'])
+            state['items'][:] = _played_posters(store, entries, state['filter'], suppressed)
         elif state['kind'] == 'library':
             if not auth and signed_out_card:
                 state['items'][:] = []
@@ -994,10 +998,15 @@ def _remove_continue(window, item):
 
         log('home: progress removal failed: %s' % addon_error_detail(exc))
         return
+    # A library playback state can recreate local progress on refresh. Hide
+    # the id for this Home instance only, across every Continue variant.
+    suppressed = getattr(window, '_continue_suppressed', set())
+    suppressed.add(item.getProperty('sid'))
+    window._continue_suppressed = suppressed
     state = window._rows[CONTINUE_SHELF]
     control = window.getControl(CONTINUE_SHELF)
     position = control.getSelectedPosition()
-    state['items'][:] = _played_posters(store, getattr(window, '_library_entries', []), state['filter'])
+    state['items'][:] = _played_posters(store, getattr(window, '_library_entries', []), state['filter'], suppressed)
     _set_shelf(window, CONTINUE_SHELF, 30140, 'shelf_continue', state['heading'], state['items'])
     if state['items']:
         control.selectItem(min(position, len(state['items']) - 1))
@@ -1008,7 +1017,7 @@ def _remove_continue(window, item):
     for states, _focus in getattr(window, '_tab_snapshots', {}).values():
         for saved in states:
             if saved['kind'] == 'continue':
-                saved['items'][:] = _played_posters(store, getattr(window, '_library_entries', []), saved['filter'])
+                saved['items'][:] = _played_posters(store, getattr(window, '_library_entries', []), saved['filter'], suppressed)
     _number_rows(window)
     paint_hero(window)
 

@@ -632,3 +632,40 @@ def test_reopen_signed_out_keeps_only_one_library_signin_card(load_homewindow, m
     assert win.getControl(30041).items[0].getProperty('action') == 'signin'
     assert win.getControl(30042).size() == 0
     assert win.getProperty('shelf_slot1') == ''
+
+
+def test_removed_account_continue_stays_hidden_for_all_variants_until_a_fresh_window(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    from lib.ui import dialogs
+    hw = ctx.newhome
+    entries = [{'_id': 'tt9', 'name': 'Nine', 'type': 'movie', 'poster': 'p',
+                'state': {'timeOffset': 20000, 'duration': 100000}}]
+    win, store, _ = build(ctx, monkeypatch, auth={'authKey': 'k'}, library=entries)
+    monkeypatch.setattr(dialogs, 'confirm', lambda *_: True)
+    removed = []
+    store.remove_progress_title = lambda stype, sid: removed.append((stype, sid))
+    # Cache the filtered Continue row before removing it from Home.
+    hw._switch_tab(win, 'movies')
+    assert win.getControl(30040).size() == 1
+    hw._switch_tab(win, 'home')
+    hw._remove_continue(win, win.getControl(30040).items[0])
+    assert removed == [('movie', 'tt9')]
+    assert win._continue_suppressed == {'tt9'}
+    assert win.getControl(30040).size() == 0
+    assert entries[0]['state']['timeOffset'] == 20000  # No account mutation.
+    hw._refresh_saved_rows(win, store)
+    assert win.getControl(30040).size() == 0
+    hw._switch_tab(win, 'movies')
+    assert win.getControl(30040).size() == 0
+    # A never-visited tab exercises new row construction with suppression.
+    layout = homelayout.default_layout()
+    layout['tabs']['mystuff'] = ['continue', 'library:movie']
+    win._layout = layout
+    hw._switch_tab(win, 'mystuff')
+    assert win.getControl(30040).size() == 0
+    win.onInit()  # Playback reopen reuses this Home instance.
+    assert win.getControl(30040).size() == 0
+    win.close()
+    fresh, _, _ = build(ctx, monkeypatch, auth={'authKey': 'k'}, library=entries)
+    assert fresh.getControl(30040).items[0].getProperty('sid') == 'tt9'
+    assert not getattr(fresh, '_continue_suppressed', set())
