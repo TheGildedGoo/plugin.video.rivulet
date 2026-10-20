@@ -810,7 +810,10 @@ def _home_signature(store):
             settings.append(ADDON.getSetting(key))
         except Exception:
             settings.append('')
-    return (auth.get('authKey') if isinstance(auth, dict) else None, tuple(ids), tuple(settings))
+    # Settings can overwrite another interpreter's generation setting on
+    # close. The saved arrangement is authoritative across interpreters.
+    layout = json.dumps(store.get_home_layout(), sort_keys=True)
+    return (auth.get('authKey') if isinstance(auth, dict) else None, tuple(ids), tuple(settings), layout)
 
 
 #: Lists whose selection survives a refresh. The chips list is matched

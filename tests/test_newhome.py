@@ -50,6 +50,10 @@ class _FakeStore:
         self._addons = _ALL_TYPE_ADDONS if addons is None else addons
         self._progress_entries = [] if progress_entries is None else progress_entries
 
+    def get_home_layout(self):
+        from lib.homelayout import default_layout
+        return default_layout()
+
     def get_auth(self):
         return self._auth
 

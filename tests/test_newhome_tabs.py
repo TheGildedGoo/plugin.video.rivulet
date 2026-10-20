@@ -708,3 +708,67 @@ def test_context_key_dispatches_poster_menu_and_refreshes_after_a_library_write(
     win.setFocusId(hw.BROWSE_LIST)
     win.onAction(xbmcgui.Action(117))
     assert len(menus) == 1
+
+
+def test_disk_layout_change_rebuilds_active_and_later_tabs_with_unchanged_settings(load_homewindow, monkeypatch, tmp_path):
+    ctx = load_homewindow()
+    from lib.store import Store
+    hw = ctx.newhome
+    win, _, _ = build(ctx, monkeypatch)
+    store = Store(str(tmp_path))
+    store.get_enabled_addons = addons
+    layout = homelayout.default_layout()
+    ids = ['cat:https://addon/manifest.json|movie|movies', 'cat:https://addon/manifest.json|series|shows']
+    layout['tabs']['home'] = list(ids)
+    layout['tabs']['movies'] = list(ids)
+    store.set_home_layout(layout)
+    monkeypatch.setattr(hw, 'get_store', lambda: store)
+    win._build()
+    hw._switch_tab(win, 'movies')
+    hw._switch_tab(win, 'home')
+    assert win._tab_snapshots
+    settings = tuple(ctx.compat.ADDON.getSetting(key) for key in hw._ROW_SETTINGS)
+    # The Settings action writes in another interpreter; no setting changes
+    # reach the Home interpreter in this regression.
+    layout['tabs']['home'].reverse()
+    layout['tabs']['movies'].reverse()
+    Store(str(tmp_path)).set_home_layout(layout)
+    rebuilt = []
+    real_build = win._build
+    monkeypatch.setattr(win, '_build', lambda place=None: rebuilt.append(True) or real_build(place))
+    hw._after_child(win)
+    assert rebuilt == [True]
+    assert win._tab_snapshots == {}
+    assert [row['list_id'] for row in win._rows.values()] == ids[::-1]
+    assert tuple(ctx.compat.ADDON.getSetting(key) for key in hw._ROW_SETTINGS) == settings
+    hw._switch_tab(win, 'movies')
+    assert [row['list_id'] for row in win._rows.values()] == ids[::-1]
+
+
+def test_equivalent_disk_layout_keeps_snapshots_selection_and_focus(load_homewindow, monkeypatch, tmp_path):
+    ctx = load_homewindow()
+    import json
+
+    from lib.store import Store
+    hw = ctx.newhome
+    win, _, _ = build(ctx, monkeypatch)
+    store = Store(str(tmp_path))
+    store.get_enabled_addons = addons
+    store.set_home_layout(homelayout.default_layout())
+    monkeypatch.setattr(hw, 'get_store', lambda: store)
+    win._build()
+    hw._switch_tab(win, 'mystuff')
+    hw._switch_tab(win, 'home')
+    snapshots = win._tab_snapshots
+    win.getControl(30041).selectItem(8)
+    win.setFocusId(30041)
+    # Different JSON whitespace/key order still denotes the same layout.
+    layout = store.get_home_layout()
+    (tmp_path / 'home_layout.json').write_text(json.dumps({'tabs': layout['tabs'], 'version': 1}))
+    rebuilt = []
+    monkeypatch.setattr(win, '_build', lambda **kwargs: rebuilt.append(True))
+    hw._after_child(win)
+    assert rebuilt == []
+    assert win._tab_snapshots is snapshots
+    assert win.getControl(30041).getSelectedPosition() == 8
+    assert win.getFocusId() == 30041
