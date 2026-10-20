@@ -26,7 +26,7 @@ through a real modal event loop, exactly like tests/test_infowindow.py drives
 ShowcaseWindow: the fake WindowXML.doModal() is a no-op counter, and
 getControl()/setFocusId() are plain in-memory fakes.
 
-HomeWindow.xml's actual skin rendering is Kodi-skin-engine-only and is NOT,
+NewHomeWindow.xml's actual skin rendering is Kodi-skin-engine-only and is NOT,
 and cannot be, exercised by this suite.
 """
 import contextlib

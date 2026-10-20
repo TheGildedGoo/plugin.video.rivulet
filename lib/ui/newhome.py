@@ -74,7 +74,7 @@ _ROW_LIMIT = 80
 _library_dirty = False
 
 #: (action, panel id, header label id) for the poster rows under the
-#: chips. Must match HomeWindow.xml, including each row's
+#: chips. Must match NewHomeWindow.xml, including each row's
 #: `Window.Property(shelf_<action>)` visibility gate.
 _SHELVES = (
     ('movies', 30042, 30142),
@@ -436,7 +436,7 @@ def _set_shelf(window, list_id, label_id, prop, heading, items):
 
 
 #: Row panel -> its "row / rows" label at the right end of the heading
-#: (HomeWindow.xml). Only one row is on screen at a time, so the count is
+#: (NewHomeWindow.xml). Only one row is on screen at a time, so the count is
 #: the only cue to how far down the list you are (#20).
 _ROW_COUNTERS = (
     (CONTINUE_SHELF, 'shelf_continue', 30150),

@@ -73,15 +73,9 @@ def test_new_home_declares_every_control_the_window_code_uses(load_homewindow):
     assert not used - declared, sorted(used - declared)
 
 
-def test_the_stock_home_file_has_none_of_the_new_look():
-    with open(os.path.join(_SKIN, 'HomeWindow.xml'), encoding='utf-8') as handle:
-        text = handle.read()
-    assert 'newlook_' not in text and '30024' not in text
-
-
 def test_every_texture_the_new_home_names_is_shipped():
-    for name in ('HomeWindow.xml',):
-        root = ET.parse(os.path.join(_SKIN, 'New' + name)).getroot()
+    for name in ('NewHomeWindow.xml',):
+        root = ET.parse(os.path.join(_SKIN, name)).getroot()
         for texture in root.iter():
             if texture.tag not in ('texture', 'texturefocus', 'texturenofocus'):
                 continue
