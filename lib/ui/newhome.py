@@ -1059,12 +1059,18 @@ def _remove_continue(window, item):
 
 
 def _browse_catalog(window, state):
-    from lib.stremio.addons import _base_type
-    from lib.ui.catalogpicker import open_catalog_picker
+    from lib.ui.catalogpicker import open_single_catalog
 
-    base = _base_type(state['descriptor']['catalog']['type'])
-    types = {'series', 'tv'} if base in ('series', 'tv') else {base}
-    _open_child(window, lambda: open_catalog_picker(types=types, heading=state['heading']))
+    descriptor = state['descriptor']
+
+    def open_catalog():
+        open_single_catalog(descriptor['transport'], descriptor['manifest'], descriptor['catalog'],
+                            extra=state.get('extra'), meta_filter=state['filter'])
+        # Like Add-ons, this child does not itself close Home. Playback's
+        # existing modal handoff remains responsible for its own windows.
+        return False
+
+    _open_child(window, open_catalog)
 
 
 def _offer_library(window, item, control_id=None):

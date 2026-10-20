@@ -473,17 +473,21 @@ def test_menu_browse_catalog_only_and_remove_continue_confirmation(load_homewind
     assert win.getControl(30041).reset_calls == resets
 
 
-def test_browse_full_catalog_passes_row_types_and_heading(load_homewindow, monkeypatch):
+def test_browse_full_catalog_passes_the_exact_row_descriptor_and_filter(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     win, _, _ = build(ctx, monkeypatch)
     calls = []
-    monkeypatch.setattr(ctx.catalogpicker, 'open_catalog_picker', lambda **kw: calls.append(kw) or False)
-    ctx.newhome._browse_catalog(win, win._rows[30041])
-    assert calls == [{'types': {'movie'}, 'heading': 'STR30529'}]
-    ctx.newhome._switch_tab(win, 'anime')
-    ctx.newhome._browse_catalog(win, win._rows[30041])
-    assert calls[-1]['types'] == {'anime'}
-
+    monkeypatch.setattr(ctx.catalogpicker, 'open_single_catalog', lambda *args, **kw: calls.append((args, kw)) or True)
+    for tab, variant in (('home', ''), ('anime', 'movie')):
+        if tab != 'home':
+            ctx.newhome._switch_tab(win, tab)
+        state = win._rows[30041]
+        state['extra'] = [('genre', 'Drama')]
+        descriptor = state['descriptor']
+        ctx.newhome._browse_catalog(win, state)
+        assert calls[-1] == ((descriptor['transport'], descriptor['manifest'], descriptor['catalog']),
+                             {'extra': [('genre', 'Drama')], 'meta_filter': variant})
+        assert not win.closed
 
 def test_skin_slot_copies_and_active_pills_are_the_existing_primitives():
     root = ET.parse(Path(__file__).parents[1] / 'resources/skins/Default/1080i/NewHomeWindow.xml').getroot()

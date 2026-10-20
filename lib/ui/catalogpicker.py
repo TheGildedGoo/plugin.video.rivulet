@@ -121,6 +121,78 @@ def _sort_catalogs(catalogs):
     return sorted(catalogs, key=lambda entry: _classify_catalog(entry[2]) != 'search')
 
 
+def _filtered_catalog_pages(pages, meta_filter):
+    from lib.homelayout import matches_catalog
+
+    for page in pages:
+        metas = [meta for meta in page if isinstance(meta, dict) and matches_catalog(meta, meta_filter)]
+        if metas:
+            yield metas
+
+
+def open_single_catalog(transport_url, manifest, catalog, extra=None, meta_filter=''):
+    """Open one catalog in the stock coverflow, optionally as an anime view."""
+    import xbmc
+
+    from lib.ui.compat import L, log, notify
+    from lib.ui.uicommon import escape_label
+    from lib.ui.views import iter_catalog_pages
+
+    ctype = catalog.get('type')
+    catalog_name = escape_label(catalog.get('name') or catalog.get('id'))
+    addon_name = escape_label(manifest.get('name'))
+    # "ADDON · CATALOG" when both are on hand, matching the design's
+    # breadcrumb (e.g. "CINEMETA · POPULAR MOVIES") - otherwise just
+    # the catalog name, which is always present.
+    catalog_title = '%s \u00b7 %s' % (addon_name, catalog_name) if addon_name else catalog_name
+
+    # A catalog that declares `skip` is walked page by page rather
+    # than one page deep, so a list longer than the addon's page size
+    # is reachable in full. Only the FIRST page is waited on here -
+    # the rest are handed to the coverflow and appended as they land
+    # (see ShowcaseWindow.start), because the pages are serial and an
+    # addon serving 20 at a time would otherwise hold a 400-title
+    # list behind a spinner for a minute before showing anything.
+    pages = iter_catalog_pages(
+        transport_url, ctype, catalog.get('id'), extra=extra, catalog=catalog, manifest=manifest,
+    )
+    if meta_filter:
+        pages = _filtered_catalog_pages(pages, meta_filter)
+    # Run on a worker under a cancellable spinner: this first page is
+    # the one place the user waits on a remote addon with nothing to
+    # look at (kodi.log: a 45 s wait during which every Back press was
+    # ignored). Back returns to this picker within ~0.2 s; the orphaned
+    # worker's page is discarded, so no coverflow can open for it later.
+    try:
+        metas = run_cancellable(lambda: next(pages, []), L(30033))
+    except AddonError as exc:
+        log('catalogpicker: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGERROR)
+        notify(L(30032))
+        return False
+    if metas is CANCELLED:
+        log('catalogpicker: %s (%s) load cancelled by the user' % (catalog_name, ctype), xbmc.LOGINFO)
+        return False
+    if not metas:
+        log('catalogpicker: %s (%s) returned no results' % (catalog_name, ctype), xbmc.LOGINFO)
+        notify(L(30030))
+        return False
+
+    log('catalogpicker: opening coverflow (%d results, paging in background)' % len(metas), xbmc.LOGINFO)
+    try:
+        from lib.ui.infowindow import open_showcase
+        selected = open_showcase(metas, catalog_title=catalog_title, more_pages=pages)
+    except Exception as exc:  # a skin/UI failure must surface, not vanish
+        log('catalogpicker: coverflow failed to open: %r' % (exc,), xbmc.LOGERROR)
+        notify(L(30032))
+        return False
+    if not selected:
+        return False
+
+    from lib.ui.detailwindow import open_detail
+    return bool(open_detail(selected.get('type') or ctype, selected.get('id')))
+
+
+
 class CatalogPickerWindow(BaseWindow):
     """See module docstring. Built/run via `open_catalog_picker()`."""
 
@@ -291,65 +363,9 @@ class CatalogPickerWindow(BaseWindow):
         self._fetch_and_show(transport_url, manifest, catalog)
 
     def _fetch_and_show(self, transport_url, manifest, catalog, extra=None):
-        import xbmc
-
-        from lib.ui.compat import L, log, notify
-        from lib.ui.uicommon import escape_label
-        from lib.ui.views import iter_catalog_pages
-
-        ctype = catalog.get('type')
-        catalog_name = escape_label(catalog.get('name') or catalog.get('id'))
-        addon_name = escape_label(manifest.get('name'))
-        # "ADDON · CATALOG" when both are on hand, matching the design's
-        # breadcrumb (e.g. "CINEMETA · POPULAR MOVIES") - otherwise just
-        # the catalog name, which is always present.
-        catalog_title = '%s \u00b7 %s' % (addon_name, catalog_name) if addon_name else catalog_name
-
-        # A catalog that declares `skip` is walked page by page rather
-        # than one page deep, so a list longer than the addon's page size
-        # is reachable in full. Only the FIRST page is waited on here -
-        # the rest are handed to the coverflow and appended as they land
-        # (see ShowcaseWindow.start), because the pages are serial and an
-        # addon serving 20 at a time would otherwise hold a 400-title
-        # list behind a spinner for a minute before showing anything.
-        pages = iter_catalog_pages(
-            transport_url, ctype, catalog.get('id'), extra=extra, catalog=catalog, manifest=manifest,
-        )
-        # Run on a worker under a cancellable spinner: this first page is
-        # the one place the user waits on a remote addon with nothing to
-        # look at (kodi.log: a 45 s wait during which every Back press was
-        # ignored). Back returns to this picker within ~0.2 s; the orphaned
-        # worker's page is discarded, so no coverflow can open for it later.
-        try:
-            metas = run_cancellable(lambda: next(pages, []), L(30033))
-        except AddonError as exc:
-            log('catalogpicker: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGERROR)
-            notify(L(30032))
-            return
-        if metas is CANCELLED:
-            log('catalogpicker: %s (%s) load cancelled by the user' % (catalog_name, ctype), xbmc.LOGINFO)
-            return
-        if not metas:
-            log('catalogpicker: %s (%s) returned no results' % (catalog_name, ctype), xbmc.LOGINFO)
-            notify(L(30030))
-            return
-
-        log('catalogpicker: opening coverflow (%d results, paging in background)' % len(metas), xbmc.LOGINFO)
-        try:
-            from lib.ui.infowindow import open_showcase
-            selected = open_showcase(metas, catalog_title=catalog_title, more_pages=pages)
-        except Exception as exc:  # a skin/UI failure must surface, not vanish
-            log('catalogpicker: coverflow failed to open: %r' % (exc,), xbmc.LOGERROR)
-            notify(L(30032))
-            return
-        if not selected:
-            return
-
-        from lib.ui.detailwindow import open_detail
-        if open_detail(selected.get('type') or ctype, selected.get('id')):
+        if open_single_catalog(transport_url, manifest, catalog, extra=extra):
             self.should_close_caller = True
             self.close()
-
     def _open_new_episodes(self):
         """Open the borrowed-band grid (`gridwindow.NEW_EPISODES_BAND`)
         over the items `open_catalog_picker()` already computed and
