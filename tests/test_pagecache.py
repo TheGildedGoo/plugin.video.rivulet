@@ -8,9 +8,10 @@ import os
 from lib.stremio.pagecache import (
     BUDGET_BYTES,
     DEFAULT_MAX_AGE,
+    DEFAULT_STALE_ERROR,
+    DEFAULT_STALE_REVALIDATE,
     PageCache,
     cache_key,
-    hints_from_envelope,
     slim_meta,
 )
 
@@ -69,28 +70,19 @@ def test_slim_meta_keeps_country_and_language():
     assert 'cast' not in slim
 
 
-def test_hints_come_from_the_envelope():
-    hints = hints_from_envelope({
-        'metas': [], 'cacheMaxAge': 14400, 'staleRevalidate': 3600,
-        'staleError': 3600, 'hasMore': False, 'cacheMaxAgeIgnored': 'soon',
-    })
-    assert hints == {
-        'cacheMaxAge': 14400, 'staleRevalidate': 3600,
-        'staleError': 3600, 'hasMore': False,
-    }
 
 
 def test_fresh_then_stale_then_miss(tmp_path):
     clock = {'now': 1000.0}
     cache = PageCache(str(tmp_path / 'catalog_pages.json'), clock=lambda: clock['now'])
     key = cache_key('https://a/manifest.json', 'movie', 'top', [('genre', 'Action')])
-    cache.store(key, [_meta(1)], {'cacheMaxAge': 100, 'staleRevalidate': 50, 'staleError': 25})
+    cache.store(key, [_meta(1)])
     assert cache.lookup(key)[0] == 'fresh'
-    clock['now'] = 1000 + 100
+    clock['now'] = 1000 + DEFAULT_MAX_AGE
     state, metas = cache.lookup(key)
     assert state == 'stale'
     assert metas[0]['id'] == 'tt1'
-    clock['now'] = 1000 + 100 + 50 + 25
+    clock['now'] = 1000 + DEFAULT_MAX_AGE + DEFAULT_STALE_REVALIDATE + DEFAULT_STALE_ERROR
     assert cache.lookup(key)[0] == 'miss'
 
 
@@ -98,7 +90,7 @@ def test_default_fresh_window_is_fifteen_minutes(tmp_path):
     clock = {'now': 0.0}
     cache = PageCache(str(tmp_path / 'catalog_pages.json'), clock=lambda: clock['now'])
     key = cache_key('t', 'movie', 'top', None)
-    cache.store(key, [_meta(1)], {})
+    cache.store(key, [_meta(1)])
     clock['now'] = DEFAULT_MAX_AGE - 1
     assert cache.lookup(key)[0] == 'fresh'
     clock['now'] = DEFAULT_MAX_AGE
@@ -108,7 +100,7 @@ def test_default_fresh_window_is_fifteen_minutes(tmp_path):
 def test_save_is_one_file_and_reloads(tmp_path):
     path = str(tmp_path / 'catalog_pages.json')
     cache = PageCache(path, clock=lambda: 10)
-    cache.store(cache_key('t', 'movie', 'top'), [_meta(3)], {'cacheMaxAge': 14400})
+    cache.store(cache_key('t', 'movie', 'top'), [_meta(3)])
     cache.save()
     assert os.path.isfile(path)
     again = PageCache(path, clock=lambda: 10)
@@ -124,7 +116,7 @@ def test_budget_drops_the_oldest_pages(tmp_path):
     for index in range(80):
         clock['now'] = index
         metas = [_meta(index * 100 + item) for item in range(40)]
-        cache.store(cache_key('t', 'movie', 'c%d' % index), metas, {})
+        cache.store(cache_key('t', 'movie', 'c%d' % index), metas)
     assert len(cache._entries) < 80
     assert cache._encoded_size() <= BUDGET_BYTES
     newest = cache_key('t', 'movie', 'c79')
@@ -140,8 +132,8 @@ def test_an_expired_page_is_served_only_when_asked_and_only_for_a_day(tmp_path):
     clock = {'now': 0.0}
     cache = PageCache(str(tmp_path / 'catalog_pages.json'), clock=lambda: clock['now'])
     key = cache_key('t', 'movie', 'top', None)
-    cache.store(key, [_meta(1)], {'cacheMaxAge': 10, 'staleRevalidate': 10, 'staleError': 10})
-    clock['now'] = 31
+    cache.store(key, [_meta(1)])
+    clock['now'] = DEFAULT_MAX_AGE + DEFAULT_STALE_REVALIDATE + DEFAULT_STALE_ERROR + 1
     assert cache.lookup(key)[0] == 'miss'
     state, metas = cache.lookup(key, allow_expired=True)
     assert state == 'expired' and metas[0]['id'] == 'tt1'
@@ -155,11 +147,11 @@ def test_save_copies_the_entries_it_writes(tmp_path, monkeypatch):
     import lib.stremio.pagecache as pagecache
 
     cache = PageCache(str(tmp_path / 'catalog_pages.json'), clock=lambda: 10)
-    cache.store(cache_key('t', 'movie', 'a', None), [_meta(1)], {})
+    cache.store(cache_key('t', 'movie', 'a', None), [_meta(1)])
     real_write = pagecache._atomic_write
 
     def _write(path, payload):
-        cache.store(cache_key('t', 'movie', 'b', None), [_meta(2)], {})
+        cache.store(cache_key('t', 'movie', 'b', None), [_meta(2)])
         real_write(path, payload)
 
     monkeypatch.setattr(pagecache, '_atomic_write', _write)
@@ -208,14 +200,6 @@ def test_slim_meta_trims_the_description_and_keeps_moviedb_popularity():
     assert 'popularities' not in slim_meta({'popularities': {'trakt': 3}})
 
 
-def test_hints_ignore_junk_and_keep_has_more_as_a_bool():
-    from lib.stremio.pagecache import hints_from_envelope
-
-    assert hints_from_envelope('nope') == {}
-    assert hints_from_envelope({
-        'cacheMaxAge': 60, 'staleRevalidate': True, 'staleError': -5, 'hasMore': False,
-    }) == {'cacheMaxAge': 60, 'hasMore': False}
-    assert hints_from_envelope({'staleError': 2.9, 'hasMore': 'yes'}) == {'staleError': 2}
 
 
 def test_cache_key_orders_extra_pairs_and_skips_malformed_ones():
@@ -245,11 +229,11 @@ def test_ages_fresh_stale_expired_then_gone(tmp_path):
     from lib.stremio.pagecache import EXPIRED_SERVE_SECONDS, PageCache
 
     cache = PageCache(str(tmp_path / 'pages.json'), clock=lambda: 0.0)
-    cache.store('k', [{'id': 'a'}], {'cacheMaxAge': 10, 'staleRevalidate': 10, 'staleError': 10})
+    cache.store('k', [{'id': 'a'}])
     assert cache.lookup('k', now=5)[0] == 'fresh'
-    assert cache.lookup('k', now=25)[0] == 'stale'
-    assert cache.lookup('k', now=100) == ('miss', None)
-    assert cache.lookup('k', now=100, allow_expired=True)[0] == 'expired'
+    assert cache.lookup('k', now=DEFAULT_MAX_AGE + 1)[0] == 'stale'
+    assert cache.lookup('k', now=DEFAULT_MAX_AGE + DEFAULT_STALE_REVALIDATE + DEFAULT_STALE_ERROR + 1) == ('miss', None)
+    assert cache.lookup('k', now=DEFAULT_MAX_AGE + DEFAULT_STALE_REVALIDATE + DEFAULT_STALE_ERROR + 1, allow_expired=True)[0] == 'expired'
     assert cache.lookup('k', now=EXPIRED_SERVE_SECONDS + 1, allow_expired=True) == ('miss', None)
 
 

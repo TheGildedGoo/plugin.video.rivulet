@@ -117,37 +117,27 @@ def _visible(metas, manifest, catalog):
 
 
 def _fetch_first_page(transport, manifest, catalog, extra):
-    """One page, unfiltered, and its cache hints. Adult catalogs are not
-    requested while the setting hides them.
-
-    A client without ``catalog_with_hints`` (the test fakes) falls
-    through to ``iter_catalog_pages``, which already applies the adult
-    filter and returns no hints.
-    """
-    from lib.ui.dependencies import get_client
+    """The first production catalog page; adult catalogs are not requested
+    while the setting hides them. Keep the existing iterator's filtering
+    and paging behavior, without a test-only client extension."""
     from lib.ui.views import iter_catalog_pages
 
     if _blocked(manifest, catalog):
-        return [], {}
-    client = get_client()
-    hints_fn = getattr(client, 'catalog_with_hints', None)
+        return []
     ctype = catalog.get('type') if isinstance(catalog, dict) else None
     cid = catalog.get('id') if isinstance(catalog, dict) else None
-    if callable(hints_fn):
-        metas, hints = hints_fn(transport, ctype, cid, extra=extra)
-        return [meta for meta in metas if isinstance(meta, dict)], hints
     try:
         page = next(iter_catalog_pages(
             transport, ctype, cid, extra=extra, catalog=catalog, manifest=manifest,
         ))
     except StopIteration:
-        return [], {}
-    return [meta for meta in (page or []) if isinstance(meta, dict)], {}
+        return []
+    return [meta for meta in (page or []) if isinstance(meta, dict)]
 
 
 def _revalidate(transport, manifest, catalog, extra, key):
     try:
-        metas, hints = _fetch_first_page(transport, manifest, catalog, extra)
+        metas = _fetch_first_page(transport, manifest, catalog, extra)
     except Exception:
         return
     if _blocked(manifest, catalog):
@@ -156,7 +146,7 @@ def _revalidate(transport, manifest, catalog, extra, key):
     cache = get_page_cache()
     if cache is None:
         return
-    cache.store(key, metas, hints)
+    cache.store(key, metas)
     _save(cache)
 
 
@@ -208,8 +198,8 @@ def cached_first_page(transport, manifest, catalog, extra=None):
         if state in ('stale', 'expired') and metas:
             _schedule_revalidate(transport, manifest, catalog, extra, key)
             return _visible(metas, manifest, catalog)
-    metas, hints = _fetch_first_page(transport, manifest, catalog, extra)
+    metas = _fetch_first_page(transport, manifest, catalog, extra)
     if cache is not None and key is not None:
-        cache.store(key, metas, hints)
+        cache.store(key, metas)
         _save(cache)
     return _visible(metas, manifest, catalog)

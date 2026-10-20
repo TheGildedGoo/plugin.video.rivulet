@@ -31,16 +31,16 @@ def test_an_expired_page_paints_and_is_revalidated(pages, tmp_path, monkeypatch)
     catalog = {'type': 'movie', 'id': 'top'}
     from lib.stremio.pagecache import cache_key
 
-    key = cache_key('t', 'movie', 'top', None)
-    cache.store(key, [{'id': 'tt1', 'type': 'movie', 'name': 'One'}], {'cacheMaxAge': 1, 'staleRevalidate': 1, 'staleError': 1})
-    clock['now'] = 3600.0
+    key = cache_key('https://addon.test/manifest.json', 'movie', 'top', None)
+    cache.store(key, [{'id': 'tt1', 'type': 'movie', 'name': 'One'}])
+    clock['now'] = 8000.0
     monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
     fetched = []
-    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: fetched.append(args) or ([], {}))
+    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: fetched.append(args) or [])
     revalidated = []
     monkeypatch.setattr(module, '_schedule_revalidate', lambda *args: revalidated.append(args[-1]))
 
-    metas = module.cached_first_page('t', {}, catalog)
+    metas = module.cached_first_page('https://addon.test/manifest.json', {}, catalog)
 
     assert [meta['id'] for meta in metas] == ['tt1']
     assert fetched == []
@@ -57,16 +57,16 @@ def test_deferred_saves_write_the_file_once(pages, tmp_path, monkeypatch):
     monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
     monkeypatch.setattr(
         module, '_fetch_first_page',
-        lambda transport, manifest, catalog, extra: ([{'id': catalog['id'], 'type': 'movie', 'name': 'x'}], {}),
+        lambda transport, manifest, catalog, extra: [{'id': catalog['id'], 'type': 'movie', 'name': 'x'}],
     )
 
     with module.deferred_saves():
         for cid in ('a', 'b', 'c'):
-            module.cached_first_page('t', {}, {'type': 'movie', 'id': cid})
+            module.cached_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': cid})
         assert saves == []
     assert saves == [1]
 
-    module.cached_first_page('t', {}, {'type': 'movie', 'id': 'd'})
+    module.cached_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'd'})
     assert saves == [1, 1]
 
 
@@ -83,22 +83,22 @@ def test_a_cached_page_follows_the_current_hide_adult_setting(pages, tmp_path, m
         {'id': 'tt2', 'type': 'movie', 'name': 'Late Night', 'adult': True},
     ]
     fetched = []
-    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: fetched.append(1) or ([dict(m) for m in page], {}))
+    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: fetched.append(1) or [dict(m) for m in page])
     monkeypatch.setattr(module, '_schedule_revalidate', lambda *args: None)
     catalog = {'type': 'movie', 'id': 'top'}
 
     pages.env.addon.settings['home_hide_adult'] = 'false'
-    shown = module.cached_first_page('t', {}, catalog)
+    shown = module.cached_first_page('https://addon.test/manifest.json', {}, catalog)
     assert [meta['id'] for meta in shown] == ['tt1', 'tt2']
 
     pages.env.addon.settings['home_hide_adult'] = 'true'
-    shown = module.cached_first_page('t', {}, catalog)
+    shown = module.cached_first_page('https://addon.test/manifest.json', {}, catalog)
     assert [meta['id'] for meta in shown] == ['tt1']
     assert fetched == [1]  # the second read came from the cache
 
     from lib.stremio.pagecache import cache_key
 
-    _state, stored = cache.lookup(cache_key('t', 'movie', 'top', None), allow_expired=True)
+    _state, stored = cache.lookup(cache_key('https://addon.test/manifest.json', 'movie', 'top', None), allow_expired=True)
     assert [meta['id'] for meta in stored] == ['tt1', 'tt2']  # kept unfiltered on disk
 
 
@@ -109,6 +109,7 @@ class _DirStore:
 
 def test_the_page_cache_lives_in_the_store_folder_and_is_shared(pages, tmp_path, monkeypatch):
     module = pages.catalogpages
+
     import lib.ui.dependencies as dependencies
 
     monkeypatch.setattr(dependencies, 'get_store', lambda: _DirStore(str(tmp_path)))
@@ -127,9 +128,9 @@ def test_with_no_cache_every_call_fetches(pages, monkeypatch):
     monkeypatch.setattr(module, 'get_page_cache', lambda: None)
     fetched = []
     monkeypatch.setattr(module, '_fetch_first_page',
-                        lambda *args: fetched.append(1) or ([{'id': 'tt1', 'type': 'movie'}], {}))
-    assert module.cached_first_page('t', {}, {'type': 'movie', 'id': 'top'})[0]['id'] == 'tt1'
-    module.cached_first_page('t', {}, {'type': 'movie', 'id': 'top'})
+                        lambda *args: fetched.append(1) or [{'id': 'tt1', 'type': 'movie'}])
+    assert module.cached_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'})[0]['id'] == 'tt1'
+    module.cached_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'})
     assert fetched == [1, 1]
 
 
@@ -139,56 +140,51 @@ def test_a_fresh_page_is_served_without_a_fetch_and_gets_its_type(pages, tmp_pat
     cache = _cache(tmp_path, clock)
     from lib.stremio.pagecache import cache_key
 
-    cache.store(cache_key('t', 'series', 'top', None), [{'id': 'tt9', 'name': 'Typeless'}])
+    cache.store(cache_key('https://addon.test/manifest.json', 'series', 'top', None), [{'id': 'tt9', 'name': 'Typeless'}])
     monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
     monkeypatch.setattr(module, '_fetch_first_page', lambda *args: pytest.fail('fetched a fresh page'))
-    metas = module.cached_first_page('t', {}, {'type': 'series', 'id': 'top'})
+    metas = module.cached_first_page('https://addon.test/manifest.json', {}, {'type': 'series', 'id': 'top'})
     assert metas == [{'id': 'tt9', 'name': 'Typeless', 'type': 'series'}]
 
 
-class _HintsClient:
-    def __init__(self, metas, hints=None):
+class _Client:
+    def __init__(self, metas):
         self.calls = []
         self._metas = metas
-        self._hints = hints or {}
 
-    def catalog_with_hints(self, transport, ctype, cid, extra=None):
+    def catalog(self, transport, ctype, cid, extra=None):
         self.calls.append((transport, ctype, cid, extra))
-        return list(self._metas), dict(self._hints)
+        return list(self._metas)
 
 
-def test_fetch_uses_the_hints_call_and_keeps_adult_items_for_the_cache(pages, monkeypatch):
+def test_fetch_uses_the_production_iterator_and_its_adult_filter(pages, monkeypatch):
     module = pages.catalogpages
-    import lib.ui.dependencies as dependencies
 
-    client = _HintsClient([{'id': 'a', 'name': 'A'}, 'junk', {'id': 'b', 'adult': True}], {'cacheMaxAge': 60})
-    monkeypatch.setattr(dependencies, 'get_client', lambda: client)
+    client = _Client([{'id': 'a', 'name': 'A'}, 'junk', {'id': 'b', 'adult': True}])
+    monkeypatch.setattr(pages.views, 'get_client', lambda: client)
     pages.env.addon.settings['home_hide_adult'] = 'true'
-    metas, hints = module._fetch_first_page('t', {}, {'type': 'movie', 'id': 'top'}, [('genre', 'x')])
-    assert [meta['id'] for meta in metas] == ['a', 'b']  # stored unfiltered
-    assert hints == {'cacheMaxAge': 60}
-    assert client.calls == [('t', 'movie', 'top', [('genre', 'x')])]
+    metas = module._fetch_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'}, [('genre', 'x')])
+    assert [meta['id'] for meta in metas] == ['a']
+    assert client.calls == [('https://addon.test/manifest.json', 'movie', 'top', [('genre', 'x')])]
 
 
 def test_an_adult_catalog_is_not_requested_while_hidden(pages, monkeypatch):
     module = pages.catalogpages
-    import lib.ui.dependencies as dependencies
 
-    client = _HintsClient([{'id': 'a'}])
-    monkeypatch.setattr(dependencies, 'get_client', lambda: client)
+    client = _Client([{'id': 'a'}])
+    monkeypatch.setattr(pages.views, 'get_client', lambda: client)
     adult = {'type': 'movie', 'id': 'xxx', 'name': 'Porn'}
     pages.env.addon.settings['home_hide_adult'] = 'true'
-    assert module._fetch_first_page('t', {}, adult, None) == ([], {})
+    assert module._fetch_first_page('https://addon.test/manifest.json', {}, adult, None) == []
     assert client.calls == []
     pages.env.addon.settings['home_hide_adult'] = 'false'
-    assert module._fetch_first_page('t', {}, adult, None)[0] == [{'id': 'a'}]
+    assert module._fetch_first_page('https://addon.test/manifest.json', {}, adult, None)[0]['id'] == 'a'
 
 
-def test_a_client_without_hints_reads_the_first_page_of_the_catalog(pages, monkeypatch):
+def test_fetch_reads_only_the_first_catalog_page(pages, monkeypatch):
     module = pages.catalogpages
-    import lib.ui.dependencies as dependencies
 
-    monkeypatch.setattr(dependencies, 'get_client', lambda: object())
+    monkeypatch.setattr(pages.views, 'get_client', lambda: object())
     seen = []
 
     def pages_of(transport, ctype, cid, extra=None, catalog=None, manifest=None):
@@ -196,9 +192,9 @@ def test_a_client_without_hints_reads_the_first_page_of_the_catalog(pages, monke
         return iter([[{'id': 'a'}, None], [{'id': 'b'}]])
 
     monkeypatch.setattr(pages.views, 'iter_catalog_pages', pages_of)
-    assert module._fetch_first_page('t', {}, {'type': 'movie', 'id': 'top'}, None) == ([{'id': 'a'}], {})
+    assert module._fetch_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'}, None) == [{'id': 'a'}]
     monkeypatch.setattr(pages.views, 'iter_catalog_pages', lambda *a, **k: iter([]))
-    assert module._fetch_first_page('t', {}, {'type': 'movie', 'id': 'top'}, None) == ([], {})
+    assert module._fetch_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'}, None) == []
     assert seen == [('movie', 'top')]
 
 
@@ -206,8 +202,8 @@ def test_revalidate_stores_the_new_page_and_ignores_a_failure(pages, tmp_path, m
     module = pages.catalogpages
     cache = _cache(tmp_path, {'now': 0.0})
     monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
-    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: ([{'id': 'new'}], {'cacheMaxAge': 5}))
-    module._revalidate('t', {}, {'type': 'movie', 'id': 'top'}, None, 'key')
+    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: [{'id': 'new'}])
+    module._revalidate('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'}, None, 'key')
     assert cache.lookup('key', now=1) == ('fresh', [{'id': 'new'}])
     assert (tmp_path / 'catalog_pages.json').exists()
 
@@ -215,12 +211,12 @@ def test_revalidate_stores_the_new_page_and_ignores_a_failure(pages, tmp_path, m
         raise RuntimeError('addon down')
 
     monkeypatch.setattr(module, '_fetch_first_page', boom)
-    module._revalidate('t', {}, {'type': 'movie', 'id': 'top'}, None, 'key')
+    module._revalidate('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'}, None, 'key')
     assert cache.lookup('key', now=1) == ('fresh', [{'id': 'new'}])
     # No cache to write to: the fetched page is dropped quietly.
-    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: ([{'id': 'other'}], {}))
+    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: [{'id': 'other'}])
     monkeypatch.setattr(module, 'get_page_cache', lambda: None)
-    module._revalidate('t', {}, {'type': 'movie', 'id': 'top'}, None, 'key')
+    module._revalidate('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'}, None, 'key')
 
 
 def test_one_revalidation_per_page_at_a_time(pages, monkeypatch):
@@ -235,8 +231,8 @@ def test_one_revalidation_per_page_at_a_time(pages, monkeypatch):
         gate.wait(2)
 
     monkeypatch.setattr(module, '_revalidate', slow)
-    module._schedule_revalidate('t', {}, {}, None, 'k1')
-    module._schedule_revalidate('t', {}, {}, None, 'k1')  # already in flight
+    module._schedule_revalidate('https://addon.test/manifest.json', {}, {}, None, 'k1')
+    module._schedule_revalidate('https://addon.test/manifest.json', {}, {}, None, 'k1')  # already in flight
     gate.set()
     deadline = __import__('time').monotonic() + 2
     while module._revalidate_inflight and __import__('time').monotonic() < deadline:
@@ -254,9 +250,9 @@ def test_a_failed_deferred_save_does_not_escape(pages, tmp_path, monkeypatch):
 
     monkeypatch.setattr(cache, 'save', broken)
     monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
-    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: ([{'id': 'a'}], {}))
+    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: [{'id': 'a'}])
     with module.deferred_saves():
-        module.cached_first_page('t', {}, {'type': 'movie', 'id': 'top'})
+        module.cached_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'})
     assert module._defer == {'depth': 0, 'dirty': False}
 
 
@@ -265,32 +261,30 @@ def test_a_hidden_adult_catalog_shows_again_as_soon_as_hiding_is_off(pages, tmp_
     nothing is cached for it, so turning the setting off fetches it at
     once instead of serving that empty page until it expires."""
     module = pages.catalogpages
-    import lib.ui.dependencies as dependencies
     from lib.stremio.pagecache import cache_key
 
     cache = _cache(tmp_path, {'now': 0.0})
     monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
-    client = _HintsClient([{'id': 'a', 'type': 'movie', 'name': 'A'}, {'id': 'b', 'type': 'movie', 'name': 'B'}],
-                          {'cacheMaxAge': 3600})
-    monkeypatch.setattr(dependencies, 'get_client', lambda: client)
+    client = _Client([{'id': 'a', 'type': 'movie', 'name': 'A'}, {'id': 'b', 'type': 'movie', 'name': 'B'}])
+    monkeypatch.setattr(pages.views, 'get_client', lambda: client)
     adult = {'type': 'movie', 'id': 'xxx', 'name': 'Porn'}
-    key = cache_key('t', 'movie', 'xxx', None)
+    key = cache_key('https://addon.test/manifest.json', 'movie', 'xxx', None)
 
     pages.env.addon.settings['home_hide_adult'] = 'true'
-    assert module.cached_first_page('t', {}, adult) == []
+    assert module.cached_first_page('https://addon.test/manifest.json', {}, adult) == []
     assert client.calls == []
     assert cache.lookup(key, allow_expired=True) == ('miss', None)
     assert not (tmp_path / 'catalog_pages.json').exists()
 
     pages.env.addon.settings['home_hide_adult'] = 'false'
-    shown = module.cached_first_page('t', {}, adult)
+    shown = module.cached_first_page('https://addon.test/manifest.json', {}, adult)
     assert [meta['id'] for meta in shown] == ['a', 'b']
     assert len(client.calls) == 1
     assert [meta['id'] for meta in cache.lookup(key)[1]] == ['a', 'b']
 
     # Hiding again: empty, and the page cached while it was off is kept.
     pages.env.addon.settings['home_hide_adult'] = 'true'
-    assert module.cached_first_page('t', {}, adult) == []
+    assert module.cached_first_page('https://addon.test/manifest.json', {}, adult) == []
     assert [meta['id'] for meta in cache.lookup(key)[1]] == ['a', 'b']
 
 
@@ -298,15 +292,15 @@ def test_a_revalidation_that_lands_after_hiding_is_on_keeps_the_cached_page(page
     module = pages.catalogpages
     cache = _cache(tmp_path, {'now': 0.0})
     monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
-    cache.store('key', [{'id': 'a'}], {'cacheMaxAge': 60})
+    cache.store('key', [{'id': 'a'}])
     adult = {'type': 'movie', 'id': 'xxx', 'name': 'Porn'}
 
     def _fetch(*args):
         # The setting is turned on while the request is out.
         pages.env.addon.settings['home_hide_adult'] = 'true'
-        return [], {}
+        return []
 
     monkeypatch.setattr(module, '_fetch_first_page', _fetch)
     pages.env.addon.settings['home_hide_adult'] = 'false'
-    module._revalidate('t', {}, adult, None, 'key')
+    module._revalidate('https://addon.test/manifest.json', {}, adult, None, 'key')
     assert cache.lookup('key', now=1) == ('fresh', [{'id': 'a'}])

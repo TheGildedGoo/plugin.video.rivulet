@@ -9,11 +9,10 @@ byte budget. Only the fields a poster row, the hero panel and a decade sort
 need are kept. Cast, trailers, links and awards are dropped before
 the write.
 
-Fresh for ``cacheMaxAge`` when the envelope sent one, otherwise 15
-minutes. After that the page is still served, and the caller
-revalidates, for ``staleRevalidate`` (default one hour). A failed
-revalidate keeps serving it for a further ``staleError`` (default one
-hour). Past that the lookup is a miss.
+Fresh for 15 minutes. After that the page is still served, and the
+caller revalidates, for one hour plus a further hour on revalidation
+failure. Past that the lookup is a miss unless explicitly allowed to
+serve an expired page. Production clients do not expose envelope hints.
 
 One ``save`` writes the whole file. Callers store a page when they
 fetch it, not on every remote click.
@@ -114,26 +113,6 @@ def slim_meta(meta):
     return slim
 
 
-def hints_from_envelope(envelope):
-    """``cacheMaxAge`` / ``staleRevalidate`` / ``staleError`` / ``hasMore``.
-
-    Non-numeric hints are ignored. ``hasMore`` is kept only as a bool,
-    which is how the addon protocol sends it.
-    """
-    hints = {}
-    if not isinstance(envelope, dict):
-        return hints
-    for name in ('cacheMaxAge', 'staleRevalidate', 'staleError'):
-        value = envelope.get(name)
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            continue
-        if value < 0:
-            continue
-        hints[name] = int(value)
-    has_more = envelope.get('hasMore')
-    if isinstance(has_more, bool):
-        hints['hasMore'] = has_more
-    return hints
 
 
 def cache_key(transport, ctype, cid, extra=None):
@@ -202,9 +181,9 @@ class PageCache:
             if not isinstance(stored, (int, float)) or not isinstance(metas, list):
                 return 'miss', None
             age = moment - stored
-            fresh_for = entry.get('max_age', DEFAULT_MAX_AGE)
-            revalidate_for = entry.get('stale_revalidate', DEFAULT_STALE_REVALIDATE)
-            error_for = entry.get('stale_error', DEFAULT_STALE_ERROR)
+            fresh_for = DEFAULT_MAX_AGE
+            revalidate_for = DEFAULT_STALE_REVALIDATE
+            error_for = DEFAULT_STALE_ERROR
             if age < fresh_for:
                 return 'fresh', metas
             if age < fresh_for + revalidate_for + error_for:
@@ -213,10 +192,9 @@ class PageCache:
                 return 'expired', metas
             return 'miss', None
 
-    def store(self, key, metas, hints=None, now=None):
+    def store(self, key, metas, now=None):
         """Remember a slim copy of ``metas``. Does not write the file."""
         moment = self._now() if now is None else now
-        hints = hints or {}
         slim = []
         for meta in metas or []:
             item = slim_meta(meta)
@@ -224,9 +202,6 @@ class PageCache:
                 slim.append(item)
         entry = {
             'stored_at': moment,
-            'max_age': hints.get('cacheMaxAge', DEFAULT_MAX_AGE),
-            'stale_revalidate': hints.get('staleRevalidate', DEFAULT_STALE_REVALIDATE),
-            'stale_error': hints.get('staleError', DEFAULT_STALE_ERROR),
             'metas': slim,
         }
         with self._lock:
