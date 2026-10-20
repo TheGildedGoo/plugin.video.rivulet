@@ -674,3 +674,19 @@ def test_window_close_animation_is_rejected_regression(tmp_path):
         encoding='utf-8',
     )
     assert len(_window_close_animations(str(bad))) == 1
+
+
+def test_home_row_navigation_follows_the_entire_slot_chain():
+    """A copied row must go Up to its predecessor, never to itself."""
+    root = ET.parse(os.path.join(_SKIN_DIR, 'NewHomeWindow.xml')).getroot()
+    panels = {int(panel.get('id')): panel for panel in root.iter('control')
+              if panel.get('type') == 'panel' and panel.get('id')}
+    for panel_id in range(30040, 30053):
+        panel = panels[panel_id]
+        expected_up = 30010 if panel_id == 30040 else panel_id - 1
+        expected_down = panel_id + 1 if panel_id < 30052 else panel_id
+        assert int(panel.findtext('onup')) != panel_id, panel_id
+        assert int(panel.findtext('onup')) == expected_up, panel_id
+        assert int(panel.findtext('ondown')) == expected_down, panel_id
+        for direction in ('onleft', 'onright'):
+            assert int(panel.findtext(direction)) == panel_id, (panel_id, direction)
