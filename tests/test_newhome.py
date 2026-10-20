@@ -1876,3 +1876,61 @@ def test_the_library_row_reads_newest_added_first(load_homewindow):
         'not a row',
     ]
     assert [row['_id'] for row in ctx.homewindow._newest_first(rows)] == ['new', 'mid', 'old']
+
+
+def test_cancelled_home_load_does_not_keep_the_interpreter_alive():
+    """Blocked first-page and library calls may outlive Back on the spinner."""
+    import subprocess
+    import sys
+
+    script = '''
+import threading
+from tests.kodistubs import install_kodi_stubs
+with install_kodi_stubs(reload=('lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.newhome')) as ctx:
+    hw = ctx.newhome
+    waiting = threading.Event()
+    started = threading.Event()
+    def slow(*args):
+        started.set()
+        waiting.wait(30)
+        return []
+    hw._fetch_library = slow
+    hw._open_shelf = slow
+    def cancel(func, heading):
+        threading.Thread(target=func, daemon=True).start()
+        assert started.wait(2)
+        return ctx.uicommon.CANCELLED
+    ctx.uicommon.run_cancellable = cancel
+    win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
+    hw._load_rows(win, object(), [], {'authKey': 'k'})
+    workers = [t for t in threading.enumerate() if t is not threading.main_thread()]
+    assert workers and all(t.daemon for t in workers)
+'''
+    subprocess.run([sys.executable, '-c', script], cwd=_REPO_ROOT, check=True, timeout=5)
+
+
+def test_home_workers_are_bounded_and_results_keep_catalog_order(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    active = []
+    workers = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(hw._MAX_HOME_WORKERS - 1, timeout=2)
+    types = {'row%d' % i: frozenset({str(i)}) for i in range(6)}
+
+    def shelf(addons, wanted):
+        with lock:
+            active.append(threading.current_thread())
+            workers.append(threading.current_thread())
+            assert len(active) <= hw._MAX_HOME_WORKERS - 1
+        barrier.wait()
+        with lock:
+            active.pop()
+        return {'metas': [{'id': next(iter(wanted))}]}
+
+    monkeypatch.setattr(hw, '_open_shelf', shelf)
+    pages, more = hw._catalog_pages([], types)
+    assert list(pages) == list(types) == list(more)
+    assert [page[0]['id'] for page in pages.values()] == [str(i) for i in range(6)]
+    assert len(set(workers)) <= hw._MAX_HOME_WORKERS - 1
+    assert all(thread.daemon for thread in workers)

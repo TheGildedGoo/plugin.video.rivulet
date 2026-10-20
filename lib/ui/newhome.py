@@ -29,6 +29,7 @@ Shared helpers this module calls and does not modify:
 and `lib.ui.detailwindow.open_detail`.
 """
 import json
+import queue
 import threading
 
 import xbmcgui
@@ -677,22 +678,39 @@ def _catalog_pages(addons, enabled):
     once (#13): the rows used to be fetched one after another, so opening
     Home cost the sum of every addon's answer instead of the slowest one.
     """
-    from concurrent.futures import ThreadPoolExecutor
-
     pages = {}
     more = {}
     actions = list(enabled.items())
-    shelves = []
-    if len(actions) > 1:
-        with ThreadPoolExecutor(max_workers=_MAX_HOME_WORKERS) as pool:
-            futures = [(action, pool.submit(_open_shelf, addons, types)) for action, types in actions]
-            for action, future in futures:
-                try:
-                    shelves.append((action, future.result()))
-                except Exception:
-                    shelves.append((action, None))
-    else:
-        shelves = [(action, _open_shelf(addons, types)) for action, types in actions]
+    work = queue.Queue()
+    results = queue.Queue()
+    for index, (action, types) in enumerate(actions):
+        work.put((index, action, types))
+
+    def _worker():
+        while True:
+            try:
+                index, action, types = work.get_nowait()
+            except queue.Empty:
+                return
+            try:
+                shelf = _open_shelf(addons, types)
+            except Exception as exc:
+                from lib.stremio.addons import addon_error_detail
+                from lib.ui.compat import log
+
+                log('home: row %s failed: %s' % (action, addon_error_detail(exc)))
+                shelf = None
+            results.put((index, action, shelf))
+
+    # Reserve one of Home's slots for the account library read. Raw daemons
+    # have no executor atexit join: Back can abandon a slow addon at exit.
+    for _ in range(min(len(actions), _MAX_HOME_WORKERS - 1)):
+        threading.Thread(target=_worker, name='rivulet-home-load', daemon=True).start()
+    finished = {}
+    for _ in actions:
+        index, action, shelf = results.get()
+        finished[index] = (action, shelf)
+    shelves = [finished[index] for index in range(len(actions))]
     for action, shelf in shelves:
         if shelf is None:
             pages[action] = []
@@ -728,14 +746,25 @@ def _load_rows(window, store, addons, auth):
     def _load():
         # The library read and every row's first page run together, and
         # catalog_pages.json is written once at the end (#13).
-        from concurrent.futures import ThreadPoolExecutor
-
         from lib.ui.catalogpages import deferred_saves
 
-        with deferred_saves(), ThreadPoolExecutor(max_workers=1) as reader:
-            library = reader.submit(_fetch_library, store, auth)
+        library = queue.Queue()
+
+        def _read_library():
+            try:
+                entries = _fetch_library(store, auth)
+            except Exception as exc:
+                from lib.stremio.addons import addon_error_detail
+                from lib.ui.compat import log
+
+                log('home: library read failed: %s' % addon_error_detail(exc))
+                entries = []
+            library.put(entries)
+
+        with deferred_saves():
+            threading.Thread(target=_read_library, name='rivulet-home-library', daemon=True).start()
             pages, more = _catalog_pages(addons, enabled)
-            library_entries = library.result()
+            library_entries = library.get()
         return (
             _played_posters(store, library_entries),
             _library_posters(auth, library_entries),
