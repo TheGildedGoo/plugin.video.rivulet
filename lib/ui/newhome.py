@@ -332,7 +332,7 @@ def _one_catalog_page(transport, manifest, catalog, extra=None):
         ), xbmc.LOGWARNING)
         raise CatalogUnavailable(name)
     except Exception as exc:
-        log('home: catalog %s failed: %r' % (name, exc), xbmc.LOGWARNING)
+        log('home: catalog %s failed: %s' % (name, addon_error_detail(exc)), xbmc.LOGWARNING)
         raise CatalogUnavailable(name)
 
 
@@ -387,8 +387,9 @@ def _pull_more(state, room):
     except Exception as exc:
         if isinstance(exc, AssertionError):
             raise
+        from lib.stremio.addons import addon_error_detail
         from lib.ui.compat import log
-        log('home: next catalog page failed: %r' % (exc,))
+        log('home: next catalog page failed: %s' % addon_error_detail(exc))
         state['exhausted'] = True
         return []
     batch = [meta for meta in (page or []) if isinstance(meta, dict)]

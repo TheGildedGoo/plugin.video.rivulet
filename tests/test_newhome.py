@@ -2049,3 +2049,25 @@ def test_large_library_builds_one_slice_then_extends_in_order(load_homewindow, m
     hw._restore_place(win, place)
     assert shelf.getSelectedItem().getProperty('sid') == 'tt400'
     assert shelf.size() == 401
+
+
+def test_catalog_errors_never_log_credentials(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    from lib.ui import catalogpages
+
+    def fail(*args):
+        raise OSError('https://user:secret@server.test/private?token=hidden')
+
+    monkeypatch.setattr(catalogpages, 'cached_first_page', fail)
+    with pytest.raises(ctx.homewindow.CatalogUnavailable):
+        ctx.homewindow._one_catalog_page('t', {}, {'id': 'top'})
+
+    def pages():
+        fail()
+        yield []
+
+    state = {'gen': pages(), 'transport': 't', 'catalog': {'id': 'top'}}
+    assert ctx.homewindow._pull_more(state, 10) == []
+    messages = [msg for msg, _ in ctx.env.log_calls if 'home:' in msg and 'failed' in msg]
+    assert len(messages) == 2
+    assert all('OSError' in msg and 'secret' not in msg and 'hidden' not in msg for msg in messages)

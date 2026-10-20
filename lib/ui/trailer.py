@@ -127,7 +127,9 @@ def _full_meta(meta, stype, sid):
     from lib.ui.views import _fetch_meta
 
     fetched = run_cancellable(lambda: _fetch_meta(stype, sid), L(30033))
-    if fetched is CANCELLED or not isinstance(fetched, dict):
+    if fetched is CANCELLED:
+        return CANCELLED
+    if not isinstance(fetched, dict):
         return meta
     return fetched
 
@@ -147,17 +149,19 @@ def play_trailer(meta, stype='', sid=''):
     import xbmc
     import xbmcgui
 
+    from lib.stremio.addons import safe_url_for_log
     from lib.ui.compat import L, log, notify
+    from lib.ui.uicommon import CANCELLED, run_cancellable
 
     full = _full_meta(meta if isinstance(meta, dict) else {}, stype, sid)
+    if full is CANCELLED:
+        return False
     yt = trailer_id(full)
     if not yt:
         notify(L(30497))
         return False
     name = (full or {}).get('name') or ''
     label = ('%s – %s' % (name, L(30499))) if name else L(30499)
-    from lib.ui.uicommon import CANCELLED, run_cancellable
-
     server = run_cancellable(lambda: _server_url(yt), label)
     if server is CANCELLED:
         return False
@@ -165,14 +169,14 @@ def play_trailer(meta, stype='', sid=''):
     for url in trailer_urls(yt, server or ''):
         tried += 1
         item = xbmcgui.ListItem(label=label, path=url)
-        log('trailer: trying %s via %s' % (yt, url.split('?')[0]), xbmc.LOGINFO)
+        log('trailer: trying %s via %s' % (yt, safe_url_for_log(url)), xbmc.LOGINFO)
         outcome = _start(url, item, label)
         if outcome == 'rolling':
             _watch()
             return True
         if outcome in ('cancelled', 'abort'):
             return False
-        log('trailer: %s did not start via %s' % (yt, url.split('?')[0]), xbmc.LOGWARNING)
+        log('trailer: %s did not start via %s' % (yt, safe_url_for_log(url)), xbmc.LOGWARNING)
     if not tried:
         _offer_youtube_addon(L, notify)
     else:

@@ -37,6 +37,7 @@ def _lookup(auth, item_id):
     """`(item, lookup_ok)`. `item` is None both when the account has no
     record and when the call failed; `lookup_ok` is what tells those
     apart. Back on the spinner returns `(CANCELLED, False)`."""
+    from lib.stremio.addons import addon_error_detail
     from lib.stremio.api import ApiError
     from lib.ui.compat import L, log
     from lib.ui.dependencies import get_api
@@ -47,7 +48,7 @@ def _lookup(auth, item_id):
             lambda: get_api().get_library_item(auth.get('authKey'), item_id), L(30033),
         )
     except ApiError as exc:
-        log('libraryaction: lookup failed: %r' % (exc,))
+        log('libraryaction: lookup failed: %s' % addon_error_detail(exc))
         return None, False
     if found is CANCELLED:
         return found, False
@@ -59,6 +60,7 @@ def _push(auth, payload):
     notifies nothing on cancel and `#30301` on failure."""
     import xbmc
 
+    from lib.stremio.addons import addon_error_detail
     from lib.stremio.api import ApiError
     from lib.ui.compat import L, log, notify
     from lib.ui.dependencies import get_api
@@ -71,7 +73,7 @@ def _push(auth, payload):
             log('libraryaction: write cancelled while pending', xbmc.LOGINFO)
             return False
     except ApiError as exc:
-        log('libraryaction: write failed: %r' % (exc,), xbmc.LOGWARNING)
+        log('libraryaction: write failed: %s' % addon_error_detail(exc), xbmc.LOGWARNING)
         notify(L(30301))
         return False
     return True

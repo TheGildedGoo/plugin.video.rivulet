@@ -392,7 +392,7 @@ def test_a_meta_that_has_its_trailer_is_not_fetched_again(trailer, monkeypatch):
     assert fetched == []
 
 
-@pytest.mark.parametrize('answer', ['cancelled', None, ['not', 'a', 'meta']])
+@pytest.mark.parametrize('answer', [None, ['not', 'a', 'meta']])
 def test_a_cancelled_or_failed_fetch_keeps_the_preview(trailer, monkeypatch, answer):
     import lib.ui.uicommon as uicommon
 
@@ -680,3 +680,23 @@ def test_a_dialog_that_fails_counts_as_no(trailer, monkeypatch):
 
     _offer(trailer, monkeypatch, False, _broken)
     assert not any('InstallAddon' in b for b in trailer.env.executed_builtins)
+
+
+def test_back_on_the_meta_spinner_is_silent(trailer, monkeypatch):
+    from lib.ui import uicommon
+
+    monkeypatch.setattr(uicommon, 'run_cancellable', lambda *args: uicommon.CANCELLED)
+    assert trailer.trailer.play_trailer({'id': 'tt1'}, 'movie', 'tt1') is False
+    assert trailer.env.notifications == []
+
+
+def test_trailer_route_logs_redact_server_credentials(trailer, monkeypatch):
+    url = 'https://user:secret@server.test/yt/abcdefghijk?token=private'
+    monkeypatch.setattr(trailer.trailer, '_server_url', lambda yt: url)
+    monkeypatch.setattr(trailer.trailer, '_youtube_addon_url', lambda yt: '')
+    monkeypatch.setattr(trailer.trailer, '_start', lambda *args: 'stalled')
+    assert trailer.trailer.play_trailer(_META) is False
+    messages = [msg for msg, _ in trailer.env.log_calls if 'trailer:' in msg]
+    assert len(messages) == 2
+    assert all('server.test' in msg and 'user' not in msg and 'secret' not in msg
+               and 'private' not in msg for msg in messages)

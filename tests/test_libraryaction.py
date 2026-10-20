@@ -324,3 +324,16 @@ def test_a_pick_outside_the_menu_does_nothing(action, monkeypatch, pick):
     _wire(monkeypatch, api, pick=pick)
     assert action.libraryaction.poster_menu(_META) is None
     assert played == [] and api.puts == []
+
+
+def test_library_transport_errors_never_log_credentials(action, monkeypatch):
+    from lib.stremio.api import ApiError
+
+    error = ApiError('https://user:secret@server.test/private?token=hidden')
+    _wire(monkeypatch, _Api(get_error=error, put_error=error))
+    assert action.libraryaction._lookup(_AUTH, 'tt1') == (None, False)
+    assert action.libraryaction._push(_AUTH, {}) is False
+    messages = [msg for msg, _ in action.env.log_calls if 'libraryaction:' in msg]
+    assert len(messages) == 2
+    assert all('ApiError' in msg and 'secret' not in msg and 'hidden' not in msg
+               and 'user:' not in msg for msg in messages)
