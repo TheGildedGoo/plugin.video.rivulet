@@ -298,3 +298,49 @@ def test_close_during_first_page_prevents_filtered_followup_pages(session, monke
     monkeypatch.setattr(ctx.newhome, '_shelf_page_gen', lambda _: pytest.fail('fetch after close'))
     state = ctx.newhome._open_shelf(dict(descriptor, _stop=ctx.newhome._home_stop(win)))
     assert state['metas'] == []
+
+
+@pytest.mark.parametrize('stop_at', ['failure', 'backoff', 'abort'])
+def test_upstream_meta_retry_stops_on_home_close_or_abort(session, monkeypatch, stop_at):
+    from lib.stremio.addons import AddonError
+
+    ctx, win = session, session.window
+    installed = [{'transportUrl': 't', 'manifest': {'types': ['movie'], 'resources': ['meta']}}]
+    monkeypatch.setattr(ctx.views, 'get_store', lambda: _FakeStore(addons=installed))
+    calls = []
+
+    class Client:
+        def meta(self, *_):
+            calls.append(True)
+            if stop_at == 'failure':
+                win.close()
+            raise AddonError('temporary failure', category='HTTP 503')
+
+    monkeypatch.setattr(ctx.views, 'get_client', Client)
+    import xbmc
+
+    monitor = xbmc.Monitor()
+    wait = monitor.waitForAbort
+    waits = []
+
+    def stop_during_pause(seconds):
+        waits.append(seconds)
+        if stop_at == 'abort':
+            ctx.env.monitor_abort_requested = True
+        else:
+            win.close()
+        return wait(seconds)
+
+    monitor.waitForAbort = stop_during_pause
+    monkeypatch.setattr(xbmc, 'Monitor', lambda: monitor)
+    result = ctx.newhome._fetch_library_meta('movie', 'tt1', ctx.newhome._home_stop(win))
+    assert result is None
+    assert calls == [True]
+    assert len(waits) == (0 if stop_at == 'failure' else 1)
+    assert all(seconds <= 0.1 for seconds in waits)
+
+
+def test_home_meta_retry_keeps_upstream_backoff_while_session_is_open(session):
+    assert session.views._pause_home_meta_retry(0.4, lambda: False) is False
+    assert sum(session.env.wait_calls) == pytest.approx(0.4)
+    assert max(session.env.wait_calls) <= 0.1

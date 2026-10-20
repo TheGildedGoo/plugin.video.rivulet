@@ -369,6 +369,215 @@ def test_fetch_meta_skips_addon_returning_no_usable_result(load_views):
     assert result == hit_meta
 
 
+def test_fetch_meta_does_not_treat_an_idless_body_as_a_hit(load_views):
+    """`{}` and a dict with no id are not a title. The fan-out must keep
+    waiting for an addon that returns a meta with an id, and must not
+    cache the empty body."""
+    ctx = load_views()
+    views = ctx.views
+    started = threading.Event()
+    release = threading.Event()
+    box = {}
+
+    class _Client:
+        def __init__(self):
+            self.meta_calls = []
+
+        def meta(self, transport_url, stype, sid):
+            self.meta_calls.append(transport_url)
+            if transport_url == 't-empty':
+                started.set()
+                return {}
+            if transport_url == 't-noid':
+                return {'name': 'No id'}
+            assert started.wait(2)
+            assert release.wait(2)
+            return {'id': 'tt1', 'name': 'Real', 'type': 'series'}
+
+    client = _Client()
+    addons = [
+        {'transportUrl': 't-empty', 'manifest': {'id': 'org.empty', 'resources': ['meta'], 'types': ['series'], 'idPrefixes': ['tt']}},
+        {'transportUrl': 't-noid', 'manifest': {'id': 'org.noid', 'resources': ['meta'], 'types': ['series'], 'idPrefixes': ['tt']}},
+        {'transportUrl': 't-real', 'manifest': {'id': 'org.real', 'resources': ['meta'], 'types': ['series'], 'idPrefixes': ['tt']}},
+    ]
+    _wire_data_layer(views, FakeStore(addons=addons, data_dir=None), client)
+
+    def _run():
+        box['result'] = views._fetch_meta('series', 'tt1')
+
+    worker = threading.Thread(target=_run)
+    worker.start()
+    assert started.wait(2)
+    worker.join(0.2)
+    assert worker.is_alive()  # {} did not win, and neither did the id-less dict
+    release.set()
+    worker.join(2)
+
+    assert box['result'] == {'id': 'tt1', 'name': 'Real', 'type': 'series'}
+
+
+def test_fetch_meta_retries_an_addon_error_then_returns_the_meta(load_views, tmp_path):
+    ctx = load_views()
+    views = ctx.views
+    hit = {'id': 'tt1', 'name': 'Late', 'type': 'movie'}
+
+    class _Flaky:
+        def __init__(self):
+            self.meta_calls = []
+
+        def meta(self, transport_url, stype, sid):
+            self.meta_calls.append(transport_url)
+            if len(self.meta_calls) < views._META_ATTEMPTS:
+                raise AddonError('connection dropped', category='ConnectionError')
+            return hit
+
+    client = _Flaky()
+    descriptor = {
+        'transportUrl': 't1',
+        'manifest': {'id': 'org.a', 'resources': ['meta'], 'types': ['movie'], 'idPrefixes': ['tt']},
+    }
+    _wire_data_layer(views, FakeStore(addons=[descriptor], data_dir=str(tmp_path)), client)
+
+    assert views._fetch_meta('movie', 'tt1') == hit
+    assert client.meta_calls == ['t1', 't1', 't1']
+    # The successful meta is what got cached, not the failures.
+    assert views._fetch_meta('movie', 'tt1') == hit
+    assert client.meta_calls == ['t1', 't1', 't1']
+
+
+@pytest.mark.parametrize('category, calls', [
+    ('HTTP 404', 1),
+    ('invalid JSON', 1),
+    ('response too large', 1),
+    ('HTTP 503', 3),
+    ('HTTP 429', 3),
+    ('ConnectionError', 3),
+    ('HTTP 408', 3),
+    ('ReadTimeout', 1),
+    ('ConnectTimeout', 1),
+    ('Timeout', 1),
+    ('TimeoutError', 1),
+    ('timeout', 1),
+    ('addon reported error (HTTP 404)', 3),
+])
+def test_fetch_meta_retries_only_a_failure_that_may_pass(load_views, category, calls):
+    """A definite answer (a 4xx, invalid JSON, an oversized body) fails
+    the same way again; only a transient failure, or an addon's own error
+    placeholder, is asked again."""
+    ctx = load_views()
+    views = ctx.views
+
+    class _Failing:
+        def __init__(self):
+            self.meta_calls = []
+
+        def meta(self, transport_url, stype, sid):
+            self.meta_calls.append(transport_url)
+            raise AddonError('failed', category=category)
+
+    client = _Failing()
+    descriptor = {
+        'transportUrl': 't1',
+        'manifest': {'id': 'org.a', 'resources': ['meta'], 'types': ['movie'], 'idPrefixes': ['tt']},
+    }
+    _wire_data_layer(views, FakeStore(addons=[descriptor], data_dir=None), client)
+
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert len(client.meta_calls) == calls
+
+
+class _MetaClock:
+    """A fake `time.monotonic()` for `views`, moved on by the fake
+    addon's own latency and by the retry backoff: no real waiting."""
+
+    def __init__(self):
+        self.now = 0.0
+
+    def monotonic(self):
+        return self.now
+
+
+def _wire_timed_addon(views, monkeypatch, failures):
+    """One meta addon failing with `failures` in turn, each a
+    ``(seconds, category)`` pair; returns ``(client, clock)``."""
+    import types
+
+    clock = _MetaClock()
+    monkeypatch.setattr(views, 'time', types.SimpleNamespace(monotonic=clock.monotonic))
+
+    def _pause(seconds):
+        clock.now += seconds
+        return False
+
+    monkeypatch.setattr(views, '_pause_before_meta_retry', _pause)
+
+    class _Slow:
+        def __init__(self):
+            self.meta_calls = []
+
+        def meta(self, transport_url, stype, sid):
+            seconds, category = failures[len(self.meta_calls)]
+            self.meta_calls.append(transport_url)
+            clock.now += seconds
+            raise AddonError('failed', category=category)
+
+    client = _Slow()
+    descriptor = {
+        'transportUrl': 't1',
+        'manifest': {'id': 'org.a', 'resources': ['meta'], 'types': ['movie'], 'idPrefixes': ['tt']},
+    }
+    _wire_data_layer(views, FakeStore(addons=[descriptor], data_dir=None), client)
+    return client, clock
+
+
+#: `AddonClient`'s request timeout, which a non-answering addon uses up.
+_ADDON_TIMEOUT_SECONDS = 15.0
+
+
+def test_fetch_meta_a_timing_out_addon_is_asked_once(load_views, monkeypatch):
+    """A non-answering addon costs one timeout, not three (about 46 s)."""
+    views = load_views().views
+    client, clock = _wire_timed_addon(views, monkeypatch, [(_ADDON_TIMEOUT_SECONDS, 'ReadTimeout')] * 3)
+
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert client.meta_calls == ['t1']
+    assert clock.now == _ADDON_TIMEOUT_SECONDS
+
+
+def test_fetch_meta_worst_case_for_one_addon_is_about_one_timeout(load_views, monkeypatch):
+    """The slowest path through the retries: a quick dropped connection
+    just inside the retry budget, then a timeout. A slow failure is never
+    retried, so the total stays one timeout plus the budget and one
+    backoff."""
+    views = load_views().views
+    quick = views._META_RETRY_WITHIN_SECONDS - 0.1
+    client, clock = _wire_timed_addon(views, monkeypatch, [
+        (quick, 'ConnectionError'),
+        (_ADDON_TIMEOUT_SECONDS, 'ConnectionError'),
+        (_ADDON_TIMEOUT_SECONDS, 'ConnectionError'),
+    ])
+
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert len(client.meta_calls) == 2
+    worst = _ADDON_TIMEOUT_SECONDS + views._META_RETRY_WITHIN_SECONDS + views._META_RETRY_BACKOFF_SECONDS[0]
+    assert clock.now <= worst < 18
+
+
+def test_fetch_meta_does_not_cache_an_idless_success(load_views, tmp_path):
+    ctx = load_views()
+    views = ctx.views
+    client = FakeAddonClient(meta_results={'t1': {'name': 'No id'}})
+    descriptor = {
+        'transportUrl': 't1',
+        'manifest': {'id': 'org.a', 'resources': ['meta'], 'types': ['movie'], 'idPrefixes': ['tt']},
+    }
+    _wire_data_layer(views, FakeStore(addons=[descriptor], data_dir=str(tmp_path)), client)
+
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert views._fetch_meta('movie', 'tt1') is None
+    assert client.meta_calls == ['t1', 't1']
+
+
 def test_fetch_meta_never_dispatches_to_a_disabled_addon(load_views):
     """_fetch_meta()'s fan-out must read get_enabled_addons(), not
     get_addons(): a disabled meta-capable addon must receive no request,
