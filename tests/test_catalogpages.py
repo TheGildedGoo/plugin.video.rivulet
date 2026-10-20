@@ -304,3 +304,21 @@ def test_a_revalidation_that_lands_after_hiding_is_on_keeps_the_cached_page(page
     pages.env.addon.settings['home_hide_adult'] = 'false'
     module._revalidate('https://addon.test/manifest.json', {}, adult, None, 'key')
     assert cache.lookup('key', now=1) == ('fresh', [{'id': 'a'}])
+
+
+@pytest.mark.parametrize('method', ['store', 'save'])
+def test_a_cache_write_failure_keeps_the_loaded_row(pages, tmp_path, monkeypatch, method):
+    module = pages.catalogpages
+    cache = _cache(tmp_path, {'now': 0.0})
+    monkeypatch.setattr(module, 'get_page_cache', lambda: cache)
+    monkeypatch.setattr(module, '_fetch_first_page', lambda *args: [{'id': 'loaded'}])
+
+    def fail(*args):
+        raise OSError('https://user:secret@host/private')
+
+    monkeypatch.setattr(cache, method, fail)
+    assert module.cached_first_page('t', {}, {'type': 'movie', 'id': 'top'}) == [{'id': 'loaded'}]
+    module._revalidate('t', {}, {'type': 'movie', 'id': 'top'}, None, 'k')
+    messages = [msg for msg, _ in pages.env.log_calls if 'cache save failed' in msg]
+    assert len(messages) == 2
+    assert all('OSError' in msg and 'secret' not in msg for msg in messages)

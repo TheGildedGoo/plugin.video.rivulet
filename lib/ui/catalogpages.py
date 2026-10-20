@@ -51,8 +51,8 @@ def deferred_saves():
             if cache is not None:
                 try:
                     cache.save()
-                except Exception:
-                    pass
+                except OSError as exc:
+                    _log_save_error(exc)
 
 
 def _save(cache):
@@ -62,6 +62,22 @@ def _save(cache):
             _defer['dirty'] = True
             return
     cache.save()
+
+
+def _log_save_error(exc):
+    from lib.stremio.addons import addon_error_detail
+    from lib.ui.compat import log
+
+    log('catalogpages: cache save failed: %s' % addon_error_detail(exc))
+
+
+def _store_page(cache, key, metas):
+    """A loaded row survives a read-only/full cache directory."""
+    try:
+        cache.store(key, metas)
+        _save(cache)
+    except OSError as exc:
+        _log_save_error(exc)
 
 
 def get_page_cache():
@@ -146,8 +162,7 @@ def _revalidate(transport, manifest, catalog, extra, key):
     cache = get_page_cache()
     if cache is None:
         return
-    cache.store(key, metas)
-    _save(cache)
+    _store_page(cache, key, metas)
 
 
 def _schedule_revalidate(transport, manifest, catalog, extra, key):
@@ -200,6 +215,5 @@ def cached_first_page(transport, manifest, catalog, extra=None):
             return _visible(metas, manifest, catalog)
     metas = _fetch_first_page(transport, manifest, catalog, extra)
     if cache is not None and key is not None:
-        cache.store(key, metas)
-        _save(cache)
+        _store_page(cache, key, metas)
     return _visible(metas, manifest, catalog)

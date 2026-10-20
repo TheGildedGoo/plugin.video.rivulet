@@ -224,6 +224,6 @@ class PageCache:
         with self._lock:
             payload = {'entries': dict(self._entries)}
         directory = os.path.dirname(self.path)
-        if directory and not os.path.isdir(directory):
-            os.makedirs(directory)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
         _atomic_write(self.path, payload)

@@ -277,3 +277,28 @@ def test_the_oldest_page_goes_first_when_over_budget(tmp_path, monkeypatch):
     cache.store('new', [{'id': 'c', 'name': 'x' * 100}], now=3)
     assert cache.lookup('new', now=3)[0] == 'fresh'
     assert cache.lookup('old', now=3) == ('miss', None)
+
+
+def test_concurrent_saves_can_create_the_same_directory(tmp_path):
+    import threading
+
+    path = tmp_path / 'shared' / 'pages.json'
+    caches = [PageCache(str(path)) for _ in range(8)]
+    barrier = threading.Barrier(len(caches), timeout=2)
+    errors = []
+
+    def save(cache):
+        try:
+            barrier.wait()
+            cache.save()
+        except Exception as exc:
+            errors.append(exc)
+
+    threads = [threading.Thread(target=save, args=(cache,)) for cache in caches]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(2)
+    assert not errors
+    assert all(not thread.is_alive() for thread in threads)
+    assert json.loads(path.read_text()) == {'entries': {}}
