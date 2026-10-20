@@ -185,7 +185,7 @@ def _action_item(label, url, icon=None):
     return (url, li, False)
 
 
-def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; ratchet
+def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa: C901 - legacy; ratchet
     """Aggregate meta across every installed addon supporting it for
     (stype, sid); Stremio addons commonly disagree on coverage, so the
     first addon to return a usable object wins.
@@ -251,6 +251,12 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
     perpetually re-arm each entry's TTL and defeat `metacache.TTL_SECONDS`
     from ever actually expiring one (Finding 7's adversarial-review fix).
     """
+    # Home cancels its session independently of this shared helper's other
+    # callers. In-flight HTTP keeps its own timeout; queued asks and this
+    # collector must stop without waiting for those calls to finish.
+    stopped = should_stop or (lambda: False)
+    if stopped():
+        return None
     data_store = get_store()
     client = get_client()
 
@@ -272,6 +278,8 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
         return None
 
     def _fetch_one(descriptor):
+        if stopped():
+            return None
         transport_url = descriptor.get('transportUrl')
         try:
             return client.meta(transport_url, stype, sid)
@@ -288,7 +296,7 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
         results = queue.Queue()
 
         def _worker():
-            while True:
+            while not stopped():
                 try:
                     index, descriptor = work.get_nowait()
                 except queue.Empty:
@@ -300,8 +308,11 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
 
         finished = {}
         result = None
-        while len(finished) < len(targets):
-            index, one = results.get()
+        while len(finished) < len(targets) and not stopped():
+            try:
+                index, one = results.get(timeout=0.1) if should_stop is not None else results.get()
+            except queue.Empty:
+                continue
             finished[index] = one
             if one is not None:
                 # Only consults results already in hand - never blocks on a
@@ -312,6 +323,8 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
                 result = finished[winning_index]
                 break
 
+    if stopped():
+        return None
     if store and cache_dir is not None and result:
         from lib.ui.metacache import store_cached_meta
         store_cached_meta(cache_dir, stype, sid, result)

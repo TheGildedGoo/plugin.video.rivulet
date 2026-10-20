@@ -1336,7 +1336,7 @@ def _maybe_extend_focused_shelf(window):
         _schedule_shelf_extend(window, panel, room)
 
 
-def _fetch_library_meta(stype, sid):
+def _fetch_library_meta(stype, sid, stop=None):
     """Backdrop, description, and ratings for one library title.
 
     A library record is a name and a poster. The other rows already
@@ -1346,7 +1346,7 @@ def _fetch_library_meta(stype, sid):
     """
     from lib.ui.views import _fetch_meta
 
-    return _fetch_meta(stype, sid)
+    return _fetch_meta(stype, sid, should_stop=lambda: _stopping(stop))
 
 
 #: Seconds before a failed library/Continue meta fetch is tried again.
@@ -1463,7 +1463,7 @@ def _drain_library_meta(window, idle, stop):
                 return
         _item, wanted_type, wanted_id = wanted
         try:
-            meta = _fetch_library_meta(wanted_type, wanted_id)
+            meta = _fetch_library_meta(wanted_type, wanted_id, stop)
         except Exception:
             meta = None
         with _library_meta_lock(window):

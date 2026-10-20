@@ -157,7 +157,7 @@ def _patch_library(monkeypatch, ctx, entries=None):
     )
     # A real fetch opens the addon client. These tests assert the row,
     # not Cinemeta. The one that does is explicit about the answer.
-    monkeypatch.setattr(ctx.homewindow, '_fetch_library_meta', lambda stype, sid: None)
+    monkeypatch.setattr(ctx.homewindow, '_fetch_library_meta', lambda stype, sid, stop=None: None)
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +236,7 @@ def test_library_focus_fetches_meta_and_paints_the_backdrop(load_homewindow, mon
     started = threading.Event()
     release = threading.Event()
 
-    def _meta(stype, sid):
+    def _meta(stype, sid, stop=None):
         assert (stype, sid) == ('movie', 'tt9')
         started.set()
         release.wait(2)
@@ -284,7 +284,7 @@ def test_library_focus_keeps_a_full_bleed_poster_when_meta_has_no_backdrop(load_
         '_id': 'tt9', 'name': 'Saved', 'type': 'movie', 'poster': 's', 'removed': False,
     }])
 
-    def _meta(stype, sid):
+    def _meta(stype, sid, stop=None):
         return {
             'id': 'tt9', 'type': 'movie', 'name': 'Saved', 'poster': 's',
             'description': 'Only a poster.', 'year': '2021',
@@ -292,7 +292,7 @@ def test_library_focus_keeps_a_full_bleed_poster_when_meta_has_no_backdrop(load_
 
     calls = []
 
-    def _counting(stype, sid):
+    def _counting(stype, sid, stop=None):
         calls.append(sid)
         return _meta(stype, sid)
 
@@ -1311,7 +1311,7 @@ def test_library_meta_worker_keeps_only_the_latest_focus(load_homewindow, monkey
     started, release = threading.Event(), threading.Event()
     fetched = []
 
-    def meta(stype, sid):
+    def meta(stype, sid, stop=None):
         fetched.append(sid)
         started.set()
         assert release.wait(2)
@@ -1372,7 +1372,7 @@ def test_library_worker_is_reused_even_after_each_fetch_finishes(load_homewindow
     ctx = load_homewindow()
     hw = ctx.homewindow
     win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    monkeypatch.setattr(hw, '_fetch_library_meta', lambda stype, sid: {'id': sid, 'description': sid})
+    monkeypatch.setattr(hw, '_fetch_library_meta', lambda stype, sid, stop=None: {'id': sid, 'description': sid})
     workers = []
     for i in range(30):
         item = hw._poster_item({'id': 'tt%d' % i, 'type': 'movie'}, sparse=True)

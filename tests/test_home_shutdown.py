@@ -78,7 +78,7 @@ def test_close_drops_queued_and_late_meta_and_can_reopen_for_playback(session, m
     entered, release = threading.Event(), threading.Event()
     fetched = []
 
-    def fetch(_type, sid):
+    def fetch(_type, sid, stop=None):
         fetched.append(sid)
         entered.set()
         assert release.wait(1)
@@ -119,7 +119,7 @@ def test_playback_reopen_hands_pending_meta_to_a_new_session(session, monkeypatc
     entered, release = threading.Event(), threading.Event()
     fetched = []
 
-    def fetch(_type, sid):
+    def fetch(_type, sid, stop=None):
         fetched.append(sid)
         entered.set()
         assert release.wait(1)
@@ -251,3 +251,50 @@ def test_first_load_cannot_wait_forever_if_a_worker_exits_without_a_result(sessi
     rows = hw._load_rows(win, _FakeStore(), [], None)
     assert time.monotonic() - start < 1
     assert rows[-1]['metas'] == []
+
+
+def test_home_meta_fanout_cancels_its_collector_and_queued_addon_lookups(session, monkeypatch):
+    ctx, win = session, session.window
+    installed = [{'transportUrl': str(n), 'manifest': {'types': ['movie'], 'resources': ['meta']}}
+                 for n in range(20)]
+    store = _FakeStore(addons=installed)
+    monkeypatch.setattr(ctx.views, 'get_store', lambda: store)
+    entered = threading.Barrier(9)
+    release = threading.Event()
+    fetched = []
+
+    class Client:
+        def meta(self, transport, *_):
+            fetched.append(transport)
+            entered.wait(1)
+            assert release.wait(1)
+            return None
+
+    monkeypatch.setattr(ctx.views, 'get_client', Client)
+    before = set(threading.enumerate())
+    item = ctx.newhome._poster_item({'id': 'tt1', 'type': 'movie'}, sparse=True)
+    ctx.newhome._schedule_library_meta(win, item)
+    entered.wait(1)
+    worker = win._library_meta_thread
+    win.close()
+    join_promptly([worker])  # The collector exits while HTTP is still blocked.
+    assert not win._library_meta_ready
+    release.set()
+    join_promptly(list(set(threading.enumerate()) - before))
+    assert len(fetched) == 8  # Twelve queued addon calls were never started.
+    assert ctx.newhome._fetch_library_meta('movie', 'tt1', win._home_stop) is None
+
+
+def test_close_during_first_page_prevents_filtered_followup_pages(session, monkeypatch):
+    ctx, win = session, session.window
+    descriptor = homelayout.installed_catalogs([{'transportUrl': 't', 'manifest': {'catalogs': [
+        {'id': 'anime', 'type': 'anime', 'extra': [{'name': 'skip'}]}]}}])[0]
+
+    def first(*args):
+        win.close()
+        return metas(stype='series')
+
+    monkeypatch.setattr(ctx.newhome, '_one_catalog_page', first)
+    monkeypatch.setattr(ctx.newhome, '_shelf_page_gen', lambda _: pytest.fail('fetch after close'))
+    state = ctx.newhome._open_shelf(dict(descriptor, _stop=ctx.newhome._home_stop(win)))
+    assert state['metas'] == []
