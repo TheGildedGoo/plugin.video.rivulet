@@ -111,7 +111,6 @@ def _pair_key():
     open_pair_picker()
 
 
-
 def _download_server_binary():
     """Action 'server_download': fetch+install the rivulet-engine binary
     into the location lib.service_runner.resolve_binary() already searches

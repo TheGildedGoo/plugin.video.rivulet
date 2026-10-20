@@ -136,7 +136,6 @@ class SearchWindow(BaseWindow):
             return
         self._run_search(query)
 
-
     def _clear_history(self):
         from lib.ui import dialogs
         from lib.ui.compat import L
