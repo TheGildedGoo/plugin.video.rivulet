@@ -331,12 +331,12 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
     perpetually re-arm each entry's TTL and defeat `metacache.TTL_SECONDS`
     from ever actually expiring one (Finding 7's adversarial-review fix).
     """
-    # Home cancels its session independently of this shared helper's other
-    # callers. In-flight HTTP keeps its own timeout; queued asks and this
-    # collector must stop without waiting for those calls to finish.
     stopped = should_stop or (lambda: False)
     if stopped():
         return None
+    # Keep upstream's retry condition verbatim. Only this call's local
+    # pause binding changes for Home; other callers use the stock helper.
+    _pause_before_meta_retry = _home_meta_pause(should_stop)
     data_store = get_store()
     client = get_client()
 
@@ -362,8 +362,6 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
         return None
 
     def _fetch_one(descriptor):
-        if stopped():
-            return None
         transport_url = descriptor.get('transportUrl')
         started = time.monotonic()
         for attempt in range(_META_ATTEMPTS):
@@ -377,15 +375,8 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
                     not _meta_error_is_retryable(exc)
                     or attempt + 1 >= _META_ATTEMPTS
                     or time.monotonic() - started > _META_RETRY_WITHIN_SECONDS
-                    or stopped()
+                    or _pause_before_meta_retry(_META_RETRY_BACKOFF_SECONDS[attempt])
                 ):
-                    return None
-                backoff = _META_RETRY_BACKOFF_SECONDS[attempt]
-                if should_stop is None:
-                    aborted = _pause_before_meta_retry(backoff)
-                else:
-                    aborted = _pause_home_meta_retry(backoff, stopped)
-                if aborted:
                     return None
                 continue
             log('views._fetch_meta: %s answered %s/%s with %s' % (
@@ -404,7 +395,9 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
         results = queue.Queue()
 
         def _worker():
-            while not stopped():
+            while True:
+                if stopped():
+                    return
                 try:
                     index, descriptor = work.get_nowait()
                 except queue.Empty:
@@ -416,11 +409,10 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
 
         finished = {}
         result = None
-        while len(finished) < len(targets) and not stopped():
-            try:
-                index, one = results.get(timeout=0.1) if should_stop is not None else results.get()
-            except queue.Empty:
-                continue
+        while len(finished) < len(targets):
+            if should_stop is not None and not _wait_home_meta_result(results, stopped):
+                return None
+            index, one = results.get()
             finished[index] = one
             if _usable_meta(one):
                 # Only consults results already in hand - never blocks on a
@@ -456,6 +448,27 @@ def _pause_home_meta_retry(seconds, stopped):
             return True
         seconds -= step
     return stopped()
+
+
+def _home_meta_pause(should_stop):
+    """Select Home's cooperative pause without changing upstream's call."""
+    if should_stop is None:
+        return _pause_before_meta_retry
+    return lambda seconds: _pause_home_meta_retry(seconds, should_stop)
+
+
+def _wait_home_meta_result(results, stopped):
+    """Poll Home's collector without changing upstream's blocking get.
+
+    This collector is the queue's only consumer; producers only add. Once
+    non-empty, the unchanged get below cannot block behind another reader.
+    """
+    pause = threading.Event()
+    while results.empty():
+        if stopped():
+            return False
+        pause.wait(0.1)
+    return not stopped()
 
 
 def _fetch_catalog(transport, ctype, cid, extra=None):
