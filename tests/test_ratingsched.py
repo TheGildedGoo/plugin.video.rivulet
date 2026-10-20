@@ -116,7 +116,7 @@ def test_misses_skip_cached_unknown_and_repeated_titles(sched, cache, monkeypatc
 def _overlay(sched, monkeypatch, cache, keys=(_OMDB, '')):
     planned = []
     monkeypatch.setattr(sched.module, '_keys', lambda: keys)
-    monkeypatch.setattr(sched.module, '_get_cache', lambda: cache)
+    monkeypatch.setattr(sched.module, '_get_cache', lambda *args: cache)
     monkeypatch.setattr(sched.module, '_schedule',
                         lambda imdb_id, omdb, mdb, c, prefetch=(), stype='': planned.append((imdb_id, list(prefetch), stype)))
     return planned
@@ -309,7 +309,7 @@ def test_a_cache_that_cannot_be_read_still_fetches(sched, monkeypatch):
 
 
 def _fetch(monkeypatch, result=None, error=None):
-    def fetch(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=8, stype=''):
+    def fetch(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=8, stype='', on_rejected=None):
         if error is not None:
             raise error
         return result
@@ -382,3 +382,74 @@ def test_a_log_that_fails_is_ignored(sched, monkeypatch):
 
     monkeypatch.setattr(compat, 'log', _boom)
     sched.module._log_failure('tt0111161', ValueError('x'))
+
+
+@pytest.mark.parametrize('provider', ['omdb', 'mdblist'])
+@pytest.mark.parametrize('status', [401, 429])
+def test_rejected_keys_pause_across_titles_and_changed_keys_retry(sched, cache, monkeypatch, provider, status):
+    from tests.test_ratings import _Response
+
+    calls = []
+
+    def get(url, params=None, timeout=None):
+        calls.append((url, params['apikey']))
+        return _Response(status, {})
+
+    monkeypatch.setattr('requests.get', get)
+    s = sched.module
+
+    def work(index, key):
+        keys = (key, '') if provider == 'omdb' else ('', key)
+        sid = 'tt%07d' % index
+        s._worker(sid, keys[0], keys[1], cache, s._fail_id(sid, *keys))
+
+    work(1, 'bad-key')
+    for i in range(2, 10):
+        work(i, 'bad-key')
+    assert len(calls) == 1
+    work(10, 'fixed-key')
+    assert len(calls) == 2
+    sched.clock.now += s._PROVIDER_COOLDOWN_SECONDS + 1
+    work(11, 'bad-key')
+    assert len(calls) == 3
+    assert all('bad-key' not in key and 'fixed-key' not in key for key in s._provider_until)
+
+
+def test_one_rejected_provider_does_not_pause_the_other(sched, cache, monkeypatch):
+    from lib.stremio.ratings import OMDB_URL
+    from tests.test_ratings import _Response
+
+    calls = []
+
+    def get(url, params=None, timeout=None):
+        calls.append(url)
+        if url == OMDB_URL:
+            return _Response(200, {'Response': 'False', 'Error': 'Request limit reached!'})
+        return _Response(200, {'ratings': [{'source': 'imdb', 'value': 7.0}]})
+
+    monkeypatch.setattr('requests.get', get)
+    s = sched.module
+    for sid in ('tt0000001', 'tt0000002'):
+        s._worker(sid, 'omdb-key', 'mdb-key', cache, 'fid')
+    assert calls.count(OMDB_URL) == 1
+    assert len(calls) == 3
+    assert cache.lookup('tt0000002') == {'imdbRating': '7.0'}
+
+
+def test_ratings_cache_changes_immediately_with_either_api_key(sched, tmp_path, monkeypatch):
+    from lib.ui import compat
+
+    monkeypatch.setattr(compat, 'addon_profile_dir', lambda: str(tmp_path))
+    s = sched.module
+    legacy = s._get_cache()
+    legacy.store('tt0000001', {})
+    original = s._get_cache('old-omdb', 'old-mdb')
+    assert original.lookup('tt0000001') is None
+    original.store('tt0000001', {})
+    assert s._get_cache('old-omdb', 'old-mdb').lookup('tt0000001') == {}
+    changed = s._get_cache('new-omdb', 'old-mdb')
+    assert changed.lookup('tt0000001') is None
+    changed.store('tt0000001', {'imdbRating': '8.0'})
+    assert s._get_cache('new-omdb', 'new-mdb').lookup('tt0000001') is None
+    payload = (tmp_path / 'ratings.json').read_text()
+    assert all(key not in payload for key in ('old-omdb', 'old-mdb', 'new-omdb', 'new-mdb'))

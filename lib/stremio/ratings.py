@@ -16,6 +16,7 @@ error repeats the full URL, query string included.
 No xbmc import. The 24-hour cache is a JSON file the caller points at.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -239,6 +240,8 @@ def _get_json(get, url, params, timeout):
             raise RatingsError('not found', empty=True)
         if status in (401, 403):
             raise RatingsError('rejected')
+        if status == 429:
+            raise RatingsError('quota')
         if status != 200:
             raise RatingsError('http %s' % status)
         try:
@@ -255,7 +258,7 @@ def _get_json(get, url, params, timeout):
     return payload
 
 
-def _ask(get, url, params, timeout, parse):
+def _ask(get, url, params, timeout, parse, on_rejected=None):
     """One service. Returns scores, a definitive miss, and a failure.
 
     A rejected key or a transport error is a failure. An unknown title
@@ -264,6 +267,8 @@ def _ask(get, url, params, timeout, parse):
     try:
         found = parse(_get_json(get, url, params, timeout))
     except RatingsError as exc:
+        if str(exc) in ('rejected', 'quota') and on_rejected is not None:
+            on_rejected()
         return {}, exc.empty, not exc.empty
     if found:
         return found, False, False
@@ -299,7 +304,8 @@ def mdblist_url(imdb_id, stype=''):
     return '%simdb/%s/%s' % (MDBLIST_URL, mdblist_media_type(stype), imdb_id)
 
 
-def fetch_scores(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=_TIMEOUT, stype=''):
+def fetch_scores(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=_TIMEOUT, stype='',
+                 on_rejected=None):
     """Scores for one IMDb id, or {} when the title is unknown.
 
     `stype` is the title's Stremio type; it picks MDBList's movie or
@@ -322,28 +328,26 @@ def fetch_scores(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=_TIMEOU
         import requests
         get = requests.get
     scores = {}
-    saw_empty = False
     saw_error = False
     if omdb_key:
-        found, empty, error = _ask(get, OMDB_URL, {
+        found, _empty, error = _ask(get, OMDB_URL, {
             'i': imdb_id, 'apikey': omdb_key, 'tomatoes': 'true',
-        }, timeout, parse_omdb)
+        }, timeout, parse_omdb,
+           (lambda: on_rejected('omdb')) if on_rejected is not None else None)
         scores.update(found)
-        saw_empty = empty
         saw_error = error
     if mdblist_key and not _complete(scores):
-        found, empty, error = _ask(get, mdblist_url(imdb_id, stype), {
+        found, _empty, error = _ask(get, mdblist_url(imdb_id, stype), {
             'apikey': mdblist_key,
-        }, timeout, parse_mdblist)
+        }, timeout, parse_mdblist,
+           (lambda: on_rejected('mdblist')) if on_rejected is not None else None)
         for key, value in found.items():
             if value and not scores.get(key):
                 scores[key] = value
-        if empty and not scores:
-            saw_empty = True
         saw_error = saw_error or error
     if scores:
         return scores
-    if saw_error and not saw_empty:
+    if saw_error:
         raise RatingsError('unavailable')
     return {}
 
@@ -370,8 +374,12 @@ class RatingsCache:
     caller decides that, and a bad key must not stick for a day.
     """
 
-    def __init__(self, path, clock=None):
+    def __init__(self, path, clock=None, keys=('', '')):
         self.path = path
+        # Hash the configured keys as a pair. Legacy unkeyed entries cannot
+        # mask a corrected key, and the raw keys never enter the JSON file.
+        configured = tuple((key or '').strip() for key in keys)
+        self._key_token = hashlib.sha256(json.dumps(configured).encode('utf-8')).hexdigest() if any(configured) else ''
         self._clock = clock or time.time
         self._lock = threading.Lock()
         self._entries = {}
@@ -390,6 +398,9 @@ class RatingsCache:
             return
         self._entries = payload
 
+    def _entry_key(self, imdb_id):
+        return '%s\n%s' % (imdb_id, self._key_token) if self._key_token else imdb_id
+
     def lookup(self, imdb_id, now=None):
         """The cached scores, {} for a cached miss, or None when stale."""
         imdb_id = imdb_id_of(imdb_id)
@@ -397,7 +408,7 @@ class RatingsCache:
             return None
         now = self._now() if now is None else now
         with self._lock:
-            entry = self._entries.get(imdb_id)
+            entry = self._entries.get(self._entry_key(imdb_id))
             if not isinstance(entry, dict):
                 return None
             at = entry.get('at')
@@ -423,7 +434,7 @@ class RatingsCache:
                 kept[key] = value
         now = self._now() if now is None else now
         with self._lock:
-            self._entries[imdb_id] = {'at': now, 'scores': kept}
+            self._entries[self._entry_key(imdb_id)] = {'at': now, 'scores': kept}
             self._trim()
             directory = os.path.dirname(self.path)
             if directory:

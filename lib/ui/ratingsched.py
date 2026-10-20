@@ -36,6 +36,10 @@ from lib.stremio.ratings import (
 )
 
 _FAIL_SECONDS = 60
+#: Rejected/quota-limited keys pause across titles for five minutes. A
+#: corrected key has a different token and is usable immediately.
+_PROVIDER_COOLDOWN_SECONDS = 5 * 60
+_provider_until = {}  # type: dict
 #: How long the focus must rest before a miss is fetched.
 _DWELL_SECONDS = 0.6
 #: Titles after the focused one that ride along once it has been fetched.
@@ -45,6 +49,7 @@ _inflight = set()
 _failed_until = {}  # type: dict
 _cache = None
 _cache_path = ''
+_cache_keys = ('', '')
 #: Latest-wins plan: (imdb id, omdb key, mdblist key, cache) in fetch order,
 #: and the monotonic time it was set.
 _plan = {'items': [], 'at': 0.0, 'running': False}
@@ -70,14 +75,16 @@ def _keys():
     return omdb, mdblist
 
 
-def _get_cache():
-    global _cache, _cache_path
+def _get_cache(omdb_key='', mdblist_key=''):
+    global _cache, _cache_path, _cache_keys
     from lib.ui.compat import addon_profile_dir
 
     path = os.path.join(addon_profile_dir(), 'ratings.json')
-    if _cache is None or path != _cache_path:
-        _cache = RatingsCache(path)
+    key_ids = (_token(omdb_key), _token(mdblist_key))
+    if _cache is None or path != _cache_path or key_ids != _cache_keys:
+        _cache = RatingsCache(path, keys=(omdb_key, mdblist_key))
         _cache_path = path
+        _cache_keys = key_ids
     return _cache
 
 
@@ -120,7 +127,7 @@ def overlay_text(meta, fallback, upcoming=None):
         if not omdb_key and not mdblist_key:
             return fallback
         stype = _type_of(meta)
-        cache = _get_cache()
+        cache = _get_cache(omdb_key, mdblist_key)
         scores = cache.lookup(imdb_id)
         later = [other for other in _misses(cache, upcoming) if other[0] != imdb_id]
         if scores is None:
@@ -220,12 +227,37 @@ def _loop():
         _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id, stype)
 
 
+def _provider_key(provider, key):
+    return '%s\n%s' % (provider, _token(key))
+
+
+def _available_key(provider, key):
+    with _lock:
+        until = _provider_until.get(_provider_key(provider, key), 0)
+    return '' if until > time.monotonic() else key
+
+
 def _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id, stype=''):
     from lib.stremio.ratings import fetch_scores
 
+    def rejected(provider):
+        key = omdb_key if provider == 'omdb' else mdblist_key
+        with _lock:
+            _provider_until[_provider_key(provider, key)] = time.monotonic() + _PROVIDER_COOLDOWN_SECONDS
+
+    available_omdb = _available_key('omdb', omdb_key)
+    available_mdblist = _available_key('mdblist', mdblist_key)
+    if not available_omdb and not available_mdblist:
+        with _lock:
+            _inflight.discard(imdb_id)
+        return
+    paused = (bool(omdb_key) and not available_omdb) or (bool(mdblist_key) and not available_mdblist)
     failed = False
     try:
-        scores = fetch_scores(imdb_id, omdb_key, mdblist_key, stype=stype)
+        scores = fetch_scores(imdb_id, available_omdb, available_mdblist, stype=stype,
+                              on_rejected=rejected)
+        if paused and not scores:
+            raise RatingsError('provider cooldown')
         cache.store(imdb_id, scores)
     except RatingsError as exc:
         failed = not exc.empty

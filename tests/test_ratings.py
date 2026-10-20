@@ -260,7 +260,7 @@ def test_worker_caches_a_miss_and_logs_only_the_exception_class(kodi_stubs, tmp_
     ctx = kodi_stubs(reload=('lib.ui.compat', 'lib.ui.ratingsched'))
     sched = ctx.ratingsched
 
-    def fail(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=8, stype=''):
+    def fail(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=8, stype='', on_rejected=None):
         assert omdb_key == _SECRET
         raise TimeoutError('GET https://www.omdbapi.com/?apikey=%s' % _SECRET)
 
@@ -326,7 +326,7 @@ def test_the_next_titles_ride_along_after_the_focused_one(kodi_stubs, tmp_path, 
     cache = RatingsCache(str(tmp_path / 'ratings.json'))
     cache.store('tt0000006', {'imdbRating': '6.0'})
     monkeypatch.setattr(sched, '_keys', lambda: (_SECRET, ''))
-    monkeypatch.setattr(sched, '_get_cache', lambda: cache)
+    monkeypatch.setattr(sched, '_get_cache', lambda *args: cache)
 
     sched.overlay_text(
         {'id': 'tt0000005'}, 'fallback',
@@ -378,7 +378,7 @@ def test_a_series_on_home_is_fetched_on_the_show_path(kodi_stubs, tmp_path, monk
     monkeypatch.setattr(sched, '_DWELL_SECONDS', 0.05)
     cache = RatingsCache(str(tmp_path / 'ratings.json'))
     monkeypatch.setattr(sched, '_keys', lambda: ('', 'MDBSECRET'))
-    monkeypatch.setattr(sched, '_get_cache', lambda: cache)
+    monkeypatch.setattr(sched, '_get_cache', lambda *args: cache)
 
     facts = panel_facts({'id': 'tt0944947', 'type': 'series', 'name': 'Show'})
     assert facts['type'] == 'series'
@@ -536,9 +536,11 @@ def test_mdblist_fills_what_omdb_left_out():
     assert fetch_scores('tt0111161', _SECRET, 'MDB', get=get) == {'imdbRating': '9.3', 'rottenTomatoes': '91%'}
 
 
-def test_one_service_down_and_the_other_without_the_title_is_a_miss():
-    get = _get([_Response(503, {}), _Response(404, {})])
-    assert fetch_scores('tt0111161', _SECRET, 'MDB', get=get) == {}
+@pytest.mark.parametrize('statuses', [(503, 404), (404, 503)])
+def test_an_error_wins_over_the_other_providers_miss(statuses):
+    get = _get([_Response(status, {}) for status in statuses])
+    with pytest.raises(RatingsError):
+        fetch_scores('tt0111161', _SECRET, 'MDB', get=get)
 
 
 def test_both_services_down_is_a_failure():
