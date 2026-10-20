@@ -2072,3 +2072,48 @@ def test_catalog_errors_never_log_credentials(load_homewindow, monkeypatch):
     messages = [msg for msg, _ in ctx.env.log_calls if 'home:' in msg and 'failed' in msg]
     assert len(messages) == 2
     assert all('OSError' in msg and 'secret' not in msg and 'hidden' not in msg for msg in messages)
+
+
+def test_library_worker_is_reused_even_after_each_fetch_finishes(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
+    monkeypatch.setattr(hw, '_fetch_library_meta', lambda stype, sid: {'id': sid, 'description': sid})
+    workers = []
+    for i in range(30):
+        item = hw._poster_item({'id': 'tt%d' % i, 'type': 'movie'}, sparse=True)
+        hw._schedule_library_meta(win, item)
+        hw._join_library_meta(win)
+        assert win._library_meta_idle.is_set()
+        workers.append(win._library_meta_thread)
+    assert len(set(workers)) == 1
+    # The idle worker must not retain a discarded window.
+    import gc
+    import weakref
+
+    ref = weakref.ref(win)
+    worker = workers[0]
+    del win
+    gc.collect()
+    worker.join(2)
+    assert ref() is None and not worker.is_alive()
+
+
+def test_a_stale_library_result_does_not_leave_its_poster_loading(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.homewindow
+    item = hw._poster_item({'id': 'tt1', 'type': 'movie'}, sparse=True)
+    win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
+    win.getControl(hw.LIBRARY_SHELF).addItems([item])
+    monkeypatch.setattr(hw, '_fetch_library_meta', lambda *args: {'description': 'loaded'})
+    hw._schedule_library_meta(win, item)
+    hw._join_library_meta(win)
+    win.setFocusId(hw.BTN_SETTINGS)
+    hw._apply_library_meta(win)
+    assert item.getProperty('meta_state') == ''
+    assert item.getProperty('hero_plot') == ''
+    win.setFocusId(hw.LIBRARY_SHELF)
+    hw._schedule_library_meta(win, item)
+    hw._join_library_meta(win)
+    hw._apply_library_meta(win)
+    assert item.getProperty('hero_plot') == 'loaded'

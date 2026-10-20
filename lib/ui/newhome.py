@@ -31,6 +31,7 @@ and `lib.ui.detailwindow.open_detail`.
 import json
 import queue
 import threading
+import weakref
 
 import xbmcgui
 
@@ -645,7 +646,11 @@ def _fetch_library(store, auth):
         # A write this session already pushed (`libraryaction`) shows
         # before the account echoes it.
         fetched = apply_library_writes(_fetch_library_entries(store))
-    except Exception:
+    except Exception as exc:
+        from lib.stremio.addons import addon_error_detail
+        from lib.ui.compat import log
+
+        log('home: library read failed: %s' % addon_error_detail(exc))
         return []
     if not isinstance(fetched, list):
         return []
@@ -1407,22 +1412,45 @@ def _schedule_library_meta(window, item):
         window._library_meta_pending = request
         window._library_meta_ready = []
         if getattr(window, '_library_meta_running', False):
+            window._library_meta_idle.clear()
+            window._library_meta_wake.set()
             return
         window._library_meta_running = True
+        wake = threading.Event()
+        idle = threading.Event()
+        window._library_meta_wake = wake
+        window._library_meta_idle = idle
+        wake.set()
 
-    thread = threading.Thread(target=_library_meta_worker, args=(window,), name='rivulet-library-meta', daemon=True)
+    # Keep one worker even between completed fetches. A weak reference lets
+    # a discarded window wake and release its idle daemon without retaining
+    # the whole Home session until process exit.
+    window_ref = weakref.ref(window, lambda ref: wake.set())
+    thread = threading.Thread(target=_library_meta_worker, args=(window_ref, wake, idle),
+                              name='rivulet-library-meta', daemon=True)
     window._library_meta_thread = thread
     thread.start()
 
 
-def _library_meta_worker(window):
-    """Drain one latest-wins slot; stale answers never reach the GUI."""
+def _library_meta_worker(window_ref, wake, idle):
+    """Serve a single latest-wins slot for the window's whole lifetime."""
+    while True:
+        wake.wait()
+        wake.clear()
+        window = window_ref()
+        if window is None:
+            return
+        _drain_library_meta(window, idle)
+        del window
+
+
+def _drain_library_meta(window, idle):
     while True:
         with _library_meta_lock(window):
             wanted = window._library_meta_pending
             window._library_meta_pending = None
             if wanted is None:
-                window._library_meta_running = False
+                idle.set()
                 return
         _item, wanted_type, wanted_id = wanted
         try:
@@ -1440,12 +1468,11 @@ def _library_meta_worker(window):
             pass
 
 
-
 def _join_library_meta(window):
     """Test hook. Production applies the answer on the worker's noop."""
-    thread = getattr(window, '_library_meta_thread', None)
-    if thread is not None:
-        thread.join(timeout=2)
+    idle = getattr(window, '_library_meta_idle', None)
+    if idle is not None:
+        idle.wait(timeout=2)
 
 
 _HERO_PROPS = (
@@ -1557,9 +1584,14 @@ def _apply_library_meta(window):
             focused = window.getControl(window.getFocusId()).getSelectedItem()
         except Exception:
             focused = None
-        ready = [(stype, sid, meta) for stype, sid, meta in ready
-                 if focused is not None and focused.getProperty('stype') == stype
-                 and focused.getProperty('sid') == sid]
+        latest = window._library_meta_latest
+        if (focused is None or focused.getProperty('stype') != latest[1]
+                or focused.getProperty('sid') != latest[2]):
+            with _library_meta_lock(window):
+                latest[0].setProperty('meta_state', '')
+                window._library_meta_latest = None
+                window._library_meta_pending = None
+            ready = []
     if not ready:
         return
     import time
