@@ -514,7 +514,7 @@ def test_catalog_required_extra_names_search_only_catalog_real_shape():
     assert catalog_required_extra_names(catalog) == {"search"}
 
 
-def test_catalog_required_extra_names_does_not_connewlook_with_catalog_extra_names():
+def test_catalog_required_extra_names_does_not_confuse_with_catalog_extra_names():
     catalog = {
         "type": "movie",
         "id": "search",

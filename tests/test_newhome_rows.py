@@ -302,13 +302,14 @@ def test_a_shelf_that_fails_is_an_empty_row_and_the_rest_still_load(home, monkey
     assert pages['tv'] == [] and more['tv'] is None
 
 
-def test_one_shelf_is_fetched_without_a_pool(home, monkeypatch):
+def test_one_shelf_uses_a_daemon_worker(home, monkeypatch):
     import threading
 
     threads = []
     monkeypatch.setattr(home.home, '_open_shelf', lambda addons, types: threads.append(threading.current_thread()) or None)
     pages, more = home.home._catalog_pages([], {'movies': {'movie'}})
-    assert threads == [threading.current_thread()]
+    assert len(threads) == 1 and threads[0].daemon
+    assert threads[0] is not threading.current_thread()
     assert pages == {'movies': []} and more == {'movies': None}
 
 
