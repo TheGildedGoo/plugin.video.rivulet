@@ -265,7 +265,7 @@ def _meta_summary(meta):
         meta.get('id'), meta.get('type'), len(videos) if isinstance(videos, list) else 0)
 
 
-def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa: C901 - legacy; ratchet
+def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; ratchet
     """Aggregate meta across every installed addon supporting it for
     (stype, sid); Stremio addons commonly disagree on coverage, so the
     first addon to return a usable object wins.
@@ -331,12 +331,6 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
     perpetually re-arm each entry's TTL and defeat `metacache.TTL_SECONDS`
     from ever actually expiring one (Finding 7's adversarial-review fix).
     """
-    stopped = should_stop or (lambda: False)
-    if stopped():
-        return None
-    # Keep upstream's retry condition verbatim. Only this call's local
-    # pause binding changes for Home; other callers use the stock helper.
-    _pause_before_meta_retry = _home_meta_pause(should_stop)
     data_store = get_store()
     client = get_client()
 
@@ -365,8 +359,6 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
         transport_url = descriptor.get('transportUrl')
         started = time.monotonic()
         for attempt in range(_META_ATTEMPTS):
-            if stopped():
-                return None
             try:
                 meta = client.meta(transport_url, stype, sid)
             except AddonError as exc:
@@ -396,8 +388,6 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
 
         def _worker():
             while True:
-                if stopped():
-                    return
                 try:
                     index, descriptor = work.get_nowait()
                 except queue.Empty:
@@ -410,8 +400,6 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
         finished = {}
         result = None
         while len(finished) < len(targets):
-            if should_stop is not None and not _wait_home_meta_result(results, stopped):
-                return None
             index, one = results.get()
             finished[index] = one
             if _usable_meta(one):
@@ -425,8 +413,6 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
                 result = finished[winning_index]
                 break
 
-    if stopped():
-        return None
     log('views._fetch_meta: %s/%s resolved to %s' % (stype, sid, _meta_summary(result)), xbmc.LOGINFO)
     if store and cache_dir is not None and _usable_meta(result):
         from lib.ui.metacache import store_cached_meta
@@ -434,13 +420,31 @@ def _fetch_meta(stype, sid, store=True, on_miss=None, should_stop=None):  # noqa
     return result
 
 
-def _pause_home_meta_retry(seconds, stopped):
-    """Keep upstream's backoff, with Home close/abort checked every 100 ms.
+_HOME_META_RETRY_CONTEXT = threading.local()
+_STOCK_META_RETRY_PAUSE = _pause_before_meta_retry
 
-    Stock callers retain `_pause_before_meta_retry` unchanged. A Home
-    session may end during the pause; that must never start another HTTP
-    call after the already-running one has finished.
+
+def _fetch_meta_for_home(stype, sid, should_stop, **kw):
+    """Home owns the result, while the upstream lookup stays unchanged.
+
+    Already-running HTTP/fan-out finishes under upstream's limits. Home's
+    next focus request is never started after close, and a late result is
+    never handed back to its window. Retry pauses on this caller's thread
+    observe Home close without changing concurrent stock callers' pauses.
     """
+    if should_stop():
+        return None
+    previous = getattr(_HOME_META_RETRY_CONTEXT, 'should_stop', None)
+    _HOME_META_RETRY_CONTEXT.should_stop = should_stop
+    try:
+        result = _fetch_meta(stype, sid, **kw)
+    finally:
+        _HOME_META_RETRY_CONTEXT.should_stop = previous
+    return None if should_stop() else result
+
+
+def _pause_home_meta_retry(seconds, stopped):
+    """A Home caller's retry pause, checking close/abort every 100 ms."""
     monitor = xbmc.Monitor()
     while seconds > 0 and not stopped():
         step = min(seconds, 0.1)
@@ -450,25 +454,17 @@ def _pause_home_meta_retry(seconds, stopped):
     return stopped()
 
 
-def _home_meta_pause(should_stop):
-    """Select Home's cooperative pause without changing upstream's call."""
-    if should_stop is None:
-        return _pause_before_meta_retry
-    return lambda seconds: _pause_home_meta_retry(seconds, should_stop)
+def _pause_meta_retry_with_home_context(seconds):
+    stopped = getattr(_HOME_META_RETRY_CONTEXT, 'should_stop', None)
+    if stopped is None:
+        return _STOCK_META_RETRY_PAUSE(seconds)
+    return _pause_home_meta_retry(seconds, stopped)
 
 
-def _wait_home_meta_result(results, stopped):
-    """Poll Home's collector without changing upstream's blocking get.
-
-    This collector is the queue's only consumer; producers only add. Once
-    non-empty, the unchanged get below cannot block behind another reader.
-    """
-    pause = threading.Event()
-    while results.empty():
-        if stopped():
-            return False
-        pause.wait(0.1)
-    return not stopped()
+# Keep the upstream function text intact. Only the caller thread that
+# entered Home's wrapper gets its cancellable pause; upstream fan-out and
+# stock callers keep their normal bounded backoff. No per-call global swap.
+_pause_before_meta_retry = _pause_meta_retry_with_home_context
 
 
 def _fetch_catalog(transport, ctype, cid, extra=None):

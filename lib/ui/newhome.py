@@ -1344,9 +1344,9 @@ def _fetch_library_meta(stype, sid, stop=None):
     is installed). The same call fills this hero. A miss leaves the
     poster, drawn full-bleed.
     """
-    from lib.ui.views import _fetch_meta
+    from lib.ui.views import _fetch_meta_for_home
 
-    return _fetch_meta(stype, sid, should_stop=lambda: _stopping(stop))
+    return _fetch_meta_for_home(stype, sid, should_stop=lambda: _stopping(stop))
 
 
 #: Seconds before a failed library/Continue meta fetch is tried again.

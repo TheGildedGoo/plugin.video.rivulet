@@ -253,10 +253,10 @@ def test_first_load_cannot_wait_forever_if_a_worker_exits_without_a_result(sessi
     assert rows[-1]['metas'] == []
 
 
-def test_home_meta_fanout_cancels_its_collector_and_queued_addon_lookups(session, monkeypatch):
+def test_home_meta_wrapper_discards_running_fanout_and_skips_next_focus(session, monkeypatch):
     ctx, win = session, session.window
     installed = [{'transportUrl': str(n), 'manifest': {'types': ['movie'], 'resources': ['meta']}}
-                 for n in range(20)]
+                 for n in range(8)]
     store = _FakeStore(addons=installed)
     monkeypatch.setattr(ctx.views, 'get_store', lambda: store)
     entered = threading.Barrier(9)
@@ -264,8 +264,8 @@ def test_home_meta_fanout_cancels_its_collector_and_queued_addon_lookups(session
     fetched = []
 
     class Client:
-        def meta(self, transport, *_):
-            fetched.append(transport)
+        def meta(self, transport, _type, sid):
+            fetched.append((transport, sid))
             entered.wait(1)
             assert release.wait(1)
             return None
@@ -276,13 +276,19 @@ def test_home_meta_fanout_cancels_its_collector_and_queued_addon_lookups(session
     ctx.newhome._schedule_library_meta(win, item)
     entered.wait(1)
     worker = win._library_meta_thread
+    second = ctx.newhome._poster_item({'id': 'tt2', 'type': 'movie'}, sparse=True)
+    ctx.newhome._schedule_library_meta(win, second)
     win.close()
-    join_promptly([worker])  # The collector exits while HTTP is still blocked.
-    assert not win._library_meta_ready
+    # The already-running upstream lookup may finish. Its next focus job
+    # must not run, and its result must not reach the closed Home window.
+    assert worker.is_alive()
     release.set()
     join_promptly(list(set(threading.enumerate()) - before))
-    assert len(fetched) == 8  # Twelve queued addon calls were never started.
+    assert len(fetched) == 8
+    assert all(sid == 'tt1' for _transport, sid in fetched)
+    assert not win._library_meta_ready
     assert ctx.newhome._fetch_library_meta('movie', 'tt1', win._home_stop) is None
+    assert len(fetched) == 8
 
 
 def test_close_during_first_page_prevents_filtered_followup_pages(session, monkeypatch):
@@ -344,3 +350,70 @@ def test_home_meta_retry_keeps_upstream_backoff_while_session_is_open(session):
     assert session.views._pause_home_meta_retry(0.4, lambda: False) is False
     assert sum(session.env.wait_calls) == pytest.approx(0.4)
     assert max(session.env.wait_calls) <= 0.1
+
+
+def test_home_meta_wrapper_checks_closed_before_call_and_discards_late_result(session, monkeypatch):
+    views = session.views
+    closed = threading.Event()
+    calls = []
+
+    def fetch(*args, **kw):
+        calls.append((args, kw))
+        closed.set()
+        return {'id': 'tt1'}
+
+    monkeypatch.setattr(views, '_fetch_meta', fetch)
+    assert views._fetch_meta_for_home('movie', 'tt1', closed.is_set) is None
+    assert len(calls) == 1
+    assert views._fetch_meta_for_home('movie', 'tt2', closed.is_set) is None
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize('fail', [False, True])
+def test_home_meta_wrapper_forwards_options_and_restores_retry_context(session, monkeypatch, fail):
+    views = session.views
+    missed = []
+
+    def marker():
+        return False
+
+    def on_miss():
+        missed.append(True)
+
+    def fetch(stype, sid, **kw):
+        assert (stype, sid, kw) == ('movie', 'tt1', {'store': False, 'on_miss': on_miss})
+        assert views._HOME_META_RETRY_CONTEXT.should_stop is marker
+        if fail:
+            raise OSError('failed')
+        kw['on_miss']()
+        return {'id': sid}
+
+    monkeypatch.setattr(views, '_fetch_meta', fetch)
+    if fail:
+        with pytest.raises(OSError, match='failed'):
+            views._fetch_meta_for_home('movie', 'tt1', marker, store=False, on_miss=on_miss)
+    else:
+        assert views._fetch_meta_for_home('movie', 'tt1', marker, store=False, on_miss=on_miss) == {'id': 'tt1'}
+        assert missed == [True]
+    assert views._HOME_META_RETRY_CONTEXT.should_stop is None
+
+
+def test_home_retry_pause_does_not_cancel_concurrent_stock_caller(session, monkeypatch):
+    views = session.views
+    closed = threading.Event()
+    stock_waits = []
+    stock_result = []
+    monkeypatch.setattr(views, '_STOCK_META_RETRY_PAUSE', lambda seconds: stock_waits.append(seconds) or False)
+
+    def fetch(*args, **kw):
+        closed.set()
+        stock = threading.Thread(target=lambda: stock_result.append(views._pause_before_meta_retry(0.4)))
+        stock.start()
+        join_promptly([stock])
+        assert views._pause_before_meta_retry(0.4) is True
+        return {'id': 'tt1'}
+
+    monkeypatch.setattr(views, '_fetch_meta', fetch)
+    assert views._fetch_meta_for_home('movie', 'tt1', closed.is_set) is None
+    assert stock_waits == [0.4]
+    assert stock_result == [False]
