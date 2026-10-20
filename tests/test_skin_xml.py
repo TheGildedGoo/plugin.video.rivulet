@@ -79,8 +79,8 @@ def test_skin_file_discovery_finds_every_window():
     """Guards every other test in this file: a glob that silently matches
     nothing would make every rule below pass by scanning zero files."""
     paths = _skin_files()
-    # Nine screens (including the single Home) and five dark dialogs.
-    assert len(paths) == 14, 'expected 14 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
+    # Nine screens, five dark dialogs, and the phone pairing dialog.
+    assert len(paths) == 15, 'expected 15 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
 
 
 @pytest.mark.parametrize('path', _skin_files(), ids=lambda p: os.path.basename(p))
@@ -690,3 +690,25 @@ def test_home_row_navigation_follows_the_entire_slot_chain():
         assert int(panel.findtext('ondown')) == expected_down, panel_id
         for direction in ('onleft', 'onright'):
             assert int(panel.findtext(direction)) == panel_id, (panel_id, direction)
+
+
+_DIALOGS = ('DarkBusyDialog.xml', 'DarkProgressDialog.xml', 'DarkCountdownDialog.xml',
+            'DarkConfirmDialog.xml', 'DarkOptionListDialog.xml', 'PairDialog.xml')
+
+
+@pytest.mark.parametrize('name', _DIALOGS)
+def test_dialogs_are_rounded_dark_plates(name):
+    """rev21: every dialog is a rounded, translucent black plate with a
+    hairline, not a square slate box edged with four 1px lines."""
+    text = _read(os.path.join(_SKIN_DIR, name))
+    assert 'dlg_panel.png' in text and 'dlg_stroke.png' in text
+    assert 'FF12161A' not in text
+    # The only hairline left is the menu's divider under its heading.
+    edges = re.findall(r'<width>1</width><height>\d+</height><texture colordiffuse="1AFFFFFF">white.png', text)
+    assert edges == []
+
+
+def test_ratings_pair_action_targets_this_addon():
+    root = ET.parse(os.path.join(_REPO_ROOT, 'resources', 'settings.xml')).getroot()
+    action = root.find(".//setting[@id='ratings_pair']")
+    assert action.findtext('data') == 'RunPlugin(plugin://plugin.video.rivulet/?action=pair_key)'

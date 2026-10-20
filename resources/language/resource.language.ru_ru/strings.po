@@ -1062,6 +1062,102 @@ msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
 msgstr "API-ключ MDBList (mdblist.com/preferences/)"
 
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "Привязать ключ оценок с телефона"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Привязать ключ"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Откройте эту страницу на телефоне и вставьте ключ. Он действует 3 минуты."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Ключ сохранён"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "Привязка не запустилась. Телевизору нужна сеть."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Срок кода истёк. Попробуйте снова."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Сохранить"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Сохранено. Эту страницу можно закрыть."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Код не совпадает."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Введите ключ."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Уже сохранено."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Ключ слишком длинный."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "Не удалось сохранить ключ."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Установить с телефона"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Ввести адрес"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Откройте эту страницу на телефоне и вставьте ссылку для установки дополнения. Она действует 3 минуты."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Настроить это дополнение"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "Вставьте ссылку, которая начинается с https://."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Ссылка слишком длинная."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Искать с телефона"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Введите на телефоне"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Откройте эту страницу на телефоне и введите, что искать. Она действует 3 минуты."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Введите, что искать."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Запрос слишком длинный."
+
 msgctxt "#30488"
 msgid "Signed in"
 msgstr "Вход выполнен"

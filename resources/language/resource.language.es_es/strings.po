@@ -1062,6 +1062,102 @@ msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
 msgstr "Clave API de MDBList (mdblist.com/preferences/)"
 
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "Emparejar clave de valoraciones desde el teléfono"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Emparejar una clave"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Abre esta página en el teléfono y pega la clave. Funciona durante 3 minutos."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Clave guardada"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "No se pudo iniciar el emparejamiento. El televisor necesita una red."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Ese código caducó. Inténtalo de nuevo."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Guardar"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Guardado. Puedes cerrar esta página."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Ese código no coincide."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Introduce una clave."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Ya está guardado."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Esa clave es demasiado larga."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "No se pudo guardar la clave."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Instalar desde el teléfono"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Escribir la dirección"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Abre esta página en el teléfono y pega el enlace de instalación del complemento. Funciona durante 3 minutos."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Configurar este complemento"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "Pega un enlace que empiece por https://."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Ese enlace es demasiado largo."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Buscar desde el teléfono"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Escríbelo en el teléfono"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Abre esta página en el teléfono y escribe lo que quieres buscar. Funciona durante 3 minutos."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Escribe algo para buscar."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Esa búsqueda es demasiado larga."
+
 msgctxt "#30488"
 msgid "Signed in"
 msgstr "Sesión iniciada"

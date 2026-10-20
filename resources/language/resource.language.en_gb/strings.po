@@ -1062,6 +1062,102 @@ msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
 msgstr ""
 
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr ""
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr ""
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr ""
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr ""
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr ""
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr ""
+
+msgctxt "#30463"
+msgid "Save"
+msgstr ""
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr ""
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr ""
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr ""
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr ""
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr ""
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr ""
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr ""
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr ""
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr ""
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr ""
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr ""
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr ""
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr ""
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr ""
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr ""
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr ""
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr ""
+
 msgctxt "#30488"
 msgid "Signed in"
 msgstr ""

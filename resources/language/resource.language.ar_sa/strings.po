@@ -1062,6 +1062,102 @@ msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
 msgstr "مفتاح API لـ MDBList (mdblist.com/preferences/)"
 
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "إقران مفتاح التقييمات من الهاتف"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "إقران مفتاح"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "افتح هذه الصفحة على الهاتف والصق المفتاح. يعمل لمدة 3 دقائق."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "تم حفظ المفتاح"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "تعذر بدء الإقران. يحتاج التلفاز إلى شبكة."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "انتهت صلاحية هذا الرمز. حاول مرة أخرى."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "حفظ"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "تم الحفظ. يمكنك إغلاق هذه الصفحة."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "هذا الرمز غير مطابق."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "أدخل مفتاحًا."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "تم الحفظ مسبقًا."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "هذا المفتاح طويل جدًا."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "تعذر حفظ المفتاح."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "التثبيت من الهاتف"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "اكتب العنوان"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "افتح هذه الصفحة على الهاتف والصق رابط تثبيت الإضافة. يعمل لمدة 3 دقائق."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "إعداد هذه الإضافة"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "الصق رابطًا يبدأ بـ https://."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "هذا الرابط طويل جدًا."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "البحث من الهاتف"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "اكتبه على الهاتف"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "افتح هذه الصفحة على الهاتف واكتب ما تريد البحث عنه. يعمل لمدة 3 دقائق."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "اكتب شيئًا للبحث عنه."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "هذا البحث طويل جدًا."
+
 msgctxt "#30488"
 msgid "Signed in"
 msgstr "تم تسجيل الدخول"

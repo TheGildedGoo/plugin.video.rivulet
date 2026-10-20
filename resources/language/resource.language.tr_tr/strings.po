@@ -1062,6 +1062,102 @@ msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
 msgstr "MDBList API anahtarı (mdblist.com/preferences/)"
 
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "Puan anahtarını telefondan eşle"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Bir anahtar eşle"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve anahtarı yapıştır. 3 dakika geçerlidir."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Anahtar kaydedildi"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "Eşleme başlayamadı. TV'nin bir ağa ihtiyacı var."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Bu kodun süresi doldu. Yeniden dene."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Kaydet"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Kaydedildi. Bu sayfayı kapatabilirsin."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Bu kod eşleşmiyor."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Bir anahtar gir."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Zaten kaydedildi."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Bu anahtar çok uzun."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "Anahtar kaydedilemedi."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Telefondan yükle"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Adresi yaz"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve eklentinin yükleme bağlantısını yapıştır. 3 dakika geçerlidir."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Bu eklentiyi yapılandır"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "https:// ile başlayan bir bağlantı yapıştır."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Bu bağlantı çok uzun."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Telefondan ara"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Telefonda yaz"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve ne aradığını yaz. 3 dakika geçerlidir."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Aramak için bir şey yaz."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Bu arama çok uzun."
+
 msgctxt "#30488"
 msgid "Signed in"
 msgstr "Oturum açık"

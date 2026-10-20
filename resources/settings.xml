@@ -60,9 +60,15 @@
                 <!-- Rotten Tomatoes / Metacritic scores for the new-look hero
                      (lib/stremio/ratings.py). Keys last, and not a category
                      of their own: Kodi focuses a category's first setting,
-                     and an edit control traps the arrows. Empty means the
+                     and an edit control traps the arrows. The pair button is an
+                     action, so it can sit above the fields. Empty means the
                      hero keeps the catalog's IMDb rating and hides the rest.
                      -->
+                <setting id="ratings_pair" type="action" label="30457">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=pair_key)</data>
+                    <control type="button" format="action"/>
+                </setting>
                 <setting id="ratings_omdb_key" type="string" label="30453" help="30515">
                     <level>0</level>
                     <default></default>

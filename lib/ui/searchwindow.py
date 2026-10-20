@@ -9,11 +9,14 @@ way `lib.ui.catalogpicker.CatalogPickerWindow` does for Discover - Back
 from the results now correctly returns here.
 
 Row 0 is always "New search…" (prompts a query, mirrors the old
-behavior); every history row re-runs that past query (the closest thing
-to autocompletion `xbmcgui.Dialog().input()` allows - see the module's
-own history rows as the suggestion surface); a trailing "Clear search
-history" row appears once there's history to clear. Picking a result
-title opens `lib.ui.detailwindow` for it. Built/run via `open_search()`.
+behavior); row 1 is "Search from your phone" (the query is typed on a
+phone through `lib.ui.pairwindow.phone_search`, so nothing is typed with
+the remote); every history row re-runs that past query (the closest
+thing to autocompletion `xbmcgui.Dialog().input()` allows - see the
+module's own history rows as the suggestion surface); a trailing "Clear
+search history" row appears once there's history to clear. Picking a
+result title opens `lib.ui.detailwindow` for it. Built/run via
+`open_search()`.
 """
 import queue
 import threading
@@ -69,7 +72,9 @@ class SearchWindow(BaseWindow):
 
         new_item = xbmcgui.ListItem(label=L(30042), label2=L(30043))
         new_item.setProperty('position', 'new')
-        items = [new_item]
+        phone_item = xbmcgui.ListItem(label=L(30483), label2=L(30484))
+        phone_item.setProperty('position', 'phone')
+        items = [new_item, phone_item]
         for index, query in enumerate(history):
             item = xbmcgui.ListItem(label=query, label2=L(30045))
             item.setProperty('position', str(index))
@@ -90,6 +95,9 @@ class SearchWindow(BaseWindow):
         position = focused.getProperty('position')
         if position == 'new':
             self._new_search()
+            return
+        if position == 'phone':
+            self._phone_search()
             return
         if position == 'clear':
             self._clear_history()
@@ -114,6 +122,20 @@ class SearchWindow(BaseWindow):
         if not query:
             return
         self._run_search(query)
+
+    def _phone_search(self):
+        """The query typed on a phone. Same guard as `_new_search`."""
+        from lib.ui.compat import L, notify
+        from lib.ui.pairwindow import phone_search
+
+        if not _search_catalogs(self.store or get_store()):
+            notify(L(30381), time_ms=_NOTICE_MS)
+            return
+        query = (phone_search() or '').strip()
+        if not query:
+            return
+        self._run_search(query)
+
 
     def _clear_history(self):
         from lib.ui import dialogs

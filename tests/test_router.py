@@ -840,3 +840,17 @@ def test_run_dispatching_views_action_never_imports_player(load_router, monkeypa
 
     assert 'lib.ui.player' not in sys.modules
     assert ctx.views.calls == [('home', (), {})]
+
+
+def test_pair_key_opens_the_picker_and_not_the_player(load_router, monkeypatch):
+    ctx = load_router()
+    import lib.ui.pairwindow as pairwindow
+    called = []
+    monkeypatch.setattr(pairwindow, 'open_pair_picker', lambda: called.append('pair'))
+    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '7', '?action=pair_key'])
+
+    ctx.router.run()
+
+    assert called == ['pair']
+    assert ctx.player.calls == []
+    assert ctx.views.calls == []

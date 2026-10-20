@@ -1062,6 +1062,102 @@ msgctxt "#30456"
 msgid "MDBList API key (mdblist.com/preferences/)"
 msgstr "MDBList API 키 (mdblist.com/preferences/)"
 
+msgctxt "#30457"
+msgid "Pair ratings key from phone"
+msgstr "휴대폰에서 평점 키 페어링"
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "키 페어링"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "휴대폰에서 이 페이지를 열고 키를 붙여넣으세요. 3분 동안 유효합니다."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "키를 저장했습니다"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "페어링을 시작하지 못했습니다. TV에 네트워크가 필요합니다."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "이 코드는 만료되었습니다. 다시 시도하세요."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "저장"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "저장했습니다. 이 페이지를 닫아도 됩니다."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "이 코드가 일치하지 않습니다."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "키를 입력하세요."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "이미 저장했습니다."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "이 키는 너무 깁니다."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "키를 저장하지 못했습니다."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "휴대폰에서 설치"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "주소 입력"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "휴대폰에서 이 페이지를 열고 애드온 설치 링크를 붙여넣으세요. 3분 동안 유효합니다."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "이 애드온 설정"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "https://로 시작하는 링크를 붙여넣으세요."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "이 링크는 너무 깁니다."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "휴대폰으로 검색"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "휴대폰으로 입력"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "휴대폰에서 이 페이지를 열고 검색할 내용을 입력하세요. 3분 동안 유효합니다."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "검색할 내용을 입력하세요."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "검색어가 너무 깁니다."
+
 msgctxt "#30488"
 msgid "Signed in"
 msgstr "로그인됨"

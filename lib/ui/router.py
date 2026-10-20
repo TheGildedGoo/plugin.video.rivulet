@@ -76,6 +76,7 @@ def run():
         'server_download': lambda p: _download_server_binary(),
         'advancedsettings_install': lambda p: _install_advancedsettings(),
         'sync_addons_now': _view_action('sync_addons_now'),
+        'pair_key': lambda p: _pair_key(),
         'refresh_cache': lambda p: _refresh_cache(),
         'home_lists': lambda p: _home_lists(),
     }
@@ -99,6 +100,16 @@ def _refresh_cache():
     data (`lib.ui.cacherefresh`)."""
     from lib.ui.cacherefresh import refresh_from_settings
     refresh_from_settings()
+
+
+def _pair_key():
+    """Action 'pair_key': the Settings button that shows a code and a QR.
+
+    Imported here so a playback launch never loads the dialog.
+    """
+    from lib.ui.pairwindow import open_pair_picker
+    open_pair_picker()
+
 
 
 def _download_server_binary():

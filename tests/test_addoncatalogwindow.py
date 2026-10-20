@@ -37,7 +37,14 @@ import pytest
 import requests
 
 from lib.stremio import addoncatalogs
-from tests.conftest import FakeResponse, FakeSession, make_window, wire_client, wire_store
+from tests.conftest import (
+    FakeResponse,
+    FakeSession,
+    make_window,
+    stub_choose,
+    wire_client,
+    wire_store,
+)
 from tests.kodistubs import install_kodi_stubs
 
 _RELOAD_MODULE_NAMES = (
@@ -936,6 +943,8 @@ def test_onclick_needs_configuration_entry_never_installs_and_opens_paste_url_fl
     _wire_store(ctx.addoncatalogwindow, store)
     _wire_client(ctx.addoncatalogwindow, client)
     monkeypatch.setattr(ctx.dialogs, 'confirm', lambda *a, **k: True)
+    chosen = []
+    stub_choose(monkeypatch, ctx, 1, capture=chosen)  # type the address
 
     win = _make_window(ctx.addoncatalogwindow)
     win.onInit()
@@ -944,15 +953,18 @@ def test_onclick_needs_configuration_entry_never_installs_and_opens_paste_url_fl
 
     assert store.installed == []
     assert client.manifest_calls == []
+    # Phone first, keyboard second, under the addon's name.
+    assert chosen[-1] == ('Needs Config', ['STR30474', 'STR30475'])
     # The prompt shown to the user names the addon and its /configure URL.
     assert len(ctx.env.dialog_input_prompts) == 1
     assert 'Needs Config' in ctx.env.dialog_input_prompts[0]
     assert 'https://cfg.example/configure' in ctx.env.dialog_input_prompts[0]
 
 
-def test_onclick_needs_configuration_entry_pasted_url_installs_configured_manifest(load_addoncatalogwindow):
+def test_onclick_needs_configuration_entry_pasted_url_installs_configured_manifest(load_addoncatalogwindow, monkeypatch):
     configured_manifest = {'id': 'cfg', 'name': 'Needs Config (configured)', 'version': '1.0.1'}
     ctx = load_addoncatalogwindow(dialog_inputs=['https://cfg.example/manifest.json?token=xyz'])
+    stub_choose(monkeypatch, ctx, 1)  # type the address
     store = _FakeStore(addons=[_source_addon()])
     client = _FakeClient(
         session=FakeSession(responses=[FakeResponse(CATALOG_ENVELOPE), FakeResponse(CATALOG_ENVELOPE)]),
@@ -970,8 +982,9 @@ def test_onclick_needs_configuration_entry_pasted_url_installs_configured_manife
     assert ('Rivulet', 'STR30012', 'info', 4000) in ctx.env.notifications
 
 
-def test_onclick_needs_configuration_entry_invalid_pasted_url_does_not_install(load_addoncatalogwindow):
+def test_onclick_needs_configuration_entry_invalid_pasted_url_does_not_install(load_addoncatalogwindow, monkeypatch):
     ctx = load_addoncatalogwindow(dialog_inputs=['not a url'])
+    stub_choose(monkeypatch, ctx, 1)  # type the address
     store = _FakeStore(addons=[_source_addon()])
     client = _FakeClient(session=FakeSession(responses=[FakeResponse(CATALOG_ENVELOPE)]))
     _wire_store(ctx.addoncatalogwindow, store)
@@ -1085,3 +1098,39 @@ def test_configure_url_unparsable_url_falls_back_to_whole_string_swap(load_addon
     ctx = load_addoncatalogwindow()
     url = 'https://[bad/manifest.json'
     assert ctx.addoncatalogwindow._configure_url(url) == 'https://[bad/configure'
+
+
+def test_onclick_needs_configuration_phone_page_links_the_configure_page(load_addoncatalogwindow, monkeypatch):
+    """Configure on the phone, paste the link there; nothing typed on the TV."""
+    configured_manifest = {'id': 'cfg', 'name': 'Needs Config (configured)', 'version': '1.0.1'}
+    ctx = load_addoncatalogwindow()
+    store = _FakeStore(addons=[_source_addon()])
+    client = _FakeClient(
+        session=FakeSession(responses=[FakeResponse(CATALOG_ENVELOPE), FakeResponse(CATALOG_ENVELOPE)]),
+        manifest_result=configured_manifest,
+    )
+    _wire_store(ctx.addoncatalogwindow, store)
+    _wire_client(ctx.addoncatalogwindow, client)
+    stub_choose(monkeypatch, ctx, 0)  # from the phone
+    import lib.ui.pairwindow as pairwindow
+
+    asked = []
+
+    def fake_pair_value(label, prompt=None, **kwargs):
+        asked.append((label, prompt, kwargs))
+        return 'https://cfg.example/manifest.json?token=xyz'
+
+    monkeypatch.setattr(pairwindow, 'pair_value', fake_pair_value)
+
+    win = _make_window(ctx.addoncatalogwindow)
+    win.onInit()
+    _select_position(win, ctx.addoncatalogwindow, '1')  # "Needs Config"
+    win.onClick(ctx.addoncatalogwindow.LIST)
+
+    assert ctx.env.dialog_input_prompts == []
+    label, prompt, kwargs = asked[0]
+    assert label == 'Needs Config'
+    assert prompt == 'STR30476'
+    assert kwargs['messages']['link'] == 'https://cfg.example/configure'
+    assert kwargs['messages']['link_label'] == 'STR30477'
+    assert store.installed == [('https://cfg.example/manifest.json?token=xyz', configured_manifest)]
