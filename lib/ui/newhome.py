@@ -68,6 +68,8 @@ SHELF_CAP = 12
 _ROW_INITIAL = 24
 _ROW_CEILING = 2000
 PREFETCH_THRESHOLD = 5
+_ROW_RETRY_SECONDS = 30.0
+_ROW_MAX_FAILURES = 3
 
 #: Set when a hub poster changes the account library. Home has no handle
 #: on that window, and its row cache would otherwise keep the old
@@ -262,6 +264,7 @@ def _shelf_page_gen(state):
 
     def fetch(transport, ctype, cid, extra=None):
         page = cached_later_page(transport, ctype, cid, extra)
+        state['failed'] = None
         state['served'] += len(page)
         state['seen_ids'].update(meta.get('id') for meta in page if isinstance(meta, dict))
         return page
@@ -271,8 +274,35 @@ def _shelf_page_gen(state):
         state['transport'], catalog.get('type'), catalog.get('id'),
         state['served'], state['seen_ids'], extra=state.get('extra'),
         catalog=catalog, manifest=state['manifest'], page_limit=None,
-        fetch_page=fetch, stop_short=False,
+        fetch_page=fetch, stop_short=False, raise_on_error=True,
+        on_end=lambda reason: state.update(end_reason=reason),
     )
+
+
+def _row_waiting(state):
+    import time
+
+    failed = state.get('failed')
+    return bool(failed and time.monotonic() - failed['at'] < _ROW_RETRY_SECONDS)
+
+
+def _log_row_end(state):
+    """One terminal diagnostic per row, with only the addon's safe origin."""
+    if not state.get('exhausted') or state.get('end_logged'):
+        return
+    import xbmc
+
+    from lib.homelayout import parse_catalog_id
+    from lib.stremio.addons import safe_url_for_log
+    from lib.ui.compat import log
+
+    list_id = state.get('list_id') or '?'
+    parts = parse_catalog_id(list_id)
+    if parts:
+        list_id = 'cat:%s|%s' % (safe_url_for_log(parts[0]), '|'.join(parts[1:]))
+    log('home: row %s ended (%s) at %d items' % (
+        list_id, state.get('end_reason') or 'catalog end', len(state.get('metas') or [])), xbmc.LOGINFO)
+    state['end_logged'] = True
 
 
 def _pull_more(state, room, max_pages=5):
@@ -285,7 +315,7 @@ def _pull_more(state, room, max_pages=5):
     from lib.stremio.addons import addon_error_detail
     from lib.ui.compat import log
 
-    if not state or room <= 0 or state.get('exhausted'):
+    if not state or room <= 0 or state.get('exhausted') or _row_waiting(state):
         return []
     result = []
     pending = state.get('pending') or []
@@ -301,10 +331,18 @@ def _pull_more(state, room, max_pages=5):
             page = next(gen)
         except StopIteration:
             state['exhausted'] = True
+            state.setdefault('end_reason', 'catalog end')
+            state['failed'] = None
             break
         except Exception as exc:
             log('home: next catalog page failed: %s' % addon_error_detail(exc))
-            state['exhausted'] = True
+            import time
+
+            count = (state.get('failed') or {}).get('count', 0) + 1
+            state['failed'] = {'at': time.monotonic(), 'count': count}
+            if count >= _ROW_MAX_FAILURES:
+                state['exhausted'] = True
+                state['end_reason'] = '3 consecutive page failures'
             break
         batch = [meta for meta in page if isinstance(meta, dict)
                  and matches_catalog(meta, state.get('filter', ''))]
@@ -325,6 +363,7 @@ def _open_shelf(descriptor):
         first = _one_catalog_page(state['transport'], state['manifest'], state['catalog'])
     except CatalogUnavailable:
         state['exhausted'] = True
+        state['end_reason'] = 'first page failed'
         first = []
     state['served'] = len(first)
     _fresh, first = _dedupe_page(first, state['seen_ids'], False)
@@ -332,7 +371,9 @@ def _open_shelf(descriptor):
                         and matches_catalog(meta, state.get('filter', ''))]
     if not first:
         state['exhausted'] = True
+        state['end_reason'] = 'first page failed' if state.get('end_reason') == 'first page failed' else 'empty page'
     state['metas'] = _pull_more(state, _ROW_INITIAL, max_pages=4)
+    _log_row_end(state)
     return state
 
 
@@ -1202,25 +1243,22 @@ def _apply_shelf_extends(window):
     for generation, panel, state, private, metas in ready:
         if not _current_shelf(window, generation, panel, state):
             continue
-        for key in ('pending', 'seen_ids', 'served', 'exhausted'):
+        for key in ('pending', 'seen_ids', 'served', 'exhausted', 'failed', 'end_reason'):
             if key in private:
                 state[key] = private[key]
         _append_to_shelf(window, panel, metas, sparse=(state['kind'] == 'library'))
         window._shelf_inflight.pop(panel, None)
         if len(state['metas']) >= _ROW_CEILING:
-            import xbmc
-
-            from lib.ui.compat import log
-
             state['exhausted'] = True
-            log('home: row reached the %d-item safety ceiling' % _ROW_CEILING, xbmc.LOGINFO)
+            state['end_reason'] = '2000-item safety ceiling'
+        _log_row_end(state)
 
 
 def _maybe_extend_focused_shelf(window):
     """Prefetch within five cells; the GUI never waits on a page."""
     panel = window.getFocusId()
     state = getattr(window, '_rows', {}).get(panel)
-    if not state or state.get('exhausted') or state['kind'] == 'continue':
+    if not state or state.get('exhausted') or state['kind'] == 'continue' or _row_waiting(state):
         return
     control = window.getControl(panel)
     if control.getSelectedPosition() < max(0, control.size() - PREFETCH_THRESHOLD):

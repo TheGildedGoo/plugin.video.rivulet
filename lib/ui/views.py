@@ -432,7 +432,7 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
 
 def iter_catalog_pages_after(transport, ctype, cid, served, seen_ids, extra=None,
                              catalog=None, manifest=None, page_limit=_MAX_CATALOG_PAGES, fetch_page=None,
-                             stop_short=True):
+                             stop_short=True, raise_on_error=False, on_end=None):
     """The pages after a first page the caller already has.
 
     Home's rows hold page one from the disk cache. Resuming used to
@@ -449,12 +449,16 @@ def iter_catalog_pages_after(transport, ctype, cid, served, seen_ids, extra=None
         return
     base_extra = list(extra or [])
     if not served or not catalog_supports_extra(catalog, 'skip'):
+        if on_end:
+            on_end('no skip' if served else 'empty page')
         return
     if any(name == 'skip' for name, _value in base_extra):
+        if on_end:
+            on_end('fixed skip')
         return
     seen = set(key for key in (seen_ids or ()) if key is not None)
     yield from _follow_pages(transport, ctype, cid, base_extra, served, served, seen, hide_adult,
-                             page_limit, fetch_page, stop_short)
+                             page_limit, fetch_page, stop_short, raise_on_error, on_end)
 
 
 def _dedupe_page(page, seen, hide_adult):
@@ -478,7 +482,8 @@ def _dedupe_page(page, seen, hide_adult):
 
 
 def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hide_adult,
-                  page_limit=_MAX_CATALOG_PAGES, fetch_page=None, stop_short=True):
+                  page_limit=_MAX_CATALOG_PAGES, fetch_page=None, stop_short=True,
+                  raise_on_error=False, on_end=None):
     """Pages two onward. `served` is the metas the addon has actually
     served so far, duplicates and all - NOT the deduped count. This is
     what the next `skip` is counted from, so a page that comes back
@@ -497,8 +502,12 @@ def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hi
             log('views.iter_catalog_pages: %s page %d failed: %s - keeping what landed'
                 % (safe_url_for_log(transport), page_index, addon_error_detail(exc)),
                 xbmc.LOGWARNING)
+            if raise_on_error:
+                raise
             return
         if not page:
+            if on_end:
+                on_end('empty page')
             return
         served += len(page)
         fresh, filtered = _dedupe_page(page, seen, hide_adult)
@@ -509,6 +518,8 @@ def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hi
         if not fresh:
             log('views.iter_catalog_pages: %s page %d added nothing new - stopping'
                 % (safe_url_for_log(transport), page_index), xbmc.LOGINFO)
+            if on_end:
+                on_end('added nothing new')
             return
         yield filtered
         if stop_short and len(page) < page_size:

@@ -119,8 +119,8 @@ def test_the_next_page_is_fetched_once_the_leftovers_are_gone(home, monkeypatch)
     assert not state.get('exhausted')
 
 
-@pytest.mark.parametrize('pages', [[], [[]], [['junk', None]], [RuntimeError('addon down')]])
-def test_an_empty_or_failed_page_ends_the_row(home, monkeypatch, pages):
+@pytest.mark.parametrize('pages', [[], [[]], [['junk', None]]])
+def test_an_empty_page_ends_the_row(home, monkeypatch, pages):
     _with_pages(home, monkeypatch, pages)
     state = {'pending': []}
     assert home.home._pull_more(state, 5) == []
