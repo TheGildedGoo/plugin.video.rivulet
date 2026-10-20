@@ -1,33 +1,12 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""Tests for lib.ui.newhome: NewHomeWindow, the "New look" Home,
-exercised against the
-shared fake xbmc/xbmcgui stubs in tests/kodistubs (no real Kodi runtime, no
-network).
+"""Drive the single Home's callbacks against isolated Kodi stubs.
 
-lib.ui.homewindow imports xbmcgui and lib.ui.uicommon at module scope, so
-load_homewindow reloads lib.ui.compat/lib.ui.uicommon/lib.ui.router/
-lib.ui.homewindow fresh together. HomeWindow.onClick()'s 'discover'/
-'search'/'mystuff'/'addons' handlers lazily `from lib.ui.catalogpicker
-import open_catalog_picker` / `from lib.ui.searchwindow import
-open_search` / `from lib.ui.mystuff import open_my_stuff` / `from
-lib.ui.addonswindow import open_addons` at call time, so
-lib.ui.catalogpicker/lib.ui.searchwindow/lib.ui.mystuff/
-lib.ui.addonswindow are reloaded too (same reason tests/test_views.py
-reloads lib.ui.infowindow: to get a handle - `ctx.catalogpicker`/`ctx.
-searchwindow`/`ctx.mystuff`/`ctx.addonswindow` - whose functions
-this file monkeypatches, and to have install_kodi_stubs clean their
-sys.modules entries back up at teardown so no later test file observes
-them bound to a dead test's fakes).
-
-HomeWindow.onInit()/onClick()/onAction() are called directly here, never
-through a real modal event loop, exactly like tests/test_infowindow.py drives
-ShowcaseWindow: the fake WindowXML.doModal() is a no-op counter, and
-getControl()/setFocusId() are plain in-memory fakes.
-
-NewHomeWindow.xml's actual skin rendering is Kodi-skin-engine-only and is NOT,
-and cannot be, exercised by this suite.
+The fake validates control ids against NewHomeWindow.xml. Child-window,
+store and shared-helper modules reload together so no later test sees
+modules bound to a previous test's fakes. Actual Kodi rendering remains
+a device check; these tests verify rows, focus, properties and handoffs.
 """
 import contextlib
 import os
@@ -127,9 +106,6 @@ def load_homewindow():
                 localized=localized,
                 settings=settings,
             ))
-            # These tests drive the new-look Home; the stock module stays
-            # reachable as `.stock_home`.
-            ctx.stock_home = ctx.homewindow
             ctx.homewindow = ctx.newhome
             return ctx
 

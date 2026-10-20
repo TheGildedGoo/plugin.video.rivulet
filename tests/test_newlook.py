@@ -30,7 +30,6 @@ def load_homewindow():
                 settings=settings,
                 localized=localized,
             ))
-            ctx.stock_home = ctx.homewindow
             ctx.homewindow = ctx.newhome
             return ctx
 

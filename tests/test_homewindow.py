@@ -39,16 +39,10 @@ class _FakeVersionStore:
 
 @pytest.fixture
 def load_homewindow():
-    """Factory fixture: `load_homewindow(addon_info=None, localized=None)`
-    installs fresh stubs (via tests.kodistubs.install_kodi_stubs) reloading
-    lib.ui.compat/lib.ui.uicommon/lib.ui.router/lib.ui.homewindow/
-    lib.ui.catalogpicker/lib.ui.searchwindow, and returns a namespace with
-    `.homewindow`, `.compat`, `.router`, `.catalogpicker`, `.searchwindow`,
-    and `.env`. `localized` overrides FakeAddon's default 'STR<id>' string
-    marker - needed for string id 30022 ("Logged in as %s"), which
-    HomeWindow's status label formats with `%`, the same shared string
-    `lib.ui.views.login()` shows as a post-login notification.
-    Every call is torn down automatically, in reverse order, at test end.
+    """Reload the launcher and single Home against fresh Kodi stubs.
+
+    Each test gets isolated settings, heartbeat state and notification
+    recorders; teardown restores the imported modules and their parents.
     """
     with contextlib.ExitStack() as stack:
         def _load(addon_info=None, localized=None, settings=None):
@@ -146,16 +140,14 @@ def test_open_home_closes_the_window_exactly_once_and_reraises_when_domodal_rais
             super().close()
 
         def doModal(self):
-            # Stands in for a crash inside onInit() while the modal loop is
-            # running - self.close() (the window's own, normal-path close)
-            # never gets a chance to run.
+            # Kodi could not enter the modal loop. Build/data failures
+            # are handled inside NewHomeWindow and tested separately.
             raise RuntimeError('onInit blew up')
 
     monkeypatch.setattr(ctx.newhome, 'NewHomeWindow', ExplodingWindow)
 
-    # default.py wraps open_home() itself and falls back to the recovery
-    # home directory on ANY exception - that contract requires the
-    # exception to keep propagating unchanged, not be swallowed here.
+    # An open failure is wrapped for default.py's recovery path. The
+    # window still closes and the heartbeat clears before it propagates.
     with pytest.raises(ctx.homewindow.HomeOpenError, match='RuntimeError'):
         ctx.homewindow.open_home()
 

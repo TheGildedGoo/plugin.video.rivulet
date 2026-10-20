@@ -21,7 +21,7 @@ Picking a poster opens its page, except a Continue poster that is
 actually mid-playback: that one asks Resume or Episode list (Details,
 for a movie). The menu button (long-press on a remote) offers Add to
 Library or Remove from Library, and Trailer. Picking a type chip opens
-that type's catalog picker, the same screen the stock Home's row opens.
+that type's stock catalog picker.
 
 Shared helpers this module calls and does not modify:
 `lib.ui.mystuff` (`merge_entries`, `library_metas`, `_fetch_library_entries`,
