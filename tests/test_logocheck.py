@@ -31,7 +31,7 @@ def test_an_image_answer_is_good_and_the_response_is_closed(monkeypatch):
     seen = _fake_get(monkeypatch, response)
     assert logocheck.fetch_is_image('https://img/logo.png') is True
     assert response.closed is True
-    assert seen[0][1]['stream'] is True and seen[0][1]['headers'] == {'Range': 'bytes=0-2047'}
+    assert seen[0][1]['stream'] is True and seen[0][1]['headers'] == {'Range': 'bytes=0-2047', 'User-Agent': logocheck.USER_AGENT}
 
 
 def test_a_missing_or_wrong_answer_is_not(monkeypatch):
@@ -236,3 +236,44 @@ def test_logo_answer_and_texture_caches_are_capped_oldest_first(fresh):
     assert lc.texture_state('https://img/2004') == (True, 2004)
     lc.forget_all()
     assert not lc._STATE and not lc._LOGO_STATE
+
+
+def test_an_ask_after_the_empty_check_is_not_lost(fresh, monkeypatch):
+    lc = fresh.module
+    original = lc._next
+    fetched = []
+    queued = []
+
+    def next_with_racing_ask():
+        result = original()
+        if result is None and not queued:
+            queued.append(True)
+            lc.ask(['https://img/racing.png'])
+        return result
+
+    monkeypatch.setattr(lc, '_next', next_with_racing_ask)
+    monkeypatch.setattr(lc._WAKE, 'wait', lambda timeout: lc._WAKE.is_set())
+    monkeypatch.setattr(lc, 'fetch_is_image', lambda url: fetched.append(url) or False)
+    lc._WORKER.append('current')
+    lc._run()
+    assert fetched == ['https://img/racing.png']
+    assert not lc._PENDING and not lc._WORKER
+
+
+def test_an_ask_at_worker_timeout_is_still_processed(fresh, monkeypatch):
+    lc = fresh.module
+    fetched = []
+    queued = []
+
+    def timeout_with_ask(timeout):
+        if not queued:
+            queued.append(True)
+            lc.ask(['https://img/late.png'])
+        return False
+
+    monkeypatch.setattr(lc._WAKE, 'wait', timeout_with_ask)
+    monkeypatch.setattr(lc, 'fetch_is_image', lambda url: fetched.append(url) or False)
+    lc._WORKER.append('current')
+    lc._run()
+    assert fetched == ['https://img/late.png']
+    assert not lc._PENDING and not lc._WORKER

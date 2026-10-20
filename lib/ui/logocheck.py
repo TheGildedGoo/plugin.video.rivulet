@@ -17,6 +17,8 @@ asked repaints its hero with it. Nothing here blocks the remote.
 
 import threading
 
+from lib.stremio.addons import USER_AGENT
+
 #: url -> True (an image), False (missing or not an image). Absent: not asked.
 _STATE = {}  # type: dict
 #: url -> (Kodi texture-cache result, monotonic check time).
@@ -94,16 +96,28 @@ def ask(urls):
 def _next():
     with _LOCK:
         # Newest first: the title the remote is on now.
-        return _PENDING.pop() if _PENDING else None
+        if _PENDING:
+            return _PENDING.pop()
+        # Clear while the empty check still holds the queue lock. An ask
+        # after this check sets the event after acquiring the same lock.
+        _WAKE.clear()
+        return None
 
 
 def _run():
+    retired = False
     try:
         while True:
             url = _next()
             if url is None:
-                _WAKE.clear()
                 if not _WAKE.wait(30):
+                    with _LOCK:
+                        if _PENDING:
+                            continue
+                        # Retire atomically with the last empty check, so
+                        # the next ask can start a worker immediately.
+                        del _WORKER[:]
+                        retired = True
                     return
                 continue
             good = fetch_is_image(url)
@@ -111,8 +125,9 @@ def _run():
             if good:
                 _repaint()
     finally:
-        with _LOCK:
-            del _WORKER[:]
+        if not retired:
+            with _LOCK:
+                del _WORKER[:]
 
 
 def fetch_is_image(url):
@@ -123,7 +138,7 @@ def fetch_is_image(url):
         return False
     try:
         response = requests.get(
-            url, stream=True, timeout=TIMEOUT_SECONDS, headers={'Range': 'bytes=0-2047'},
+            url, stream=True, timeout=TIMEOUT_SECONDS, headers={'Range': 'bytes=0-2047', 'User-Agent': USER_AGENT},
         )
     except Exception:
         return False
