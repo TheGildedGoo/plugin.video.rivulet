@@ -648,17 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "ホーム画面"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "映画を表示"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "シリーズを表示"
 
-msgctxt "#30222"
-msgid "Show Anime"
-msgstr "アニメを表示"
+
+
+
 
 msgctxt "#30223"
 msgid "cancel"
@@ -672,17 +666,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "今すぐ再生"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "その他"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "映画・シリーズ・アニメ以外のカタログを見る"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "その他を表示"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +696,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "視聴済み"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "「続きを見る」を表示"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1026,9 +1012,7 @@ msgctxt "#30423"
 msgid "Titles saved in your Stremio library"
 msgstr "Stremioライブラリに保存した作品"
 
-msgctxt "#30425"
-msgid "More"
-msgstr "その他"
+
 
 msgctxt "#30426"
 msgid "Your library is empty. Add a title from its page."
@@ -1129,3 +1113,113 @@ msgstr "シリーズへ移動"
 msgctxt "#30515"
 msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
 msgstr "Rotten TomatoesとMetacriticのスコアを表示しますか？omdbapi.com/apikey.aspx で無料のキーを取得して、ここに入力してください。"
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "マイコンテンツ"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "続きから視聴から削除"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "ホームのリストを並べ替え"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "各タブに表示するリストと順序を選択します。"
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "リスト数: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "既定に戻す"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "リストを追加"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "上へ移動"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "下へ移動"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "このタブから削除"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "他のタブにも表示…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "このタブはいっぱいです"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "ホームのリストを既定に戻しますか？"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "新着映画"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "新着シリーズ"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "新着アニメ映画"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "新着アニメシリーズ"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "ライブラリの映画"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "ライブラリのシリーズ"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "アニメ映画"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "アニメシリーズ"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "カタログ全体を見る"

@@ -648,17 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "主屏幕"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "显示电影"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "显示剧集"
 
-msgctxt "#30222"
-msgid "Show Anime"
-msgstr "显示动漫"
+
+
+
 
 msgctxt "#30223"
 msgid "cancel"
@@ -672,17 +666,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "立即播放"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "其他"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "浏览不是电影、剧集或动漫的目录"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "显示其他"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +696,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "已观看"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "显示继续观看"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1026,9 +1012,7 @@ msgctxt "#30423"
 msgid "Titles saved in your Stremio library"
 msgstr "已保存在 Stremio 媒体库中的条目"
 
-msgctxt "#30425"
-msgid "More"
-msgstr "更多"
+
 
 msgctxt "#30426"
 msgid "Your library is empty. Add a title from its page."
@@ -1129,3 +1113,113 @@ msgstr "前往剧集"
 msgctxt "#30515"
 msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
 msgstr "想要显示 Rotten Tomatoes 和 Metacritic 评分？请在 omdbapi.com/apikey.aspx 获取免费密钥并在此输入。"
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "我的内容"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "从继续观看中移除"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "排列主页列表"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "选择每个标签页显示的列表及其顺序。"
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "列表数：%d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "恢复默认"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "添加列表"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "上移"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "下移"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "从此标签页移除"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "同时显示在…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "此标签页已满"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "将主页列表恢复为默认设置？"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "新电影"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "新剧集"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "新动画电影"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "新动画剧集"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "媒体库电影"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "媒体库剧集"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "动画电影"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "动画剧集"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "浏览完整目录"

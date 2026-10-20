@@ -648,17 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "Startscherm"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "Films tonen"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "Series tonen"
 
-msgctxt "#30222"
-msgid "Show Anime"
-msgstr "Anime tonen"
+
+
+
 
 msgctxt "#30223"
 msgid "cancel"
@@ -672,17 +666,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "speelt nu af"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "Overige"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "Bladeren door catalogi die geen films, series of anime zijn"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "Overige tonen"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +696,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "BEKEKEN"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "Verder tonen"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1026,9 +1012,7 @@ msgctxt "#30423"
 msgid "Titles saved in your Stremio library"
 msgstr "Titels in je Stremio-bibliotheek"
 
-msgctxt "#30425"
-msgid "More"
-msgstr "Meer"
+
 
 msgctxt "#30426"
 msgid "Your library is empty. Add a title from its page."
@@ -1129,3 +1113,113 @@ msgstr "Naar de serie"
 msgctxt "#30515"
 msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
 msgstr "Wil je scores van Rotten Tomatoes en Metacritic? Haal een gratis sleutel op via omdbapi.com/apikey.aspx en vul die hier in."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "Mijn inhoud"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "Verwijderen uit Verder kijken"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "Startlijsten indelen"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "Kies welke lijsten elk tabblad toont en in welke volgorde."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "Lijsten: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "Standaard herstellen"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "Lijst toevoegen"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "Omhoog"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "Omlaag"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "Uit dit tabblad verwijderen"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "Ook tonen in…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "Dit tabblad is vol"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "Startlijsten herstellen naar standaard?"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "Nieuwe films"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "Nieuwe series"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "Nieuwe animefilms"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "Nieuwe animeseries"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "Films in bibliotheek"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "Series in bibliotheek"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "Animefilms"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "Animeseries"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "Volledige catalogus bekijken"

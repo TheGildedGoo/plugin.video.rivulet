@@ -648,17 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "الشاشة الرئيسية"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "إظهار الأفلام"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "إظهار المسلسلات"
 
-msgctxt "#30222"
-msgid "Show Anime"
-msgstr "إظهار الأنيمي"
+
+
+
 
 msgctxt "#30223"
 msgid "cancel"
@@ -672,17 +666,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "يشغل الآن"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "أخرى"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "تصفح الكتالوجات غير الأفلام والمسلسلات والأنيمي"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "إظهار أخرى"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +696,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "تمت المشاهدة"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "إظهار المتابعة"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1026,9 +1012,7 @@ msgctxt "#30423"
 msgid "Titles saved in your Stremio library"
 msgstr "عناوين محفوظة في مكتبة ستريميو"
 
-msgctxt "#30425"
-msgid "More"
-msgstr "المزيد"
+
 
 msgctxt "#30426"
 msgid "Your library is empty. Add a title from its page."
@@ -1129,3 +1113,113 @@ msgstr "الانتقال إلى المسلسل"
 msgctxt "#30515"
 msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
 msgstr "هل تريد تقييمات Rotten Tomatoes وMetacritic؟ احصل على مفتاح مجاني من omdbapi.com/apikey.aspx وأدخله هنا."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "محتواي"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "إزالة من متابعة المشاهدة"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "ترتيب قوائم الرئيسية"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "اختر القوائم التي تعرضها كل علامة تبويب وترتيبها."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "القوائم: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "استعادة الافتراضي"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "إضافة قائمة"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "نقل لأعلى"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "نقل لأسفل"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "إزالة من علامة التبويب هذه"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "عرض أيضًا في…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "علامة التبويب هذه ممتلئة"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "إعادة قوائم الرئيسية إلى الافتراضي؟"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "أفلام جديدة"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "مسلسلات جديدة"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "أفلام أنمي جديدة"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "مسلسلات أنمي جديدة"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "أفلام المكتبة"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "مسلسلات المكتبة"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "أفلام أنمي"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "مسلسلات أنمي"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "تصفح الكتالوج الكامل"

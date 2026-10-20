@@ -648,17 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "홈 화면"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "영화 표시"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "시리즈 표시"
 
-msgctxt "#30222"
-msgid "Show Anime"
-msgstr "애니메이션 표시"
+
+
+
 
 msgctxt "#30223"
 msgid "cancel"
@@ -672,17 +666,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "지금 재생함"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "기타"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "영화, 시리즈 또는 애니메이션이 아닌 카탈로그 탐색"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "기타 표시"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +696,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "시청 완료"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "이어보기 표시"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1026,9 +1012,7 @@ msgctxt "#30423"
 msgid "Titles saved in your Stremio library"
 msgstr "Stremio 라이브러리에 저장된 제목"
 
-msgctxt "#30425"
-msgid "More"
-msgstr "더보기"
+
 
 msgctxt "#30426"
 msgid "Your library is empty. Add a title from its page."
@@ -1129,3 +1113,113 @@ msgstr "시리즈로 이동"
 msgctxt "#30515"
 msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
 msgstr "Rotten Tomatoes 및 Metacritic 점수를 보시겠습니까? omdbapi.com/apikey.aspx에서 무료 키를 받아 여기에 입력하세요."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "내 콘텐츠"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "계속 보기에서 제거"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "홈 목록 정렬"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "각 탭에 표시할 목록과 순서를 선택하세요."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "목록: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "기본값으로 재설정"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "목록 추가"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "위로 이동"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "아래로 이동"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "이 탭에서 제거"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "다른 탭에도 표시…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "이 탭이 가득 찼습니다"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "홈 목록을 기본값으로 재설정할까요?"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "새 영화"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "새 시리즈"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "새 애니메이션 영화"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "새 애니메이션 시리즈"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "라이브러리 영화"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "라이브러리 시리즈"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "애니메이션 영화"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "애니메이션 시리즈"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "전체 카탈로그 탐색"

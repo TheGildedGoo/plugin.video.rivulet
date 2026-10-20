@@ -648,17 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "Ekran główny"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "Pokaż Filmy"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "Pokaż Seriale"
 
-msgctxt "#30222"
-msgid "Show Anime"
-msgstr "Pokaż Anime"
+
+
+
 
 msgctxt "#30223"
 msgid "cancel"
@@ -672,17 +666,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "odtwarza teraz"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "Inne"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "Przeglądaj katalogi, które nie są filmami, serialami ani anime"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "Pokaż Inne"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +696,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "OBEJRZANE"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "Pokaż Kontynuuj"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1026,9 +1012,7 @@ msgctxt "#30423"
 msgid "Titles saved in your Stremio library"
 msgstr "Tytuły zapisane w bibliotece Stremio"
 
-msgctxt "#30425"
-msgid "More"
-msgstr "Więcej"
+
 
 msgctxt "#30426"
 msgid "Your library is empty. Add a title from its page."
@@ -1129,3 +1113,113 @@ msgstr "Przejdź do serialu"
 msgctxt "#30515"
 msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
 msgstr "Chcesz oceny z Rotten Tomatoes i Metacritic? Pobierz darmowy klucz na omdbapi.com/apikey.aspx i wpisz go tutaj."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "Moje treści"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "Usuń z Kontynuuj"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "Ułóż listy strony głównej"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "Wybierz listy wyświetlane na każdej karcie i ich kolejność."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "Listy: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "Przywróć domyślne"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "Dodaj listę"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "Przenieś w górę"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "Przenieś w dół"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "Usuń z tej karty"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "Pokaż także w…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "Ta karta jest pełna"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "Przywrócić domyślne listy strony głównej?"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "Nowe filmy"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "Nowe seriale"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "Nowe filmy anime"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "Nowe seriale anime"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "Filmy w bibliotece"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "Seriale w bibliotece"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "Filmy anime"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "Seriale anime"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "Przeglądaj cały katalog"

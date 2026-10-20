@@ -648,17 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "Startbildschirm"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "Filme anzeigen"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "Serien anzeigen"
 
-msgctxt "#30222"
-msgid "Show Anime"
-msgstr "Anime anzeigen"
+
+
+
 
 msgctxt "#30223"
 msgid "cancel"
@@ -672,17 +666,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "spielt jetzt ab"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "Sonstiges"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "Kataloge durchsuchen, die keine Filme, Serien oder Anime sind"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "Sonstiges anzeigen"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +696,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "GESEHEN"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "Weiter anzeigen"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1026,9 +1012,7 @@ msgctxt "#30423"
 msgid "Titles saved in your Stremio library"
 msgstr "Titel in deiner Stremio-Bibliothek"
 
-msgctxt "#30425"
-msgid "More"
-msgstr "Mehr"
+
 
 msgctxt "#30426"
 msgid "Your library is empty. Add a title from its page."
@@ -1129,3 +1113,113 @@ msgstr "Zur Serie"
 msgctxt "#30515"
 msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
 msgstr "Wertungen von Rotten Tomatoes und Metacritic gewünscht? Hol dir einen kostenlosen Schlüssel auf omdbapi.com/apikey.aspx und gib ihn hier ein."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "Meine Inhalte"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "Aus Weiterschauen entfernen"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "Home-Listen anordnen"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "Wähle, welche Listen jeder Tab zeigt und in welcher Reihenfolge."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "Listen: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "Auf Standard zurücksetzen"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "Liste hinzufügen"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "Nach oben"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "Nach unten"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "Aus diesem Tab entfernen"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "Auch anzeigen in…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "Dieser Tab ist voll"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "Home-Listen auf Standard zurücksetzen?"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "Neue Filme"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "Neue Serien"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "Neue Anime-Filme"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "Neue Anime-Serien"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "Filme in der Mediathek"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "Serien in der Mediathek"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "Anime-Filme"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "Anime-Serien"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "Vollständigen Katalog durchsuchen"

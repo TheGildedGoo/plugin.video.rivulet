@@ -648,17 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr ""
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr ""
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr ""
 
-msgctxt "#30222"
-msgid "Show Anime"
-msgstr ""
+
+
+
 
 msgctxt "#30223"
 msgid "cancel"
@@ -672,17 +666,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr ""
 
-msgctxt "#30227"
-msgid "Other"
-msgstr ""
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr ""
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr ""
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +696,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr ""
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr ""
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1026,9 +1012,7 @@ msgctxt "#30423"
 msgid "Titles saved in your Stremio library"
 msgstr ""
 
-msgctxt "#30425"
-msgid "More"
-msgstr ""
+
 
 msgctxt "#30426"
 msgid "Your library is empty. Add a title from its page."
@@ -1128,4 +1112,114 @@ msgstr ""
 
 msgctxt "#30515"
 msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr ""
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr ""
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr ""
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr ""
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr ""
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr ""
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr ""
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr ""
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr ""
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr ""
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr ""
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr ""
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr ""
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr ""
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr ""
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr ""
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr ""
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr ""
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr ""
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr ""
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr ""
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr ""
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
 msgstr ""

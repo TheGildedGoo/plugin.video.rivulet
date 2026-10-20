@@ -12,6 +12,14 @@
                     <data>RunPlugin(plugin://plugin.video.rivulet/?action=refresh_cache)</data>
                     <control type="button" format="action"/>
                 </setting>
+                <!-- List arrangements replace the retired row toggles. The
+                     one-time migration preserves their choices; generations
+                     invalidate Home snapshots when Settings closes. -->
+                <setting id="home_lists" type="action" label="30518" help="30519">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=home_lists)</data>
+                    <control type="button" format="action"/>
+                </setting>
                 <setting id="cache_generation" type="string" label="30502">
                     <level>0</level>
                     <visible>false</visible>
@@ -23,32 +31,18 @@
                         <heading>30502</heading>
                     </control>
                 </setting>
-                <setting id="home_show_mystuff" type="boolean" label="30244">
+                <setting id="home_layout_generation" type="string" label="30518">
                     <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
+                    <visible>false</visible>
+                    <default></default>
+                    <constraints>
+                        <allowempty>true</allowempty>
+                    </constraints>
+                    <control type="edit" format="string">
+                        <heading>30518</heading>
+                    </control>
                 </setting>
                 <setting id="home_show_new_episodes" type="boolean" label="30314">
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting id="home_show_movies" type="boolean" label="30220">
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting id="home_show_series" type="boolean" label="30221">
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting id="home_show_anime" type="boolean" label="30222">
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
-                </setting>
-                <setting id="home_show_other" type="boolean" label="30229">
                     <level>0</level>
                     <default>true</default>
                     <control type="toggle"/>

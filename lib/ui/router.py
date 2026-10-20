@@ -77,6 +77,7 @@ def run():
         'advancedsettings_install': lambda p: _install_advancedsettings(),
         'sync_addons_now': _view_action('sync_addons_now'),
         'refresh_cache': lambda p: _refresh_cache(),
+        'home_lists': lambda p: _home_lists(),
     }
 
     # Any action not in this dict - unrecognized, or a favourite/.strm URL
@@ -184,3 +185,10 @@ def _fail_gracefully(action):
         xbmcplugin.setResolvedUrl(ADDON_HANDLE, False, xbmcgui.ListItem())
     else:
         xbmcplugin.endOfDirectory(ADDON_HANDLE, succeeded=False)
+
+
+def _home_lists():
+    """Settings action; import dialogs only when the configurator opens."""
+    from lib.ui.homelists import open_configurator
+
+    open_configurator()

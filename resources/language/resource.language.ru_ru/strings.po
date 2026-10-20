@@ -648,17 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "Главный экран"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "Показывать Фильмы"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "Показывать Сериалы"
 
-msgctxt "#30222"
-msgid "Show Anime"
-msgstr "Показывать Аниме"
+
+
+
 
 msgctxt "#30223"
 msgid "cancel"
@@ -672,17 +666,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "воспроизводит сейчас"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "Прочее"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "Каталоги, которые не фильмы, сериалы и аниме"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "Показывать Прочее"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +696,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "ПРОСМОТРЕНО"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "Показывать «Продолжить»"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1026,9 +1012,7 @@ msgctxt "#30423"
 msgid "Titles saved in your Stremio library"
 msgstr "Названия в вашей библиотеке Stremio"
 
-msgctxt "#30425"
-msgid "More"
-msgstr "Еще"
+
 
 msgctxt "#30426"
 msgid "Your library is empty. Add a title from its page."
@@ -1129,3 +1113,113 @@ msgstr "К сериалу"
 msgctxt "#30515"
 msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
 msgstr "Нужны оценки Rotten Tomatoes и Metacritic? Получите бесплатный ключ на omdbapi.com/apikey.aspx и введите его здесь."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "Мои материалы"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "Убрать из Продолжить"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "Настроить списки главной"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "Выберите списки для каждой вкладки и их порядок."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "Списки: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "Сбросить по умолчанию"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "Добавить список"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "Переместить вверх"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "Переместить вниз"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "Убрать из этой вкладки"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "Также показывать в…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "Эта вкладка заполнена"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "Сбросить списки главной по умолчанию?"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "Новые фильмы"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "Новые сериалы"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "Новые аниме-фильмы"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "Новые аниме-сериалы"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "Фильмы в библиотеке"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "Сериалы в библиотеке"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "Аниме-фильмы"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "Аниме-сериалы"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "Открыть полный каталог"

@@ -46,6 +46,7 @@ _DEFAULT_SETTINGS = {
 # strings, so they deliberately stay out of this dict and fall through
 # to their 'STR<id>' marker.
 _DEFAULT_LOCALIZED = {
+    30520: 'Lists: %d',
     30081: 'buffered %s of %s',
     30082: 'speed %s, %s peers',
     30183: 'Playing %s in %d s',
