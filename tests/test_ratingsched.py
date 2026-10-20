@@ -453,3 +453,19 @@ def test_ratings_cache_changes_immediately_with_either_api_key(sched, tmp_path, 
     assert s._get_cache('new-omdb', 'new-mdb').lookup('tt0000001') is None
     payload = (tmp_path / 'ratings.json').read_text()
     assert all(key not in payload for key in ('old-omdb', 'old-mdb', 'new-omdb', 'new-mdb'))
+
+
+def test_title_failures_and_provider_cooldowns_are_capped(sched, cache, monkeypatch):
+    s = sched.module
+
+    def rejected(*args, **kwargs):
+        kwargs['on_rejected']('omdb')
+        raise RatingsError('unavailable')
+
+    monkeypatch.setattr('lib.stremio.ratings.fetch_scores', rejected)
+    for i in range(s._MAX_CACHE_ENTRIES + 5):
+        s._worker('tt%07d' % i, 'key%d' % i, '', cache, 'failure%d' % i)
+    assert len(s._failed_until) == len(s._provider_until) == s._MAX_CACHE_ENTRIES
+    assert 'failure0' not in s._failed_until and 'failure2004' in s._failed_until
+    assert s._provider_key('omdb', 'key0') not in s._provider_until
+    assert s._provider_key('omdb', 'key2004') in s._provider_until

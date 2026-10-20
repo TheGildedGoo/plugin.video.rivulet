@@ -1639,8 +1639,6 @@ LOGO_WARM_SLOTS = (30098, 30099)
 #: is known good for the rest of the session.
 _LOGO_RECHECK_SECONDS = 3.0
 
-#: url -> (cached, when it was checked)
-_LOGO_STATE = {}  # type: dict
 
 
 def _texture_cached(url):
@@ -1688,11 +1686,11 @@ def _logo_known_good(url):
     if answered is not None:
         return answered
     now = time.monotonic()
-    state = _LOGO_STATE.get(url)
+    state = logocheck.texture_state(url)
     if state is not None and (state[0] or now - state[1] < _LOGO_RECHECK_SECONDS):
         return state[0]
     ok = _texture_cached(url)
-    _LOGO_STATE[url] = (ok, now)
+    logocheck.remember_texture(url, ok, now)
     if ok:
         logocheck.remember(url, True)
     else:
@@ -1726,7 +1724,9 @@ def _upcoming_logos(window, count=3):
 def _warm_logos(window, logos):
     """Load `logos` in the 1x1 slots so Kodi caches them. A window
     without the slots warms nothing."""
-    pending = [logo for logo in logos if logo and not _LOGO_STATE.get(logo, (False, 0))[0]]
+    from lib.ui import logocheck
+
+    pending = [logo for logo in logos if logo and not (logocheck.texture_state(logo) or (False, 0))[0]]
     for slot, logo in zip(LOGO_WARM_SLOTS, pending):
         try:
             window.getControl(slot).setImage(logo)

@@ -19,6 +19,9 @@ import threading
 
 #: url -> True (an image), False (missing or not an image). Absent: not asked.
 _STATE = {}  # type: dict
+#: url -> (Kodi texture-cache result, monotonic check time).
+_LOGO_STATE = {}  # type: dict
+_MAX_CACHE_ENTRIES = 2000
 _PENDING = []  # type: list
 _LOCK = threading.Lock()
 _WAKE = threading.Event()
@@ -28,6 +31,23 @@ TIMEOUT_SECONDS = 4.0
 #: At most this many URLs wait; older asks are dropped first (the remote
 #: has moved on from them).
 _MAX_PENDING = 24
+
+
+def _cap(cache):
+    """FIFO: a long session must not retain every URL it has visited."""
+    while len(cache) > _MAX_CACHE_ENTRIES:
+        del cache[next(iter(cache))]
+
+
+def texture_state(url):
+    with _LOCK:
+        return _LOGO_STATE.get(url)
+
+
+def remember_texture(url, good, checked_at):
+    with _LOCK:
+        _LOGO_STATE[url] = (bool(good), checked_at)
+        _cap(_LOGO_STATE)
 
 
 def state(url):
@@ -41,12 +61,14 @@ def remember(url, good):
     if url:
         with _LOCK:
             _STATE[url] = bool(good)
+            _cap(_STATE)
 
 
 def forget_all():
     """Drop every answer (Settings > Refresh cached data)."""
     with _LOCK:
         _STATE.clear()
+        _LOGO_STATE.clear()
         del _PENDING[:]
 
 
@@ -85,8 +107,7 @@ def _run():
                     return
                 continue
             good = fetch_is_image(url)
-            with _LOCK:
-                _STATE[url] = good
+            remember(url, good)
             if good:
                 _repaint()
     finally:

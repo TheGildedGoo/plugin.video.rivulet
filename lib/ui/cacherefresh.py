@@ -73,12 +73,6 @@ def clear_memory():
     except Exception:
         pass
     try:
-        from lib.ui import newhome
-
-        newhome._LOGO_STATE.clear()
-    except Exception:
-        pass
-    try:
         from lib.ui import ratingsched
 
         ratingsched._cache = None

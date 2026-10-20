@@ -136,3 +136,15 @@ def test_new_home_declares_the_warm_slots():
             assert control.get('type') == 'image', name
             assert control.findtext('width') == '1' and control.findtext('height') == '1', name
             assert control.find('visible') is None, name
+
+
+def test_seen_posters_are_capped_oldest_first(load_warm, monkeypatch):
+    ctx = load_warm()
+    warmer = ctx.posterwarm
+    # A worker already owns the slots: exercise queueing without a thread.
+    monkeypatch.setattr(warmer, '_running', True)
+    urls = ['poster%d' % i for i in range(warmer._MAX_SEEN + 5)]
+    warmer.request_warm(None, urls)
+    assert len(warmer._seen) == warmer._MAX_SEEN
+    assert urls[0] not in warmer._seen and urls[-1] in warmer._seen
+    warmer.reset_warmer()

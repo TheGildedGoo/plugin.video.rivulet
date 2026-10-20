@@ -3,7 +3,7 @@
 
 """Warm Kodi's texture cache with poster URLs only.
 
-Home and the hubs each carry eight 1x1 image controls (``WARM_SLOTS``)
+Home carries eight 1x1 image controls (``WARM_SLOTS``)
 under their backdrop plate. The worker hands those slots the posters of
 the first rows, eight at a time, so Kodi downloads and caches them before
 the remote reaches them. Fanart and logos are not warmed: a background
@@ -23,13 +23,12 @@ Each batch is held for ``_HOLD_SECONDS``. Kodi cancels a queued texture
 job when its control lets go of the URL, so a batch swapped out too fast
 is a batch that never loaded. The thread waits on ``Monitor.waitForAbort``
 so a Kodi shutdown is not stuck behind the queue. One warmer runs at a
-time; a hub that opens while Home is still warming adds to that queue
-and the newest screen's slots carry the rest.
+time; further requests add to that queue and Home's slots carry the rest.
 """
 
 import threading
 
-#: Image controls in HomeWindow.xml and HubWindow.xml. 1x1, visible,
+#: Image controls in NewHomeWindow.xml. 1x1, visible,
 #: drawn under the opaque backdrop plate.
 WARM_SLOTS = tuple(range(30090, 30098))
 
@@ -38,7 +37,8 @@ _TITLES = 30
 _ROWS = 3
 
 _lock = threading.Lock()
-_seen = set()
+_seen = {}  # type: dict
+_MAX_SEEN = 2000
 _queue = []
 _target = {'window': None}
 _running = False
@@ -134,7 +134,9 @@ def request_warm(window, urls):
         for url in urls or []:
             if not isinstance(url, str) or not url or url in _seen:
                 continue
-            _seen.add(url)
+            _seen[url] = None
+            while len(_seen) > _MAX_SEEN:
+                del _seen[next(iter(_seen))]
             fresh.append(url)
         if not fresh:
             return

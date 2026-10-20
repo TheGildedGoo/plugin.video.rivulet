@@ -1014,7 +1014,7 @@ def test_cached_ratings_replace_the_hero_panel(load_homewindow, monkeypatch, tmp
     })
     scheduled = []
     monkeypatch.setattr(ratingsched, '_keys', lambda: ('secret-omdb', ''))
-    monkeypatch.setattr(ratingsched, '_get_cache', lambda: cache)
+    monkeypatch.setattr(ratingsched, '_get_cache', lambda *args: cache)
     monkeypatch.setattr(ratingsched, '_schedule', lambda *args: scheduled.append(args))
     win = _hero_with_facts(ctx, {'id': 'tt0111161', 'year': 2021})
 
@@ -1057,7 +1057,7 @@ def test_a_ratings_miss_keeps_the_catalog_line_and_schedules(load_homewindow, mo
     cache = RatingsCache(str(tmp_path / 'ratings.json'))
     scheduled = []
     monkeypatch.setattr(ratingsched, '_keys', lambda: ('secret-omdb', ''))
-    monkeypatch.setattr(ratingsched, '_get_cache', lambda: cache)
+    monkeypatch.setattr(ratingsched, '_get_cache', lambda *args: cache)
     monkeypatch.setattr(ratingsched, '_schedule', lambda *args, **kwargs: scheduled.append((args[0], kwargs.get('stype'))))
     win = _hero_with_facts(ctx, {'id': 'tt0111161', 'type': 'series', 'year': 2021})
 
@@ -1708,7 +1708,8 @@ def test_a_logo_kodi_has_not_loaded_keeps_the_text_title(load_homewindow, monkey
 
     # Once Kodi has it (and the short re-check window has passed), it shows.
     ctx.env.cached_textures = {'https://img/logo1.png'}
-    ctx.homewindow._LOGO_STATE.clear()
+    from lib.ui import logocheck
+    logocheck._LOGO_STATE.clear()
     win.onAction(xbmcgui.Action(1))
 
     assert win.getProperty('HeroLogo') == 'https://img/logo1.png'

@@ -221,3 +221,18 @@ def test_an_odd_response_is_not_an_image(monkeypatch):
     assert logocheck.fetch_is_image('https://img/x') is True
     _fake_get(monkeypatch, _Response(200, None))
     assert logocheck.fetch_is_image('https://img/x') is False
+
+
+def test_logo_answer_and_texture_caches_are_capped_oldest_first(fresh):
+    lc = fresh.module
+    for i in range(lc._MAX_CACHE_ENTRIES + 5):
+        url = 'https://img/%d' % i
+        lc.remember(url, True)
+        lc.remember_texture(url, True, i)
+    assert len(lc._STATE) == len(lc._LOGO_STATE) == lc._MAX_CACHE_ENTRIES
+    assert lc.state('https://img/0') is None
+    assert lc.texture_state('https://img/0') is None
+    assert lc.state('https://img/2004') is True
+    assert lc.texture_state('https://img/2004') == (True, 2004)
+    lc.forget_all()
+    assert not lc._STATE and not lc._LOGO_STATE

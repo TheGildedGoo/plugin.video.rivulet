@@ -117,14 +117,14 @@ def test_clear_memory_drops_every_copy(refresh):
 
         catalogpages._caches['/data'] = object()
         logocheck.remember('https://img/a.png', True)
-        ctx.newhome._LOGO_STATE['https://img/a.png'] = True
+        logocheck.remember_texture('https://img/a.png', True, 10)
         ratingsched._cache = object()
 
         ctx.cacherefresh.clear_memory()
 
         assert catalogpages._caches == {}
         assert logocheck.state('https://img/a.png') is None
-        assert ctx.newhome._LOGO_STATE == {}
+        assert logocheck._LOGO_STATE == {}
         assert ratingsched._cache is None
 
 
@@ -143,7 +143,7 @@ def test_clear_memory_carries_on_past_a_module_that_fails(refresh, monkeypatch):
     import lib.ui
 
     monkeypatch.setattr(catalogpages, '_caches_lock', _BadLock())
-    # A Home module that never loaded (no _LOGO_STATE to clear).
+    # Refreshing logo answers must not need the Home module.
     monkeypatch.setattr(lib.ui, 'newhome', object(), raising=False)
     logocheck.remember('https://img/a.png', True)
     ratingsched._cache = object()
@@ -180,3 +180,19 @@ def test_each_refresh_bumps_the_generation(refresh, monkeypatch):
     monkeypatch.setattr(time, 'time', lambda: 2000.0)
     refresh.module.refresh_from_settings()
     assert refresh.env.addon.getSetting('cache_generation') == '2000'
+
+
+def test_cache_refresh_never_imports_home(refresh, monkeypatch):
+    import builtins
+
+    original = builtins.__import__
+    imports = []
+
+    def tracked(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == 'lib.ui.newhome' or (name == 'lib.ui' and 'newhome' in (fromlist or ())):
+            imports.append(name)
+        return original(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, '__import__', tracked)
+    refresh.module.clear_memory()
+    assert imports == []

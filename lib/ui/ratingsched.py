@@ -35,6 +35,7 @@ from lib.stremio.ratings import (
     merge_scores,
 )
 
+_MAX_CACHE_ENTRIES = 2000
 _FAIL_SECONDS = 60
 #: Rejected/quota-limited keys pause across titles for five minutes. A
 #: corrected key has a different token and is usable immediately.
@@ -227,6 +228,12 @@ def _loop():
         _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id, stype)
 
 
+def _cap(cache):
+    """Oldest failures go first; remote scrolling is unbounded."""
+    while len(cache) > _MAX_CACHE_ENTRIES:
+        del cache[next(iter(cache))]
+
+
 def _provider_key(provider, key):
     return '%s\n%s' % (provider, _token(key))
 
@@ -244,6 +251,7 @@ def _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id, stype=''):
         key = omdb_key if provider == 'omdb' else mdblist_key
         with _lock:
             _provider_until[_provider_key(provider, key)] = time.monotonic() + _PROVIDER_COOLDOWN_SECONDS
+            _cap(_provider_until)
 
     available_omdb = _available_key('omdb', omdb_key)
     available_mdblist = _available_key('mdblist', mdblist_key)
@@ -273,6 +281,7 @@ def _worker(imdb_id, omdb_key, mdblist_key, cache, fail_id, stype=''):
     if failed:
         with _lock:
             _failed_until[fail_id] = time.time() + _FAIL_SECONDS
+            _cap(_failed_until)
     with _lock:
         _inflight.discard(imdb_id)
     try:
