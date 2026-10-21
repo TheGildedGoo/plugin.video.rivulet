@@ -2039,7 +2039,9 @@ def paint_hero(window, item=None):
         return
     meta = item.getProperty('hero_meta') or ''
     facts_raw = item.getProperty('hero_facts') or ''
-    if facts_raw and item.getProperty('facts_done') != '1':
+    from lib.ui.ratingsched import needs_refresh
+
+    if facts_raw and (item.getProperty('facts_done') != '1' or needs_refresh(facts_raw)):
         # A ratings key rebuilds this from the cached scores. No key, or
         # a cache miss, leaves the catalog line alone and returns at once.
         from lib.ui.ratingsched import overlay_text

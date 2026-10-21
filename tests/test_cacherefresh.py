@@ -165,7 +165,7 @@ def test_a_setting_that_will_not_save_still_says_done(refresh, monkeypatch):
 
     monkeypatch.setattr(compat.ADDON, 'setSetting', _readonly)
     refresh.module.refresh_from_settings()
-    assert done == ['files', 'memory']
+    assert done == ['memory', 'files']  # Stop old writers before deleting their files.
     assert refresh.env.notifications[-1][1] == 'STR30501'
 
 

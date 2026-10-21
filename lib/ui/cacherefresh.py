@@ -76,7 +76,7 @@ def clear_memory():
     try:
         from lib.ui import ratingsched
 
-        ratingsched._cache = None
+        ratingsched.reset()
     except Exception:
         pass
 
@@ -85,8 +85,9 @@ def refresh_from_settings():
     """The Settings button: clear, bump the generation, say so."""
     from lib.ui.compat import ADDON, L, notify
 
-    clear_files()
+    # Retire in-process writers before removing their cache files.
     clear_memory()
+    clear_files()
     try:
         ADDON.setSetting(GENERATION_SETTING, str(int(time.time())))
     except Exception:

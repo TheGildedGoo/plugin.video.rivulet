@@ -64,9 +64,32 @@ class RatingsError(Exception):
     (unknown id, 404) and is safe to cache. Anything else should be
     retried later, and the message is a category, never a URL."""
 
-    def __init__(self, category, empty=False):
+    def __init__(self, category, empty=False, retry_after=0, remaining=None, reset_after=0,
+                 providers=None):
         super().__init__(category)
+        self.category = category
         self.empty = empty
+        hints = [detail[2] for detail in (providers or {}).values()]
+        self.retry_after = max([retry_after] + [hint.get('retry_after', 0) for hint in hints])
+        self.remaining = remaining
+        self.reset_after = max([reset_after] + [hint.get('reset_after', 0) for hint in hints])
+        self.providers = providers or {}
+
+
+class Scores(dict):
+    """Keep the dict contract, with provider completeness for cache policy.
+
+    Only the score dictionary is persisted. Provider status and numeric rate
+    hints live on this response, never the request URL or configured keys.
+    """
+
+    def __init__(self, values, providers=None, partial=False):
+        super().__init__(values)
+        self.providers = providers or {}
+        self.partial = partial or any(
+            not empty and category != 'ok'
+            for category, empty, _hints in self.providers.values()
+        )
 
 
 def imdb_id_of(value):
@@ -234,25 +257,55 @@ def parse_mdblist(payload):
     return scores
 
 
-def _get_json(get, url, params, timeout):
+def _positive_number(value):
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+        return number if math.isfinite(number) and number >= 0 else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _rate_hints(response):
+    headers = {str(key).lower(): value for key, value in
+               (getattr(response, 'headers', None) or {}).items()}
+    retry = _positive_number(headers.get('retry-after')) or 0
+    reset = _positive_number(headers.get('x-ratelimit-reset'))
+    reset_after = max(0, reset - time.time()) if reset is not None else 0
+    return {'retry_after': max(retry, reset_after), 'reset_after': reset_after,
+            'remaining': _positive_number(headers.get('x-ratelimit-remaining'))}
+
+
+def _get_json(get, url, params, timeout, on_headers=None):
     try:
         response = get(url, params=params, timeout=timeout)
     except Exception as exc:
         raise RatingsError(type(exc).__name__)
     try:
+        hints = _rate_hints(response)
+        if on_headers is not None:
+            on_headers(hints)
         status = getattr(response, 'status_code', 0)
         if status == 404:
-            raise RatingsError('not found', empty=True)
+            raise RatingsError('not found', empty=True, **hints)
         if status in (401, 403):
-            raise RatingsError('rejected')
+            raise RatingsError('rejected', **hints)
         if status == 429:
-            raise RatingsError('quota')
+            raise RatingsError('quota', **hints)
+        if status == 503:
+            try:
+                error = response.json()
+            except Exception:
+                error = None
+            if isinstance(error, dict) and 'rate limiter' in str(error.get('error') or '').lower():
+                raise RatingsError('quota', **hints)
         if status != 200:
-            raise RatingsError('http %s' % status)
+            raise RatingsError('http %s' % status, **hints)
         try:
             payload = response.json()
         except Exception:
-            raise RatingsError('json')
+            raise RatingsError('json', **hints)
     finally:
         close = getattr(response, 'close', None)
         if close is not None:
@@ -263,18 +316,19 @@ def _get_json(get, url, params, timeout):
     return payload
 
 
-def _ask(get, url, params, timeout, parse, on_rejected=None):
-    """One service. Returns scores, a definitive miss, and a failure.
-
-    A rejected key or a transport error is a failure. An unknown title
-    is a miss. `parse` raising `RatingsError` counts the same way.
-    """
+def _ask(get, url, params, timeout, parse, on_rejected=None, on_result=None):
+    """One service: scores, definitive miss, failure; safe status separately."""
+    hints = {}
     try:
-        found = parse(_get_json(get, url, params, timeout))
+        found = parse(_get_json(get, url, params, timeout, hints.update))
     except RatingsError as exc:
-        if str(exc) in ('rejected', 'quota') and on_rejected is not None:
+        if exc.category in ('rejected', 'quota') and on_rejected is not None:
             on_rejected()
+        if on_result is not None:
+            on_result(exc.category, exc.empty, hints)
         return {}, exc.empty, not exc.empty
+    if on_result is not None:
+        on_result('ok', not bool(found), hints)
     if found:
         return found, False, False
     return {}, True, False
@@ -318,7 +372,8 @@ def fetch_scores(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=_TIMEOU
 
     OMDb is asked first. MDBList is asked only when a key is set and
     OMDb left a score out. A transport failure raises `RatingsError`
-    so the caller does not cache it for a day. A definitive miss
+    when no scores survive. A dict-compatible Scores response marks partial
+    answers when another provider failed. A definitive miss
     returns {} and the caller may cache that.
 
     `get` is `requests.get`-shaped (`url`, `params`, `timeout`) so
@@ -333,28 +388,29 @@ def fetch_scores(imdb_id, omdb_key='', mdblist_key='', get=None, timeout=_TIMEOU
         import requests
         get = requests.get
     scores = {}
+    providers = {}
+    def result(provider):
+        return lambda category, empty, hints: providers.update({provider: (category, empty, hints)})
     saw_error = False
     if omdb_key:
         found, _empty, error = _ask(get, OMDB_URL, {
             'i': imdb_id, 'apikey': omdb_key, 'tomatoes': 'true',
         }, timeout, parse_omdb,
-           (lambda: on_rejected('omdb')) if on_rejected is not None else None)
+           (lambda: on_rejected('omdb')) if on_rejected is not None else None, result('omdb'))
         scores.update(found)
         saw_error = error
     if mdblist_key and not _complete(scores):
         found, _empty, error = _ask(get, mdblist_url(imdb_id, stype), {
             'apikey': mdblist_key,
         }, timeout, parse_mdblist,
-           (lambda: on_rejected('mdblist')) if on_rejected is not None else None)
+           (lambda: on_rejected('mdblist')) if on_rejected is not None else None, result('mdblist'))
         for key, value in found.items():
             if value and not scores.get(key):
                 scores[key] = value
         saw_error = saw_error or error
-    if scores:
-        return scores
-    if saw_error:
-        raise RatingsError('unavailable')
-    return {}
+    if saw_error and not scores:
+        raise RatingsError('unavailable', providers=providers)
+    return Scores(scores, providers)
 
 
 def _atomic_write(path, payload):
@@ -384,6 +440,11 @@ def _valid_entry(entry):
             return False
     except OverflowError:
         return False
+    ttl = entry.get('ttl', TTL_SECONDS)
+    if isinstance(ttl, bool) or not isinstance(ttl, (int, float)):
+        return False
+    if _positive_number(ttl) is None or ttl <= 0:
+        return False
     scores = entry.get('scores')
     if not isinstance(scores, dict):
         return False
@@ -400,14 +461,15 @@ class RatingsCache:
 
     def __init__(self, path, clock=None, keys=('', '')):
         self.path = path
-        # Version the configured-key token: pre-audience entries must not
-        # hide Popcornmeter for a day after an upgrade. Old entries remain
+        # v3 invalidates partial answers previously cached for a full day.
+        # Entries with older tokens remain
         # readable for eviction, and raw keys never enter the JSON file.
         configured = tuple((key or '').strip() for key in keys)
-        self._key_token = hashlib.sha256(json.dumps(('v2',) + configured).encode('utf-8')).hexdigest()
+        self._key_token = hashlib.sha256(json.dumps(('v3',) + configured).encode('utf-8')).hexdigest()
         self._clock = clock or time.time
         self._lock = threading.Lock()
         self._entries = {}
+        self._closed = False
         self._load()
 
     def _now(self):
@@ -442,11 +504,20 @@ class RatingsCache:
                 return None
             if not isinstance(scores, dict):
                 return None
-            if now - at > TTL_SECONDS:
+            if now - at > entry.get('ttl', TTL_SECONDS):
                 return None
-            return dict(scores)
+            return Scores(scores, partial=entry.get('ttl', TTL_SECONDS) < TTL_SECONDS)
 
-    def store(self, imdb_id, scores, now=None):
+    def close(self):
+        """Retire this cache before Refresh discards its file and workers.
+
+        Serializing with store ensures a write already in progress finishes
+        before Refresh removes the file. Later stores cannot resurrect it.
+        """
+        with self._lock:
+            self._closed = True
+
+    def store(self, imdb_id, scores, now=None, ttl=None):
         imdb_id = imdb_id_of(imdb_id)
         if not imdb_id:
             return
@@ -458,8 +529,15 @@ class RatingsCache:
             if value:
                 kept[key] = value
         now = self._now() if now is None else now
+        if ttl is not None and (isinstance(ttl, bool) or not isinstance(ttl, (int, float))
+                                or _positive_number(ttl) is None or ttl <= 0):
+            raise ValueError('invalid ratings ttl')
         with self._lock:
+            if self._closed:
+                return
             self._entries[self._entry_key(imdb_id)] = {'at': now, 'scores': kept}
+            if ttl is not None:
+                self._entries[self._entry_key(imdb_id)]['ttl'] = ttl
             self._trim()
             directory = os.path.dirname(self.path)
             if directory:
