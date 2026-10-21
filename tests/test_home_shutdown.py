@@ -252,7 +252,8 @@ def test_first_load_cannot_wait_forever_if_a_worker_exits_without_a_result(sessi
     start = time.monotonic()
     rows = hw._load_rows(win, _FakeStore(), [], None)
     assert time.monotonic() - start < 1
-    assert rows[-1]['metas'] == []
+    assert rows == []
+    assert win._tab_loaded['home'] is False
 
 
 def test_home_meta_wrapper_discards_running_fanout_and_skips_next_focus(session, monkeypatch):

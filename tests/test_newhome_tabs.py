@@ -794,10 +794,14 @@ def test_explicit_series_alone_makes_anime_chip_and_toggle_rebuilds(load_homewin
     hw._switch_tab(win, 'anime')
     assert calls == ['shows']
     assert [state['list_id'] for state in win._rows.values()] == layout['tabs']['anime']
+    calls.clear()
     ctx.compat.ADDON.setSetting('home_show_anime', 'false')
     hw._after_child(win)
     assert 'anime' not in chip_actions(ctx, win)
     assert win._active_tab == 'home'
+    assert [state['kind'] for state in win._rows.values()] == ['continue', 'catalog', 'catalog']
+    assert sorted(calls) == ['movies', 'shows']
+    assert win._tab_loaded['home'] is True
     assert hw._load_rows(type('Window', (), {'_active_tab': 'anime'})(), None, [], None) == []
     calls.clear()
     hw._switch_tab(win, 'anime')

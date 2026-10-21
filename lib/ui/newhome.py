@@ -841,6 +841,23 @@ def _log_tab_paint(window, count):
             timing.get('continue', 0.0), _safe_list_id(slowest), seconds, timing['cancelled']), xbmc.LOGINFO)
 
 
+def _set_tab_loaded(window, loaded):
+    flags = getattr(window, '_tab_loaded', {})
+    window._tab_loaded = flags
+    flags[window._active_tab] = loaded
+    if not loaded:
+        getattr(window, '_tab_snapshots', {}).pop(window._active_tab, None)
+
+
+def _tab_load_incomplete(window, reason):
+    import xbmc
+
+    from lib.ui.compat import log
+
+    _set_tab_loaded(window, False)
+    log('home: tab %s load %s' % (window._active_tab, reason), xbmc.LOGINFO)
+
+
 def _load_rows(window, store, addons, auth):
     """Fetch only this tab's plan. One account read feeds every personal row."""
     from lib.homelayout import resolve
@@ -848,6 +865,7 @@ def _load_rows(window, store, addons, auth):
     from lib.ui.uicommon import CANCELLED, run_cancellable
 
     tab = window._active_tab
+    _set_tab_loaded(window, False)
     if tab == 'anime' and not setting_bool('home_show_anime', True):
         return []
     plan = resolve(window._layout, tab, window._catalogs)
@@ -877,6 +895,8 @@ def _load_rows(window, store, addons, auth):
         fetched = _load_home_jobs(jobs, stopped, timing)
         if stopped():
             return None
+        if len(fetched) != len(jobs):
+            return None
         entries = fetched.pop('library', cached or [])
         continued = fetched.pop('continue', {})
         rows = _make_row_states(store, auth, entries, plan, fetched,
@@ -888,10 +908,13 @@ def _load_rows(window, store, addons, auth):
     finally:
         cancelled.set()
         load_stops.remove(cancelled)
-    if loaded is CANCELLED or not isinstance(loaded, tuple):
+    if loaded is CANCELLED or not isinstance(loaded, tuple) or _stopping(session_stop):
         timing['cancelled'] = True
+        reason = 'stopped' if _stopping(session_stop) else 'cancelled' if loaded is CANCELLED else 'failed'
+        _tab_load_incomplete(window, reason)
         return []
     window._library_entries, rows = loaded
+    _set_tab_loaded(window, True)
     return rows
 
 
@@ -1023,6 +1046,9 @@ def _refresh_snapshot_personal(states, store, entries, auth, suppressed=None):
 
 def _snapshot_tab(window):
     """Keep loaded rows (up to 2000 each), native positions and last row."""
+    if not getattr(window, '_tab_loaded', {}).get(window._active_tab, False):
+        window._tab_snapshots.pop(window._active_tab, None)
+        return
     rows = list(getattr(window, '_rows', {}).values())
     for panel, state in getattr(window, '_rows', {}).items():
         state['position'] = window.getControl(panel).getSelectedPosition()
@@ -1048,15 +1074,17 @@ def _switch_tab(window, tab):
 
     if tab == 'anime' and not setting_bool('home_show_anime', True):
         return
-    if tab == window._active_tab:
+    complete = getattr(window, '_tab_loaded', {})
+    if tab == window._active_tab and complete.get(tab, False):
         _select_active_chip(window)
         window.setFocusId(BROWSE_LIST)
         return
-    _snapshot_tab(window)
+    if tab != window._active_tab:
+        _snapshot_tab(window)
     _cancel_shelf_extends(window)
     window._active_tab = tab
     snapshot = window._tab_snapshots.get(tab)
-    if snapshot:
+    if snapshot is not None and complete.get(tab, False):
         rows, window._tab_last_row = snapshot
         _paint_rows(window, rows)
         _top_up_shelves(window)
@@ -2112,6 +2140,7 @@ class NewHomeWindow(BaseWindow):
         """
         _cancel_shelf_extends(self)
         self._active_tab = getattr(self, '_active_tab', 'home')
+        _set_tab_loaded(self, False)
         self._tab_snapshots = getattr(self, '_tab_snapshots', {})
         try:
             self._build_rows(place)
@@ -2122,6 +2151,9 @@ class NewHomeWindow(BaseWindow):
             from lib.ui.compat import log
 
             log('home: build failed: %s' % addon_error_detail(exc), xbmc.LOGERROR)
+            _tab_load_incomplete(self, 'failed')
+            _cancel_shelf_extends(self)
+            self._rows = {}
             for list_id, prop, _counter in _ROW_COUNTERS:
                 self.setProperty(prop, '')
                 self.getControl(list_id).reset()
