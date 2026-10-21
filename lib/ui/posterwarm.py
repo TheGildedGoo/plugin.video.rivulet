@@ -100,15 +100,15 @@ def warm_posters(window, urls, monitor=None):
     when the list is done, the window has no slots, or Kodi is aborting.
     Posters only; the caller has already dropped everything else.
     """
-    import xbmc
-
     urls = [url for url in (urls or []) if isinstance(url, str) and url]
     if not urls:
         return
     slots = _slots(window)
     if not slots:
         return
-    monitor = monitor or xbmc.Monitor()
+    from lib.ui.background import monitor as shared_monitor
+
+    monitor = monitor or shared_monitor()
     stop = getattr(window, '_home_stop', None)
     try:
         for start in range(0, len(urls), len(slots)):
@@ -124,14 +124,8 @@ def warm_posters(window, urls, monitor=None):
                 if monitor.waitForAbort(_HOLD_SECONDS):
                     return
             else:
-                # Home close is independent of Kodi shutdown. Short timed
-                # waits release the slots while the window is still owned.
-                import time
-
-                until = time.monotonic() + _HOLD_SECONDS
-                while time.monotonic() < until:
-                    if stop.wait(min(0.1, until - time.monotonic())) or monitor.abortRequested():
-                        return
+                if stop.wait(_HOLD_SECONDS) or monitor.abortRequested():
+                    return
     finally:
         _clear(slots)
 

@@ -986,7 +986,7 @@ def test_continue_row_carries_the_episode_and_the_offset(load_homewindow, monkey
     )
     # Local progress carries no name; the row's meta fetch supplies it.
     monkeypatch.setattr(
-        ctx.mystuff, '_enrich', lambda items: [item.update(name='Show', poster='p') for item in items],
+        ctx.mystuff, '_enrich', lambda items, **kw: [item.update(name='Show', poster='p') for item in items],
     )
     win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
 
@@ -1369,7 +1369,7 @@ def test_catalog_errors_never_log_credentials(load_homewindow, monkeypatch):
     assert all('OSError' in msg and 'secret' not in msg and 'hidden' not in msg for msg in messages)
 
 
-def test_library_worker_is_reused_even_after_each_fetch_finishes(load_homewindow, monkeypatch):
+def test_library_worker_retires_when_idle_without_retaining_the_window(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     hw = ctx.homewindow
     win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
@@ -1381,7 +1381,9 @@ def test_library_worker_is_reused_even_after_each_fetch_finishes(load_homewindow
         hw._join_library_meta(win)
         assert win._library_meta_idle.is_set()
         workers.append(win._library_meta_thread)
-    assert len(set(workers)) == 1
+        win._library_meta_thread.join(1)
+        assert not win._library_meta_thread.is_alive()
+    assert not any(worker.is_alive() for worker in workers)
     # The idle worker must not retain a discarded window.
     import gc
     import weakref

@@ -31,7 +31,7 @@ def workers_since(before):
 
 
 def join_promptly(workers):
-    deadline = time.monotonic() + 1
+    deadline = time.monotonic() + 1.1  # One-second waits plus scheduling overhead.
     for worker in workers:
         worker.join(max(0, deadline - time.monotonic()))
     assert not [worker.name for worker in workers if worker.is_alive()]
@@ -60,7 +60,9 @@ def test_all_idle_home_workers_stop_while_window_is_still_referenced(session, mo
     ctx.logocheck.ask(['logo'])
     assert logo_done.wait(0.5)
     workers = workers_since(before)
-    assert {'rivulet-library-meta', 'rivulet-poster-warm', 'rivulet-ratings', 'rivulet-logocheck'} <= {t.name for t in workers}
+    assert {'rivulet-poster-warm', 'rivulet-ratings', 'rivulet-logocheck'} <= {t.name for t in workers}
+    # Metadata retires as soon as its slot is idle.
+    workers.append(win._library_meta_thread)
     if abort:
         ctx.env.monitor_abort_requested = True
     else:
@@ -326,7 +328,8 @@ def test_upstream_meta_retry_stops_on_home_close_or_abort(session, monkeypatch, 
     import xbmc
 
     monitor = xbmc.Monitor()
-    wait = monitor.waitForAbort
+    stop = ctx.newhome._home_stop(win)
+    wait = stop.wait
     waits = []
 
     def stop_during_pause(seconds):
@@ -335,21 +338,27 @@ def test_upstream_meta_retry_stops_on_home_close_or_abort(session, monkeypatch, 
             ctx.env.monitor_abort_requested = True
         else:
             win.close()
-        return wait(seconds)
+        return wait(0)
 
-    monitor.waitForAbort = stop_during_pause
+    stop.wait = stop_during_pause
     monkeypatch.setattr(xbmc, 'Monitor', lambda: monitor)
     result = ctx.newhome._fetch_library_meta('movie', 'tt1', ctx.newhome._home_stop(win))
     assert result is None
     assert calls == [True]
     assert len(waits) == (0 if stop_at == 'failure' else 1)
-    assert all(seconds <= 0.1 for seconds in waits)
+    assert all(seconds <= 1.0 for seconds in waits)
 
 
 def test_home_meta_retry_keeps_upstream_backoff_while_session_is_open(session):
-    assert session.views._pause_home_meta_retry(0.4, lambda: False) is False
-    assert sum(session.env.wait_calls) == pytest.approx(0.4)
-    assert max(session.env.wait_calls) <= 0.1
+    waits = []
+
+    class Stop:
+        def wait(self, seconds):
+            waits.append(seconds)
+            return False
+
+    assert session.views._pause_home_meta_retry(0.4, lambda: False, Stop()) is False
+    assert waits == [0.4]
 
 
 def test_home_meta_wrapper_checks_closed_before_call_and_discards_late_result(session, monkeypatch):

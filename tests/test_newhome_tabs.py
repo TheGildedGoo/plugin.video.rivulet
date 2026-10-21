@@ -41,7 +41,7 @@ def build(ctx, monkeypatch, layout=None, installed=None, progress=None, library=
     monkeypatch.setattr(hw, '_one_catalog_page', first)
     monkeypatch.setattr(hw, '_fetch_library', lambda *_: list(library or []))
     monkeypatch.setattr(hw, '_fetch_library_meta', lambda *_: None)
-    monkeypatch.setattr(ctx.mystuff, '_enrich', lambda items: [item.update(name='Played', poster='p') for item in items])
+    monkeypatch.setattr(ctx.mystuff, '_enrich', lambda items, **kw: [item.update(name='Played', poster='p') for item in items])
     monkeypatch.setattr(hw, '_warm_shelf_posters', lambda *_: None)
     win = hw.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
     win.onInit()

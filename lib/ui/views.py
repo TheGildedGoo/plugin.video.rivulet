@@ -424,7 +424,7 @@ _HOME_META_RETRY_CONTEXT = threading.local()
 _STOCK_META_RETRY_PAUSE = _pause_before_meta_retry
 
 
-def _fetch_meta_for_home(stype, sid, should_stop, **kw):
+def _fetch_meta_for_home(stype, sid, should_stop, stop_event=None, **kw):
     """Home owns the result, while the upstream lookup stays unchanged.
 
     Already-running HTTP/fan-out finishes under upstream's limits. Home's
@@ -435,30 +435,31 @@ def _fetch_meta_for_home(stype, sid, should_stop, **kw):
     if should_stop():
         return None
     previous = getattr(_HOME_META_RETRY_CONTEXT, 'should_stop', None)
+    previous_event = getattr(_HOME_META_RETRY_CONTEXT, 'stop_event', None)
     _HOME_META_RETRY_CONTEXT.should_stop = should_stop
+    _HOME_META_RETRY_CONTEXT.stop_event = stop_event
     try:
         result = _fetch_meta(stype, sid, **kw)
     finally:
         _HOME_META_RETRY_CONTEXT.should_stop = previous
+        _HOME_META_RETRY_CONTEXT.stop_event = previous_event
     return None if should_stop() else result
 
 
-def _pause_home_meta_retry(seconds, stopped):
-    """A Home caller's retry pause, checking close/abort every 100 ms."""
-    monitor = xbmc.Monitor()
-    while seconds > 0 and not stopped():
-        step = min(seconds, 0.1)
-        if monitor.waitForAbort(step):
-            return True
-        seconds -= step
-    return stopped()
+def _pause_home_meta_retry(seconds, stopped, stop_event=None):
+    """One interruptible backoff; the existing maximum pause is below 1 s."""
+    from lib.ui.background import monitor
+
+    if stopped() or monitor().abortRequested():
+        return True
+    return bool((stop_event or threading.Event()).wait(seconds) or stopped() or monitor().abortRequested())
 
 
 def _pause_meta_retry_with_home_context(seconds):
     stopped = getattr(_HOME_META_RETRY_CONTEXT, 'should_stop', None)
     if stopped is None:
         return _STOCK_META_RETRY_PAUSE(seconds)
-    return _pause_home_meta_retry(seconds, stopped)
+    return _pause_home_meta_retry(seconds, stopped, getattr(_HOME_META_RETRY_CONTEXT, 'stop_event', None))
 
 
 # Keep the upstream function text intact. Only the caller thread that

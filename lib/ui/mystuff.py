@@ -364,7 +364,7 @@ def _fetch_library_entries(store):
         return []
 
 
-def _enrich(items):
+def _enrich(items, fetch_meta=None, map_items=None):
     """Fill in name/poster for merged items that have none - the played
     bands on a logged-out device, where no library entry supplied them.
 
@@ -384,6 +384,9 @@ def _enrich(items):
     """
     from lib.ui import views
 
+    fetch_meta = fetch_meta or views._fetch_meta
+    map_items = map_items or views._map_addons
+
     # A next-up item is fetched even when it already has name and poster:
     # those come from the library entry, which carries no `videos`, and
     # without that list `_label_next_episodes()` cannot say which episode
@@ -402,7 +405,7 @@ def _enrich(items):
         flag `store_cached_metas()` below needs to avoid re-stamping TTLs
         on entries that were already cached."""
         was_fresh = []
-        meta = views._fetch_meta(
+        meta = fetch_meta(
             item['type'], item['id'], store=False,
             on_miss=lambda: was_fresh.append(True),
         )
@@ -413,7 +416,7 @@ def _enrich(items):
     # same as a failed fetch rather than crash unpacking None.
     fetched = [
         result if result is not None else (None, False)
-        for result in views._map_addons(_fetch, needs_fetch)
+        for result in map_items(_fetch, needs_fetch)
     ]
 
     store = get_store()

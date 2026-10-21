@@ -345,9 +345,9 @@ def _remembered_row_failure(state):
 
 
 def _stopping(stop=None):
-    import xbmc
+    from lib.ui.background import monitor
 
-    return (stop is not None and stop.is_set()) or xbmc.Monitor().abortRequested()
+    return (stop is not None and stop.is_set()) or monitor().abortRequested()
 
 
 def _home_stop(window):
@@ -573,7 +573,87 @@ def _newest_first(entries):
     return sorted(kept, key=lambda entry: entry.get('_ctime') or entry.get('_mtime') or '', reverse=True)
 
 
-def _played_posters(store, library_entries, variant='', suppressed=None):
+_CONTINUE_ENRICH_SECONDS = 2.0
+_continue_meta_misses = set()
+_continue_miss_lock = threading.Lock()
+
+
+def _enrich_for_home(items, deadline=None, stop=None):
+    from lib.ui.mystuff import _enrich
+    from lib.ui.views import _fetch_meta_for_home
+
+    deadline = deadline if deadline is not None else time.monotonic() + _CONTINUE_ENRICH_SECONDS
+
+    def stopped():
+        return time.monotonic() >= deadline or _stopping(stop)
+
+    def fetch_meta(stype, sid, **kw):
+        return _fetch_meta_for_home(stype, sid, stopped, stop_event=stop, **kw)
+
+    def map_items(fetch, wanted):
+        return _map_continue_meta(fetch, wanted, deadline, stop)
+
+    return _enrich(items, fetch_meta=fetch_meta, map_items=map_items)
+
+
+def _map_continue_meta(fetch, wanted, deadline, stop):
+    """Only completed results may enrich this load; unresolved ids miss once."""
+    def stopped():
+        return time.monotonic() >= deadline or _stopping(stop)
+
+    with _continue_miss_lock:
+        jobs = [(index, partial(fetch, item), None) for index, item in enumerate(wanted)
+                if (item.get('type'), item.get('id')) not in _continue_meta_misses]
+    timing = {'jobs': {}, 'lock': threading.Lock()}
+    fetched = _load_home_jobs(jobs, stopped, timing, deadline)
+    results = [fetched.get(index) for index in range(len(wanted))]
+    with _continue_miss_lock:
+        for item, result in zip(wanted, results):
+            if result is None or not result[0]:
+                _continue_meta_misses.add((item.get('type'), item.get('id')))
+    return results
+
+
+def _home_personal_jobs(window, store, auth, plan, stopped, cancelled, timing):
+    """Account read and bounded Continue work share the row pool in parallel."""
+    cached = getattr(window, '_library_entries', None)
+    entries = {'value': cached or []}
+    ready = threading.Event()
+    jobs = []
+    needs_library = any(kind in ('continue', 'library') for _, kind, _, _, _ in plan)
+    if needs_library and cached is None:
+        def library():
+            try:
+                entries['value'] = _fetch_library(store, auth)
+                return entries['value']
+            finally:
+                ready.set()
+        jobs.append(('library', library, []))
+    else:
+        ready.set()
+    continued = [(list_id, variant) for list_id, kind, _, variant, _ in plan if kind == 'continue']
+    if continued:
+        deadline = time.monotonic() + _CONTINUE_ENRICH_SECONDS
+
+        def continue_rows():
+            while not ready.is_set() and not stopped():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return {}
+                ready.wait(min(1.0, remaining))
+            if stopped():
+                return {}
+            started = time.monotonic()
+            result = {list_id: _played_posters(store, entries['value'], variant,
+                       getattr(window, '_continue_suppressed', None), deadline, cancelled)
+                      for list_id, variant in continued}
+            timing['continue'] = time.monotonic() - started
+            return result
+        jobs.append(('continue', continue_rows, {}))
+    return jobs, needs_library, cached
+
+
+def _played_posters(store, library_entries, variant='', suppressed=None, deadline=None, stop=None):
     """Resume, next-up and recently finished. Never the library band.
 
     `merge_entries()` is what copies a saved title's name and poster onto
@@ -581,7 +661,7 @@ def _played_posters(store, library_entries, variant='', suppressed=None):
     neither, so a home paint does not fan out a meta fetch for every
     series just to learn the next episode code.
     """
-    from lib.ui.mystuff import BAND_LIBRARY, _enrich
+    from lib.ui.mystuff import BAND_LIBRARY
 
     try:
         merged = _merge_played(store.get_progress_entries(), library_entries)
@@ -595,7 +675,7 @@ def _played_posters(store, library_entries, variant='', suppressed=None):
     missing = [entry for entry in played if not (entry.get('name') or entry.get('poster'))]
     if missing:
         try:
-            _enrich(missing)
+            _enrich_for_home(missing, deadline, stop)
         except Exception:
             pass
     posters = []
@@ -652,7 +732,7 @@ def _fetch_library(store, auth):
 _MAX_HOME_WORKERS = 4
 
 
-def _make_row_states(store, auth, entries, plan, fetched, suppressed=None):
+def _make_row_states(store, auth, entries, plan, fetched, suppressed=None, continued=None):
     from lib.homelayout import heading_text, matches_library
     from lib.ui.compat import L
     from lib.ui.mystuff import library_metas
@@ -669,7 +749,7 @@ def _make_row_states(store, auth, entries, plan, fetched, suppressed=None):
             state['kind'] = 'catalog'
             state['items'] = [_poster_item(meta) for meta in state['metas']]
         elif kind == 'continue':
-            state['items'] = _played_posters(store, entries, variant, suppressed)
+            state['items'] = continued.get(list_id, []) if continued is not None else _played_posters(store, entries, variant, suppressed)
         elif not auth:
             if not signed_out_card:
                 state['items'] = [_poster_item({'name': L(30427), 'description': L(30428)}, action='signin')]
@@ -687,12 +767,17 @@ def _make_row_states(store, auth, entries, plan, fetched, suppressed=None):
     return rows
 
 
-def _collect_home_rows(results, count, threads, stopped):
+def _collect_home_rows(results, count, threads, stopped, deadline=None):
     """Cancellation and a dead worker both end the first-paint collector."""
     fetched = {}
     while len(fetched) < count and not stopped():
+        if results.empty() and not any(thread.is_alive() for thread in threads):
+            break
+        timeout = min(0.75, deadline - time.monotonic()) if deadline is not None else 0.75
+        if timeout <= 0:
+            break
         try:
-            key, value = results.get(timeout=0.1)
+            key, value = results.get(timeout=timeout)
             fetched[key] = value
         except queue.Empty:
             # A worker dying outside Exception handling must not strand us.
@@ -722,7 +807,7 @@ def _home_load_worker(work, results, stopped, timing):
             results.put((key, value))
 
 
-def _load_home_jobs(jobs, stopped, timing):
+def _load_home_jobs(jobs, stopped, timing, deadline=None):
     from lib.ui.catalogpages import deferred_saves
 
     work, results = queue.Queue(), queue.Queue()
@@ -735,7 +820,7 @@ def _load_home_jobs(jobs, stopped, timing):
                                       name='rivulet-home-load', daemon=True)
             threads.append(thread)
             thread.start()
-        return _collect_home_rows(results, len(jobs), threads, stopped)
+        return _collect_home_rows(results, len(jobs), threads, stopped, deadline)
 
 
 def _log_tab_paint(window, count):
@@ -780,23 +865,22 @@ def _load_rows(window, store, addons, auth):
     window._tab_load_timing = timing
 
     def load():
-        needs_library = any(kind in ('continue', 'library') for _, kind, _, _, _ in plan)
-        cached = getattr(window, '_library_entries', None)
-        jobs = []
-        if needs_library and cached is None:
-            jobs.append(('library', partial(_fetch_library, store, auth), []))
+        jobs, needs_library, cached = _home_personal_jobs(
+            window, store, auth, plan, stopped, cancelled, timing)
         for list_id, kind, descriptor, _variant, _heading in plan:
             if kind == 'catalog':
                 jobs.append((list_id, partial(_open_shelf, dict(descriptor, _stop=cancelled)),
                              {'metas': [], 'exhausted': True}))
+        # Library must be able to complete without a Continue waiter
+        # occupying one of the first four row slots.
+        jobs.sort(key=lambda job: job[0] == 'continue')
         fetched = _load_home_jobs(jobs, stopped, timing)
         if stopped():
             return None
         entries = fetched.pop('library', cached or [])
-        enrich_started = time.monotonic()
+        continued = fetched.pop('continue', {})
         rows = _make_row_states(store, auth, entries, plan, fetched,
-                                getattr(window, '_continue_suppressed', None))
-        timing['continue'] = time.monotonic() - enrich_started
+                                getattr(window, '_continue_suppressed', None), continued)
         return entries if needs_library or cached is not None else None, rows
 
     try:
@@ -1444,7 +1528,7 @@ def _fetch_library_meta(stype, sid, stop=None):
     """
     from lib.ui.views import _fetch_meta_for_home
 
-    return _fetch_meta_for_home(stype, sid, should_stop=lambda: _stopping(stop))
+    return _fetch_meta_for_home(stype, sid, should_stop=lambda: _stopping(stop), stop_event=stop)
 
 
 #: Seconds before a failed library/Continue meta fetch is tried again.
@@ -1532,7 +1616,7 @@ def _start_library_meta(window):
 def _library_meta_worker(window_ref, wake, idle, stop):
     """Serve one Home session; neither GC nor another key press ends it."""
     while True:
-        wake.wait(timeout=0.1)
+        wake.wait(timeout=1.0)
         wake.clear()
         window = window_ref()
         if window is None:
@@ -1545,6 +1629,11 @@ def _library_meta_worker(window_ref, wake, idle, stop):
                     _start_library_meta(window)
                 return
         _drain_library_meta(window, idle, stop)
+        with _library_meta_lock(window):
+            if not stop.is_set() and window._library_meta_pending is None:
+                window._library_meta_running = False
+                idle.set()
+                return
         del window
 
 

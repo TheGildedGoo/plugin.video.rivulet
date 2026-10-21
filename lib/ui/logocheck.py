@@ -116,9 +116,9 @@ def _next():
 
 
 def _run():
-    import xbmc
+    from lib.ui.background import monitor as shared_monitor
 
-    monitor = xbmc.Monitor()
+    monitor = shared_monitor()
     retired = False
     try:
         while True:
@@ -129,7 +129,7 @@ def _run():
                     return
             url = _next()
             if url is None:
-                if not _WAKE.wait(0.1):
+                if not _WAKE.wait(1.0):
                     with _LOCK:
                         if _PENDING:
                             continue

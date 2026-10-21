@@ -198,10 +198,10 @@ def _next_due():
     """The plan's head once its dwell has passed: `(item, None)`, or
     `(None, seconds)` to wait, or `(None, None)` when the plan is empty
     (the worker then stops)."""
-    import xbmc
+    from lib.ui.background import monitor
 
     with _lock:
-        if _stop.is_set() or xbmc.Monitor().abortRequested() or not _plan['items']:
+        if _stop.is_set() or monitor().abortRequested() or not _plan['items']:
             _plan['running'] = False
             return None, None
         left = _plan['at'] + _DWELL_SECONDS - time.monotonic()
@@ -224,7 +224,7 @@ def _loop():
             return
         if item is None:
             _wake.clear()
-            _wake.wait(min(wait, 0.1))
+            _wake.wait(min(wait, 1.0))
             continue
         if not item:
             continue
