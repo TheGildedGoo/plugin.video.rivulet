@@ -334,7 +334,12 @@ def _link_stubs(monkeypatch, ctx, answers, created=('WUS8', 'https://link.stremi
     monkeypatch.setattr(ctx.pairwindow, '_LINK_POLL_SECONDS', 0)
     windows = []
     real_open = ctx.uicommon.open_window
-    monkeypatch.setattr(ctx.uicommon, 'open_window', lambda *a, **k: windows.append(real_open(*a, **k)) or windows[-1])
+    def open_window(*args, **kwargs):
+        window = real_open(*args, **kwargs)
+        if args[1] == 'PairDialog.xml':
+            windows.append(window)
+        return window
+    monkeypatch.setattr(ctx.uicommon, 'open_window', open_window)
     return reads, windows
 
 
@@ -397,3 +402,122 @@ def test_link_sign_in_keeps_the_key_when_the_account_lookup_fails(kodi_stubs, mo
     result = ctx.pairwindow.link_sign_in(api=_FakeApi(exc=ApiError('nope')), sleep=lambda _s: False)
     assert result == {'authKey': 'auth-key-2', 'user': {}}
     assert 'auth-key-2' not in _logged(ctx)
+
+
+def test_wrong_codes_end_the_tv_wait_without_sleeping(kodi_stubs):
+    ctx = _load(kodi_stubs)
+    session = ctx.pairwindow.PairSession()
+    for _ in range(8):
+        session.submit('wrong', 'value')
+    assert ctx.pairwindow._wait(session, lambda: False, lambda _: pytest.fail('locked wait slept'), 180) is None
+
+
+@pytest.mark.parametrize('stage', ['create', 'read'])
+def test_back_cancels_a_hanging_link_request(kodi_stubs, monkeypatch, stage):
+    import threading
+
+    from lib.stremio import linklogin
+
+    ctx = _load_with(kodi_stubs)
+    entered, release, finished = threading.Event(), threading.Event(), threading.Event()
+    _link_stubs(monkeypatch, ctx, [])
+    def hang(*args):
+        entered.set()
+        try:
+            assert release.wait(5)
+            return None
+        finally:
+            finished.set()
+    monkeypatch.setattr(linklogin, 'create_code' if stage == 'create' else 'read_auth_key', hang)
+    def deliver(monitor=None):
+        if entered.is_set():
+            from lib.ui.uicommon import _TRANSIENT_DIALOGS
+            _TRANSIENT_DIALOGS[-1].cancel()
+        return False
+    monkeypatch.setattr(ctx.uicommon, 'deliver_queued_input', deliver)
+    try:
+        assert ctx.pairwindow.link_sign_in(api=_FakeApi()) is None
+        assert entered.is_set() and not release.is_set()
+    finally:
+        release.set()
+        assert finished.wait(5)
+
+
+@pytest.mark.parametrize('failure', ['mkstemp', 'write', 'profile'])
+def test_qr_creation_failure_keeps_typed_dialog_usable(kodi_stubs, monkeypatch, tmp_path, failure):
+    ctx = _load(kodi_stubs)
+    monkeypatch.setattr(ctx.compat, 'addon_profile_dir', lambda: str(tmp_path))
+    def fail(*args, **kwargs):
+        raise OSError('unavailable')
+    if failure == 'profile':
+        monkeypatch.setattr(ctx.compat, 'addon_profile_dir', fail)
+    elif failure == 'mkstemp':
+        monkeypatch.setattr(ctx.pairwindow.tempfile, 'mkstemp', fail)
+    else:
+        monkeypatch.setattr(ctx.pairwindow, 'write_qr_bmp', fail)
+    class Server:
+        def __init__(self, session, strings, host):
+            self.session = session
+            assert host == '192.0.2.2'
+        def start(self):
+            pass
+        def page_url(self, ip):
+            return 'local page'
+        def close(self):
+            self.session.close()
+    monkeypatch.setattr(ctx.pairwindow, 'PairServer', Server)
+    images = []
+    monkeypatch.setattr(ctx.pairwindow, '_paint', lambda *args: images.append(args[-2]))
+    def wait(session, canceled, sleep, timeout):
+        assert images == ['']
+        return 'typed'
+    monkeypatch.setattr(ctx.pairwindow, '_wait', wait)
+    assert ctx.pairwindow.pair_value('Key', ipv4='192.0.2.2') == 'typed'
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_qr_filename_is_random_and_cleanup_is_independent(kodi_stubs, monkeypatch, tmp_path):
+    ctx = _load(kodi_stubs)
+    monkeypatch.setattr(ctx.compat, 'addon_profile_dir', lambda: str(tmp_path))
+    path = ctx.pairwindow._qr_image('server-supplied-code')
+    assert Path(path).parent == tmp_path and Path(path).name.startswith('pair-')
+    assert 'server-supplied-code' not in Path(path).name
+    class Window:
+        def close(self):
+            raise RuntimeError('close failed')
+    class Server:
+        closed = False
+        def close(self):
+            self.closed = True
+    server = Server()
+    ctx.pairwindow._cleanup(Window(), server, path)
+    assert server.closed and not Path(path).exists()
+
+
+@pytest.mark.parametrize('failure', ['profile', 'mkstemp', 'write'])
+def test_link_qr_failure_still_allows_approval(kodi_stubs, monkeypatch, tmp_path, failure):
+    ctx = _load_with(kodi_stubs)
+    _link_stubs(monkeypatch, ctx, ['auth-approved'])
+    monkeypatch.setattr(ctx.compat, 'addon_profile_dir', lambda: str(tmp_path))
+    def fail(*args, **kwargs):
+        raise OSError('unavailable')
+    if failure == 'profile':
+        monkeypatch.setattr(ctx.compat, 'addon_profile_dir', fail)
+    elif failure == 'mkstemp':
+        monkeypatch.setattr(ctx.pairwindow.tempfile, 'mkstemp', fail)
+    else:
+        monkeypatch.setattr(ctx.pairwindow, 'write_qr_bmp', fail)
+    images = []
+    monkeypatch.setattr(ctx.pairwindow, '_paint', lambda *args: images.append(args[-2]))
+    assert ctx.pairwindow.link_sign_in(api=_FakeApi(user={})) == {'authKey': 'auth-approved', 'user': {}}
+    assert images == [''] and list(tmp_path.iterdir()) == []
+
+
+def test_link_errors_log_a_category_without_the_private_message(kodi_stubs, monkeypatch):
+    from lib.stremio.linklogin import LinkError
+
+    ctx = _load_with(kodi_stubs)
+    _link_stubs(monkeypatch, ctx, [], created=LinkError('https://user:private@host/?token=hidden'))
+    assert ctx.pairwindow.link_sign_in() is None
+    assert 'private' not in _logged(ctx) and 'hidden' not in _logged(ctx)
+    assert 'LinkError' in _logged(ctx)

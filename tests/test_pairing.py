@@ -256,3 +256,88 @@ def test_a_key_page_has_no_outbound_link_and_keeps_its_field_size():
     _status, html = respond('GET', '/ABCDEF', b'', session, _STRINGS)
     assert '<a ' not in html
     assert 'maxlength="%d"' % MAX_KEY_LENGTH in html
+
+
+def test_lowercase_code_and_path_are_accepted_and_close_revokes():
+    session = PairSession(code='ABCDEF')
+    status, _ = respond('POST', '/abcdef', b'key=value', session, _STRINGS)
+    assert status == 200 and session.take() == 'value'
+    assert session.submit('  abcdef  ', 'value') == 'ok'
+    session.close()
+    assert session.locked() and session.expired()
+    assert session.submit('ABCDEF', 'late') == 'expired'
+    assert session.take() is None
+
+
+def test_partial_post_handler_ends_when_server_closes(monkeypatch):
+    import threading
+
+    from lib import pairing
+
+    _allow_localhost(monkeypatch)
+    entered, ended = threading.Event(), threading.Event()
+    original = pairing._Handler.do_POST
+    def post(handler):
+        entered.set()
+        try:
+            original(handler)
+        finally:
+            ended.set()
+    monkeypatch.setattr(pairing._Handler, 'do_POST', post)
+    assert pairing._Handler.timeout == 10
+    session = PairSession()
+    server = PairServer(session, _STRINGS, host='127.0.0.1')
+    server.start()
+    try:
+        with socket.create_connection(('127.0.0.1', server.port), timeout=5) as sock:
+            sock.sendall(b'POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 50\r\n\r\nke')
+            assert entered.wait(5)
+            server.close()
+            assert ended.wait(5)  # Hang guard; no elapsed-time assertion.
+            assert session.take() is None
+    finally:
+        server.close()
+
+
+def test_keepalive_cannot_save_after_server_close(monkeypatch):
+    _allow_localhost(monkeypatch)
+    session = PairSession()
+    server = PairServer(session, _STRINGS, host='127.0.0.1')
+    server.start()
+    try:
+        with socket.create_connection(('127.0.0.1', server.port), timeout=5) as sock:
+            sock.sendall(b'GET / HTTP/1.1\r\nHost: localhost\r\nConnection: keep-alive\r\n\r\n')
+            data = b''
+            while True:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+            assert b'Connection: close' in data
+            server.close()
+            try:
+                sock.sendall(b'POST / HTTP/1.1\r\nContent-Length: 9\r\n\r\nkey=value')
+                late = sock.recv(4096)
+            except OSError:
+                late = b''
+            assert b'Saved' not in late and session.take() is None
+    finally:
+        server.close()
+
+
+def test_fifth_connection_is_closed_without_a_response(monkeypatch):
+    from lib import pairing
+
+    accepted, rejected = [], []
+    monkeypatch.setattr(pairing.ThreadingHTTPServer, 'process_request', lambda self, request, address: accepted.append(request))
+    server = pairing._Server(('127.0.0.1', 0), PairSession(), _STRINGS)
+    monkeypatch.setattr(server, 'shutdown_request', rejected.append)
+    requests = [object() for _ in range(5)]
+    try:
+        for request in requests:
+            server.process_request(request, ('127.0.0.1', 1))
+        assert accepted == requests[:4] and rejected == requests[4:]
+        for request in accepted:
+            server._release_connection(request)
+    finally:
+        server.server_close()

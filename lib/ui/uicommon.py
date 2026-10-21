@@ -830,3 +830,16 @@ def fetch_and_validate_addon(client, url):
         return None, None, 30014
 
     return manifest, transport_url, None
+
+
+def confirm_addon_install(manifest, transport_url):
+    """Confirm a validated typed/phone link without exposing its configuration."""
+    from urllib.parse import urlsplit
+
+    from lib.ui import dialogs
+    from lib.ui.compat import L
+
+    body = '%s\n%s' % (escape_label(manifest.get('name', '?')),
+                        escape_label(urlsplit(transport_url).hostname or ''))
+    return dialogs.confirm(L(30342), body, xbmc.getLocalizedString(107),
+                           xbmc.getLocalizedString(106))

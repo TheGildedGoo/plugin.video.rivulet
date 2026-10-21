@@ -53,8 +53,8 @@ def new_code():
 
 
 def clean_key(value):
-    """Printable ASCII, no spaces, capped. Anything else is refused
-    rather than stored, so a wrapped paste cannot become the setting."""
+    """Strip spaces and non-printable/non-ASCII characters; refuse the
+    result if it is empty or longer than MAX_KEY_LENGTH."""
     text = ''.join(ch for ch in str(value or '') if 33 <= ord(ch) <= 126)
     if not text or len(text) > MAX_KEY_LENGTH:
         return ''
@@ -138,15 +138,19 @@ class PairSession:
         self._created = self._now()
         self._key = None
         self._fails = 0
+        self._closed = False
         self._lock = threading.Lock()
 
     def expired(self):
-        return self._now() >= self._created + self.ttl
+        return self._closed or self._now() >= self._created + self.ttl
 
     def submit(self, code, key):
         """'ok' stores the value. Every other result stores nothing."""
+        code = str(code or '').strip().upper()
         cleaned = self.cleaner(key)
         with self._lock:
+            if self._closed:
+                return 'expired'
             if self._key is not None:
                 return 'used'
             if self._fails >= MAX_FAILURES or self.expired():
@@ -164,6 +168,16 @@ class PairSession:
                 return 'long' if len(raw) > self.max_length else 'empty'
             self._key = cleaned
             return 'ok'
+
+    def locked(self):
+        with self._lock:
+            return self._closed or self._fails >= MAX_FAILURES
+
+    def close(self):
+        """Revoke the code before the listener or active requests shut down."""
+        with self._lock:
+            self._closed = True
+            self._key = None
 
     def take(self):
         """The key once, or None. Cleared as it is read."""
@@ -186,7 +200,7 @@ def _esc(text):
 
 
 def _path_code(path):
-    name = (path or '/').split('?', 1)[0].strip('/')
+    name = (path or '/').split('?', 1)[0].strip('/').upper()
     if not name or '/' in name or len(name) > _CODE_LENGTH:
         return ''
     if any(ch not in _ALPHABET for ch in name):
@@ -282,6 +296,7 @@ def respond(method, path, body, session, strings):
 
 class _Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
+    timeout = 10.0
 
     def log_message(self, fmt, *args):
         """Silence. The default line is the request path, and a future
@@ -315,7 +330,9 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _write(self, status, html):
         payload = (html or '').encode('utf-8')
+        self.close_connection = True
         self.send_response(status)
+        self.send_header('Connection', 'close')
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Content-Length', str(len(payload)))
         self.send_header('Cache-Control', 'no-store')
@@ -331,7 +348,43 @@ class _Server(ThreadingHTTPServer):
     def __init__(self, address, session, strings):
         self.session = session
         self.strings = strings
+        self._connection_slots = threading.BoundedSemaphore(4)
+        self._connections = set()
+        self._connections_lock = threading.Lock()
         super().__init__(address, _Handler)
+
+    def process_request(self, request, client_address):
+        if not self._connection_slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        with self._connections_lock:
+            self._connections.add(request)
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._release_connection(request)
+            raise
+
+    def _release_connection(self, request):
+        with self._connections_lock:
+            self._connections.discard(request)
+        self._connection_slots.release()
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._release_connection(request)
+
+    def server_close(self):
+        super().server_close()
+        with self._connections_lock:
+            active = list(self._connections)
+        for request in active:
+            try:
+                request.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
 
     def handle_error(self, request, client_address):
         """Drop the traceback. It can quote the request line."""
@@ -359,6 +412,7 @@ class PairServer:
         return 'http://%s:%d/%s' % (ip, self.port, self.session.code)
 
     def close(self):
+        self.session.close()
         httpd = self._httpd
         thread = self._thread
         self._httpd = None
@@ -368,7 +422,6 @@ class PairServer:
             httpd.server_close()
         if thread is not None:
             thread.join(timeout=2)
-        self.session.clear()
 
 
 def write_qr_bmp(text, path, scale=8, border=4):

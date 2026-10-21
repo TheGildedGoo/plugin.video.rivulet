@@ -613,7 +613,7 @@ class AddonCatalogWindow(BaseWindow):
         so this never attempts to fetch or display it, only its URL."""
         from lib.ui.compat import L, notify
         from lib.ui.pairwindow import ask_addon_url
-        from lib.ui.uicommon import escape_label, fetch_and_validate_addon
+        from lib.ui.uicommon import confirm_addon_install, escape_label, fetch_and_validate_addon
 
         manifest = descriptor.get('manifest') or {}
         transport_url = descriptor.get('transportUrl') or ''
@@ -632,6 +632,9 @@ class AddonCatalogWindow(BaseWindow):
             return
         if error_id:
             notify(L(error_id))
+            return
+
+        if not confirm_addon_install(configured_manifest, pasted_transport_url):
             return
 
         from lib.ui.views import _sync_addons_if_logged_in

@@ -964,6 +964,7 @@ def test_onclick_needs_configuration_entry_never_installs_and_opens_paste_url_fl
 def test_onclick_needs_configuration_entry_pasted_url_installs_configured_manifest(load_addoncatalogwindow, monkeypatch):
     configured_manifest = {'id': 'cfg', 'name': 'Needs Config (configured)', 'version': '1.0.1'}
     ctx = load_addoncatalogwindow(dialog_inputs=['https://cfg.example/manifest.json?token=xyz'])
+    monkeypatch.setattr(ctx.dialogs, 'confirm', lambda *a: True)
     stub_choose(monkeypatch, ctx, 1)  # type the address
     store = _FakeStore(addons=[_source_addon()])
     client = _FakeClient(
@@ -1104,6 +1105,7 @@ def test_onclick_needs_configuration_phone_page_links_the_configure_page(load_ad
     """Configure on the phone, paste the link there; nothing typed on the TV."""
     configured_manifest = {'id': 'cfg', 'name': 'Needs Config (configured)', 'version': '1.0.1'}
     ctx = load_addoncatalogwindow()
+    monkeypatch.setattr(ctx.dialogs, 'confirm', lambda *a: True)
     store = _FakeStore(addons=[_source_addon()])
     client = _FakeClient(
         session=FakeSession(responses=[FakeResponse(CATALOG_ENVELOPE), FakeResponse(CATALOG_ENVELOPE)]),
@@ -1134,3 +1136,27 @@ def test_onclick_needs_configuration_phone_page_links_the_configure_page(load_ad
     assert kwargs['messages']['link'] == 'https://cfg.example/configure'
     assert kwargs['messages']['link_label'] == 'STR30477'
     assert store.installed == [('https://cfg.example/manifest.json?token=xyz', configured_manifest)]
+
+
+@pytest.mark.parametrize('approved', [False, True])
+def test_typed_phone_link_confirms_host_before_install_and_sync(load_addoncatalogwindow, monkeypatch, approved):
+    ctx = load_addoncatalogwindow()
+    from lib.ui import pairwindow, uicommon
+
+    store = _FakeStore()
+    manifest = {'id': 'new', 'name': 'Addon', 'version': '1'}
+    url = 'https://user:private@host.example/config/manifest.json?token=private'
+    _wire_store(ctx.addoncatalogwindow, store)
+    monkeypatch.setattr(ctx.addoncatalogwindow, 'get_client', lambda: object())
+    monkeypatch.setattr(pairwindow, 'ask_addon_url', lambda *a, **kw: url)
+    monkeypatch.setattr(uicommon, 'fetch_and_validate_addon', lambda *a: (manifest, url, None))
+    confirms, synced = [], []
+    monkeypatch.setattr(ctx.dialogs, 'confirm', lambda *args: confirms.append(args) or approved)
+    monkeypatch.setattr(ctx.views, '_sync_addons_if_logged_in', lambda *a, **kw: synced.append(True))
+    win = _make_window(ctx.addoncatalogwindow)
+    win.store = store
+    monkeypatch.setattr(win, '_reload', lambda: None)
+    win._configure({'manifest': {'name': 'Addon'}, 'transportUrl': url})
+    assert bool(store.installed) is approved and bool(synced) is approved
+    assert len(confirms) == 1 and confirms[0][0] == 'STR30342'
+    assert confirms[0][1] == 'Addon\nhost.example'

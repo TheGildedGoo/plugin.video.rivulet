@@ -99,7 +99,7 @@ def _wait(session, canceled, sleep, timeout):
         key = session.take()
         if key:
             return key
-        if canceled():
+        if canceled() or session.locked() or session.expired():
             return None
         left = deadline - time.monotonic()
         if left <= 0:
@@ -118,14 +118,54 @@ def _paint(window, heading, code, url, hint, image, cancel):
         window.getControl(PAIR_QR).setImage(image)
 
 
+def _cleanup(window=None, server=None, qr_path=''):
+    """Each resource retires even if another cleanup operation fails."""
+    import xbmc
+
+    from lib.ui.compat import log
+    from lib.ui.uicommon import unregister_transient_dialog
+
+    actions = []
+    if window is not None:
+        actions.extend((lambda: unregister_transient_dialog(window), window.close))
+    if server is not None:
+        actions.append(server.close)
+    if qr_path:
+        actions.append(lambda: os.remove(qr_path))
+    for action in actions:
+        try:
+            action()
+        except Exception as exc:
+            log('pair: cleanup failed: %s' % type(exc).__name__, xbmc.LOGDEBUG)
+
+
+def _qr_image(text):
+    import xbmc
+
+    from lib.ui.compat import addon_profile_dir, log
+
+    path = ''
+    try:
+        directory = addon_profile_dir()
+        os.makedirs(directory, exist_ok=True)
+        fd, path = tempfile.mkstemp(prefix='pair-', suffix='.bmp', dir=directory)
+        os.close(fd)
+        write_qr_bmp(text, path)
+        return path
+    except Exception as exc:
+        log('pair: qr failed: %s' % type(exc).__name__, xbmc.LOGDEBUG)
+        _cleanup(qr_path=path)
+        return ''
+
+
 def pair_value(label, prompt=None, cleaner=None, max_length=MAX_KEY_LENGTH, messages=None,
-               sleep=None, ipv4=None, bind_host='0.0.0.0', timeout=None):
+               sleep=None, ipv4=None, bind_host=None, timeout=None):
     """Show the code and the QR; block until the phone posts, the user
     backs out, or the code expires. The cleaned value, or None.
 
     `messages` overrides the page's texts (`prompt`, `empty`, `long`,
     `link`, `link_label`, ...). `ipv4` and `bind_host` are for tests.
-    Production binds every interface and advertises `local_ipv4()`.
+    Production binds and advertises only the selected `local_ipv4()` address.
     """
     import xbmc
 
@@ -133,7 +173,6 @@ def pair_value(label, prompt=None, cleaner=None, max_length=MAX_KEY_LENGTH, mess
     from lib.ui.uicommon import (
         open_window,
         register_transient_dialog,
-        unregister_transient_dialog,
     )
 
     ip = local_ipv4() if ipv4 is None else ipv4
@@ -145,18 +184,13 @@ def pair_value(label, prompt=None, cleaner=None, max_length=MAX_KEY_LENGTH, mess
         ttl=TTL_SECONDS if timeout is None else timeout,
         cleaner=cleaner, max_length=max_length,
     )
-    server = PairServer(session, strings, host=bind_host)
+    server = PairServer(session, strings, host=ip if bind_host is None else bind_host)
     qr_path = ''
     window = None
     try:
         server.start()
         url = server.page_url(ip)
-        qr_path = os.path.join(tempfile.gettempdir(), 'rivulet-pair-%s.bmp' % session.code)
-        try:
-            write_qr_bmp(url, qr_path)
-        except Exception as exc:
-            log('pair: qr failed: %s' % type(exc).__name__, xbmc.LOGDEBUG)
-            qr_path = ''
+        qr_path = _qr_image(url)
         window = open_window(_PairWindow, 'PairDialog.xml')
         register_transient_dialog(window)
         window.show()
@@ -172,18 +206,10 @@ def pair_value(label, prompt=None, cleaner=None, max_length=MAX_KEY_LENGTH, mess
         notify(L(30461))
         return None
     finally:
-        if window is not None:
-            unregister_transient_dialog(window)
-            window.close()
-        server.close()
-        if qr_path:
-            try:
-                os.remove(qr_path)
-            except OSError:
-                pass
+        _cleanup(window, server, qr_path)
 
 
-def pair_setting(setting_id, label, sleep=None, ipv4=None, bind_host='0.0.0.0', timeout=None):
+def pair_setting(setting_id, label, sleep=None, ipv4=None, bind_host=None, timeout=None):
     """An allowlisted ratings key, with its provider's get-key link.
 
     Keep the destination beside both the TV QR and the phone input, so
@@ -274,24 +300,24 @@ def link_sign_in(api=None, sleep=None, timeout=_LINK_TIMEOUT_SECONDS):
     from lib.ui.compat import L, log, notify
     from lib.ui.dependencies import get_api
     from lib.ui.uicommon import (
+        CANCELLED,
         open_window,
         register_transient_dialog,
-        unregister_transient_dialog,
+        run_cancellable,
+        wait_cancellable,
     )
 
     try:
-        code, link = create_code()
+        created = run_cancellable(create_code, L(30480))
+        if created is CANCELLED:
+            return None
+        code, link = created
     except LinkError as exc:
-        log('signin: link code failed: %s' % exc, xbmc.LOGWARNING)
+        log('signin: link code failed: %s' % type(exc).__name__, xbmc.LOGWARNING)
         notify(L(30023))
         return None
     sleep = sleep or _sleep
-    qr_path = os.path.join(tempfile.gettempdir(), 'rivulet-link-%s.bmp' % code)
-    try:
-        write_qr_bmp(link, qr_path)
-    except Exception as exc:
-        log('signin: qr failed: %s' % type(exc).__name__, xbmc.LOGDEBUG)
-        qr_path = ''
+    qr_path = _qr_image(link)
     window = None
     try:
         window = open_window(_PairWindow, 'PairDialog.xml')
@@ -311,9 +337,11 @@ def link_sign_in(api=None, sleep=None, timeout=_LINK_TIMEOUT_SECONDS):
             if now >= next_read:
                 next_read = now + _LINK_POLL_SECONDS
                 try:
-                    auth_key = read_auth_key(code)
+                    auth_key = wait_cancellable(lambda: read_auth_key(code), window)
+                    if auth_key is CANCELLED:
+                        return None
                 except LinkError as exc:
-                    log('signin: link read failed: %s' % exc, xbmc.LOGDEBUG)
+                    log('signin: link read failed: %s' % type(exc).__name__, xbmc.LOGDEBUG)
                 if auth_key:
                     break
             # Short naps so Back answers at once; the service is only
@@ -321,7 +349,9 @@ def link_sign_in(api=None, sleep=None, timeout=_LINK_TIMEOUT_SECONDS):
             if sleep(min(0.25, max(0.0, deadline - now))):
                 return None
         try:
-            user = (api or get_api()).get_user(auth_key)
+            user = run_cancellable(lambda: (api or get_api()).get_user(auth_key), L(30480))
+            if user is CANCELLED:
+                return None
         except ApiError as exc:
             log('signin: user lookup failed: %s' % type(exc).__name__, xbmc.LOGWARNING)
             user = {}
@@ -329,11 +359,4 @@ def link_sign_in(api=None, sleep=None, timeout=_LINK_TIMEOUT_SECONDS):
             user = {}
         return {'authKey': auth_key, 'user': user}
     finally:
-        if window is not None:
-            unregister_transient_dialog(window)
-            window.close()
-        if qr_path:
-            try:
-                os.remove(qr_path)
-            except OSError:
-                pass
+        _cleanup(window, qr_path=qr_path)
