@@ -1340,3 +1340,8 @@ msgstr "浏览完整目录"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "替换此标签页的继续观看列表？"
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "选项"

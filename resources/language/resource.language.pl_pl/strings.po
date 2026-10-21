@@ -1340,3 +1340,8 @@ msgstr "Przeglądaj cały katalog"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "Zastąpić listę Kontynuuj na tej karcie?"
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Opcje"

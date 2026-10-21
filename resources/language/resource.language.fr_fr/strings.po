@@ -1340,3 +1340,8 @@ msgstr "Parcourir le catalogue complet"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "Remplacer la liste Reprendre de cet onglet ?"
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Options"

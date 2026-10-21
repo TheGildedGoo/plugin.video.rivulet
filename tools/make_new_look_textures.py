@@ -13,6 +13,7 @@ here runs on the box.
 * ``newlook_stars_00..10.png`` - the rating as five stars, in half stars.
 * ``newlook_icon_<search|addons|settings>[_focus].png`` - the top-bar icons.
 * ``card_shade.png`` - the dark foot of a Continue card under its text.
+* ``newlook_panel.png`` / ``newlook_check.png`` - the episode row and watched tick.
 * ``pill_fill.png`` - the pill plate behind the type chips and buttons,
   9-slice with border=28.
 
@@ -71,6 +72,11 @@ def _card_shade(width=16, height=220, clear_until=0.58, peak=210):
 def _search(draw, scale):
     draw.ellipse((14 * scale, 14 * scale, 40 * scale, 40 * scale), outline=WHITE, width=4 * scale)
     draw.line((36 * scale, 36 * scale, 50 * scale, 50 * scale), fill=WHITE, width=4 * scale)
+
+
+def _check(draw, scale):
+    draw.line((16 * scale, 34 * scale, 28 * scale, 46 * scale), fill=WHITE, width=4 * scale)
+    draw.line((28 * scale, 46 * scale, 50 * scale, 18 * scale), fill=WHITE, width=4 * scale)
 
 
 def _addons(draw, scale):
@@ -205,6 +211,8 @@ def textures():
         'newlook_reflect_fade.png': _fade(NEWLOOK_REFLECT_FADE, 256, False),
         'card_shade.png': _card_shade(),
         'pill_fill.png': _pill(),
+        'newlook_panel.png': _rrect(96, 96, 32),
+        'newlook_check.png': _newlook_icon(_check, False),
     }
     for half in range(11):
         out['newlook_stars_%02d.png' % half] = _stars(half)

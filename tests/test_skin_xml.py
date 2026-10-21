@@ -80,7 +80,7 @@ def test_skin_file_discovery_finds_every_window():
     nothing would make every rule below pass by scanning zero files."""
     paths = _skin_files()
     # Nine screens, five dark dialogs, and the phone pairing dialog.
-    assert len(paths) == 15, 'expected 15 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
+    assert len(paths) == 16, 'expected 16 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
 
 
 @pytest.mark.parametrize('path', _skin_files(), ids=lambda p: os.path.basename(p))

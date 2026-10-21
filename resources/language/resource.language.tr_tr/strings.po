@@ -1340,3 +1340,8 @@ msgstr "Tüm kataloğa göz at"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "Bu sekmenin Devam Et listesi değiştirilsin mi?"
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Seçenekler"

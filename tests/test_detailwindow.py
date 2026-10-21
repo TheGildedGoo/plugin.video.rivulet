@@ -29,7 +29,7 @@ import types
 import pytest
 
 from lib.stremio.api import ApiError
-from tests.conftest import make_window, stub_choose
+from tests.conftest import stub_choose
 from tests.kodistubs import install_kodi_stubs
 
 _RELOAD_MODULE_NAMES = (
@@ -62,7 +62,7 @@ def load_detailwindow():
 
 
 def _make_window(detailwindow_mod):
-    return make_window(detailwindow_mod.DetailWindow)
+    return detailwindow_mod.DetailWindow('NewDetailWindow.xml', '/addon/path', 'Default', '1080i')
 
 
 def _window_with_focused_row(detailwindow_mod, meta, stype, row_id):
@@ -824,7 +824,7 @@ def test_context_menu_rows_offer_add_and_mark_watched_when_not_in_library(load_d
 
     win._open_context_menu()
 
-    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295'])]
+    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295', 'STR30499'])]
 
 
 def test_context_menu_rows_offer_remove_and_mark_unwatched_when_already_in_library_and_watched(
@@ -840,7 +840,7 @@ def test_context_menu_rows_offer_remove_and_mark_unwatched_when_already_in_libra
 
     win._open_context_menu()
 
-    assert captured == [('Breaking Bad', ['STR30196', 'STR30294', 'STR30296'])]
+    assert captured == [('Breaking Bad', ['STR30196', 'STR30294', 'STR30296', 'STR30499'])]
 
 
 def test_context_menu_removed_record_still_offers_add_not_remove(load_detailwindow, monkeypatch):
@@ -858,7 +858,7 @@ def test_context_menu_removed_record_still_offers_add_not_remove(load_detailwind
 
     win._open_context_menu()
 
-    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295'])]
+    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295', 'STR30499'])]
 
 
 def test_context_menu_cancelled_menu_does_nothing(load_detailwindow, monkeypatch):
@@ -1000,7 +1000,7 @@ def test_context_menu_lookup_failure_still_offers_default_wording_without_crashi
 
     win._open_context_menu()
 
-    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295'])]
+    assert captured == [('Breaking Bad', ['STR30196', 'STR30293', 'STR30295', 'STR30499'])]
 
 
 def test_context_menu_add_after_lookup_failure_notifies_and_performs_no_write(load_detailwindow, monkeypatch):
@@ -1556,7 +1556,7 @@ def test_open_detail_series_builds_window_against_skin_path_and_starts_with_the_
     result = ctx.detailwindow.open_detail('series', 'tt1')
 
     assert result is True
-    assert captured['init_args'] == ('DetailWindow.xml', '/addon/path', 'Default', '1080i')
+    assert captured['init_args'] == ('NewDetailWindow.xml', '/addon/path', 'Default', '1080i')
     assert captured['start_args'] == (meta, 'series')
 
 

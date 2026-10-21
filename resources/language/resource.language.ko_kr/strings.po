@@ -1340,3 +1340,8 @@ msgstr "전체 카탈로그 탐색"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "이 탭의 계속 보기 목록을 바꿀까요?"
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "옵션"

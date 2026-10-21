@@ -1340,3 +1340,8 @@ msgstr "Открыть полный каталог"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "Заменить список «Продолжить» этой вкладки?"
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Параметры"

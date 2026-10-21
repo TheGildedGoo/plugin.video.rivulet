@@ -1340,3 +1340,8 @@ msgstr "تصفح الكتالوج الكامل"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "هل تريد استبدال قائمة متابعة المشاهدة لعلامة التبويب هذه؟"
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "خيارات"

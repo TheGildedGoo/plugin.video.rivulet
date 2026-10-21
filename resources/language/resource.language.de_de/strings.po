@@ -1340,3 +1340,8 @@ msgstr "Vollständigen Katalog durchsuchen"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "Die Weiterschauen-Liste dieses Tabs ersetzen?"
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Optionen"
