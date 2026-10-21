@@ -1,9 +1,10 @@
 """Continue metadata shares startup time, with a hard budget and idle workers."""
 import threading
-import time
+from types import SimpleNamespace
 
 import pytest
 
+from tests.test_home_shutdown import join_promptly
 from tests.test_home_shutdown import session as session
 from tests.test_home_startup import prepare
 from tests.test_newhome import load_homewindow as load_homewindow
@@ -33,32 +34,38 @@ def test_three_ten_second_lookups_cannot_hold_startup_and_retry_next_load(load_h
     def fetch(stype, sid, should_stop, **kw):
         calls.append(sid)
         if not release.is_set():
-            started.wait(1)
+            started.wait(5)
             assert release.wait(10)
         return {'id': sid, 'name': 'too late', 'poster': 'late'}
 
     monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', fetch)
-    begin = time.monotonic()
+    now = [0.0]
+    monkeypatch.setattr(hw, 'time', SimpleNamespace(monotonic=lambda: now[0]))
+    collect = hw._collect_home_rows
+    def cutoff(results, count, threads, stopped, deadline=None):
+        if deadline is not None and not release.is_set():
+            started.wait(5)
+            assert deadline == now[0] + hw._CONTINUE_ENRICH_SECONDS
+            now[0] = deadline + 1
+        return collect(results, count, threads, stopped, deadline)
+    monkeypatch.setattr(hw, '_collect_home_rows', cutoff)
     collector = threading.Thread(target=win.onInit)
     collector.start()
     try:
-        started.wait(1)
-        collector.join(2.5)
-        assert not collector.is_alive()
-        assert time.monotonic() - begin < 2.5
+        join_promptly([collector])
         assert win.getControl(hw.CONTINUE_SHELF).size() == 0
         assert hw._continue_meta_misses == set()
         release.set()
         for worker in set(threading.enumerate()) - before:
             if worker is not collector:
-                worker.join(1)
+                worker.join(5)
         rows = hw._load_rows(win, store, store.get_enabled_addons(), None)
         assert len(rows[0]['items']) == 3 and len(calls) == 6
     finally:
         release.set()
-        collector.join(1)
+        collector.join(5)
         for worker in set(threading.enumerate()) - before:
-            worker.join(1)
+            worker.join(5)
     assert win.getControl(hw.CONTINUE_SHELF).size() == 0
     win.close()
 
@@ -70,11 +77,11 @@ def test_continue_lookup_starts_while_catalog_first_page_is_still_running(load_h
     fetched = []
 
     def page(*args):
-        together.wait(1)
+        together.wait(5)
         return metas(0, 30)
 
     def meta(stype, sid, should_stop, **kw):
-        together.wait(1)
+        together.wait(5)
         fetched.append(sid)
         return {'id': sid, 'name': 'resolved', 'poster': 'p'}
 
@@ -83,7 +90,6 @@ def test_continue_lookup_starts_while_catalog_first_page_is_still_running(load_h
     win.onInit()
     assert fetched == ['tt0']
     assert win.getControl(ctx.newhome.CONTINUE_SHELF).size() == 1
-    assert win._tab_load_timing['continue'] < 1
     win.close()
 
 
@@ -117,7 +123,13 @@ def test_continue_budget_starts_after_twelve_slow_catalog_jobs(load_homewindow, 
     catalog = next(job for job in plan if job[2] is not None)
     plan = [plan[0]] + [(30041 + i, *catalog[1:]) for i in range(12)]
     monkeypatch.setattr('lib.homelayout.resolve', lambda *args: plan)
-    monkeypatch.setattr(ctx.newhome, '_one_catalog_page', lambda *a: time.sleep(0.7) or metas(0, 20))
+    now, clock_lock = [0.0], threading.Lock()
+    monkeypatch.setattr(ctx.newhome, 'time', SimpleNamespace(monotonic=lambda: now[0]))
+    def page(*args):
+        with clock_lock:
+            now[0] += 0.7  # Simulate catalog time without sleeping.
+        return metas(0, 20)
+    monkeypatch.setattr(ctx.newhome, '_one_catalog_page', page)
     calls = []
     def fetch(stype, sid, should_stop, **kw):
         calls.append(sid)
@@ -140,23 +152,43 @@ def test_seventeen_lookups_use_eight_workers_and_cutoff_is_not_a_miss(load_homew
     lock = threading.Lock()
     running = [0, 0]
     before = set(threading.enumerate())
+    now, finished, release = [0.0], [], threading.Event()
+    wave = threading.Barrier(8)
+    monkeypatch.setattr(ctx.newhome, 'time', SimpleNamespace(monotonic=lambda: now[0]))
     def fetch(stype, sid, should_stop, **kw):
         with lock:
             running[0] += 1
             running[1] = max(running)
-        time.sleep(0.8)
+            index = int(sid[2:])
+        if index < 16:
+            wave.wait(5)
+        else:
+            assert release.wait(5)
         with lock:
             running[0] -= 1
         return None if should_stop() else {'id': sid, 'name': 'resolved', 'poster': 'p'}
+    collect = ctx.newhome._collect_home_rows
+    def cutoff(results, count, threads, stopped, deadline=None):
+        if deadline is None:
+            return collect(results, count, threads, stopped)
+        fetched = {}
+        for _ in range(16):
+            key, value = results.get(timeout=5)  # Hang guard, not a timing assertion.
+            fetched[key] = value
+        finished.extend(fetched)
+        now[0] = deadline + 1
+        release.set()
+        return fetched
+    monkeypatch.setattr(ctx.newhome, '_collect_home_rows', cutoff)
     monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', fetch)
     try:
         rows = ctx.newhome._load_rows(win, store, store.get_enabled_addons(), None)
-        assert running[1] == 8
+        assert running[1] == 8 and len(finished) == 16
         assert len(rows[0]['items']) == min(16, ctx.newhome.SHELF_CAP)
         assert not ctx.newhome._continue_meta_misses
     finally:
         for worker in set(threading.enumerate()) - before:
-            worker.join(1)
+            worker.join(5)
         win.close()
 
 
@@ -172,21 +204,25 @@ def test_stopping_a_thousand_times_constructs_one_monitor(load_homewindow, monke
 
 
 @pytest.mark.parametrize('abort', [False, True])
-def test_idle_worker_waits_are_at_most_three_in_two_seconds_and_stop_promptly(session, monkeypatch, tmp_path, abort):
+def test_idle_workers_request_one_second_waits_and_stop_on_close(session, monkeypatch, tmp_path, abort):
     ctx, win = session, session.window
-    counts = {'meta': 0, 'ratings': 0, 'logo': 0}
     original_event = threading.Event
+    release = original_event()
+    names = ('rivulet-library-meta', 'rivulet-ratings', 'rivulet-logocheck')
+    observed = {name: original_event() for name in names}
+    waits = {name: [] for name in names}
 
     class Event(original_event):
         def wait(self, timeout=None):
             name = threading.current_thread().name
-            key = {'rivulet-library-meta': 'meta', 'rivulet-ratings': 'ratings',
-                   'rivulet-logocheck': 'logo'}.get(name)
-            if key:
-                counts[key] += 1
+            if name in waits:
+                waits[name].append(timeout)
+                observed[name].set()
+                if not self.is_set():
+                    assert release.wait(5)
+                    return self.is_set()
             return super().wait(timeout)
 
-    # Existing module-level wake events predate this patch.
     for module, attr in ((ctx.ratingsched, '_wake'), (ctx.logocheck, '_WAKE')):
         monkeypatch.setattr(module, attr, Event())
     monkeypatch.setattr(ctx.newhome.threading, 'Event', Event)
@@ -195,20 +231,17 @@ def test_idle_worker_waits_are_at_most_three_in_two_seconds_and_stop_promptly(se
     from lib.stremio.ratings import RatingsCache
     monkeypatch.setattr(ctx.ratingsched, '_DWELL_SECONDS', 60)
     ctx.ratingsched._schedule('tt0000001', 'key', '', RatingsCache(str(tmp_path / 'ratings.json')))
-    fetched = original_event()
-    monkeypatch.setattr(ctx.logocheck, 'fetch_is_image', lambda _: fetched.set() or False)
+    monkeypatch.setattr(ctx.logocheck, 'fetch_is_image', lambda _: False)
     ctx.logocheck.ask(['logo'])
-    assert fetched.wait(0.5)
-    workers = [thread for thread in threading.enumerate() if thread.name in (
-        'rivulet-library-meta', 'rivulet-ratings', 'rivulet-logocheck')]
-    time.sleep(2)
-    assert all(value <= 3 for value in counts.values()), counts
-    started_at = time.monotonic()
-    if abort:
-        ctx.env.monitor_abort_requested = True
-    else:
-        win.close()
-    for worker in workers:
-        worker.join(max(0, 1.05 - (time.monotonic() - started_at)))
-    assert not any(worker.is_alive() for worker in workers)
-    assert time.monotonic() - started_at < 1.05
+    try:
+        for event in observed.values():
+            assert event.wait(5)
+        workers = [thread for thread in threading.enumerate() if thread.name in names]
+        if abort:
+            ctx.env.monitor_abort_requested = True
+        else:
+            win.close()
+    finally:
+        release.set()
+    join_promptly(workers)
+    assert all(values and all(timeout == 1.0 for timeout in values) for values in waits.values()), waits

@@ -1,6 +1,5 @@
 """Home owns its workers until close, independently of SWIG window lifetime."""
 import threading
-import time
 
 import pytest
 
@@ -22,7 +21,7 @@ def session(monkeypatch):
         win.close()
         for worker in set(threading.enumerate()) - before:
             if worker.name.startswith('rivulet-'):
-                worker.join(1)
+                worker.join(5)
                 assert not worker.is_alive(), worker.name
 
 
@@ -31,9 +30,8 @@ def workers_since(before):
 
 
 def join_promptly(workers):
-    deadline = time.monotonic() + 1.1  # One-second waits plus scheduling overhead.
     for worker in workers:
-        worker.join(max(0, deadline - time.monotonic()))
+        worker.join(5)  # Generous hang guard; requested wait bounds are checked separately.
     assert not [worker.name for worker in workers if worker.is_alive()]
 
 
@@ -51,14 +49,14 @@ def test_all_idle_home_workers_stop_while_window_is_still_referenced(session, mo
     original_slots = ctx.posterwarm._slots
     monkeypatch.setattr(ctx.posterwarm, '_slots', lambda window: warmed.set() or original_slots(window))
     ctx.posterwarm.request_warm(win, ['p%d' % i for i in range(90)])
-    assert warmed.wait(0.5)
+    assert warmed.wait(5)
     from lib.stremio.ratings import RatingsCache
     monkeypatch.setattr(ctx.ratingsched, '_DWELL_SECONDS', 60)
     ctx.ratingsched._schedule('tt0000001', 'key', '', RatingsCache(str(tmp_path / 'ratings.json')))
     logo_done = threading.Event()
     monkeypatch.setattr(ctx.logocheck, 'fetch_is_image', lambda _: logo_done.set() or False)
     ctx.logocheck.ask(['logo'])
-    assert logo_done.wait(0.5)
+    assert logo_done.wait(5)
     workers = workers_since(before)
     assert {'rivulet-poster-warm', 'rivulet-ratings', 'rivulet-logocheck'} <= {t.name for t in workers}
     # Metadata retires as soon as its slot is idle.
@@ -83,14 +81,14 @@ def test_close_drops_queued_and_late_meta_and_can_reopen_for_playback(session, m
     def fetch(_type, sid, stop=None):
         fetched.append(sid)
         entered.set()
-        assert release.wait(1)
+        assert release.wait(5)
         return {'id': sid, 'description': 'late'}
 
     monkeypatch.setattr(hw, '_fetch_library_meta', fetch)
     first = hw._poster_item({'id': 'tt1', 'type': 'movie'}, sparse=True)
     second = hw._poster_item({'id': 'tt2', 'type': 'movie'}, sparse=True)
     hw._schedule_library_meta(win, first)
-    assert entered.wait(0.5)
+    assert entered.wait(5)
     worker = win._library_meta_thread
     hw._schedule_library_meta(win, second)
     if abort:
@@ -124,13 +122,13 @@ def test_playback_reopen_hands_pending_meta_to_a_new_session(session, monkeypatc
     def fetch(_type, sid, stop=None):
         fetched.append(sid)
         entered.set()
-        assert release.wait(1)
+        assert release.wait(5)
         return {'id': sid}
 
     monkeypatch.setattr(hw, '_fetch_library_meta', fetch)
     item = hw._poster_item({'id': 'tt1', 'type': 'movie'}, sparse=True)
     hw._schedule_library_meta(win, item)
-    assert entered.wait(0.5)
+    assert entered.wait(5)
     old_worker = win._library_meta_thread
     win.close()
     monkeypatch.setattr(win, '_build', lambda: None)
@@ -162,12 +160,12 @@ def test_page_workers_stop_before_another_page_and_discard_late_results(session,
     def fetch(*args, extra=None):
         fetched.append(dict(extra)['skip'])
         entered.set()
-        assert release.wait(1)
+        assert release.wait(5)
         return metas(24, 24)  # No series: normally another page is fetched.
 
     monkeypatch.setattr(views, '_fetch_catalog', fetch)
     hw._schedule_shelf_extend(win, 30041, 24)
-    assert entered.wait(0.5)
+    assert entered.wait(5)
     workers = list(win._shelf_threads)
     if abort:
         ctx.env.monitor_abort_requested = True
@@ -201,15 +199,15 @@ def test_first_load_collects_with_timed_waits_and_stops_queued_rows(session, mon
 
     def fetch(descriptor):
         fetched.append(descriptor['catalog']['id'])
-        entered.wait(1)
-        assert release.wait(1)
+        entered.wait(5)
+        assert release.wait(5)
         return {'metas': metas(), 'exhausted': True}
 
     def cancellable(load, _label):
         collector = threading.Thread(target=load, name='test-home-collector')
         collectors.append(collector)
         collector.start()
-        entered.wait(1)
+        entered.wait(5)
         if mode == 'close':
             win.close()
         elif mode == 'abort':
@@ -249,9 +247,12 @@ def test_first_load_cannot_wait_forever_if_a_worker_exits_without_a_result(sessi
 
     monkeypatch.setattr(hw.threading, 'Thread', DeadWorker)
     monkeypatch.setattr(ctx.uicommon, 'run_cancellable', lambda load, _: load())
-    start = time.monotonic()
+    import queue
+    class NoBlockingGet(queue.Queue):
+        def get(self, *args, **kwargs):
+            pytest.fail('a dead worker must not leave the collector waiting')
+    monkeypatch.setattr(hw.queue, 'Queue', NoBlockingGet)
     rows = hw._load_rows(win, _FakeStore(), [], None)
-    assert time.monotonic() - start < 1
     assert rows == []
     assert win._tab_loaded['home'] is False
 
@@ -269,15 +270,15 @@ def test_home_meta_wrapper_discards_running_fanout_and_skips_next_focus(session,
     class Client:
         def meta(self, transport, _type, sid):
             fetched.append((transport, sid))
-            entered.wait(1)
-            assert release.wait(1)
+            entered.wait(5)
+            assert release.wait(5)
             return None
 
     monkeypatch.setattr(ctx.views, 'get_client', Client)
     before = set(threading.enumerate())
     item = ctx.newhome._poster_item({'id': 'tt1', 'type': 'movie'}, sparse=True)
     ctx.newhome._schedule_library_meta(win, item)
-    entered.wait(1)
+    entered.wait(5)
     worker = win._library_meta_thread
     second = ctx.newhome._poster_item({'id': 'tt2', 'type': 'movie'}, sparse=True)
     ctx.newhome._schedule_library_meta(win, second)

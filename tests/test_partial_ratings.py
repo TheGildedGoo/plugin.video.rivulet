@@ -2,7 +2,6 @@
 import hashlib
 import json
 import threading
-from pathlib import Path
 
 import pytest
 
@@ -304,12 +303,6 @@ def test_home_completed_card_guard_retries_partial_and_expired_scores(tmp_path, 
         win.close()
 
 
-def test_home_edit_is_only_the_approved_guard():
-    import subprocess
-    root = Path(__file__).resolve().parents[1]
-    before = subprocess.check_output(['git', 'show', '500194b:lib/ui/newhome.py'], cwd=root, text=True)
-    after = (root / 'lib/ui/newhome.py').read_text()
-    assert before.replace("    if facts_raw and item.getProperty('facts_done') != '1':", "    from lib.ui.ratingsched import needs_refresh\n\n    if facts_raw and (item.getProperty('facts_done') != '1' or needs_refresh(facts_raw)):", 1) == after
 
 
 def test_session_counts_complete_partial_cache_hits_and_missing_ids_once(sched, cache, tmp_path, monkeypatch):

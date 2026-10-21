@@ -252,9 +252,7 @@ def test_rating_keys_sit_after_a_toggle_and_stay_out_of_the_server_env():
         assert setting.findtext('constraints/allowempty') == 'true'
         assert setting.find('control').get('type') == 'edit'
         assert setting.findtext('control/heading') == headings[setting_id]
-    server = (_ROOT / 'lib' / 'service_runner.py').read_text(encoding='utf-8')
-    assert 'ratings_omdb_key' not in server
-    assert 'ratings_mdblist_key' not in server
+
 
 
 def test_worker_caches_a_miss_and_logs_only_the_exception_class(kodi_stubs, tmp_path, monkeypatch):

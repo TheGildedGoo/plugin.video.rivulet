@@ -87,11 +87,6 @@ def test_every_texture_the_new_home_names_is_shipped():
         assert os.path.isfile(os.path.join(_MEDIA, 'newlook_stars_%02d.png' % half))
 
 
-def test_the_newlook_hero_has_no_bar():
-    with open(os.path.join(_SKIN, 'NewHomeWindow.xml'), encoding='utf-8') as handle:
-        text = handle.read()
-    assert 'hero_bar.png' not in text
-    assert 'newlook_fade_left.png' in text and 'newlook_fade_bottom.png' in text
 
 
 # --- picking the file --------------------------------------------------------

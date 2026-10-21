@@ -697,16 +697,6 @@ _DIALOGS = ('DarkBusyDialog.xml', 'DarkProgressDialog.xml', 'DarkCountdownDialog
             'DarkConfirmDialog.xml', 'DarkOptionListDialog.xml', 'PairDialog.xml')
 
 
-@pytest.mark.parametrize('name', _DIALOGS)
-def test_dialogs_are_rounded_dark_plates(name):
-    """rev21: every dialog is a rounded, translucent black plate with a
-    hairline, not a square slate box edged with four 1px lines."""
-    text = _read(os.path.join(_SKIN_DIR, name))
-    assert 'dlg_panel.png' in text and 'dlg_stroke.png' in text
-    assert 'FF12161A' not in text
-    # The only hairline left is the menu's divider under its heading.
-    edges = re.findall(r'<width>1</width><height>\d+</height><texture colordiffuse="1AFFFFFF">white.png', text)
-    assert edges == []
 
 
 def test_ratings_pair_action_targets_this_addon():

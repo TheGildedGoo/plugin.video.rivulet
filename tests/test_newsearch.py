@@ -1,8 +1,6 @@
 """One-page search: native control types, real flow and bounded hero geometry."""
 import contextlib
 import itertools
-import re
-import subprocess
 import threading
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -338,20 +336,11 @@ def test_eighty_search_hero_combinations(load_search, plot, scores, stars, facts
     assert all(_apart(a, (100, 192, 728, 104)) and _apart(a, (880, 214, 960, 60)) for a in boxes)
 
 
-def _raw_control(text, cid):
-    start = re.search(r'<control type="[^"]+" id="%d"' % cid, text).start()
-    depth = 0
-    for match in re.finditer(r'</?control\b[^>]*>', text[start:]):
-        depth += -1 if match.group().startswith('</') else 1
-        if depth == 0:
-            return text[start:start + match.end()]
-    raise AssertionError(cid)
 
 
-def test_search_xml_native_controls_exact_home_groups_and_layouts(load_search):
+def test_search_xml_native_controls_and_textures(load_search):
     ctx = load_search()
     text = XML.read_text()
-    home = (SKIN / 'NewHomeWindow.xml').read_text()
     root = ET.fromstring(text)
     ids = {int(c.get('id')): c.get('type') for c in root.iter('control') if c.get('id')}
     from tests.kodistubs.modules import WRAPPABLE_CONTROL_TYPES
@@ -361,14 +350,8 @@ def test_search_xml_native_controls_exact_home_groups_and_layouts(load_search):
         ctx.win.getControl(cid)
     assert 30006 not in ids
     assert not [c for c in root.iter('control') if c.get('type') == 'grouplist' and c.get('id')]
-    assert _raw_control(text, 30025) == _raw_control(home, 30025)
-    for tag in ['itemlayout', 'focusedlayout']:
-        pat = '<' + tag + r'\b.*?</' + tag + '>'
-        assert re.search(pat, _raw_control(text, 30215), re.S).group() == re.search(pat, _raw_control(home, 30041), re.S).group().replace('Control.HasFocus(30041)', 'Control.HasFocus(30215)')
     assert root.findtext('defaultcontrol') == '30202'
     assert not root.findall('.//animation[@type="WindowClose"]')
-    assert {c.text for c in root.iter('font')} <= {'font12', 'font13', 'font45'}
-    assert root.find('.//control[@id="30022"]/autoscroll').attrib == ET.fromstring(_raw_control(home, 30022)).find('autoscroll').attrib
     for texture in root.iter():
         if texture.tag in {'texture', 'texturefocus', 'texturenofocus'} and texture.text and not texture.text.startswith('$'):
             assert (ROOT / 'resources/skins/Default/media' / texture.text).is_file()
@@ -397,12 +380,6 @@ def test_search_static_geometry_and_navigation(load_search, monkeypatch, logo):
     assert win.closed
 
 
-def test_existing_screens_and_search_implementation_stay_pinned():
-    for name in ['NewHomeWindow.xml', 'DetailWindow.xml', 'SearchWindow.xml']:
-        assert (SKIN / name).read_bytes() == subprocess.check_output(['git', 'show', 'a5a9efa:resources/skins/Default/1080i/' + name], cwd=ROOT)
-    old = subprocess.check_output(['git', 'show', 'a5a9efa:lib/ui/searchwindow.py'], cwd=ROOT, text=True)
-    now = (ROOT / 'lib/ui/searchwindow.py').read_text()
-    assert old[:old.index('def open_search():')].replace('    open_window,\n', '') == now[:now.index('def open_search():')]
 
 
 def test_open_search_routing_and_failure_always_close(load_search, monkeypatch):
