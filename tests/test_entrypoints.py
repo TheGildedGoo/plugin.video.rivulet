@@ -203,15 +203,28 @@ def _assert_launch_ignored(ctx):
     assert not any('Container.Update' in cmd for cmd in ctx.env.executed_builtins)
 
 
-def test_bare_launch_during_the_player_phase_is_a_noop(load_default):
-    # Phase 2: the player owns the screen. Even if Kodi reports something
-    # playing (a refresh mid-playback), no second UI.
+def test_bare_launch_after_playback_stopped_in_the_player_phase_is_a_noop(load_default):
+    # Phase 2, mid CloseFile: the post-stop refresh. The running UI reopens
+    # by itself; neither a second UI nor a show request.
+    _ns, ctx = load_default(
+        ['plugin://plugin.video.rivulet/', '5', '?action=home'],
+        before=lambda ctx: _owner(ctx, phase='player'),
+    )
+    _assert_launch_ignored(ctx)
+    assert not ctx.env.window_properties[10000].get('rivulet.ui.show')
+
+
+def test_bare_launch_while_the_video_plays_asks_the_running_ui_back(load_default):
+    # Issue #73: the user left the fullscreen video and opened Rivulet. The
+    # running UI is blocked in its playback wait - wake it, never open a
+    # second Home over it.
     def before(ctx):
         _owner(ctx, phase='player')
         ctx.env.player_is_playing = True
 
     _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', '?action=home'], before=before)
     _assert_launch_ignored(ctx)
+    assert ctx.env.window_properties[10000].get('rivulet.ui.show')
 
 
 def test_bare_launch_while_a_ui_is_alive_and_nothing_plays_is_a_noop(load_default):
@@ -317,7 +330,7 @@ def test_home_recovery_is_limited_to_window_open_failures(monkeypatch, failure):
         assert not any('secret' in msg or 'user:' in msg for msg, _level in ctx.env.log_calls)
 
 
-@pytest.mark.parametrize('startup', ['is_duplicate_launch', 'dismiss_busy_dialog'])
+@pytest.mark.parametrize('startup', ['launch_action', 'dismiss_busy_dialog'])
 def test_startup_probe_and_busy_cleanup_errors_recover_safely(load_default, monkeypatch, startup):
     def prepare(ctx):
         def fail():
@@ -325,6 +338,26 @@ def test_startup_probe_and_busy_cleanup_errors_recover_safely(load_default, monk
         monkeypatch.setattr(ctx.uicommon, startup, fail)
 
     _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', ''], before=prepare)
+    assert ctx.open_home_calls == []
+    assert any('Container.Update' in cmd for cmd in ctx.env.executed_builtins)
+    messages = [msg for msg, _ in ctx.env.log_calls if 'failed to open' in msg]
+    assert len(messages) == 1 and 'RuntimeError' in messages[0]
+    assert 'secret' not in messages[0] and 'hidden' not in messages[0]
+
+
+def test_a_failing_show_request_recovers_safely(load_default, monkeypatch):
+    # Issue #73 path (alive UI in the player phase while a video plays): if
+    # posting the show request itself fails, recovery runs once and no second
+    # Home opens over the running one.
+    def before(ctx):
+        _owner(ctx, phase='player')
+        ctx.env.player_is_playing = True
+
+        def fail():
+            raise RuntimeError('https://user:secret@host/private?token=hidden')
+        monkeypatch.setattr(ctx.uicommon, 'request_ui_show', fail)
+
+    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', ''], before=before)
     assert ctx.open_home_calls == []
     assert any('Container.Update' in cmd for cmd in ctx.env.executed_builtins)
     messages = [msg for msg, _ in ctx.env.log_calls if 'failed to open' in msg]

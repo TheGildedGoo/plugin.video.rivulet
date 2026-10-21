@@ -896,6 +896,14 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
 #: a slow miss could double the wait on a weak ARM box.
 _SWAPPED_TYPE_MAX_SECONDS = 3.0
 
+def _canonical_type(stype):
+    """`stype` as Stremio's own ``movie``/``series`` where a provider list
+    names it loosely (``Movies``, ``tv``, ``shows``...); any other type
+    reduced to its base (`_base_type()`)."""
+    base = _base_type(stype)
+    return {'movies': 'movie', 'film': 'movie', 'films': 'movie', 'shows': 'series', 'show': 'series',
+            'tvshows': 'series', 'tv': 'series'}.get(base, base)
+
 def _fetch_meta_any_type(stype, sid):
     """``(meta, type)`` for `sid`: as `stype` first, then as its base type
     (``movies`` -> ``movie``), since provider lists label types loosely.
@@ -909,15 +917,20 @@ def _fetch_meta_any_type(stype, sid):
     from lib.ui.views import _fetch_meta
 
     kinds = []
-    base = _base_type(stype)
-    base = {'movies': 'movie', 'film': 'movie', 'films': 'movie', 'shows': 'series', 'show': 'series',
-            'tvshows': 'series', 'tv': 'series'}.get(base, base)
+    base = _canonical_type(stype)
     for kind in (stype, base):
         if kind and kind not in kinds:
             kinds.append(kind)
     swapped = {'movie': 'series', 'series': 'movie'}.get(base, '')
     if swapped in kinds:
         swapped = ''
+
+    import xbmc
+
+    from lib.ui.compat import log
+
+    log('detailwindow: looking %s up as %s%s' % (
+        sid, ', then '.join(kinds), (' (then %s after a quick miss)' % swapped) if swapped else ''), xbmc.LOGINFO)
 
     def _work():
         started = time.monotonic()
@@ -995,7 +1008,8 @@ def _imdb_alternative(stype, sid, preview):
         return ''
     if report.canceled and not found:
         return CANCELLED
-    return previews.best_match(preview, found, stype)
+    # A provider list's "tv" is the search's "series".
+    return previews.best_match(preview, found, _canonical_type(stype))
 
 
 def open_detail(stype, sid):
@@ -1009,6 +1023,9 @@ def open_detail(stype, sid):
     from lib.ui.compat import L, log, notify
 
     preview = previews.lookup(sid) or {}
+    log('detailwindow: opening %s/%s from the list (list type %s, name %s, IMDb id %s)' % (
+        stype or '-', sid, preview.get('type') or '-', preview.get('name') or '-',
+        preview.get('imdb_id') or preview.get('imdbId') or '-'), xbmc.LOGINFO)
     if not stype:
         # A catalog that left `type` off its previews.
         stype = preview.get('type') or 'movie'
@@ -1034,8 +1051,11 @@ def open_detail(stype, sid):
         notify(L(30030))
         return False
 
+    videos = meta_obj.get('videos')
+    log('detailwindow: %s/%s resolved to a meta with id %s and %d episode(s)' % (
+        stype, sid, meta_obj.get('id'), len(videos) if isinstance(videos, list) else 0), xbmc.LOGINFO)
     from lib.ui.streamswindow import open_streams
-    if not meta_obj.get('videos'):
+    if not videos:
         return open_streams(
             stype, sid, poster=meta_obj.get('poster'),
             heading=meta_obj.get('name') or meta_obj.get('id') or '',

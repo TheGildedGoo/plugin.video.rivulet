@@ -755,3 +755,148 @@ def test_terminate_resets_local_write_cadence_for_next_session():
     assert len(store.progress_calls) == 3
     assert store.progress_calls[-1][:2] == ('movie', 'tt2')
 
+
+
+# ===========================================================================
+# ProgressPuller (issue #74: account watch state -> local progress cache)
+# ===========================================================================
+
+
+class _PullApi:
+    def __init__(self, meta, records):
+        self.meta = meta
+        self.records = records
+        self.calls = []
+        self.fail = None
+
+    def datastore_meta(self, auth_key):
+        if self.fail:
+            raise self.fail
+        return self.meta
+
+    def datastore_get(self, auth_key, ids=None, all=True):
+        self.calls.append((auth_key, ids, all))
+        if all:
+            return list(self.records.values())
+        return [self.records[i] for i in ids]
+
+
+def _pull_record(item_id, offset, last_watched):
+    return {"_id": item_id, "type": "movie", "removed": False, "temp": True,
+            "state": {"lastWatched": last_watched, "timeOffset": offset, "duration": 10000,
+                      "flaggedWatched": 0, "video_id": item_id}}
+
+
+class _DoneWorker:
+    def is_alive(self):
+        return False
+
+
+def _run_inline(target):
+    target()
+    return _DoneWorker()
+
+
+def _puller(tmp_path, api, playing=False, sync=True, abort=lambda: False, spawn=_run_inline):
+    from lib.store import Store
+
+    store = Store(str(tmp_path / "data"))
+    store.set_auth({"authKey": "k1", "user": {}})
+    clock = [1000.0]
+    logs = []
+    puller = service_runner.ProgressPuller(
+        store, api, lambda level, msg: logs.append((level, msg)),
+        service_runner.LogLevels("I", "W", "E"),
+        lambda: sync, lambda: playing, abort, clock=lambda: clock[0], spawn_fn=spawn,
+    )
+    return puller, store, clock, logs
+
+
+def test_progress_puller_full_then_incremental(tmp_path):
+    api = _PullApi([["tt1", 1], ["tt2", 1]], {
+        "tt1": _pull_record("tt1", 4000, "2099-01-01T00:00:00Z"),
+        "tt2": _pull_record("tt2", 5000, "2099-01-01T00:00:00Z"),
+    })
+    puller, store, clock, _ = _puller(tmp_path, api)
+    puller.poll()
+    assert api.calls == [("k1", None, True)]
+    assert store.get_progress("movie", "tt1")["position_ms"] == 4000
+
+    puller.poll()  # not due yet
+    assert len(api.calls) == 1
+
+    api.meta = [["tt1", 2], ["tt2", 1]]
+    api.records["tt1"] = _pull_record("tt1", 7000, "2099-01-01T00:01:00Z")
+    clock[0] += service_runner.LIBRARY_PULL_INTERVAL_SECONDS
+    puller.poll()
+    assert api.calls[-1] == ("k1", ["tt1"], False)
+    assert store.get_progress("movie", "tt1")["position_ms"] == 7000
+
+
+def test_progress_puller_new_login_pulls_immediately(tmp_path):
+    api = _PullApi([], {})
+    puller, store, _, _ = _puller(tmp_path, api)
+    puller.poll()
+    store.set_auth({"authKey": "k2", "user": {}})
+    puller.poll()
+    assert [c[0] for c in api.calls] == ["k1", "k2"]
+
+
+def test_progress_puller_skips_while_playing_or_disabled(tmp_path):
+    api = _PullApi([], {})
+    puller, _, _, _ = _puller(tmp_path, api, playing=True)
+    puller.poll()
+    puller2, _, _, _ = _puller(tmp_path, api, sync=False)
+    puller2.poll()
+    assert api.calls == []
+
+
+def test_progress_puller_failure_is_logged_not_raised(tmp_path):
+    from lib.stremio.api import ApiError
+
+    api = _PullApi([], {})
+    api.fail = ApiError("boom")
+    puller, _, clock, logs = _puller(tmp_path, api)
+    puller.poll()
+    assert logs and logs[-1][0] == "W"
+    api.fail = None
+    clock[0] += service_runner.LIBRARY_PULL_INTERVAL_SECONDS
+    puller.poll()
+    assert api.calls == [("k1", None, True)]
+
+
+def test_progress_puller_batches_incremental_fetch_and_ignores_junk_meta(tmp_path, monkeypatch):
+    monkeypatch.setattr(service_runner, "LIBRARY_PULL_BATCH", 1)
+    api = _PullApi([["tt1", 1], ["tt2", 1], "junk"], {
+        "tt1": _pull_record("tt1", 4000, "2099-01-01T00:00:00Z"),
+        "tt2": _pull_record("tt2", 5000, "2099-01-01T00:00:00Z"),
+    })
+    puller, _, clock, _ = _puller(tmp_path, api)
+    puller.poll()
+    api.meta = [["tt1", 2], ["tt2", 2], "junk"]
+    clock[0] += service_runner.LIBRARY_PULL_INTERVAL_SECONDS
+    puller.poll()
+    assert [c[1] for c in api.calls[1:]] == [["tt1"], ["tt2"]]
+
+
+def test_progress_puller_abort_stops_before_fetching_or_writing(tmp_path):
+    api = _PullApi([["tt1", 1]], {"tt1": _pull_record("tt1", 4000, "2099-01-01T00:00:00Z")})
+    puller, store, _, _ = _puller(tmp_path, api, abort=lambda: True)
+    puller.poll()
+    assert api.calls == []
+    assert store.get_progress("movie", "tt1") is None
+
+
+def test_progress_puller_runs_one_worker_at_a_time(tmp_path):
+    class _Busy:
+        def is_alive(self):
+            return True
+
+    spawned = []
+    api = _PullApi([], {})
+    puller, store, clock, _ = _puller(tmp_path, api, spawn=lambda target: spawned.append(target) or _Busy())
+    puller.poll()
+    store.set_auth({"authKey": "k2", "user": {}})
+    clock[0] += service_runner.LIBRARY_PULL_INTERVAL_SECONDS
+    puller.poll()
+    assert len(spawned) == 1

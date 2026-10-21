@@ -9,7 +9,7 @@ from tests.test_streamswindow_fetch import _FakeAddonClient, _FakeStore, _wire_d
 
 _RELOAD = (
     'lib.ui.compat', 'lib.ui.dependencies', 'lib.ui.uicommon', 'lib.ui.dialogs', 'lib.ui.player',
-    'lib.ui.streamswindow', 'lib.ui.previews', 'lib.ui.detailwindow',
+    'lib.ui.streamswindow', 'lib.ui.previews', 'lib.ui.detailwindow', 'lib.ui.views',
 )
 
 
@@ -301,3 +301,160 @@ def test_an_imdb_keyed_title_needs_no_lookup(load, monkeypatch):
     monkeypatch.setattr(uicommon, 'run_cancellable', lambda *_args: pytest.fail('looked up'))
     meta = {'id': 'tt0133093'}
     assert sw._meta_with_imdb('movie', 'tt0133093', meta) is meta
+
+
+def _merged_with(ctx, monkeypatch, preview, full):
+    sw = ctx.streamswindow
+    import lib.ui.uicommon as uicommon
+    import lib.ui.views as views
+
+    monkeypatch.setattr(views, '_fetch_meta', lambda stype, sid, **kw: full)
+    monkeypatch.setattr(uicommon, 'run_cancellable', lambda callback, _heading: callback())
+    return sw._meta_with_imdb('movie', 'tmdb:603', preview)
+
+
+def test_an_empty_imdb_id_on_the_preview_does_not_hide_the_full_metas(load, monkeypatch):
+    """CodeRabbit on #68: ``imdb_id: null`` blocked a provider-keyed meta's IMDb id."""
+    ctx = load()
+    preview = {'id': 'tmdb:603', 'name': 'The Matrix', 'imdb_id': None}
+    merged = _merged_with(ctx, monkeypatch, preview, {'id': 'tmdb:603', 'imdb_id': 'tt0133093'})
+    assert merged['imdb_id'] == 'tt0133093'
+    assert ctx.streamswindow.stream_alias('tmdb:603', merged) == 'tt0133093'
+    assert preview['imdb_id'] is None
+
+
+def test_empty_preview_hints_take_the_full_metas(load, monkeypatch):
+    ctx = load()
+    preview = {'id': 'tmdb:603', 'behaviorHints': {}}
+    full = {'id': 'tmdb:603', 'behaviorHints': {'defaultVideoId': 'tt0133093', 'hasScheduledVideos': False}}
+    merged = _merged_with(ctx, monkeypatch, preview, full)
+    assert merged['behaviorHints'] == full['behaviorHints']
+    assert merged['behaviorHints'] is not full['behaviorHints']
+    assert ctx.streamswindow.imdb_id_for(merged) == 'tt0133093'
+
+
+def test_the_default_video_id_joins_the_previews_own_hints(load, monkeypatch):
+    ctx = load()
+    preview = {'id': 'tmdb:603', 'behaviorHints': {'bingeGroup': 'matrix'}}
+    full = {'id': 'tmdb:603', 'behaviorHints': {'defaultVideoId': 'tt0133093', 'bingeGroup': 'other'}}
+    merged = _merged_with(ctx, monkeypatch, preview, full)
+    assert merged['behaviorHints'] == {'bingeGroup': 'matrix', 'defaultVideoId': 'tt0133093'}
+    assert preview['behaviorHints'] == {'bingeGroup': 'matrix'}
+
+
+def test_the_previews_own_imdb_fields_are_kept(load, monkeypatch):
+    ctx = load()
+    preview = {'id': 'tmdb:603', 'imdbId': 'x', 'behaviorHints': {'defaultVideoId': 'kept'}}
+    full = {'id': 'tmdb:603', 'imdbId': 'tt0133093', 'behaviorHints': {'defaultVideoId': 'tt0133093'}}
+    merged = _merged_with(ctx, monkeypatch, preview, full)
+    assert merged['imdbId'] == 'x'
+    assert merged['behaviorHints'] == {'defaultVideoId': 'kept'}
+
+
+def test_a_tv_listed_show_is_found_by_search_as_a_series(load, monkeypatch):
+    """A provider list that calls its shows "tv": the search answers "series"."""
+    load()
+    import lib.ui.dependencies as dependencies
+    import lib.ui.detailwindow as detailwindow
+    import lib.ui.searchwindow as searchwindow
+
+    monkeypatch.setattr(dependencies, 'get_store', lambda: object())
+    monkeypatch.setattr(dependencies, 'get_client', lambda: object())
+    monkeypatch.setattr(searchwindow, 'run_query', lambda *a, **kw: [
+        {'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones', 'releaseInfo': '2011\u20132019'},
+    ])
+    preview = {'id': 'tmdb:1399', 'type': 'tv', 'name': 'Game of Thrones', 'releaseInfo': '2011'}
+    assert detailwindow._imdb_alternative('tv', 'tmdb:1399', preview) == 'tt0944947'
+
+
+def test_the_imdb_id_is_learned_even_when_an_addon_takes_the_provider_id(load, monkeypatch):
+    """An addon that also takes ``tmdb:`` ids must not keep the IMDb-only
+    ones (Torrentio and the like) out of the stream request."""
+    ctx = load()
+    sw = ctx.streamswindow
+
+    tmdb_too = {'transportUrl': 'tmdb-addon', 'manifest': {
+        'name': 'Debrid', 'resources': ['stream'], 'types': ['movie'], 'idPrefixes': ['tt', 'tmdb:']}}
+    _wire_data_layer(sw, _FakeStore(addons=[tmdb_too, _IMDB_ONLY]), _FakeAddonClient({}))
+    looked_up = []
+
+    def _with_imdb(stype, sid, meta):
+        looked_up.append((stype, sid))
+        return dict(meta, imdb_id='tt0133093')
+
+    monkeypatch.setattr(sw, '_meta_with_imdb', _with_imdb)
+    asked = []
+    real_targets = sw._stream_targets
+
+    def _targets(stype, sid, meta=None):
+        found = real_targets(stype, sid, meta)
+        asked.extend((entry[1]['name'], entry[2]) for entry in found)
+        return []
+
+    monkeypatch.setattr(sw, '_stream_targets', _targets)
+    assert sw.open_streams('movie', 'tmdb:603', meta={'id': 'tmdb:603', 'name': 'The Matrix'}) is False
+    assert looked_up == [('movie', 'tmdb:603')]
+    assert asked == [('Debrid', 'tt0133093'), ('Torrents', 'tt0133093')]
+
+
+# --- a series from a provider list, end to end ------------------------------
+
+
+_GOT = {'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones', 'videos': [
+    {'id': 'tt0944947:1:1', 'season': 1, 'episode': 1, 'title': 'Winter Is Coming'},
+]}
+
+
+def test_a_provider_lists_empty_meta_does_not_hide_cinemetas_series(load, monkeypatch):
+    """A list addon that also declares ``meta`` answers ``{"meta": {}}``
+    for a show at once; Cinemeta answers later with the episodes. The
+    empty answer used to win, no meta was found and the series said "No
+    streams found" (a movie still played, straight from the list)."""
+    ctx = load()
+    import threading
+
+    import lib.ui.detailwindow as detailwindow
+    import lib.ui.views as views
+    from lib.ui import previews
+
+    empty_sent = threading.Event()
+
+    class _Client:
+        def meta(self, transport_url, stype, sid):
+            if transport_url == 'lists':
+                empty_sent.set()
+                return {}
+            assert empty_sent.wait(2)
+            return dict(_GOT) if (stype, sid) == ('series', 'tt0944947') else None
+
+    def _addon(url, name, types):
+        return {'transportUrl': url, 'manifest': {
+            'name': name, 'resources': ['catalog', 'meta'], 'types': types, 'idPrefixes': ['tt']}}
+
+    store = _FakeStore(addons=[_addon('cinemeta', 'Cinemeta', ['movie', 'series']),
+                               _addon('lists', 'Streaming Catalogs', ['movie', 'series'])])
+    monkeypatch.setattr(views, 'get_store', lambda: store)
+    monkeypatch.setattr(views, 'get_client', lambda: _Client())
+    previews.forget_all()
+    previews.remember({'id': 'tt0944947', 'type': 'series', 'name': 'Game of Thrones'})
+
+    started = []
+
+    class _Window:
+        def start(self, meta, stype, **kw):
+            started.append((meta['id'], stype, len(meta['videos'])))
+            return False
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(detailwindow, 'open_window', lambda *_args: _Window())
+    detailwindow.open_detail('series', 'tt0944947')
+    assert started == [('tt0944947', 'series', 1)]
+    assert 'STR30030' not in [n[1] for n in ctx.env.notifications]
+    logged = [msg for msg, _level in ctx.env.log_calls]
+    assert any('detailwindow: opening series/tt0944947 from the list (list type series' in m for m in logged)
+    assert any('views._fetch_meta: asking 2 addon(s) for series/tt0944947: Cinemeta, Streaming Catalogs' in m
+               for m in logged)
+    assert any('views._fetch_meta: Streaming Catalogs answered series/tt0944947 with a meta without an id' in m
+               for m in logged)
