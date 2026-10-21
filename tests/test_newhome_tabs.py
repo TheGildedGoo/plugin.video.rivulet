@@ -575,7 +575,7 @@ def test_visiting_catalog_only_tab_does_not_cache_an_unfetched_library(load_home
     layout = homelayout.default_layout()
     layout['tabs']['home'] = ['new:movie']
     win, _, _ = build(ctx, monkeypatch, layout=layout, auth={'authKey': 'k'})
-    assert win._library_entries is None
+    assert getattr(win, '_library_entries', None) is None
     fetched = []
     monkeypatch.setattr(ctx.newhome, '_fetch_library', lambda *_: fetched.append(True) or [])
     ctx.newhome._switch_tab(win, 'mystuff')

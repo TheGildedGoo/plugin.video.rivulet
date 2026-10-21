@@ -4,9 +4,10 @@
 """Warm Kodi's texture cache with poster URLs only.
 
 Home carries eight 1x1 image controls (``WARM_SLOTS``)
-under their backdrop plate. The worker hands those slots the posters of
+under their backdrop plate. The GUI hands those slots the posters of
 the first rows, eight at a time, so Kodi downloads and caches them before
-the remote reaches them. Fanart and logos are not warmed: a background
+the remote reaches them. A worker queues each batch and the GUI applies it
+on Action(noop), before the per-batch hold begins. Fanart and logos are not warmed: a background
 decodes toward fanartres, and ninety of those plus the video cache is how
 a 1 GB box gets tight. Posters are not downloaded into ``addon_data`` and
 ``Textures13.db`` is not written from Python. Kodi fills its own cache
@@ -156,6 +157,85 @@ def request_warm(window, urls):
     threading.Thread(target=_drain, name='rivulet-poster-warm', daemon=True).start()
 
 
+def _post_batch(window, urls):
+    """A ticket is acknowledged only after the GUI has applied the batch."""
+    ticket = {'urls': list(urls), 'done': threading.Event(), 'ok': False}
+    with _lock:
+        ready = getattr(window, '_poster_warm_ready', [])
+        window._poster_warm_ready = ready
+        ready.append(ticket)
+    try:
+        import xbmc
+        xbmc.executebuiltin('Action(noop)')
+    except Exception:
+        pass
+    return ticket
+
+
+def apply_pending(window):
+    """GUI thread only: resolve native controls, paint batches and acknowledge."""
+    with _lock:
+        ready = getattr(window, '_poster_warm_ready', [])
+        window._poster_warm_ready = []
+    if not ready:
+        return
+    slots = _slots(window)
+    stop = getattr(window, '_home_stop', None)
+    for ticket in ready:
+        try:
+            if slots and not (stop is not None and stop.is_set()):
+                for index, slot in enumerate(slots):
+                    urls = ticket['urls']
+                    slot.setImage(urls[index] if index < len(urls) else '')
+                ticket['ok'] = True
+        except Exception:
+            ticket['ok'] = False
+        finally:
+            ticket['done'].set()
+
+
+def stop(window):
+    """Called on Home's GUI thread; no queued or held image survives close."""
+    with _lock:
+        ready = getattr(window, '_poster_warm_ready', [])
+        window._poster_warm_ready = []
+        if _target['window'] is window:
+            _queue.clear()
+            _target['window'] = None
+    for ticket in ready:
+        ticket['done'].set()
+    _clear(_slots(window))
+
+
+def _queued_warm(window, urls):
+    from lib.ui.background import monitor as shared_monitor
+
+    if window is None:
+        return
+    monitor = shared_monitor()
+    stop = getattr(window, '_home_stop', None)
+    def stopped():
+        return (stop is not None and stop.is_set()) or monitor.abortRequested()
+    try:
+        for start in range(0, len(urls), len(WARM_SLOTS)):
+            if stopped():
+                return
+            ticket = _post_batch(window, urls[start:start + len(WARM_SLOTS)])
+            while not ticket['done'].wait(1.0):
+                if stopped():
+                    return
+            if stopped() or not ticket['ok']:
+                return
+            if stop is not None:
+                if stop.wait(_HOLD_SECONDS) or monitor.abortRequested():
+                    return
+            elif monitor.waitForAbort(_HOLD_SECONDS):
+                return
+    finally:
+        if stop is None or not stop.is_set():
+            _post_batch(window, [])
+
+
 def _drain():
     global _running
     while True:
@@ -173,7 +253,7 @@ def _drain():
                 _running = False
                 return
         try:
-            warm_posters(window, batch)
+            _queued_warm(window, batch)
         except Exception as exc:
             import xbmc
 

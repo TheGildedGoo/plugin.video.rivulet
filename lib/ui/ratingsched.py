@@ -127,6 +127,9 @@ def _misses(cache, metas):
     return found
 
 
+_meta_misses = {}  # type: dict
+
+
 def _facts_with_imdb(meta):
     """Resolve only from already-held previews or the existing disk meta cache."""
     if imdb_id_of(meta) or not isinstance(meta, dict) or not meta.get('id'):
@@ -138,9 +141,16 @@ def _facts_with_imdb(meta):
     sid = meta['id']
     candidate = previews.lookup(sid)
     imdb_id = imdb_id_of(candidate)
-    if not imdb_id:
+    key = (_type_of(meta), sid)
+    with _lock:
+        missed = key in _meta_misses
+    if not imdb_id and not missed:
         folder = getattr(get_store(), 'data_dir', None) or addon_profile_dir()
         imdb_id = imdb_id_of(metacache.load_cached_meta(folder, _type_of(meta), sid))
+        if not imdb_id:
+            with _lock:
+                _meta_misses[key] = None
+                _cap(_meta_misses)
     return dict(meta, imdb_id=imdb_id) if imdb_id else meta
 
 
@@ -304,6 +314,7 @@ def reset():
                 except OSError:
                     pass
         _cache = None
+        _meta_misses.clear()
         _provider_until.clear()
         _provider_state.clear()
         _prefetch_until.clear()

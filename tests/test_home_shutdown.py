@@ -14,6 +14,7 @@ def session(monkeypatch):
     shared = ('lib.ui.logocheck', 'lib.ui.ratingsched', 'lib.ui.posterwarm')
     with install_kodi_stubs(reload=_RELOAD_MODULE_NAMES + shared) as ctx:
         monkeypatch.setattr(ctx.logocheck, 'fetch_is_image', lambda url: False)
+        monkeypatch.setattr(ctx.logocheck, 'texture_cached', lambda url: False)
         win = ctx.newhome.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
         ctx.window = win
         before = set(threading.enumerate())
@@ -46,10 +47,15 @@ def test_all_idle_home_workers_stop_while_window_is_still_referenced(session, mo
     hw._join_library_meta(win)
     # Exercise real shared workers as well as the window's metadata worker.
     warmed = threading.Event()
-    original_slots = ctx.posterwarm._slots
-    monkeypatch.setattr(ctx.posterwarm, '_slots', lambda window: warmed.set() or original_slots(window))
+    original_post = ctx.posterwarm._post_batch
+    def post(window, urls):
+        ticket = original_post(window, urls)
+        warmed.set()
+        return ticket
+    monkeypatch.setattr(ctx.posterwarm, '_post_batch', post)
     ctx.posterwarm.request_warm(win, ['p%d' % i for i in range(90)])
     assert warmed.wait(5)
+    ctx.posterwarm.apply_pending(win)
     from lib.stremio.ratings import RatingsCache
     monkeypatch.setattr(ctx.ratingsched, '_DWELL_SECONDS', 60)
     ctx.ratingsched._schedule('tt0000001', 'key', '', RatingsCache(str(tmp_path / 'ratings.json')))
@@ -68,6 +74,7 @@ def test_all_idle_home_workers_stop_while_window_is_still_referenced(session, mo
     join_promptly(workers)
     assert win is ctx.window  # A strong reference survives, just as in Kodi.
     assert not win._library_meta_running
+    ctx.posterwarm.apply_pending(win)
     assert all(win.getControl(slot).image == '' for slot in ctx.posterwarm.WARM_SLOTS)
 
 

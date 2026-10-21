@@ -46,6 +46,7 @@ def test_a_missing_or_wrong_answer_is_not(monkeypatch):
 def test_the_worker_records_the_answer_and_repaints(monkeypatch):
     with install_kodi_stubs(reload=('lib.ui.logocheck',)) as ctx:
         logocheck = ctx.logocheck
+        monkeypatch.setattr(logocheck, 'texture_cached', lambda url: False)
         repaints = []
         monkeypatch.setattr(logocheck, 'fetch_is_image', lambda url: url.endswith('good.png'))
         monkeypatch.setattr(logocheck, '_repaint', lambda: repaints.append(True))
@@ -92,6 +93,7 @@ def fresh(monkeypatch):
         module = ctx.logocheck
         _Thread.started = []
         monkeypatch.setattr(module.threading, 'Thread', _Thread)
+        monkeypatch.setattr(module, 'texture_cached', lambda url: False)
         ctx.module = module
         yield ctx
         module.forget_all()
@@ -279,3 +281,16 @@ def test_an_ask_at_worker_timeout_is_still_processed(fresh, monkeypatch):
     lc._run()
     assert fetched == ['https://img/late.png']
     assert not lc._PENDING and not lc._WORKER
+
+
+@pytest.mark.parametrize('cached', [False, True])
+def test_worker_uses_texture_cache_before_http(fresh, monkeypatch, cached):
+    lc = fresh.module
+    fetched = []
+    monkeypatch.setattr(lc, 'texture_cached', lambda url: cached)
+    monkeypatch.setattr(lc, 'fetch_is_image', lambda url: fetched.append(url) or True)
+    monkeypatch.setattr(lc._WAKE, 'wait', lambda timeout: False)
+    lc._PENDING[:] = ['logo']
+    lc._run()
+    assert lc.state('logo') is True
+    assert fetched == ([] if cached else ['logo'])

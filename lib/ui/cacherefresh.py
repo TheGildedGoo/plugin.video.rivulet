@@ -62,6 +62,7 @@ def clear_memory():
     try:
         from lib.ui import catalogpages
 
+        catalogpages.stop()
         catalogpages.clear_later_pages()
         with catalogpages._caches_lock:
             catalogpages._caches.clear()

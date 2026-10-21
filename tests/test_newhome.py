@@ -154,7 +154,7 @@ def _patch_library(monkeypatch, ctx, entries=None):
     opens a socket the suite forbids; tests pass the records they care
     about and never touch the network."""
     monkeypatch.setattr(
-        ctx.mystuff, '_fetch_library_entries', lambda store, _entries=list(entries or []): _entries,
+        ctx.mystuff, '_read_library_entries', lambda store, _entries=list(entries or []): _entries,
     )
     # A real fetch opens the addon client. These tests assert the row,
     # not Cinemeta. The one that does is explicit about the answer.

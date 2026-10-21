@@ -351,17 +351,27 @@ def _fetch_library_entries(store):
     to notify and show nothing at all)."""
     import xbmc
 
-    from lib.stremio.api import ApiError, StremioAPI
+    from lib.stremio.api import ApiError
     from lib.ui.compat import log
 
     auth = store.get_auth()
     if not auth:
         return []
     try:
-        return StremioAPI().datastore_get(auth.get('authKey'), collection='libraryItem', all=True) or []
+        return _read_library_entries(store) or []
     except ApiError as exc:
         log('mystuff: datastore_get failed, showing local bands only: %r' % (exc,), xbmc.LOGWARNING)
         return []
+
+def _read_library_entries(store):
+    """Raw account read: Home must distinguish failure from an empty library."""
+    from lib.stremio.api import StremioAPI
+
+    auth = store.get_auth()
+    if not auth:
+        return []
+    return StremioAPI().datastore_get(auth.get('authKey'), collection='libraryItem', all=True)
+
 
 
 def _enrich(items, fetch_meta=None, map_items=None):

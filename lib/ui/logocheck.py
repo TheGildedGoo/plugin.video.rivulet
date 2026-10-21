@@ -42,6 +42,28 @@ def _cap(cache):
         del cache[next(iter(cache))]
 
 
+def texture_cached(url):
+    """Kodi's already-downloaded logo; revalidation asks here before HTTP."""
+    import json
+
+    import xbmc
+
+    request = {
+        'jsonrpc': '2.0', 'id': 1, 'method': 'Textures.GetTextures',
+        'params': {
+            'properties': ['url'],
+            'filter': {'field': 'url', 'operator': 'is', 'value': url},
+        },
+    }
+    try:
+        answer = json.loads(xbmc.executeJSONRPC(json.dumps(request)) or '{}')
+    except Exception:
+        return False
+    result = answer.get('result') if isinstance(answer, dict) else None
+    textures = result.get('textures') if isinstance(result, dict) else None
+    return bool(textures)
+
+
 def texture_state(url):
     with _LOCK:
         return _LOGO_STATE.get(url)
@@ -139,7 +161,7 @@ def _run():
                         retired = True
                     return
                 continue
-            good = fetch_is_image(url)
+            good = texture_cached(url) or fetch_is_image(url)
             if _STOP.is_set() or monitor.abortRequested():
                 return
             remember(url, good)

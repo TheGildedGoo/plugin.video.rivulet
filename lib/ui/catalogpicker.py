@@ -182,7 +182,7 @@ def open_single_catalog(transport_url, manifest, catalog, extra=None, meta_filte
         from lib.ui.infowindow import open_showcase
         selected = open_showcase(metas, catalog_title=catalog_title, more_pages=pages)
     except Exception as exc:  # a skin/UI failure must surface, not vanish
-        log('catalogpicker: coverflow failed to open: %r' % (exc,), xbmc.LOGERROR)
+        log('catalogpicker: coverflow failed to open: %s' % addon_error_detail(exc), xbmc.LOGERROR)
         notify(L(30032))
         return False
     if not selected:

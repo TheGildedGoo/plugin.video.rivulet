@@ -374,7 +374,9 @@ def open_search():
         window = open_window(NewSearchWindow, 'NewSearchWindow.xml')
         return window.start()
     except Exception as exc:  # a skin failure must surface, not vanish
-        log('newsearch: window failed: %r' % (exc,), xbmc.LOGERROR)
+        from lib.stremio.addons import addon_error_detail
+
+        log('newsearch: window failed: %s' % addon_error_detail(exc), xbmc.LOGERROR)
         notify(L(30032))
         return False
     finally:

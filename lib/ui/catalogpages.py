@@ -24,8 +24,16 @@ from lib.stremio.pagecache import cache_key
 _CATALOG_PAGES_FILENAME = 'catalog_pages.json'
 _caches = {}  # type: dict
 _caches_lock = threading.Lock()
-_revalidate_inflight = set()
+_revalidate_inflight = {}  # type: dict
 _revalidate_lock = threading.Lock()
+_revalidate_queue = OrderedDict()  # type: OrderedDict
+_revalidate_failed_until = {}  # type: dict
+_revalidate_worker = None
+_revalidate_stop = threading.Event()
+_revalidate_wake = threading.Event()
+_revalidate_generation = 0
+_MAX_REVALIDATE_QUEUE = 32
+_REVALIDATE_BACKOFF_SECONDS = 300
 
 #: `deferred_saves()` nesting depth, and whether a store happened inside.
 #: Not thread-local on purpose: Home and the hubs fetch a first screen on
@@ -136,52 +144,97 @@ def _visible(metas, manifest, catalog):
 
 
 def _fetch_first_page(transport, manifest, catalog, extra):
-    """The first production catalog page; adult catalogs are not requested
-    while the setting hides them. Keep the existing iterator's filtering
-    and paging behavior, without a test-only client extension."""
-    from lib.ui.views import iter_catalog_pages
+    """Read one raw page. Only _visible applies the current adult setting."""
+    from lib.ui.views import _dedupe_page, _fetch_catalog
 
     if _blocked(manifest, catalog):
         return []
     ctype = catalog.get('type') if isinstance(catalog, dict) else None
     cid = catalog.get('id') if isinstance(catalog, dict) else None
-    try:
-        page = next(iter_catalog_pages(
-            transport, ctype, cid, extra=extra, catalog=catalog, manifest=manifest,
-        ))
-    except StopIteration:
-        return []
-    return [meta for meta in (page or []) if isinstance(meta, dict)]
+    page = _fetch_catalog(transport, ctype, cid, extra=list(extra or ()) or None)
+    metas = [meta for meta in (page or []) if isinstance(meta, dict)]
+    return _dedupe_page(metas, set(), False)[1]
 
 
-def _revalidate(transport, manifest, catalog, extra, key):
+def _revalidate(transport, manifest, catalog, extra, key, generation=None):
     try:
         metas = _fetch_first_page(transport, manifest, catalog, extra)
     except Exception:
+        with _revalidate_lock:
+            if generation is None or generation == _revalidate_generation:
+                _revalidate_failed_until[key] = time.monotonic() + _REVALIDATE_BACKOFF_SECONDS
+                while len(_revalidate_failed_until) > 2000:
+                    del _revalidate_failed_until[next(iter(_revalidate_failed_until))]
         return
     if _blocked(manifest, catalog):
-        # Hiding was turned on while this ran: keep the page that is cached.
         return
-    cache = get_page_cache()
-    if cache is None:
-        return
-    _store_page(cache, key, metas)
+    with _revalidate_lock:
+        if generation is not None and (generation != _revalidate_generation or _revalidate_stop.is_set()):
+            return
+        cache = get_page_cache()
+        if cache is not None:
+            _store_page(cache, key, metas)
+        _revalidate_failed_until.pop(key, None)
+
+
+def _revalidate_loop():
+    global _revalidate_worker
+    from lib.ui.background import monitor
+
+    try:
+        while True:
+            with _revalidate_lock:
+                if _revalidate_stop.is_set() or monitor().abortRequested():
+                    _revalidate_worker = None
+                    return
+                if _revalidate_queue:
+                    key, args = _revalidate_queue.popitem(last=True)
+                    generation = _revalidate_generation
+                else:
+                    key = None
+                    _revalidate_wake.clear()
+            if key is None:
+                _revalidate_wake.wait(1.0)
+                continue
+            try:
+                _revalidate(*args, generation)
+            finally:
+                with _revalidate_lock:
+                    if _revalidate_inflight.get(key) == generation:
+                        _revalidate_inflight.pop(key, None)
+    finally:
+        with _revalidate_lock:
+            if _revalidate_worker is threading.current_thread():
+                _revalidate_worker = None
 
 
 def _schedule_revalidate(transport, manifest, catalog, extra, key):
+    global _revalidate_worker
     with _revalidate_lock:
-        if key in _revalidate_inflight:
+        if key in _revalidate_inflight or time.monotonic() < _revalidate_failed_until.get(key, 0):
             return
-        _revalidate_inflight.add(key)
+        _revalidate_stop.clear()
+        _revalidate_inflight[key] = _revalidate_generation
+        _revalidate_queue[key] = (transport, manifest, catalog, extra, key)
+        while len(_revalidate_queue) > _MAX_REVALIDATE_QUEUE:
+            old, _args = _revalidate_queue.popitem(last=False)
+            _revalidate_inflight.pop(old, None)
+        if _revalidate_worker is None:
+            _revalidate_worker = threading.Thread(target=_revalidate_loop,
+                                                  name='rivulet-page-revalidate', daemon=True)
+            _revalidate_worker.start()
+        _revalidate_wake.set()
 
-    def _work():
-        try:
-            _revalidate(transport, manifest, catalog, extra, key)
-        finally:
-            with _revalidate_lock:
-                _revalidate_inflight.discard(key)
 
-    threading.Thread(target=_work, name='rivulet-page-revalidate', daemon=True).start()
+def stop():
+    """Close Home or refresh: drop queued work and reject late HTTP results."""
+    global _revalidate_generation
+    with _revalidate_lock:
+        _revalidate_generation += 1
+        _revalidate_stop.set()
+        _revalidate_queue.clear()
+        _revalidate_inflight.clear()
+        _revalidate_wake.set()
 
 
 def cached_first_page(transport, manifest, catalog, extra=None):
@@ -231,6 +284,8 @@ _MAX_LATER_PAGES = 200
 
 
 def clear_later_pages():
+    with _revalidate_lock:
+        _revalidate_failed_until.clear()
     with _later_lock:
         _later_pages.clear()
         _later_failures.clear()

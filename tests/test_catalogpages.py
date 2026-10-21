@@ -157,14 +157,14 @@ class _Client:
         return list(self._metas)
 
 
-def test_fetch_uses_the_production_iterator_and_its_adult_filter(pages, monkeypatch):
+def test_fetch_keeps_raw_adult_titles_for_read_time_filtering(pages, monkeypatch):
     module = pages.catalogpages
 
     client = _Client([{'id': 'a', 'name': 'A'}, 'junk', {'id': 'b', 'adult': True}])
     monkeypatch.setattr(pages.views, 'get_client', lambda: client)
     pages.env.addon.settings['home_hide_adult'] = 'true'
     metas = module._fetch_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'}, [('genre', 'x')])
-    assert [meta['id'] for meta in metas] == ['a']
+    assert [meta['id'] for meta in metas] == ['a', 'b']
     assert client.calls == [('https://addon.test/manifest.json', 'movie', 'top', [('genre', 'x')])]
 
 
@@ -187,13 +187,12 @@ def test_fetch_reads_only_the_first_catalog_page(pages, monkeypatch):
     monkeypatch.setattr(pages.views, 'get_client', lambda: object())
     seen = []
 
-    def pages_of(transport, ctype, cid, extra=None, catalog=None, manifest=None):
+    def first(transport, ctype, cid, extra=None):
         seen.append((ctype, cid))
-        return iter([[{'id': 'a'}, None], [{'id': 'b'}]])
-
-    monkeypatch.setattr(pages.views, 'iter_catalog_pages', pages_of)
+        return [{'id': 'a'}, None]
+    monkeypatch.setattr(pages.views, '_fetch_catalog', first)
     assert module._fetch_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'}, None) == [{'id': 'a'}]
-    monkeypatch.setattr(pages.views, 'iter_catalog_pages', lambda *a, **k: iter([]))
+    monkeypatch.setattr(pages.views, '_fetch_catalog', lambda *a, **k: [])
     assert module._fetch_first_page('https://addon.test/manifest.json', {}, {'type': 'movie', 'id': 'top'}, None) == []
     assert seen == [('movie', 'top')]
 
@@ -226,18 +225,22 @@ def test_one_revalidation_per_page_at_a_time(pages, monkeypatch):
     gate = threading.Event()
     calls = []
 
+    entered, finished = threading.Event(), threading.Event()
     def slow(*args):
-        calls.append(args[-1])
-        gate.wait(2)
-
+        calls.append(args[-2])
+        entered.set()
+        assert gate.wait(5)
+        finished.set()
     monkeypatch.setattr(module, '_revalidate', slow)
     module._schedule_revalidate('https://addon.test/manifest.json', {}, {}, None, 'k1')
-    module._schedule_revalidate('https://addon.test/manifest.json', {}, {}, None, 'k1')  # already in flight
+    worker = module._revalidate_worker
+    assert entered.wait(5)
+    module._schedule_revalidate('https://addon.test/manifest.json', {}, {}, None, 'k1')
     gate.set()
-    deadline = __import__('time').monotonic() + 2
-    while module._revalidate_inflight and __import__('time').monotonic() < deadline:
-        gate.wait(0.01)
-    assert calls == ['k1']
+    assert finished.wait(5)
+    module.stop()
+    worker.join(5)
+    assert calls == ['k1'] and not worker.is_alive()
     assert 'k1' not in module._revalidate_inflight
 
 

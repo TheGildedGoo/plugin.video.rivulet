@@ -629,18 +629,18 @@ def _map_continue_meta(fetch, wanted, deadline, stop):
 def _home_personal_jobs(window, store, auth, plan, stopped, cancelled, timing):
     """Account read and bounded Continue work share the row pool in parallel."""
     cached = getattr(window, '_library_entries', None)
-    entries = {'value': cached or []}
+    entries = {'value': cached}
     ready = threading.Event()
     jobs = []
     needs_library = any(kind in ('continue', 'library') for _, kind, _, _, _ in plan)
-    if needs_library and cached is None:
+    if needs_library and (cached is None or getattr(window, '_library_failed', False)):
         def library():
             try:
                 entries['value'] = _fetch_library(store, auth)
                 return entries['value']
             finally:
                 ready.set()
-        jobs.append(('library', library, []))
+        jobs.append(('library', library, None))
     else:
         ready.set()
     continued = [(list_id, variant) for list_id, kind, _, variant, _ in plan if kind == 'continue']
@@ -710,28 +710,24 @@ def _played_posters(store, library_entries, variant='', suppressed=None, deadlin
 
 
 def _fetch_library(store, auth):
-    """The account library, or [] when signed out or the call fails.
-
-    `_fetch_library_entries()` already returns [] on `ApiError`. Anything
-    else it lets out (a store miss, a bug) must not take Home down: the
-    rows just render empty.
-    """
+    """The account library, [] when signed out, or None on a failed read."""
     if not auth:
         return []
-    from lib.ui.mystuff import _fetch_library_entries, apply_library_writes
+    from lib.ui.mystuff import _read_library_entries, apply_library_writes
 
     try:
         # A write this session already pushed (`libraryaction`) shows
         # before the account echoes it.
-        fetched = apply_library_writes(_fetch_library_entries(store))
+        raw = _read_library_entries(store)
+        fetched = apply_library_writes(raw) if isinstance(raw, list) else None
     except Exception as exc:
         from lib.stremio.addons import addon_error_detail
         from lib.ui.compat import log
 
         log('home: library read failed: %s' % addon_error_detail(exc))
-        return []
+        return None
     if not isinstance(fetched, list):
-        return []
+        return None
     return fetched
 
 
@@ -758,6 +754,10 @@ def _make_row_states(store, auth, entries, plan, fetched, suppressed=None, conti
             state['items'] = [_poster_item(meta) for meta in state['metas']]
         elif kind == 'continue':
             state['items'] = continued.get(list_id, []) if continued is not None else _played_posters(store, entries, variant, suppressed)
+            if entries is None and auth and not state['items']:
+                state['items'] = [_poster_item({'name': L(30032)})]
+        elif entries is None and auth:
+            state['items'] = [_poster_item({'name': L(30032)})]
         elif not auth:
             if not signed_out_card:
                 state['items'] = [_poster_item({'name': L(30427), 'description': L(30428)}, action='signin')]
@@ -905,9 +905,9 @@ def _load_rows(window, store, addons, auth):
             return None
         if len(fetched) != len(jobs):
             return None
-        entries = fetched.pop('library', cached or [])
+        entries = fetched.pop('library', cached)
         continued = fetched.pop('continue', {})
-        rows = _make_row_states(store, auth, entries, plan, fetched,
+        rows = _make_row_states(store, auth, cached if entries is None and cached is not None else entries, plan, fetched,
                                 getattr(window, '_continue_suppressed', None), continued)
         return entries if needs_library or cached is not None else None, rows
 
@@ -921,8 +921,14 @@ def _load_rows(window, store, addons, auth):
         reason = 'stopped' if _stopping(session_stop) else 'cancelled' if loaded is CANCELLED else 'failed'
         _tab_load_incomplete(window, reason)
         return []
-    window._library_entries, rows = loaded
-    _set_tab_loaded(window, True)
+    entries, rows = loaded
+    needs_library = any(kind in ('continue', 'library') for _, kind, _, _, _ in plan)
+    if entries is not None:
+        window._library_entries = entries
+        window._library_failed = False
+    elif needs_library and auth:
+        window._library_failed = True
+    _set_tab_loaded(window, not (needs_library and getattr(window, '_library_failed', False)))
     return rows
 
 
@@ -1000,11 +1006,15 @@ def _refresh_saved_rows(window, store=None):
     store = store or get_store()
     auth = store.get_auth()
     entries = run_cancellable(lambda: _fetch_library(store, auth), L(30033))
-    if entries is CANCELLED:
+    if entries is CANCELLED or entries is None:
+        if entries is None:
+            window._library_failed = True
+            _set_tab_loaded(window, False)
         _library_dirty = True
         return
     _cancel_shelf_extends(window)
     window._library_entries = entries
+    window._library_failed = False
     # Cached tabs may contain personal rows too. Rebuild them when revisited.
     place = _remember_place(window)
     _refresh_snapshot_personal(list(getattr(window, '_rows', {}).values()), store, entries, auth,
@@ -1211,20 +1221,31 @@ def _restore_place(window, place):
 
 
 def _drop_memory_if_refreshed(window):
-    """Settings > Refresh cached data ran in another interpreter: drop
-    this one's copies too before the rows are built again."""
+    """Notice generation changes or deleted cache files after Settings closes."""
+    import os
+
+    from lib.ui import ratingsched
+    from lib.ui.cacherefresh import CACHE_FILES, _cache_dirs, clear_memory
     from lib.ui.compat import ADDON
 
     try:
         generation = ADDON.getSetting('cache_generation') or ''
     except Exception:
-        return
+        generation = getattr(window, '_cache_generation', '')
     seen = getattr(window, '_cache_generation', None)
     window._cache_generation = generation
-    if seen is not None and generation != seen:
-        from lib.ui.cacherefresh import clear_memory
-
+    present = {os.path.join(folder, name): os.path.isfile(os.path.join(folder, name))
+               for folder in _cache_dirs() for name in CACHE_FILES}
+    previous = getattr(window, '_cache_files_present', {})
+    window._cache_files_present = present
+    held = bool(getattr(window, '_catalog_pages', None)) or ratingsched._cache is not None
+    removed = held and any(existed and not present.get(path, False)
+                           for path, existed in previous.items())
+    changed = seen is not None and generation != seen
+    if changed or removed:
         clear_memory()
+        return True
+    return False
 
 
 def _after_child(window, played=False):
@@ -1240,20 +1261,20 @@ def _after_child(window, played=False):
     re-reads Continue and Library in place; anything else just repaints.
     """
     window._child_refreshed = True
+    refreshed = _drop_memory_if_refreshed(window)
     try:
         store = get_store()
         signature = _home_signature(store)
     except Exception:
         return
-    if signature != getattr(window, '_signature', None) or getattr(window, '_catalog_pages', None) is None:
-        _drop_memory_if_refreshed(window)
+    if refreshed or signature != getattr(window, '_signature', None) or getattr(window, '_catalog_pages', None) is None:
         place = _remember_place(window)
         window._tab_snapshots = {}
         window._library_entries = None
         window._catalog_pages = None
         window._build(place=place)
         return
-    if played or _library_dirty:
+    if played or _library_dirty or getattr(window, '_library_failed', False):
         _refresh_saved_rows(window, store)
     paint_hero(window)
 
@@ -1375,6 +1396,7 @@ def _note_focus(window):
     """Remember where the remote is, so the next Up can tell a dead end
     from a move (`HomeWindow.onAction`)."""
     try:
+        _maybe_extend_focused_shelf(window)
         window._last_focus = window.getFocusId()
         if window._last_focus in getattr(window, '_rows', {}):
             window._tab_last_row = window._last_focus
@@ -1453,8 +1475,7 @@ def _cancel_shelf_extends(window):
 def _current_shelf(window, generation, panel, state):
     return (not _stopping(_home_stop(window))
             and generation == getattr(window, '_tab_generation', 0)
-            and getattr(window, '_rows', {}).get(panel) is state
-            and _focusable(window, panel))
+            and getattr(window, '_rows', {}).get(panel) is state)
 
 
 def _schedule_shelf_extend(window, panel, room):
@@ -1489,31 +1510,47 @@ def _schedule_shelf_extend(window, panel, room):
 
 
 def _shelf_worker(window):
-    while True:
-        with _shelf_lock(window):
-            if _stopping(_home_stop(window)) or not window._shelf_queue:
+    retired = False
+    try:
+        while True:
+            with _shelf_lock(window):
+                if _stopping(_home_stop(window)) or not window._shelf_queue:
+                    window._shelf_running -= 1
+                    retired = True
+                    return
+                generation, panel, state, room = window._shelf_queue.pop()
+            queued = False
+            try:
+                if not _current_shelf(window, generation, panel, state):
+                    continue
+                private = dict(state)
+                private['_stop'] = _home_stop(window)
+                private['pending'] = list(state.get('pending', []))
+                private['seen_ids'] = set(state.get('seen_ids', set()))
+                metas = _pull_more(private, room)
+                with _shelf_lock(window):
+                    if not _current_shelf(window, generation, panel, state):
+                        continue
+                    ready = getattr(window, '_shelf_ready', [])
+                    window._shelf_ready = ready
+                    ready.append((generation, panel, state, private, metas))
+                    queued = True
+                import xbmc
+                xbmc.executebuiltin('Action(noop)')
+            except Exception as exc:
+                from lib.stremio.addons import addon_error_detail
+                from lib.ui.compat import log
+
+                log('home: shelf load failed: %s' % addon_error_detail(exc))
+            finally:
+                if not queued:
+                    with _shelf_lock(window):
+                        if window._shelf_inflight.get(panel) == (generation, state):
+                            window._shelf_inflight.pop(panel, None)
+    finally:
+        if not retired:
+            with _shelf_lock(window):
                 window._shelf_running -= 1
-                return
-            generation, panel, state, room = window._shelf_queue.pop()
-            if not _current_shelf(window, generation, panel, state):
-                window._shelf_inflight.pop(panel, None)
-                continue
-        private = dict(state)
-        private['_stop'] = _home_stop(window)
-        private['pending'] = list(state.get('pending', []))
-        private['seen_ids'] = set(state.get('seen_ids', set()))
-        metas = _pull_more(private, room)
-        with _shelf_lock(window):
-            if not _current_shelf(window, generation, panel, state):
-                continue
-            ready = getattr(window, '_shelf_ready', [])
-            window._shelf_ready = ready
-            ready.append((generation, panel, state, private, metas))
-        try:
-            import xbmc
-            xbmc.executebuiltin('Action(noop)')
-        except Exception:
-            pass
 
 
 def _join_shelf_extends(window):
@@ -1527,7 +1564,8 @@ def _apply_shelf_extends(window):
         ready = list(getattr(window, '_shelf_ready', []))
         window._shelf_ready = []
     for generation, panel, state, private, metas in ready:
-        if not _current_shelf(window, generation, panel, state):
+        if not _current_shelf(window, generation, panel, state) or not _focusable(window, panel):
+            window._shelf_inflight.pop(panel, None)
             continue
         for key in ('pending', 'seen_ids', 'served', 'exhausted', 'failed', 'end_reason', 'page_number'):
             if key in private:
@@ -1914,22 +1952,9 @@ def _texture_cached(url):
     lookup over JSON-RPC (``Textures.GetTextures``). Any failure answers
     False, which only means the text title is shown.
     """
-    import xbmc
+    from lib.ui.logocheck import texture_cached
 
-    request = {
-        'jsonrpc': '2.0', 'id': 1, 'method': 'Textures.GetTextures',
-        'params': {
-            'properties': ['url'],
-            'filter': {'field': 'url', 'operator': 'is', 'value': url},
-        },
-    }
-    try:
-        answer = json.loads(xbmc.executeJSONRPC(json.dumps(request)) or '{}')
-    except Exception:
-        return False
-    result = answer.get('result') if isinstance(answer, dict) else None
-    textures = result.get('textures') if isinstance(result, dict) else None
-    return bool(textures)
+    return texture_cached(url)
 
 
 def _logo_known_good(url):
@@ -2095,14 +2120,22 @@ def paint_hero(window, item=None):
 
         # No bar: the facts and scores lines, stacked up from the row.
         newlook.paint_hero(window, plot, meta, runtime)
-    except Exception:
-        pass
+    except Exception as exc:
+        if not getattr(window, '_hero_failure_logged', False):
+            import xbmc
+
+            from lib.stremio.addons import addon_error_detail
+            from lib.ui.compat import log
+
+            window._hero_failure_logged = True
+            log('home: hero paint failed: %s' % addon_error_detail(exc), xbmc.LOGDEBUG)
 
 
 class NewHomeWindow(BaseWindow):
     """See module docstring. Built/run by `homewindow.open_home()`."""
 
     def onInit(self):
+        self._hero_failure_logged = False
         # Playback reopens this same SWIG window. A fresh event must never
         # revive workers carrying the previous session's cancellation token.
         if _home_stop(self).is_set():
@@ -2135,8 +2168,10 @@ class NewHomeWindow(BaseWindow):
             wake = getattr(self, '_library_meta_wake', None)
             if wake is not None:
                 wake.set()
-        from lib.ui import logocheck, ratingsched
+        from lib.ui import catalogpages, logocheck, posterwarm, ratingsched
 
+        catalogpages.stop()
+        posterwarm.stop(self)
         logocheck.stop()
         ratingsched.stop()
         super().close()
@@ -2208,10 +2243,12 @@ class NewHomeWindow(BaseWindow):
 
     @gated_input
     def onAction(self, action):
-        from lib.ui.uicommon import BACK_ACTIONS
-
         # The library fetch finished on a worker and woke a noop. The
         # poster properties have to be current before the hero paints.
+        from lib.ui.posterwarm import apply_pending
+        from lib.ui.uicommon import BACK_ACTIONS
+
+        apply_pending(self)
         _apply_library_meta(self)
         _apply_shelf_extends(self)
         action_id = action.getId()
@@ -2229,13 +2266,13 @@ class NewHomeWindow(BaseWindow):
             _focus_first(self)
         elif focus != BROWSE_LIST and getattr(self, '_last_focus', None) == BROWSE_LIST:
             _select_active_chip(self)
-        if action_id == 2:
-            _maybe_extend_focused_shelf(self)
+        _maybe_extend_focused_shelf(self)
         paint_hero(self)
         _note_focus(self)
 
     @gated_input
     def onClick(self, control_id):
+        _note_focus(self)
         if control_id in _BUTTON_ACTIONS:
             handler = _ACTIONS.get(_BUTTON_ACTIONS[control_id])
             if handler:
