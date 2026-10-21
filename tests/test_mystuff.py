@@ -12,9 +12,7 @@ crossed 95%, which is exactly when the viewer wants the NEXT episode -
 see `test_finished_series_episode_lands_in_next_up_band` and the
 `lib.ui.mystuff` module docstring.
 
-`open_my_stuff()` itself (busy dialog, addon fan-out, grid) is not
-exercised here: it is I/O and window orchestration, the same split
-tests/test_librarywindow.py drew before this module replaced it.
+The Home row orchestration is covered separately in test_newhome.py.
 """
 import contextlib
 
@@ -478,23 +476,5 @@ def test_a_series_with_a_next_episode_gets_a_zero_padded_label(mystuff):
 
 
 # ---------------------------------------------------------------------------
-# _fetch_library_entries() - a datastore failure must not sink the screen
+# Account reads are exercised through Home in test_review_round3.py
 # ---------------------------------------------------------------------------
-
-
-def test_fetch_library_entries_returns_empty_on_api_error(mystuff):
-    """A Stremio API outage/auth hiccup must not crash "My Stuff" - the
-    local played bands still work fully offline, so a library failure is
-    logged and swallowed rather than propagated."""
-    from lib.stremio.api import ApiError
-
-    class _FailingAPI:
-        def datastore_get(self, *args, **kwargs):
-            raise ApiError('boom')
-
-    import sys
-    sys.modules['lib.stremio.api'].StremioAPI = _FailingAPI
-
-    store = type('S', (), {'get_auth': staticmethod(lambda: {'authKey': 'k'})})()
-
-    assert mystuff._fetch_library_entries(store) == []

@@ -276,7 +276,7 @@ def library_add_payload(meta, now=None):
 
     Deliberately built fresh from `meta` alone, never from any existing
     server-side record for this id: this addon caches no library items
-    (`lib.ui.mystuff._fetch_library_entries()` re-fetches live every
+    (`lib.ui.mystuff._read_library_entries()` re-fetches live every
     time for the same reason), and an explicit "Add" from a title the
     user has never played has no prior `state` to preserve anyway. A
     title that already has a `removed=True` implicit record (e.g. from

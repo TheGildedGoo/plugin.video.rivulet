@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""open_my_stuff(): the merged "My Stuff" screen - one grid combining
+"""Shared My Stuff band helpers used by Home and the retained grid: combining
 what the Home menu used to split across two rows ("Continue watching",
 `lib.ui.continuewatching`, and "Library", `lib.ui.librarywindow`) plus a
 third band those two never surfaced at all: titles finished recently.
@@ -31,9 +31,9 @@ computed here as "this series is next-up" and the actual episode is
 resolved lazily by `lib.ui.binge.next_video()` once the meta is in hand
 (see `resolve_next_up()`).
 
-Everything above `open_my_stuff()` is a pure function of its arguments -
-no store, no addon, no Kodi imports - so tests/test_mystuff.py exercises
-every band with plain dicts.
+The merge and band helpers are pure functions of their arguments, so
+tests/test_mystuff.py exercises every band with plain dicts. Account reads
+and metadata enrichment below are the explicit I/O boundary.
 """
 import threading
 from typing import Dict
@@ -257,16 +257,6 @@ def resolve_next_up(item, meta):
     return next_video(meta, video_id)
 
 
-def has_content(store):
-    """Cheap gate for whether the Home "My Stuff" row should be shown at
-    all - True iff the local progress cache holds at least one bandable
-    entry, or the user is logged in (in which case they may have a
-    library worth opening, which cannot be checked without a network
-    call). `get_progress_entries()`/`get_auth()` are both pure local
-    reads, so this is safe on every Home render."""
-    if any(_band_for(percent_watched(e), e.get('type')) for e in latest_by_title(store.get_progress_entries())):
-        return True
-    return bool(store.get_auth())
 
 
 # Writes that have been pushed and must show before the next
@@ -342,26 +332,6 @@ def apply_library_writes(entries):
     return out
 
 
-def _fetch_library_entries(store):
-    """The user's Stremio library datastore, or [] when logged out or the
-    call fails. A library failure must never sink the whole screen - the
-    local played bands work fully offline and logged out, which is
-    exactly the state a fresh device is in - so this logs and degrades to
-    empty rather than propagating (`open_library()`'s old behaviour was
-    to notify and show nothing at all)."""
-    import xbmc
-
-    from lib.stremio.api import ApiError
-    from lib.ui.compat import log
-
-    auth = store.get_auth()
-    if not auth:
-        return []
-    try:
-        return _read_library_entries(store) or []
-    except ApiError as exc:
-        log('mystuff: datastore_get failed, showing local bands only: %r' % (exc,), xbmc.LOGWARNING)
-        return []
 
 def _read_library_entries(store):
     """Raw account read: Home must distinguish failure from an empty library."""
@@ -489,52 +459,3 @@ def _label_next_episodes(items):
             continue
         from lib.ui.playbackmeta import episode_code
         item['next_label'] = episode_code(season, episode)
-
-
-def open_my_stuff():
-    """Fetch both sources, merge them, and show the result in the grid.
-    Returns True if the caller (HomeWindow) should also close (playback
-    started somewhere down the open_detail() chain)."""
-    import xbmc
-
-    from lib.ui.compat import L, log, notify
-    from lib.ui.uicommon import CANCELLED, run_cancellable
-
-    store = get_store()
-
-    def _load():
-        merged = merge_entries(store.get_progress_entries(), _fetch_library_entries(store))
-        items = _enrich(merged)
-        _label_next_episodes(items)
-        return items
-
-    items = run_cancellable(_load, L(30033))
-    if items is CANCELLED:
-        return False
-
-    if not items:
-        notify(L(30030))
-        return False
-
-    log('mystuff: opening grid (%d items)' % len(items), xbmc.LOGINFO)
-
-    def _remove(item):
-        # Played bands come from local progress only (see `merge_entries`),
-        # so dropping it removes the card for good (issue #65).
-        removed = store.remove_progress_title(item.get('type'), item.get('id'))
-        log('mystuff: removed %s/%s from Continue watching (%d entries)'
-            % (item.get('type'), item.get('id'), removed), xbmc.LOGINFO)
-        return removed > 0
-
-    try:
-        from lib.ui.gridwindow import open_grid
-        selected = open_grid(group_by_band(items), heading=L(30241), on_remove=_remove)
-    except Exception as exc:  # a skin/UI failure must surface, not vanish
-        log('mystuff: grid failed to open: %r' % (exc,), xbmc.LOGERROR)
-        notify(L(30032))
-        return False
-    if not selected:
-        return False
-
-    from lib.ui.detailwindow import open_detail
-    return open_detail(selected.get('type'), selected.get('id'))

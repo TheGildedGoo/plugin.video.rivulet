@@ -42,10 +42,8 @@ class _FakeStore:
     """Fake `lib.store.Store` for HomeWindow.onInit(): `get_enabled_addons()`
     supplies the catalogs the type rows auto-hide against (defaulting to
     one of every type), and `get_auth()`/`get_progress_entries()`
-    (defaulting to logged out with nothing cached) are what the real
-    `lib.ui.mystuff.has_content()` reads - tests that care about the My
-    Stuff row's gating monkeypatch `has_content()` itself instead of
-    populating these."""
+    (defaulting to logged out with nothing cached) feed the personal
+    rows. Tests supply the library read explicitly when signed in."""
 
     def __init__(self, auth=None, addons=None, progress_entries=None):
         self._auth = auth

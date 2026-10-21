@@ -413,7 +413,7 @@ def test_update_background_swallows_a_broken_skin_control(ctx):
 
 def test_start_returns_none_for_an_empty_screen_without_opening_it(ctx):
     """A merge that produced nothing must never open a blank window -
-    open_my_stuff() notifies instead."""
+    the caller handles the empty selection instead."""
     win = ctx.gridwindow.GridWindow('GridWindow.xml', '/addon/path', 'Default', '1080i')
 
     assert win.start([]) is None

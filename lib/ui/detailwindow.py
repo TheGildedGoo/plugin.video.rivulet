@@ -668,7 +668,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         The Add/Remove and watched ROW WORDING must reflect the
         account's CURRENT state, never a locally-cached guess (this
         addon caches no library items at all -- see
-        `lib.ui.mystuff._fetch_library_entries()`'s identical live
+        `lib.ui.mystuff._read_library_entries()`'s identical live
         fetch) -- `_current_library_state()` fetches it fresh every time
         this menu opens, logged in or not. `lookup_ok` is forwarded
         unchanged to `_toggle_library()`/`_toggle_watched()`: a failed

@@ -21,6 +21,10 @@
 #   Software.
 # 
 
+# Vendored Nayuki QR encoder (MIT), python/qrcodegen.py from nayuki/QR-Code-generator at
+# 777682a (2025-01-04). One local change: _BitBuffer subclasses plain list (not list[int])
+# so it imports on Python 3.8. Otherwise as published; ruff exemptions keep it that way.
+
 from __future__ import annotations
 import collections, itertools, re
 from collections.abc import Sequence

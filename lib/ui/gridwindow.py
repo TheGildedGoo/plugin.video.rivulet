@@ -407,9 +407,8 @@ def open_grid(bands, heading='', labels=None, on_remove=None):
     empty). `labels` and `on_remove` are forwarded to
     `GridWindow.start()` - see its docstring.
 
-    The caller (`lib.ui.mystuff.open_my_stuff()`) wraps this in its own
-    try/except and logs+notifies on failure, so an exception from
-    `.start()` keeps propagating unchanged - this only guarantees the
+    An exception from `.start()` propagates to the caller unchanged.
+    This only guarantees the
     window is closed first (it may not have had a chance to self-close,
     e.g. if onInit() or a mid-modal callback raised)."""
     win = open_window(GridWindow, 'GridWindow.xml')

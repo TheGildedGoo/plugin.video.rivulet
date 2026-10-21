@@ -24,7 +24,7 @@ Continue, and Browse full catalog for catalog rows. Pages append in place,
 with two workers and a 2000-item safety ceiling per row.
 
 Shared helpers this module calls and does not modify:
-`lib.ui.mystuff` (`merge_entries`, `library_metas`, `_fetch_library_entries`,
+`lib.ui.mystuff` (`merge_entries`, `library_metas`, `_read_library_entries`,
 `_enrich`, the resume percent constants), `lib.ui.views.iter_catalog_pages`
 and `lib.ui.detailwindow.open_detail`.
 """
@@ -97,8 +97,6 @@ _BUTTON_ACTIONS = {
 
 # Tabs have a fixed order. Eligibility is the same pure catalog rule used by
 # the configurator; unsupported base types never create a Home row or chip.
-TYPE_ROW_TYPES = {'movies': frozenset({'movie'}), 'series': frozenset({'series', 'tv'}),
-                  'anime': frozenset({'anime'})}
 _MENU = ((30495, 'home'), (30516, 'mystuff'), (30213, 'movies'),
          (30214, 'series'), (30215, 'anime'))
 _SUBTITLES = {'mystuff': 30232, 'movies': 30216, 'series': 30217, 'anime': 30218}
