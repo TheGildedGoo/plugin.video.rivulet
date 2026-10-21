@@ -1345,3 +1345,38 @@ msgstr "¿Reemplazar la lista Continuar de esta pestaña?"
 msgctxt "#30492"
 msgid "Options"
 msgstr "Opciones"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Usar móvil"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Descubrir"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Resultados"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Bienvenido"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Busca películas, series y más. Elige letras o usa tu móvil."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Buscar"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Sin resultados para «%s»"

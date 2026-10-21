@@ -79,8 +79,9 @@ def test_skin_file_discovery_finds_every_window():
     """Guards every other test in this file: a glob that silently matches
     nothing would make every rule below pass by scanning zero files."""
     paths = _skin_files()
-    # Nine screens, five dark dialogs, and the phone pairing dialog.
-    assert len(paths) == 16, 'expected 16 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
+    # Keep search independently testable when the episode-page commit is split out.
+    expected = 16 + int(os.path.isfile(os.path.join(_SKIN_DIR, 'NewDetailWindow.xml')))
+    assert len(paths) == expected, 'expected %d window XMLs in %s, found %d: %s' % (expected, _SKIN_DIR, len(paths), paths)
 
 
 @pytest.mark.parametrize('path', _skin_files(), ids=lambda p: os.path.basename(p))

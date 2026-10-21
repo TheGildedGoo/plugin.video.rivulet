@@ -32,7 +32,6 @@ from lib.ui.uicommon import (
     deliver_queued_input,
     escape_label,
     gated_input,
-    open_window,
 )
 
 LIST = 30002
@@ -798,28 +797,7 @@ def _feed_index(store, client):
 
 
 def open_search():
-    """Open the search history/new-query picker. Returns True if the
-    caller should also close (see `SearchWindow.start`)."""
-    from lib.ui.compat import L, log, notify
+    """Open the one-page search. True when the caller should also close."""
+    from lib.ui import newsearch
 
-    log('searchwindow: opening SearchWindow', xbmc.LOGINFO)
-    win = None
-    try:
-        win = open_window(SearchWindow, 'SearchWindow.xml')
-        return win.start()
-    except Exception as exc:  # a skin/UI failure must surface, not vanish
-        log('searchwindow: window failed to open: %r' % (exc,), xbmc.LOGERROR)
-        notify(L(30032))
-        return False
-    finally:
-        # A normal return means SearchWindow already closed itself (its
-        # own onAction/onClick calls self.close()) before .start()
-        # returned - but an exception raised from WITHIN .start() (onInit(),
-        # or a callback mid-doModal()) skips that self-close entirely.
-        # Close unconditionally here so no exit path leaves a zombie modal
-        # window behind; closing an already-closed window is a safe no-op.
-        if win is not None:
-            try:
-                win.close()
-            except Exception:
-                pass
+    return newsearch.open_search()

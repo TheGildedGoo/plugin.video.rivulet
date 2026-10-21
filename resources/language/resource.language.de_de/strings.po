@@ -1345,3 +1345,38 @@ msgstr "Die Weiterschauen-Liste dieses Tabs ersetzen?"
 msgctxt "#30492"
 msgid "Options"
 msgstr "Optionen"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Per Handy"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Entdecken"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Ergebnisse"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Willkommen"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Suche nach Filmen, Serien und mehr. Wähle Buchstaben oder nimm dein Handy."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Suchen"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Keine Ergebnisse für „%s“"

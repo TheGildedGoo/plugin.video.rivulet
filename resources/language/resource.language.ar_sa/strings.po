@@ -1345,3 +1345,38 @@ msgstr "هل تريد استبدال قائمة متابعة المشاهدة ل
 msgctxt "#30492"
 msgid "Options"
 msgstr "خيارات"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "استخدم الهاتف"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "اكتشف"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "النتائج"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "مرحبًا"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "ابحث عن الأفلام والمسلسلات وغيرها. اختر الحروف أو استخدم هاتفك."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "بحث"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "لا توجد نتائج لـ “%s”"

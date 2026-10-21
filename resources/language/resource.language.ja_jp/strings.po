@@ -1345,3 +1345,38 @@ msgstr "このタブの続きから視聴リストを置き換えますか？"
 msgctxt "#30492"
 msgid "Options"
 msgstr "オプション"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "スマホで入力"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "おすすめ"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "検索結果"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "ようこそ"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "映画やドラマなどを検索します。文字を選ぶか、スマホを使ってください。"
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "検索"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "「%s」の結果はありません"

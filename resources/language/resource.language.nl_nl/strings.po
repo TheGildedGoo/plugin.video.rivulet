@@ -1345,3 +1345,38 @@ msgstr "De lijst Verder kijken van dit tabblad vervangen?"
 msgctxt "#30492"
 msgid "Options"
 msgstr "Opties"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Via telefoon"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Ontdekken"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Resultaten"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Welkom"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Zoek films, series en meer. Kies letters of gebruik je telefoon."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Zoeken"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Geen resultaten voor ‘%s’"

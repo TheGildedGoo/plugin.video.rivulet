@@ -1345,3 +1345,38 @@ msgstr "Substituir a lista Continuar desta aba?"
 msgctxt "#30492"
 msgid "Options"
 msgstr "Opções"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Usar celular"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Descobrir"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Resultados"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Bem-vindo"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Busque filmes, séries e mais. Escolha letras ou use o celular."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Buscar"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Nenhum resultado para “%s”"

@@ -1390,3 +1390,38 @@ msgstr ""
 msgctxt "#30492"
 msgid "Options"
 msgstr ""
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr ""
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr ""
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr ""
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr ""
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr ""
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr ""
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr ""

@@ -1345,3 +1345,38 @@ msgstr "替换此标签页的继续观看列表？"
 msgctxt "#30492"
 msgid "Options"
 msgstr "选项"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "用手机"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "发现"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "结果"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "欢迎"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "搜索电影、剧集等。选择字母，或使用手机。"
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "搜索"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "没有“%s”的结果"

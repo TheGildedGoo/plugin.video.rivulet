@@ -56,7 +56,7 @@ from tests.kodistubs import install_kodi_stubs
 
 _RELOAD_MODULE_NAMES = (
     'lib.ui.compat', 'lib.ui.dependencies', 'lib.ui.uicommon', 'lib.ui.dialogs',
-    'lib.ui.infowindow', 'lib.ui.detailwindow', 'lib.ui.searchwindow',
+    'lib.ui.infowindow', 'lib.ui.detailwindow', 'lib.ui.searchwindow', 'lib.ui.newsearch',
 )
 
 
@@ -1661,7 +1661,7 @@ def test_open_search_opens_window_against_the_right_skin_and_returns_start_resul
     ctx = load_searchwindow(addon_info={'path': '/addon/path'})
     captured = {}
 
-    class RecordingWindow(ctx.searchwindow.SearchWindow):
+    class RecordingWindow(ctx.newsearch.NewSearchWindow):
         def __init__(self, *args, **kwargs):
             captured['init_args'] = args
             super().__init__(*args, **kwargs)
@@ -1670,12 +1670,12 @@ def test_open_search_opens_window_against_the_right_skin_and_returns_start_resul
             captured['started'] = True
             return True
 
-    monkeypatch.setattr(ctx.searchwindow, 'SearchWindow', RecordingWindow)
+    monkeypatch.setattr(ctx.newsearch, 'NewSearchWindow', RecordingWindow)
 
     result = ctx.searchwindow.open_search()
 
     assert result is True
-    assert captured['init_args'] == ('SearchWindow.xml', '/addon/path', 'Default', '1080i')
+    assert captured['init_args'] == ('NewSearchWindow.xml', '/addon/path', 'Default', '1080i')
     assert captured['started'] is True
 
 
@@ -1683,7 +1683,7 @@ def test_open_search_window_is_closed_exactly_once_when_start_raises(load_search
     ctx = load_searchwindow(addon_info={'path': '/addon/path'})
     captured = {}
 
-    class ExplodingWindow(ctx.searchwindow.SearchWindow):
+    class ExplodingWindow(ctx.newsearch.NewSearchWindow):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.close_calls = 0
@@ -1699,7 +1699,7 @@ def test_open_search_window_is_closed_exactly_once_when_start_raises(load_search
             # normal-path close) never gets a chance to run.
             raise RuntimeError('onInit blew up')
 
-    monkeypatch.setattr(ctx.searchwindow, 'SearchWindow', ExplodingWindow)
+    monkeypatch.setattr(ctx.newsearch, 'NewSearchWindow', ExplodingWindow)
 
     result = ctx.searchwindow.open_search()
 

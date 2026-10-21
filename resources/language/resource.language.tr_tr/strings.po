@@ -1345,3 +1345,38 @@ msgstr "Bu sekmenin Devam Et listesi değiştirilsin mi?"
 msgctxt "#30492"
 msgid "Options"
 msgstr "Seçenekler"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Telefonla"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Keşfet"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Sonuçlar"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Hoş geldiniz"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Film, dizi ve daha fazlasını arayın. Harf seçin ya da telefonunuzu kullanın."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Ara"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "“%s” için sonuç yok"

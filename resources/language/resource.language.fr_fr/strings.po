@@ -1345,3 +1345,38 @@ msgstr "Remplacer la liste Reprendre de cet onglet ?"
 msgctxt "#30492"
 msgid "Options"
 msgstr "Options"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Téléphone"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Découvrir"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Résultats"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Bienvenue"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Cherchez des films, des séries et plus. Choisissez des lettres ou utilisez votre téléphone."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Rechercher"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Aucun résultat pour « %s »"

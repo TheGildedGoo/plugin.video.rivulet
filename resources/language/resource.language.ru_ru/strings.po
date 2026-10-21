@@ -1345,3 +1345,38 @@ msgstr "Заменить список «Продолжить» этой вкла
 msgctxt "#30492"
 msgid "Options"
 msgstr "Параметры"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "С телефона"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Обзор"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Результаты"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Добро пожаловать"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Ищите фильмы, сериалы и другое. Выбирайте буквы или используйте телефон."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Найти"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Ничего не найдено по запросу «%s»"

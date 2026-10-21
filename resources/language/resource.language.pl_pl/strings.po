@@ -1345,3 +1345,38 @@ msgstr "Zastąpić listę Kontynuuj na tej karcie?"
 msgctxt "#30492"
 msgid "Options"
 msgstr "Opcje"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Z telefonu"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Odkrywaj"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Wyniki"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Witaj"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Szukaj filmów, seriali i nie tylko. Wybieraj litery albo użyj telefonu."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Szukaj"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Brak wyników dla „%s”"
