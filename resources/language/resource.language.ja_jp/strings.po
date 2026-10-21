@@ -1058,17 +1058,11 @@ msgctxt "#30454"
 msgid "MDBList API key"
 msgstr "MDBList APIキー"
 
-msgctxt "#30455"
-msgid "For movie scores, get a free key at omdbapi.com/apikey.aspx"
-msgstr "映画のスコア用の無料キーは omdbapi.com/apikey.aspx で取得できます"
 
-msgctxt "#30456"
-msgid "MDBList API key (mdblist.com/preferences/)"
-msgstr "MDBList APIキー (mdblist.com/preferences/)"
 
-msgctxt "#30457"
-msgid "Pair ratings key from phone"
-msgstr "スマホから評価キーをペアリング"
+
+
+
 
 msgctxt "#30458"
 msgid "Pair a key"
@@ -1340,6 +1334,46 @@ msgstr "カタログ全体を見る"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "このタブの続きから視聴リストを置き換えますか？"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "スマートフォンでOMDbキーを入力 (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "スマートフォンでMDBListキーを入力 (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "無料のOMDbキーを取得: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "無料のMDBListキーを取得 (ログイン後、APIキーへ): https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "OMDb APIキーの取得先: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "MDBList APIキーの取得先: https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "QRコードを表示します。スマートフォンで読み取り、キーを貼り付けると、ここに保存されます。"
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "MDBListの評価を表示するには、https://mdblist.com/preferences/ で無料のキーを取得し (ログイン後、APIキーを生成)、ここに入力してください。MDBListはRotten Tomatoesの観客評価も追加します。"
 
 
 msgctxt "#30492"

@@ -145,22 +145,17 @@ def test_translated_catalog_ids_are_known_to_english():
 
 def test_translated_catalog_ids_cover_english():
     """Complement of `test_translated_catalog_ids_are_known_to_english`:
-    translated catalogs define English's ids apart from the nine
-    ratings-pairing strings shipped with Kodi's English fallback.
+    translated catalogs define English's ids.
     This would have caught #30148-#30152 missing from 12 of 14 catalogs - a
     catalog that only omits ids ships English text on those ids at
     runtime, defeating the point of translating it."""
     english_ids = set(_english_ids())
     assert english_ids, "English catalog defines no ids"
-    # Per-key QR instructions intentionally use Kodi's en_gb fallback.
-    # Keep that exception exact; all other ids still require every locale.
-    ratings_pair_fallback = {30539, 30540, 30541, 30542, 30543, 30544, 30545, 30546, 30547}
-    assert ratings_pair_fallback <= english_ids
     for po_path in _catalog_paths():
         if po_path == ENGLISH_PO:
             continue
         catalog_ids = set(parse_po(po_path.read_text(encoding="utf-8")))
-        missing = sorted(english_ids - catalog_ids - ratings_pair_fallback)
+        missing = sorted(english_ids - catalog_ids)
         assert not missing, "%s is missing ids present in English: %s" % (po_path, missing)
 
 

@@ -1058,17 +1058,11 @@ msgctxt "#30454"
 msgid "MDBList API key"
 msgstr "مفتاح API لـ MDBList"
 
-msgctxt "#30455"
-msgid "For movie scores, get a free key at omdbapi.com/apikey.aspx"
-msgstr "مفتاح مجاني لتقييمات الأفلام: omdbapi.com/apikey.aspx"
 
-msgctxt "#30456"
-msgid "MDBList API key (mdblist.com/preferences/)"
-msgstr "مفتاح API لـ MDBList (mdblist.com/preferences/)"
 
-msgctxt "#30457"
-msgid "Pair ratings key from phone"
-msgstr "إقران مفتاح التقييمات من الهاتف"
+
+
+
 
 msgctxt "#30458"
 msgid "Pair a key"
@@ -1340,6 +1334,46 @@ msgstr "تصفح الكتالوج الكامل"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "هل تريد استبدال قائمة متابعة المشاهدة لعلامة التبويب هذه؟"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "أدخل مفتاح OMDb بهاتفك (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "أدخل مفتاح MDBList بهاتفك (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "احصل على مفتاح OMDb مجاني: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "احصل على مفتاح MDBList مجاني (سجّل الدخول ثم اختر مفتاح API): https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "مفتاح API لخدمة OMDb، احصل عليه من https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "مفتاح API لخدمة MDBList، احصل عليه من https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "يعرض رمز QR. امسحه بهاتفك والصق المفتاح هناك ليُحفظ هنا."
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "تريد تقييمات MDBList؟ احصل على مفتاح مجاني من https://mdblist.com/preferences/ (سجّل الدخول ثم أنشئ مفتاح API) وأدخله هنا. تضيف MDBList أيضًا تقييم جمهور Rotten Tomatoes."
 
 
 msgctxt "#30492"

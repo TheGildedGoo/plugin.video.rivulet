@@ -1058,17 +1058,11 @@ msgctxt "#30454"
 msgid "MDBList API key"
 msgstr "MDBList API 키"
 
-msgctxt "#30455"
-msgid "For movie scores, get a free key at omdbapi.com/apikey.aspx"
-msgstr "영화 점수용 무료 키: omdbapi.com/apikey.aspx"
 
-msgctxt "#30456"
-msgid "MDBList API key (mdblist.com/preferences/)"
-msgstr "MDBList API 키 (mdblist.com/preferences/)"
 
-msgctxt "#30457"
-msgid "Pair ratings key from phone"
-msgstr "휴대폰에서 평점 키 페어링"
+
+
+
 
 msgctxt "#30458"
 msgid "Pair a key"
@@ -1340,6 +1334,46 @@ msgstr "전체 카탈로그 탐색"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "이 탭의 계속 보기 목록을 바꿀까요?"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "휴대폰으로 OMDb 키 입력 (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "휴대폰으로 MDBList 키 입력 (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "무료 OMDb 키 받기: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "무료 MDBList 키 받기 (로그인 후 API 키 선택): https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "OMDb API 키 발급: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "MDBList API 키 발급: https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "QR 코드를 표시합니다. 휴대폰으로 스캔한 뒤 키를 붙여 넣으면 여기에 저장됩니다."
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "MDBList 평점을 보려면 https://mdblist.com/preferences/ 에서 무료 키를 발급받아 (로그인 후 API 키 생성) 여기에 입력하세요. MDBList는 Rotten Tomatoes 관객 점수도 추가합니다."
 
 
 msgctxt "#30492"

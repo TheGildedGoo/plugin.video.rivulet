@@ -1058,17 +1058,11 @@ msgctxt "#30454"
 msgid "MDBList API key"
 msgstr "MDBList-API-Schlüssel"
 
-msgctxt "#30455"
-msgid "For movie scores, get a free key at omdbapi.com/apikey.aspx"
-msgstr "Für Filmwertungen: kostenloser Schlüssel auf omdbapi.com/apikey.aspx"
 
-msgctxt "#30456"
-msgid "MDBList API key (mdblist.com/preferences/)"
-msgstr "MDBList-API-Schlüssel (mdblist.com/preferences/)"
 
-msgctxt "#30457"
-msgid "Pair ratings key from phone"
-msgstr "Bewertungsschlüssel vom Telefon koppeln"
+
+
+
 
 msgctxt "#30458"
 msgid "Pair a key"
@@ -1340,6 +1334,46 @@ msgstr "Vollständigen Katalog durchsuchen"
 msgctxt "#30538"
 msgid "Replace this tab’s Continue list?"
 msgstr "Die Weiterschauen-Liste dieses Tabs ersetzen?"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "OMDb-Schlüssel per Handy eingeben (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "MDBList-Schlüssel per Handy eingeben (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "Kostenlosen OMDb-Schlüssel holen: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "Kostenlosen MDBList-Schlüssel holen (anmelden, dann API-Schlüssel): https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "OMDb-API-Schlüssel, erhältlich unter https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "MDBList-API-Schlüssel, erhältlich unter https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "Zeigt einen QR-Code. Scanne ihn mit deinem Handy und füge dort den Schlüssel ein. Er wird hier gespeichert."
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "MDBList-Bewertungen gewünscht? Hole dir unter https://mdblist.com/preferences/ einen kostenlosen Schlüssel (anmelden, dann einen API-Schlüssel erzeugen) und gib ihn hier ein. MDBList ergänzt auch die Publikumsbewertung von Rotten Tomatoes."
 
 
 msgctxt "#30492"
