@@ -422,9 +422,50 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
 
 _HOME_META_RETRY_CONTEXT = threading.local()
 _STOCK_META_RETRY_PAUSE = _pause_before_meta_retry
+_STOCK_META_CLIENT = get_client
 
 
-def _fetch_meta_for_home(stype, sid, should_stop, stop_event=None, **kw):
+class _HomeMetaClient:
+    """Observe definitive replies without changing upstream's lookup text.
+
+    The proxy is local to one lookup and is captured by its fan-out
+    workers. A timeout from any provider prevents a negative session
+    entry; a later Home load must be able to try that provider again.
+    """
+
+    def __init__(self, client):
+        self.client = client
+        self.answered = False
+        self.failed = False
+        self.lock = threading.Lock()
+
+    def __getattr__(self, name):
+        return getattr(self.client, name)
+
+    def meta(self, *args, **kwargs):
+        try:
+            result = self.client.meta(*args, **kwargs)
+        except Exception as exc:
+            with self.lock:
+                if isinstance(exc, AddonError) and exc.category == 'HTTP 404':
+                    self.answered = True
+                else:
+                    self.failed = True
+            raise
+        with self.lock:
+            self.answered = True
+        return result
+
+
+def _meta_client_with_home_context():
+    client = getattr(_HOME_META_RETRY_CONTEXT, 'client', None)
+    return client if client is not None else _STOCK_META_CLIENT()
+
+
+get_client = _meta_client_with_home_context
+
+
+def _fetch_meta_for_home(stype, sid, should_stop, stop_event=None, on_not_found=None, **kw):
     """Home owns the result, while the upstream lookup stays unchanged.
 
     Already-running HTTP/fan-out finishes under upstream's limits. Home's
@@ -436,14 +477,22 @@ def _fetch_meta_for_home(stype, sid, should_stop, stop_event=None, **kw):
         return None
     previous = getattr(_HOME_META_RETRY_CONTEXT, 'should_stop', None)
     previous_event = getattr(_HOME_META_RETRY_CONTEXT, 'stop_event', None)
+    previous_client = getattr(_HOME_META_RETRY_CONTEXT, 'client', None)
+    client = _HomeMetaClient(get_client()) if on_not_found is not None else previous_client
     _HOME_META_RETRY_CONTEXT.should_stop = should_stop
     _HOME_META_RETRY_CONTEXT.stop_event = stop_event
+    _HOME_META_RETRY_CONTEXT.client = client
     try:
         result = _fetch_meta(stype, sid, **kw)
     finally:
         _HOME_META_RETRY_CONTEXT.should_stop = previous
         _HOME_META_RETRY_CONTEXT.stop_event = previous_event
-    return None if should_stop() else result
+        _HOME_META_RETRY_CONTEXT.client = previous_client
+    if should_stop():
+        return None
+    if result is None and on_not_found is not None and client.answered and not client.failed:
+        on_not_found()
+    return result
 
 
 def _pause_home_meta_retry(seconds, stopped, stop_event=None):

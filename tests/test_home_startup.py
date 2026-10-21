@@ -108,6 +108,30 @@ def test_failed_page_is_shared_by_tab_return_rebuild_and_new_home_then_retried(l
     second.close()
 
 
+def test_a_remembered_failure_logs_one_info_without_a_generic_warning(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    hw = ctx.newhome
+    win, store = prepare(ctx, monkeypatch)
+    from lib.homelayout import installed_catalogs
+    descriptor = installed_catalogs(store.get_enabled_addons())[0]
+    state = hw._open_shelf(descriptor)
+    def fail(*args, **kwargs):
+        raise AddonError('HTTP 504', category='HTTP 504')
+    monkeypatch.setattr(ctx.views, '_fetch_catalog', fail)
+    catalog = state['catalog']
+    with pytest.raises(ctx.catalogpages.LaterPageFailure):
+        ctx.catalogpages.cached_later_page(state['transport'], catalog['type'], catalog['id'], [('skip', 20)])
+    # Another row failed the page after this row's first-page check.
+    ctx.env.log_calls.clear()
+    assert hw._pull_more(state, 5) == []
+    logs = ctx.env.log_calls
+    assert len(logs) == 1 and 'page 2 skipped' in logs[0][0]
+    import xbmc
+    assert logs[0][1] == xbmc.LOGINFO
+    assert state['failed']['count'] == 1 and not state['exhausted']
+    win.close()
+
+
 def test_six_rows_keep_four_worker_parallelism(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     active, peak = [0], [0]

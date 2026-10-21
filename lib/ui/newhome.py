@@ -254,20 +254,32 @@ def _one_catalog_page(transport, manifest, catalog, extra=None):
         raise CatalogUnavailable(name)
 
 
+class _RememberedPageFailure(Exception):
+    """Bypass the upstream AddonError warning for a cached failure."""
+
+    def __init__(self, failure):
+        self.failed = failure.failed
+
+
 def _shelf_page_gen(state):
     """Resume after raw served metas, sharing Home's later-page LRU.
 
     A new iterator per step makes paging state snapshotable. No generator
     runs against a snapshot that another tab can restore underneath it.
     """
-    from lib.ui.catalogpages import cached_later_page
+    from lib.ui.catalogpages import LaterPageFailure, cached_later_page
     from lib.ui.views import iter_catalog_pages_after
 
     if not state.get('catalog'):
         return iter(())
 
     def fetch(transport, ctype, cid, extra=None):
-        page = cached_later_page(transport, ctype, cid, extra)
+        try:
+            page = cached_later_page(transport, ctype, cid, extra)
+        except LaterPageFailure as exc:
+            if exc.remembered:
+                raise _RememberedPageFailure(exc) from exc
+            raise
         state['failed'] = None
         state['served'] += len(page)
         state['seen_ids'].update(meta.get('id') for meta in page if isinstance(meta, dict))
@@ -390,14 +402,15 @@ def _pull_more(state, room, max_pages=5):
             state['failed'] = None
             break
         except Exception as exc:
-            log('home: next catalog page failed: %s' % addon_error_detail(exc))
+            if not isinstance(exc, _RememberedPageFailure):
+                log('home: next catalog page failed: %s' % addon_error_detail(exc))
             import time
 
             from lib.ui.catalogpages import LaterPageFailure
 
             count = (state.get('failed') or {}).get('count', 0) + 1
             state['failed'] = {'at': time.monotonic(), 'count': count}
-            if isinstance(exc, LaterPageFailure):
+            if isinstance(exc, (LaterPageFailure, _RememberedPageFailure)):
                 state['failed'] = dict(exc.failed)
                 count = exc.failed['count']
                 _log_skipped_page(state)
@@ -588,7 +601,11 @@ def _enrich_for_home(items, deadline=None, stop=None):
         return time.monotonic() >= deadline or _stopping(stop)
 
     def fetch_meta(stype, sid, **kw):
-        return _fetch_meta_for_home(stype, sid, stopped, stop_event=stop, **kw)
+        def not_found():
+            with _continue_miss_lock:
+                _continue_meta_misses.add((stype, sid))
+        return _fetch_meta_for_home(stype, sid, stopped, stop_event=stop,
+                                    on_not_found=not_found, **kw)
 
     def map_items(fetch, wanted):
         return _map_continue_meta(fetch, wanted, deadline, stop)
@@ -597,7 +614,7 @@ def _enrich_for_home(items, deadline=None, stop=None):
 
 
 def _map_continue_meta(fetch, wanted, deadline, stop):
-    """Only completed results may enrich this load; unresolved ids miss once."""
+    """Only completed results enrich this load; deadlines retry next load."""
     def stopped():
         return time.monotonic() >= deadline or _stopping(stop)
 
@@ -605,13 +622,8 @@ def _map_continue_meta(fetch, wanted, deadline, stop):
         jobs = [(index, partial(fetch, item), None) for index, item in enumerate(wanted)
                 if (item.get('type'), item.get('id')) not in _continue_meta_misses]
     timing = {'jobs': {}, 'lock': threading.Lock()}
-    fetched = _load_home_jobs(jobs, stopped, timing, deadline)
-    results = [fetched.get(index) for index in range(len(wanted))]
-    with _continue_miss_lock:
-        for item, result in zip(wanted, results):
-            if result is None or not result[0]:
-                _continue_meta_misses.add((item.get('type'), item.get('id')))
-    return results
+    fetched = _load_home_jobs(jobs, stopped, timing, deadline, max_workers=8)
+    return [fetched.get(index) for index in range(len(wanted))]
 
 
 def _home_personal_jobs(window, store, auth, plan, stopped, cancelled, timing):
@@ -633,17 +645,13 @@ def _home_personal_jobs(window, store, auth, plan, stopped, cancelled, timing):
         ready.set()
     continued = [(list_id, variant) for list_id, kind, _, variant, _ in plan if kind == 'continue']
     if continued:
-        deadline = time.monotonic() + _CONTINUE_ENRICH_SECONDS
-
         def continue_rows():
             while not ready.is_set() and not stopped():
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    return {}
-                ready.wait(min(1.0, remaining))
+                ready.wait(1.0)
             if stopped():
                 return {}
             started = time.monotonic()
+            deadline = started + _CONTINUE_ENRICH_SECONDS
             result = {list_id: _played_posters(store, entries['value'], variant,
                        getattr(window, '_continue_suppressed', None), deadline, cancelled)
                       for list_id, variant in continued}
@@ -807,7 +815,7 @@ def _home_load_worker(work, results, stopped, timing):
             results.put((key, value))
 
 
-def _load_home_jobs(jobs, stopped, timing, deadline=None):
+def _load_home_jobs(jobs, stopped, timing, deadline=None, max_workers=_MAX_HOME_WORKERS):
     from lib.ui.catalogpages import deferred_saves
 
     work, results = queue.Queue(), queue.Queue()
@@ -815,7 +823,7 @@ def _load_home_jobs(jobs, stopped, timing, deadline=None):
         work.put(job)
     with deferred_saves():
         threads = []
-        for _ in range(min(len(jobs), _MAX_HOME_WORKERS)):
+        for _ in range(min(len(jobs), max_workers)):
             thread = threading.Thread(target=_home_load_worker, args=(work, results, stopped, timing),
                                       name='rivulet-home-load', daemon=True)
             threads.append(thread)

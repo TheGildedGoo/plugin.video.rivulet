@@ -427,3 +427,31 @@ def test_home_retry_pause_does_not_cancel_concurrent_stock_caller(session, monke
     assert views._fetch_meta_for_home('movie', 'tt1', closed.is_set) is None
     assert stock_waits == [0.4]
     assert stock_result == [False]
+
+
+@pytest.mark.parametrize('answers,miss', [
+    ([{}], True), ([404], True), ([503], False), ([{}, 503], False),
+    ([{'id': 'tt1', 'name': 'found'}], False),
+])
+def test_home_meta_remembers_only_definitive_not_found(session, monkeypatch, answers, miss):
+    from types import SimpleNamespace
+
+    from lib.stremio.addons import AddonError
+
+    views = session.views
+    descriptors = [{'transportUrl': str(i), 'manifest': {'resources': ['meta'], 'types': ['movie']}}
+                   for i in range(len(answers))]
+    def meta(transport, *args):
+        answer = answers[int(transport)]
+        if isinstance(answer, int):
+            raise AddonError('provider failure', category='HTTP %d' % answer)
+        return answer
+    monkeypatch.setattr(views, 'get_store', lambda: SimpleNamespace(get_enabled_addons=lambda: descriptors))
+    monkeypatch.setattr(views, '_STOCK_META_CLIENT', lambda: SimpleNamespace(meta=meta))
+    monkeypatch.setattr(views, '_pause_before_meta_retry', lambda seconds: False)
+    missed = []
+    result = views._fetch_meta_for_home('movie', 'tt1', lambda: False,
+                                       on_not_found=lambda: missed.append(True))
+    assert bool(missed) is miss
+    assert bool(result) is bool(isinstance(answers[0], dict) and answers[0].get('id'))
+    assert views._HOME_META_RETRY_CONTEXT.client is None

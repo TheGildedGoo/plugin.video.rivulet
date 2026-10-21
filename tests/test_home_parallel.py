@@ -21,7 +21,7 @@ def continue_plan(ctx, monkeypatch, count=3):
     return win, store
 
 
-def test_three_ten_second_lookups_cannot_hold_startup_or_repeat_after_deadline(load_homewindow, monkeypatch):
+def test_three_ten_second_lookups_cannot_hold_startup_and_retry_next_load(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     hw = ctx.newhome
     win, store = continue_plan(ctx, monkeypatch)
@@ -32,8 +32,9 @@ def test_three_ten_second_lookups_cannot_hold_startup_or_repeat_after_deadline(l
 
     def fetch(stype, sid, should_stop, **kw):
         calls.append(sid)
-        started.wait(1)
-        assert release.wait(10)
+        if not release.is_set():
+            started.wait(1)
+            assert release.wait(10)
         return {'id': sid, 'name': 'too late', 'poster': 'late'}
 
     monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', fetch)
@@ -46,10 +47,13 @@ def test_three_ten_second_lookups_cannot_hold_startup_or_repeat_after_deadline(l
         assert not collector.is_alive()
         assert time.monotonic() - begin < 2.5
         assert win.getControl(hw.CONTINUE_SHELF).size() == 0
-        assert len(hw._continue_meta_misses) == 3
-        before_retry = len(calls)
+        assert hw._continue_meta_misses == set()
+        release.set()
+        for worker in set(threading.enumerate()) - before:
+            if worker is not collector:
+                worker.join(1)
         rows = hw._load_rows(win, store, store.get_enabled_addons(), None)
-        assert rows[0]['items'] == [] and len(calls) == before_retry == 3
+        assert len(rows[0]['items']) == 3 and len(calls) == 6
     finally:
         release.set()
         collector.join(1)
@@ -87,12 +91,73 @@ def test_missing_meta_is_not_retried_in_a_second_home_load(load_homewindow, monk
     ctx = load_homewindow()
     win, store = continue_plan(ctx, monkeypatch, count=1)
     calls = []
-    monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', lambda *a, **kw: calls.append(True) or None)
+    def missing(*args, **kw):
+        calls.append(True)
+        kw['on_not_found']()
+        return None
+    monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', missing)
     win.onInit()
     ctx.newhome._load_rows(win, store, store.get_enabled_addons(), None)
     assert calls == [True]
     assert ctx.newhome._continue_meta_misses == {('movie', 'tt0')}
     win.close()
+
+
+def test_continue_budget_starts_after_twelve_slow_catalog_jobs(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    win, store = continue_plan(ctx, monkeypatch, count=1)
+    layout = store.get_home_layout()
+    catalog_id = layout['tabs']['home'][1]
+    # Repeated descriptors exercise the real queue starvation independently
+    # of the layout model's per-tab row limit.
+    from lib.homelayout import installed_catalogs, resolve
+    win._active_tab, win._layout = 'home', layout
+    win._catalogs = installed_catalogs(store.get_enabled_addons())
+    plan = resolve(layout, 'home', win._catalogs)
+    catalog = next(job for job in plan if job[2] is not None)
+    plan = [plan[0]] + [(30041 + i, *catalog[1:]) for i in range(12)]
+    monkeypatch.setattr('lib.homelayout.resolve', lambda *args: plan)
+    monkeypatch.setattr(ctx.newhome, '_one_catalog_page', lambda *a: time.sleep(0.7) or metas(0, 20))
+    calls = []
+    def fetch(stype, sid, should_stop, **kw):
+        calls.append(sid)
+        assert not should_stop()
+        return {'id': sid, 'name': 'resolved', 'poster': 'p'}
+    monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', fetch)
+    rows = ctx.newhome._load_rows(win, store, store.get_enabled_addons(), None)
+    assert catalog_id and calls == ['tt0']
+    assert len(rows[0]['items']) == 1
+    assert not ctx.newhome._continue_meta_misses
+    win.close()
+
+
+def test_seventeen_lookups_use_eight_workers_and_cutoff_is_not_a_miss(load_homewindow, monkeypatch):
+    ctx = load_homewindow()
+    win, store = continue_plan(ctx, monkeypatch, count=17)
+    from lib.homelayout import installed_catalogs
+    win._active_tab, win._layout = 'home', store.get_home_layout()
+    win._catalogs = installed_catalogs(store.get_enabled_addons())
+    lock = threading.Lock()
+    running = [0, 0]
+    before = set(threading.enumerate())
+    def fetch(stype, sid, should_stop, **kw):
+        with lock:
+            running[0] += 1
+            running[1] = max(running)
+        time.sleep(0.8)
+        with lock:
+            running[0] -= 1
+        return None if should_stop() else {'id': sid, 'name': 'resolved', 'poster': 'p'}
+    monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', fetch)
+    try:
+        rows = ctx.newhome._load_rows(win, store, store.get_enabled_addons(), None)
+        assert running[1] == 8
+        assert len(rows[0]['items']) == min(16, ctx.newhome.SHELF_CAP)
+        assert not ctx.newhome._continue_meta_misses
+    finally:
+        for worker in set(threading.enumerate()) - before:
+            worker.join(1)
+        win.close()
 
 
 def test_stopping_a_thousand_times_constructs_one_monitor(load_homewindow, monkeypatch):
