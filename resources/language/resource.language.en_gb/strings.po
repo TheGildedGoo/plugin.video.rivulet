@@ -1380,3 +1380,8 @@ msgstr ""
 msgctxt "#30546"
 msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
 msgstr ""
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr ""

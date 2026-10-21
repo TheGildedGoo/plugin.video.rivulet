@@ -8,6 +8,7 @@ RevRivulet layout. Textures are drawn by tools/make_new_look_textures.py;
 text uses the active Kodi skin's standard font names.
 """
 
+import math
 import time
 
 #: The backdrop behind a screen with no title focused: the addon's
@@ -17,8 +18,21 @@ FANART = 'fanart_grey.jpg'
 
 #: Hero controls only the new-look files have.
 HERO_FACTS = 30024   # label: year • runtime • genres
-HERO_SCORES = 30025  # label: IMDb 7.4   RT 88%   Ends at 22:28
+HERO_SCORES = 30025  # horizontal grouplist; moved as one row
 HERO_STARS = 30027   # image: newlook_stars_00..10.png
+HERO_IMDB = 30029
+HERO_AUDIENCE_ICON, HERO_AUDIENCE = 30030, 30031
+HERO_RT_ICON, HERO_RT = 30032, 30033
+HERO_MC_ICON, HERO_MC = 30034, 30035
+HERO_END = 30036
+
+_SCORE_CONTROLS = (
+    ('IMDb', None, HERO_IMDB),
+    ('RT Audience', HERO_AUDIENCE_ICON, HERO_AUDIENCE),
+    ('RT', HERO_RT_ICON, HERO_RT),
+    ('MC', HERO_MC_ICON, HERO_MC),
+    ('Ends at', None, HERO_END),
+)
 
 #: The hero stack, bottom-up from the row band (y=630, 40px above it).
 #: Pixels at 1080p. The
@@ -87,11 +101,11 @@ def ends_at(runtime_minutes, now=None):
 
 
 def hero_lines(panel_text, runtime_minutes=None, now=None):
-    """``(stars, facts_line, scores_line)`` for the new-look hero.
+    """``(stars, facts_line, [(source, value), ...])`` for the hero.
 
     `stars` is a texture name or ``''``. The facts are joined with a
-    bullet; the scores carry their short names dimmed, then "Ends at"
-    when the runtime is known.
+    bullet; scores stay structured so image controls can identify their
+    source. "Ends at" is included only when the runtime is known.
     """
     from lib.ui.compat import L
     from lib.ui.playbackmeta import new_look_hero_parts
@@ -99,11 +113,58 @@ def hero_lines(panel_text, runtime_minutes=None, now=None):
     stars, facts, scores = new_look_hero_parts(panel_text)
     texture = 'newlook_stars_%02d.png' % stars if stars is not None else ''
     facts_line = '  •  '.join(facts)
-    parts = ['[COLOR B3EDEDED]%s[/COLOR] %s' % (name, value) for name, value in scores]
+    parts = list(scores)
     end = ends_at(runtime_minutes, now)
     if end:
-        parts.append(L(30494) % end)
-    return texture, facts_line, '      '.join(parts)
+        parts.append(('Ends at', L(30494) % end))
+    return texture, facts_line, parts
+
+
+def _score_number(value):
+    try:
+        number = float(str(value).split('/')[0].strip().rstrip('%'))
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and 0 <= number <= 100 else None
+
+
+def score_icon(kind, value):
+    """Original source pictogram, selected by the published score bands."""
+    number = _score_number(value)
+    if number is None:
+        return ''
+    if kind == 'RT':
+        return 'rating_rt_fresh.png' if number >= 60 else 'rating_rt_rotten.png'
+    if kind == 'RT Audience':
+        return 'rating_rt_audience_up.png' if number >= 60 else 'rating_rt_audience_spilled.png'
+    if kind == 'MC':
+        color = 'green' if number >= 61 else 'yellow' if number >= 40 else 'red'
+        return 'rating_mc_%s.png' % color
+    return ''
+
+
+def _paint_score(window, kind, value, image_id, label_id):
+    """Collapse absent pairs; an unparseable score keeps a text source."""
+    texture, text = '', ''
+    if value:
+        if image_id is not None:
+            texture = score_icon(kind, value)
+            if texture:
+                text = ' : %d%s' % (int(round(_score_number(value))), '%' if kind != 'MC' else '')
+            else:
+                text = '%s %s' % (kind, value)
+        elif kind == 'IMDb':
+            text = '[COLOR B3EDEDED]IMDb[/COLOR] %s' % value
+        else:
+            text = value
+    label = window.getControl(label_id)
+    label.setLabel(text)
+    label.setVisible(bool(text))
+    if image_id is not None:
+        image = window.getControl(image_id)
+        image.setImage(texture)
+        image.setVisible(bool(texture))
+    return bool(text)
 
 
 def _plot_height(plot, s=None):
@@ -161,14 +222,18 @@ def place_hero(window, plot, has_facts, has_scores, has_stars, stack=None):
 
 def paint_hero(window, plot, panel_text, runtime_minutes, stack=None):
     """Write the new-look hero controls and place the stack."""
-    stars, facts_line, scores_line = hero_lines(panel_text, runtime_minutes)
+    stars, facts_line, scores = hero_lines(panel_text, runtime_minutes)
     try:
         window.getControl(HERO_STARS).setImage(stars)
         window.getControl(HERO_FACTS).setLabel(('•  ' + facts_line) if (stars and facts_line) else facts_line)
-        window.getControl(HERO_SCORES).setLabel(scores_line)
+        values = dict(scores)
+        visible = [_paint_score(window, kind, values.get(kind), image_id, label_id)
+                   for kind, image_id, label_id in _SCORE_CONTROLS]
+        has_scores = any(visible)
+        window.getControl(HERO_SCORES).setVisible(has_scores)
     except Exception:
         return
-    place_hero(window, plot, bool(facts_line), bool(scores_line), bool(stars), stack)
+    place_hero(window, plot, bool(facts_line), has_scores, bool(stars), stack)
 
 
 def runtime_minutes(text):

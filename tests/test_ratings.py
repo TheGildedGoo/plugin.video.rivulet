@@ -99,7 +99,7 @@ def test_omdb_rejects_a_bad_key_without_repeating_it():
     assert _SECRET not in str(caught.value)
 
 
-def test_mdblist_uses_the_critic_score_only():
+def test_mdblist_keeps_critics_and_audience_separate():
     scores = parse_mdblist({
         'ratings': [
             {'source': 'imdb', 'value': 8.8},
@@ -113,6 +113,7 @@ def test_mdblist_uses_the_critic_score_only():
         'imdbRating': '8.8',
         'metascore': '82',
         'rottenTomatoes': '91%',
+        'rtAudience': '95%',
     }
     assert parse_mdblist([{'ratings': [{'source': 'imdb', 'value': 7.0}]}]) == {
         'imdbRating': '7.0',
@@ -139,7 +140,7 @@ def test_a_corrupt_cache_is_ignored(tmp_path):
     assert RatingsCache(str(path)).lookup('tt0111161') is None
 
 
-def test_fetch_fills_gaps_from_mdblist_and_stops_when_omdb_is_complete():
+def test_fetch_fills_gaps_from_mdblist_even_when_omdb_has_the_old_three():
     omdb = _Response(200, {
         'Response': 'True',
         'imdbRating': '8.1',
@@ -169,9 +170,9 @@ def test_fetch_fills_gaps_from_mdblist_and_stops_when_omdb_is_complete():
         'Metascore': '82',
         'Ratings': [{'Source': 'Rotten Tomatoes', 'Value': '96%'}],
     })
-    get = _get([full])
-    fetch_scores('tt0111161', omdb_key=_SECRET, mdblist_key='MDBSECRET', get=get)
-    assert len(get.calls) == 1
+    get = _get([full, _Response(200, {'ratings': [{'source': 'popcorn', 'value': 97}]})])
+    scores = fetch_scores('tt0111161', omdb_key=_SECRET, mdblist_key='MDBSECRET', get=get)
+    assert len(get.calls) == 2 and scores['rtAudience'] == '97%'
 
 
 def test_no_key_and_a_non_imdb_id_do_not_call_out():
@@ -466,7 +467,7 @@ def test_mdblist_odd_payloads():
         {'source': 'imdb', 'value': 7.44},
         {'source': 'tomatoes', 'value': None},
     ]}])
-    assert scores == {'metascore': '71', 'imdbRating': '7.4'}
+    assert scores == {'rtAudience': '99%', 'metascore': '71', 'imdbRating': '7.4'}
 
 
 # --- the HTTP layer -----------------------------------------------------------------
@@ -569,13 +570,15 @@ def test_odd_entries_read_as_stale(tmp_path):
     import json
 
     path = tmp_path / 'ratings.json'
-    path.write_text(json.dumps({
+    cache = RatingsCache(str(path))
+    entries = {
         'tt0000001': 'junk',
         'tt0000002': {'at': True, 'scores': {}},
         'tt0000003': {'at': 'yesterday', 'scores': {}},
         'tt0000004': {'at': 100, 'scores': 'junk'},
         'tt0000005': {'at': 100, 'scores': {'imdbRating': '7.0'}},
-    }))
+    }
+    path.write_text(json.dumps({cache._entry_key(key): value for key, value in entries.items()}))
     cache = RatingsCache(str(path), clock=lambda: 100 + TTL_SECONDS)
     for imdb_id in ('tt0000001', 'tt0000002', 'tt0000003', 'tt0000004', 'kitsu:1'):
         assert cache.lookup(imdb_id) is None
@@ -641,7 +644,7 @@ def test_the_file_is_bounded_oldest_first(tmp_path):
     assert len(cache._entries) == 400
     # The junk entry and the oldest stamp went first.
     assert 'tt9999999' not in cache._entries and 'tt0000001' not in cache._entries
-    assert 'tt0000002' in cache._entries and 'tt0000999' in cache._entries
+    assert 'tt0000002' in cache._entries and cache._entry_key('tt0000999') in cache._entries
 
 
 def test_malformed_loaded_ratings_do_not_break_save_or_trim(tmp_path):

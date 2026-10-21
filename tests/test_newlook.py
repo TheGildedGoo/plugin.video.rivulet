@@ -120,9 +120,7 @@ def test_hero_lines_join_facts_and_end_scores_with_the_end_time(load_homewindow,
     stars, facts, scores = newlook.hero_lines('IMDb 7.4\nRotten Tomatoes 88%\n2025\n1h 52m', '112', now=now)
     assert stars == 'newlook_stars_07.png'
     assert facts == '2025  •  1h 52m'
-    assert scores.startswith('[COLOR B3EDEDED]IMDb[/COLOR] 7.4')
-    assert 'RT[/COLOR] 88%' in scores
-    assert scores.endswith('Ends at 22:28')
+    assert scores == [('IMDb', '7.4'), ('RT', '88%'), ('Ends at', 'Ends at 22:28')]
 
 
 def test_no_runtime_no_end_time(load_homewindow):
@@ -130,7 +128,7 @@ def test_no_runtime_no_end_time(load_homewindow):
     from lib.ui import newlook
 
     assert newlook.ends_at('') == '' and newlook.ends_at(None) == '' and newlook.ends_at('0') == ''
-    assert 'Ends at' not in newlook.hero_lines('IMDb 7', '')[2]
+    assert all(kind != 'Ends at' for kind, _value in newlook.hero_lines('IMDb 7', '')[2])
 
 
 def test_twelve_hour_clock_drops_the_leading_zero(load_homewindow, monkeypatch):
@@ -168,8 +166,8 @@ def test_newlook_home_paints_stars_facts_and_scores(load_homewindow, monkeypatch
 
     assert win.getControl(newlook.HERO_STARS).image == 'newlook_stars_07.png'
     assert win.getControl(newlook.HERO_FACTS).label == '•  2025  •  1h 52m  •  Thriller'
-    assert 'IMDb[/COLOR] 7.4' in win.getControl(newlook.HERO_SCORES).label
-    assert 'Ends at' in win.getControl(newlook.HERO_SCORES).label
+    assert win.getControl(newlook.HERO_IMDB).label == '[COLOR B3EDEDED]IMDb[/COLOR] 7.4'
+    assert 'Ends at' in win.getControl(newlook.HERO_END).label
 
 
 def test_newlook_stack_ends_on_the_same_line_above_the_row(load_homewindow, monkeypatch):
@@ -202,7 +200,7 @@ def test_newlook_facts_start_at_the_margin_without_stars(load_homewindow, monkey
     assert win.getControl(newlook.HERO_STARS).image == ''
     facts = win.getControl(newlook.HERO_FACTS)
     assert facts.label == '2025  •  1h 52m' and facts.x == newlook._STACK['left']
-    assert win.getControl(newlook.HERO_SCORES).label == ''
+    assert win.getControl(newlook.HERO_SCORES).visible is False
 
 
 def test_poster_items_carry_the_runtime_in_minutes(load_homewindow):

@@ -89,7 +89,7 @@
                     <data>RunPlugin(plugin://plugin.video.rivulet/?action=pair_key&amp;setting=ratings_mdblist_key)</data>
                     <control type="button" format="action"/>
                 </setting>
-                <setting id="ratings_mdblist_key" type="string" label="30454" help="30545">
+                <setting id="ratings_mdblist_key" type="string" label="30454" help="30547">
                     <level>0</level>
                     <default></default>
                     <constraints>

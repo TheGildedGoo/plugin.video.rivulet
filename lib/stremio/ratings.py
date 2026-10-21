@@ -44,15 +44,17 @@ _OMDB_IMDB = frozenset(('internet movie database',))
 #: the critic Tomatometer the panel is asking for, so a substring match
 #: would file it under Rotten Tomatoes.
 _MDB_RT = frozenset(('tomatoes', 'rotten tomatoes', 'rottentomatoes'))
+_MDB_AUDIENCE = frozenset(('popcorn', 'tomatoesaudience', 'audience'))
 _MDB_META = frozenset(('metacritic', 'metascore'))
 _MDB_IMDB = frozenset(('imdb', 'internet movie database'))
 
-_SCORE_KEYS = ('rottenTomatoes', 'metascore', 'imdbRating')
+_SCORE_KEYS = ('rottenTomatoes', 'rtAudience', 'metascore', 'imdbRating')
 
 _FACT_KEYS = (
     'id', 'type', 'imdb_id', 'imdbId', 'imdbID',
     'imdbRating', 'year', 'releaseInfo', 'released', 'runtime',
     'rottenTomatoes', 'rtRating', 'tomatoMeter', 'tomatoes',
+    'rtAudience', 'audienceScore', 'popcornmeter',
     'metascore', 'metacritic', 'metaScore',
 )
 
@@ -223,6 +225,8 @@ def parse_mdblist(payload):
         value = entry.get('value')
         if source in _MDB_RT:
             _take(scores, 'rottenTomatoes', value, percent=True)
+        elif source in _MDB_AUDIENCE:
+            _take(scores, 'rtAudience', value, percent=True)
         elif source in _MDB_META:
             _take(scores, 'metascore', value)
         elif source in _MDB_IMDB:
@@ -396,10 +400,11 @@ class RatingsCache:
 
     def __init__(self, path, clock=None, keys=('', '')):
         self.path = path
-        # Hash the configured keys as a pair. Legacy unkeyed entries cannot
-        # mask a corrected key, and the raw keys never enter the JSON file.
+        # Version the configured-key token: pre-audience entries must not
+        # hide Popcornmeter for a day after an upgrade. Old entries remain
+        # readable for eviction, and raw keys never enter the JSON file.
         configured = tuple((key or '').strip() for key in keys)
-        self._key_token = hashlib.sha256(json.dumps(configured).encode('utf-8')).hexdigest() if any(configured) else ''
+        self._key_token = hashlib.sha256(json.dumps(('v2',) + configured).encode('utf-8')).hexdigest()
         self._clock = clock or time.time
         self._lock = threading.Lock()
         self._entries = {}

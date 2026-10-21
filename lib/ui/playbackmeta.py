@@ -269,6 +269,7 @@ def year_range(value, now_word):
 #: same way the hero already prints "IMDb": they name a scale, and a
 #: translation would make the number harder to recognise.
 _IMDB_LABEL = 'IMDb'
+_AUDIENCE_LABEL = 'Rotten Tomatoes Audience'
 _ROTTEN_LABEL = 'Rotten Tomatoes'
 _METASCORE_LABEL = 'Metascore'
 
@@ -276,6 +277,9 @@ _METASCORE_LABEL = 'Metascore'
 #: a `ratings` dict or a list of `{source, value}`. Short needles match
 #: the whole source only, so "rt" does not hit "runtime".
 _PANEL_RATINGS = (
+    (_AUDIENCE_LABEL,
+     ('rtAudience', 'audienceScore', 'popcornmeter'),
+     ('popcorn', 'audience')),
     (_ROTTEN_LABEL,
      ('rottenTomatoes', 'rtRating', 'tomatoMeter', 'tomatoes'),
      ('rotten', 'tomato', 'rt')),
@@ -346,6 +350,8 @@ def _rating_value(meta, keys, needles):
     else:
         return ''
     for source, value in pairs:
+        if 'rottenTomatoes' in keys and _matches_source(source, ('popcorn', 'audience')):
+            continue  # Audience ratings must never also become critics' RT.
         if _matches_source(source, needles):
             text = _fact(value)
             if text:
@@ -412,6 +418,7 @@ def hero_panel_text(meta, runtime_text='', now_word=''):
 #: first.
 _NEW_LOOK_SCORE_NAMES = (
     (_IMDB_LABEL, 'IMDb'),
+    (_AUDIENCE_LABEL, 'RT Audience'),
     (_ROTTEN_LABEL, 'RT'),
     (_METASCORE_LABEL, 'MC'),
 )
@@ -424,7 +431,7 @@ def new_look_hero_parts(panel_text):
     wrote: one fact per line, scores first. `stars` is the IMDb score as
     half stars, 0-10, or None when there is no IMDb line. `facts` are
     the other lines (year, runtime, genres) in order. `scores` are
-    ``(short name, value)`` pairs, IMDb first, then RT, then MC. Lines
+    ``(short name, value)`` pairs: IMDb, audience, critics' RT, MC. Lines
     are matched on the label the panel writes; anything else is a fact,
     so an unknown line is shown rather than dropped.
     """
