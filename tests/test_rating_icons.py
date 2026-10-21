@@ -207,10 +207,14 @@ def test_original_icons_are_small_rgba_with_transparent_corners(name):
 def test_score_grouplist_and_only_that_home_subtree_changed():
     root = ET.parse(SKIN).getroot()
     scores = root.find(".//control[@id='30025']")
-    assert scores.get('type') == 'grouplist'
-    assert scores.findtext('orientation') == 'horizontal' and scores.findtext('itemgap') == '0'
+    assert scores.get('type') == 'group'
     assert [scores.findtext(n) for n in ('left', 'top', 'width', 'height')] == ['80', '550', '1400', '40']
-    children = {int(c.get('id')): c for c in scores.findall('control') if c.get('id')}
+    inner = scores.findall('control')
+    assert len(inner) == 1 and inner[0].get('type') == 'grouplist' and not inner[0].get('id')
+    inner = inner[0]
+    assert inner.findtext('orientation') == 'horizontal' and inner.findtext('itemgap') == '0'
+    assert [inner.findtext(n) for n in ('left', 'top', 'width', 'height')] == ['0', '0', '1400', '40']
+    children = {int(c.get('id')): c for c in inner.findall('control') if c.get('id')}
     assert set(children) == set(range(30029, 30037))
     for cid, c in children.items():
         assert c.get('type') == ('image' if cid in (30030, 30032, 30034) else 'label')
@@ -221,7 +225,7 @@ def test_score_grouplist_and_only_that_home_subtree_changed():
             assert c.findtext('width') == 'auto' and c.findtext('font') == 'font13'
             assert c.findtext('aligny') == 'center' and c.findtext('textcolor') == 'E6EDEDED'
             assert c.findtext('shadowcolor') == 'C8000000'
-    spacers = [c for c in scores.findall('control') if not c.get('id')]
+    spacers = [c for c in inner.findall('control') if not c.get('id')]
     assert len(spacers) == 4
     for spacer, after in zip(spacers, (30031, 30033, 30035, 30036)):
         assert spacer.findtext('width') == '24' and not spacer.findtext('texture')
@@ -233,7 +237,18 @@ def test_score_grouplist_and_only_that_home_subtree_changed():
     for node in root.iter():
         node.text = (node.text or '').strip() or None
         node.tail = None
-    # Parsed 5397dfb XML with only control 30025 removed. No Git required in CI.
+    # These children, including spacers and conditions, match bc2883a.
+    for node in inner.iter():
+        node.text = (node.text or '').strip() or None
+        node.tail = None
+    child_xml = b''.join(ET.tostring(c) for c in inner.findall('control'))
+    assert hashlib.sha256(child_xml).hexdigest() == 'd3d194f753dce6e76824d5c3a9533f2f7bb94b221d4877f695659dd159062ad5'
+    plot = root.find(".//control[@id='30022']")
+    assert plot.findtext('top') == '427' and plot.findtext('height') == '123'
+    assert int(plot.findtext('top')) + int(plot.findtext('height')) == int(scores.findtext('top'))
+    # Normalize the two permitted plot dimensions before the existing
+    # parsed-XML comparison, which excludes only control 30025.
+    plot.find('top').text, plot.find('height').text = '466', '110'
     assert hashlib.sha256(ET.tostring(root)).hexdigest() == '2a6066713366b7cd26762717c911bcd40b4a72365ad62b893180c6efaef4b3aa'
     for name in ICONS:
         assert (MEDIA / name).is_file() and (MEDIA / name).stat().st_size <= 8192

@@ -57,9 +57,11 @@
 <control type="label" id="30020"><left>80</left><top>320</top><width>1100</width><height>80</height><font>font45</font><textcolor>FFEDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><wrapmultiline>false</wrapmultiline><label></label><visible>String.IsEmpty(Window.Property(HeroLogo))</visible></control>
 <control type="image" id="30027"><left>80</left><top>422</top><width>150</width><height>28</height><aspectratio>keep</aspectratio><texture></texture></control>
 <control type="label" id="30024"><left>246</left><top>416</top><width>1200</width><height>40</height><font>font13</font><textcolor>E6EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><label></label></control>
-<control type="textbox" id="30022"><left>80</left><top>466</top><width>920</width><height>110</height><font>font13</font><textcolor>C7EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><autoscroll delay="3000" time="4000" repeat="6000">true</autoscroll><label></label></control>
-<control type="grouplist" id="30025">
+<control type="textbox" id="30022"><left>80</left><top>427</top><width>920</width><height>123</height><font>font13</font><textcolor>C7EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><autoscroll delay="3000" time="4000" repeat="6000">true</autoscroll><label></label></control>
+<control type="group" id="30025">
     <left>80</left><top>550</top><width>1400</width><height>40</height>
+    <control type="grouplist">
+    <left>0</left><top>0</top><width>1400</width><height>40</height>
     <orientation>horizontal</orientation><itemgap>0</itemgap>
     <control type="label" id="30029"><width>auto</width><height>40</height><font>font13</font><textcolor>E6EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><label></label></control>
     <control type="image"><width>24</width><height>40</height><texture></texture><visible>!String.IsEmpty(Control.GetLabel(30031)) + !String.IsEmpty(Control.GetLabel(30029))</visible></control>
@@ -73,6 +75,7 @@
     <control type="label" id="30035"><width>auto</width><height>40</height><font>font13</font><textcolor>E6EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><label></label></control>
     <control type="image"><width>24</width><height>40</height><texture></texture><visible>!String.IsEmpty(Control.GetLabel(30036)) + [!String.IsEmpty(Control.GetLabel(30029)) | !String.IsEmpty(Control.GetLabel(30031)) | !String.IsEmpty(Control.GetLabel(30033)) | !String.IsEmpty(Control.GetLabel(30035))]</visible></control>
     <control type="label" id="30036"><width>auto</width><height>40</height><font>font13</font><textcolor>E6EDEDED</textcolor><shadowcolor>C8000000</shadowcolor><aligny>center</aligny><label></label></control>
+    </control>
 </control>
 <!-- Rows: one 450px group per row, the height of this viewport, so only the focused row is on screen. Heading, "row / rows", a faint line, the cards and their reflections; the white ring shows only on the row that has the remote. -->
             <control type="grouplist" id="30001">

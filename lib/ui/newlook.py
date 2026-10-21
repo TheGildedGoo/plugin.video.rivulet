@@ -18,7 +18,7 @@ FANART = 'fanart_grey.jpg'
 
 #: Hero controls only the new-look files have.
 HERO_FACTS = 30024   # label: year • runtime • genres
-HERO_SCORES = 30025  # horizontal grouplist; moved as one row
+HERO_SCORES = 30025  # Python-wrappable group around the horizontal grouplist
 HERO_STARS = 30027   # image: newlook_stars_00..10.png
 HERO_IMDB = 30029
 HERO_AUDIENCE_ICON, HERO_AUDIENCE = 30030, 30031
@@ -35,9 +35,9 @@ _SCORE_CONTROLS = (
 )
 
 #: The hero stack, bottom-up from the row band (y=630, 40px above it).
-#: Pixels at 1080p. The
-#: plot is font13: 30px a line in Kodi's measure (heroscrim), three
-#: lines at most, plus the inset a textbox keeps so a line is not clipped.
+#: Pixels at 1080p. Font13's 30px face size is not its line advance.
+#: Reserve three 41px lines per the device-test allowance, independent
+#: of plot length; Kodi's unchanged textbox autoscroll handles overflow.
 _STACK = {
     'left': 80,
     'bottom': 590,
@@ -45,11 +45,7 @@ _STACK = {
     'text_title_h': 80,
     'facts_h': 40,
     'scores_h': 40,
-    'plot_font': 30,
-    'plot_line': 30,
-    'plot_lines': 3,
-    'plot_w': 920,
-    'plot_inset': 20,
+    'plot_h': 123,
     'gap_title': 16,
     'gap': 10,
     'stars_w': 150,
@@ -157,43 +153,54 @@ def _paint_score(window, kind, value, image_id, label_id):
             text = '[COLOR B3EDEDED]IMDb[/COLOR] %s' % value
         else:
             text = value
-    label = window.getControl(label_id)
-    label.setLabel(text)
-    label.setVisible(bool(text))
+    _hero_call(window, label_id, 'setLabel', text)
+    _hero_call(window, label_id, 'setVisible', bool(text))
     if image_id is not None:
-        image = window.getControl(image_id)
-        image.setImage(texture)
-        image.setVisible(bool(texture))
+        _hero_call(window, image_id, 'setImage', texture)
+        _hero_call(window, image_id, 'setVisible', bool(texture))
     return bool(text)
 
 
 def _plot_height(plot, s=None):
-    from lib.ui.heroscrim import block_size
+    """One fixed scrolling box for every non-empty plot."""
+    return (s or _STACK)['plot_h'] if (plot or '').strip() else 0
 
-    s = s or _STACK
-    if not (plot or '').strip():
-        return 0
-    _width, height = block_size(
-        plot, s['plot_font'], s['plot_line'], s['plot_w'], s['plot_lines'],
-    )
-    return height + s['plot_inset'] if height else 0
+
+def _hero_call(window, control_id, method, *args):
+    """A broken control must not suppress the remaining paint or placement.
+
+    In particular Kodi cannot wrap a grouplist. Report only the exception
+    class, once per class for this window, so repeated paints do not flood
+    the log or disclose a title, plot, URL or other control text.
+    """
+    try:
+        getattr(window.getControl(control_id), method)(*args)
+    except Exception as exc:
+        import xbmc
+
+        from lib.ui.compat import log
+
+        name = type(exc).__name__
+        logged = getattr(window, '_hero_failed_types', None)
+        if logged is None:
+            logged = set()
+            window._hero_failed_types = logged
+        if name not in logged:
+            logged.add(name)
+            log('newlook: hero control failed: %s' % name, xbmc.LOGDEBUG)
 
 
 def _move(window, control_id, x, y, height=None):
-    try:
-        control = window.getControl(control_id)
-        control.setPosition(int(x), int(y))
-        if height is not None:
-            control.setHeight(int(max(height, 1)))
-    except Exception:
-        pass
+    _hero_call(window, control_id, 'setPosition', int(x), int(y))
+    if height is not None:
+        _hero_call(window, control_id, 'setHeight', int(max(height, 1)))
 
 
 def place_hero(window, plot, has_facts, has_scores, has_stars, stack=None):
     """Stack the title, facts, plot and scores up from the row.
 
-    A short plot moves everything above it down, so the scores always
-    end the same distance above the row and nothing floats in a gap.
+    The plot's fixed box ends exactly at the scores' top. Short plots
+    retain the same box, and long plots scroll within it.
     """
     from lib.ui.newhome import HERO_LOGO, HERO_PLOT, HERO_TITLE
 
@@ -203,10 +210,10 @@ def place_hero(window, plot, has_facts, has_scores, has_stars, stack=None):
     if has_scores:
         y -= s['scores_h']
         _move(window, HERO_SCORES, s['left'], y, s['scores_h'])
-        y -= s['gap']
     if plot_h:
         y -= plot_h
         _move(window, HERO_PLOT, s['left'], y, plot_h)
+    if plot_h or has_scores:
         y -= s['gap']
     if has_facts or has_stars:
         y -= s['facts_h']
@@ -223,16 +230,13 @@ def place_hero(window, plot, has_facts, has_scores, has_stars, stack=None):
 def paint_hero(window, plot, panel_text, runtime_minutes, stack=None):
     """Write the new-look hero controls and place the stack."""
     stars, facts_line, scores = hero_lines(panel_text, runtime_minutes)
-    try:
-        window.getControl(HERO_STARS).setImage(stars)
-        window.getControl(HERO_FACTS).setLabel(('•  ' + facts_line) if (stars and facts_line) else facts_line)
-        values = dict(scores)
-        visible = [_paint_score(window, kind, values.get(kind), image_id, label_id)
-                   for kind, image_id, label_id in _SCORE_CONTROLS]
-        has_scores = any(visible)
-        window.getControl(HERO_SCORES).setVisible(has_scores)
-    except Exception:
-        return
+    _hero_call(window, HERO_STARS, 'setImage', stars)
+    _hero_call(window, HERO_FACTS, 'setLabel', ('•  ' + facts_line) if (stars and facts_line) else facts_line)
+    values = dict(scores)
+    visible = [_paint_score(window, kind, values.get(kind), image_id, label_id)
+               for kind, image_id, label_id in _SCORE_CONTROLS]
+    has_scores = any(visible)
+    _hero_call(window, HERO_SCORES, 'setVisible', has_scores)
     place_hero(window, plot, bool(facts_line), has_scores, bool(stars), stack)
 
 

@@ -64,7 +64,14 @@ def test_new_home_declares_every_control_the_window_code_uses(load_homewindow):
     used |= {label_id for _action, _list_id, label_id in newhome._SHELVES}
     used |= {counter for _list_id, _prop, counter in newhome._ROW_COUNTERS}
     used |= set(newhome.LOGO_WARM_SLOTS) | set(WARM_SLOTS)
+    used |= {cid for _, image_id, label_id in newlook._SCORE_CONTROLS
+             for cid in (image_id, label_id) if cid is not None}
     assert not used - declared, sorted(used - declared)
+    from tests.kodistubs.modules import WRAPPABLE_CONTROL_TYPES
+    types = {int(c.get('id')): c.get('type') for c in
+             ET.parse(os.path.join(_SKIN, 'NewHomeWindow.xml')).iter('control') if c.get('id')}
+    # TOOLS_LIST is a focus/navigation target; Python accesses its buttons.
+    assert all(types[cid] in WRAPPABLE_CONTROL_TYPES for cid in used - {newhome.TOOLS_LIST})
 
 
 def test_every_texture_the_new_home_names_is_shipped():
@@ -181,13 +188,15 @@ def test_newlook_stack_ends_on_the_same_line_above_the_row(load_homewindow, monk
     scores = win.getControl(newlook.HERO_SCORES)
     assert scores.y + scores.height == newlook._STACK['bottom']
     plot = win.getControl(ctx.homewindow.HERO_PLOT)
-    assert plot.height <= 3 * 30 + 20  # three lines at most
+    assert plot.height == newlook._STACK['plot_h'] == 123
+    assert plot.y + plot.height == scores.y
     tall_logo_top = win.getControl(ctx.homewindow.HERO_LOGO).y
 
     short = _newlook_hero(ctx, 'IMDb 7.4\n2025', plot='Short.')
     ctx.homewindow.paint_hero(short)
-    # A short plot moves the title down instead of leaving a gap.
-    assert short.getControl(ctx.homewindow.HERO_LOGO).y > tall_logo_top
+    # Every non-empty plot reserves the same scrolling box.
+    assert short.getControl(ctx.homewindow.HERO_LOGO).y == tall_logo_top
+    assert short.getControl(ctx.homewindow.HERO_PLOT).height == 123
 
 
 def test_newlook_facts_start_at_the_margin_without_stars(load_homewindow, monkeypatch):

@@ -6,7 +6,11 @@ from tests.kodistubs import install_kodi_stubs
 
 @pytest.fixture
 def trailer():
-    with install_kodi_stubs(reload=('lib.ui.compat', 'lib.ui.trailer')) as ctx:
+    # The spinner must use this test's Kodi/dialog state, rather than a
+    # canceled dialog class retained from a previous isolated session.
+    with install_kodi_stubs(reload=(
+        'lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.dialogs', 'lib.ui.trailer',
+    )) as ctx:
         import lib.ui.trailer as module
         ctx.trailer = module
         yield ctx
