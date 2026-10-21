@@ -15,8 +15,10 @@ share a bounded session LRU below. Stock first-page callers are unchanged.
 import contextlib
 import os
 import threading
+import time
 from collections import OrderedDict
 
+from lib.stremio.addons import AddonError
 from lib.stremio.pagecache import cache_key
 
 _CATALOG_PAGES_FILENAME = 'catalog_pages.json'
@@ -223,6 +225,7 @@ def cached_first_page(transport, manifest, catalog, extra=None):
 # Later pages live only for this interpreter. A bounded LRU shares a plain
 # anime catalog's raw pages between its two filtered Home views.
 _later_pages = OrderedDict()  # type: OrderedDict
+_later_failures = OrderedDict()  # type: OrderedDict
 _later_lock = threading.Lock()
 _MAX_LATER_PAGES = 200
 
@@ -230,20 +233,67 @@ _MAX_LATER_PAGES = 200
 def clear_later_pages():
     with _later_lock:
         _later_pages.clear()
+        _later_failures.clear()
+
+
+def _later_key(transport, ctype, cid, extra):
+    pairs = list(extra or ())
+    return (transport, ctype, cid, tuple((k, v) for k, v in pairs if k != 'skip'),
+            next((v for k, v in pairs if k == 'skip'), 0))
+
+
+def later_page_failure(transport, ctype, cid, extra=None, cooldown=30.0):
+    with _later_lock:
+        failed = _later_failures.get(_later_key(transport, ctype, cid, extra))
+        return dict(failed) if failed and time.monotonic() - failed['at'] < cooldown else None
+
+
+class LaterPageFailure(AddonError):
+    """A session retry deadline, distinct from a catalog's real end."""
+
+    def __init__(self, failed, remembered=False):
+        super().__init__('later page temporarily unavailable', category=failed['category'])
+        self.failed = {'at': failed['at'], 'count': failed['count']}
+        self.remembered = remembered
+
+
+def _remember_later_failure(key, exc):
+    category = str(getattr(exc, 'category', '') or '')
+    status = category[5:] if category.startswith('HTTP ') else ''
+    retryable = ((status.isdigit() and int(status) >= 500)
+                 or any(word in category.lower() for word in ('timeout', 'connection')))
+    if not retryable:
+        return None
+    with _later_lock:
+        failed = {'at': time.monotonic(), 'count': _later_failures.get(key, {}).get('count', 0) + 1,
+                  'category': category}
+        _later_failures[key] = failed
+        _later_failures.move_to_end(key)
+        while len(_later_failures) > _MAX_LATER_PAGES:
+            _later_failures.popitem(last=False)
+        return failed
 
 
 def cached_later_page(transport, ctype, cid, extra=None):
     from lib.ui.views import _fetch_catalog
 
-    pairs = list(extra or ())
-    key = (transport, ctype, cid, tuple((k, v) for k, v in pairs if k != 'skip'),
-           next((v for k, v in pairs if k == 'skip'), 0))
+    key = _later_key(transport, ctype, cid, extra)
+    failed = later_page_failure(transport, ctype, cid, extra)
+    if failed:
+        raise LaterPageFailure(failed, remembered=True)
     with _later_lock:
         if key in _later_pages:
             _later_pages.move_to_end(key)
             return list(_later_pages[key])
-    page = _fetch_catalog(transport, ctype, cid, extra=extra)
+    try:
+        page = _fetch_catalog(transport, ctype, cid, extra=extra)
+    except AddonError as exc:
+        failed = _remember_later_failure(key, exc)
+        if failed:
+            raise LaterPageFailure(failed) from exc
+        raise
     with _later_lock:
+        _later_failures.pop(key, None)
         _later_pages[key] = list(page)
         _later_pages.move_to_end(key)
         while len(_later_pages) > _MAX_LATER_PAGES:

@@ -111,11 +111,14 @@ def open_home():
     Only construction/open failures reach the recovery directory. Home
     handles build/row failures itself, leaving failed rows empty.
     """
+    import time
+
     import xbmc
 
     from lib.stremio.addons import addon_error_detail
     from lib.ui.compat import log
 
+    started = time.monotonic()
     log('homewindow: opening HomeWindow', xbmc.LOGINFO)
     _migrate_mystuff_setting()
     _migrate_home_layout()
@@ -133,6 +136,10 @@ def open_home():
             win = open_window(NewHomeWindow, 'NewHomeWindow.xml')
         except Exception as exc:
             raise HomeOpenError(addon_error_detail(exc)) from exc
+        def shown():
+            log('homewindow: HomeWindow shown in %.3f s' % (time.monotonic() - started), xbmc.LOGINFO)
+
+        win._home_on_shown = shown
         try:
             win.doModal()
         except Exception as exc:

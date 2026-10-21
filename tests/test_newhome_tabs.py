@@ -324,11 +324,14 @@ def test_split_anime_pulls_at_most_five_pages_per_step(load_homewindow, monkeypa
     monkeypatch.setattr(views, '_fetch_catalog', fetch)
     state = ctx.newhome._open_shelf(descriptor)
     assert state['metas'] == []
-    assert fetched == [1, 2, 3, 4]
+    assert fetched == []  # First paint is only page one, even when filtered empty.
     assert not state['exhausted']
     result = ctx.newhome._pull_more(state, 24)
-    assert len(fetched) == 9
-    assert [m['id'] for m in result] == ['tt6', 'tt7', 'tt8', 'tt9']
+    assert fetched == [1, 2, 3, 4, 5]
+    assert result == []
+    result = ctx.newhome._pull_more(state, 24)
+    assert len(fetched) == 10
+    assert [m['id'] for m in result] == ['tt6', 'tt7', 'tt8', 'tt9', 'tt10']
 
 
 def test_later_page_lru_is_reused_bounded_and_cleared(load_homewindow, monkeypatch):

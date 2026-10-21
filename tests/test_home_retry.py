@@ -47,6 +47,9 @@ def test_retry_same_skip_after_backoff_continues_without_duplicates(load_homewin
     assert attempts == [24]  # No network before the thirty-second backoff.
     assert hw._ROW_RETRY_SECONDS >= 30
     state['failed']['at'] -= hw._ROW_RETRY_SECONDS + 1
+    from lib.ui import catalogpages
+    for failed in catalogpages._later_failures.values():
+        failed['at'] -= hw._ROW_RETRY_SECONDS + 1
     prefetch(hw, win)
     assert attempts == [24, 24, 40]
     items = win.getControl(30041).items

@@ -31,7 +31,9 @@ and `lib.ui.detailwindow.open_detail`.
 import json
 import queue
 import threading
+import time
 import weakref
+from functools import partial
 
 import xbmcgui
 
@@ -269,6 +271,7 @@ def _shelf_page_gen(state):
         state['failed'] = None
         state['served'] += len(page)
         state['seen_ids'].update(meta.get('id') for meta in page if isinstance(meta, dict))
+        state['page_number'] = state.get('page_number', 1) + 1
         return page
 
     catalog = state['catalog']
@@ -305,6 +308,40 @@ def _log_row_end(state):
     log('home: row %s ended (%s) at %d items' % (
         list_id, state.get('end_reason') or 'catalog end', len(state.get('metas') or [])), xbmc.LOGINFO)
     state['end_logged'] = True
+
+
+def _safe_list_id(list_id):
+    from lib.homelayout import parse_catalog_id
+    from lib.stremio.addons import safe_url_for_log
+
+    parts = parse_catalog_id(list_id)
+    return 'cat:%s|%s' % (safe_url_for_log(parts[0]), '|'.join(parts[1:])) if parts else list_id
+
+
+def _log_skipped_page(state):
+    import xbmc
+
+    from lib.ui.compat import log
+
+    failed = state.get('failed')
+    if failed:
+        log('home: row %s page %d skipped (failed %.1f s ago)' % (
+            _safe_list_id(state.get('list_id') or '?'), state.get('page_number', 1) + 1,
+            max(0.0, time.monotonic() - failed['at'])), xbmc.LOGINFO)
+
+
+def _remembered_row_failure(state):
+    from lib.ui.catalogpages import later_page_failure
+
+    catalog = state['catalog']
+    failed = later_page_failure(state['transport'], catalog.get('type'), catalog.get('id'),
+                               list(state.get('extra') or []) + [('skip', state['served'])],
+                               _ROW_RETRY_SECONDS)
+    if failed:
+        state['failed'] = {key: failed[key] for key in ('at', 'count')}
+        if failed['count'] >= _ROW_MAX_FAILURES:
+            state.update(exhausted=True, end_reason='3 consecutive page failures')
+        _log_skipped_page(state)
 
 
 def _stopping(stop=None):
@@ -356,8 +393,14 @@ def _pull_more(state, room, max_pages=5):
             log('home: next catalog page failed: %s' % addon_error_detail(exc))
             import time
 
+            from lib.ui.catalogpages import LaterPageFailure
+
             count = (state.get('failed') or {}).get('count', 0) + 1
             state['failed'] = {'at': time.monotonic(), 'count': count}
+            if isinstance(exc, LaterPageFailure):
+                state['failed'] = dict(exc.failed)
+                count = exc.failed['count']
+                _log_skipped_page(state)
             if count >= _ROW_MAX_FAILURES:
                 state['exhausted'] = True
                 state['end_reason'] = '3 consecutive page failures'
@@ -371,12 +414,12 @@ def _pull_more(state, room, max_pages=5):
 
 
 def _open_shelf(descriptor):
-    """One resolved catalog view; first paint includes at most five pages."""
+    """Page one only: a short cached page must never wait for page two."""
     from lib.homelayout import matches_catalog
     from lib.ui.views import _dedupe_page
 
     state = dict(descriptor)
-    state.update({'pending': [], 'served': 0, 'seen_ids': set(), 'exhausted': False})
+    state.update({'pending': [], 'served': 0, 'seen_ids': set(), 'exhausted': False, 'page_number': 1})
     if _stopping(state.get('_stop')):
         state['metas'] = []
         return state
@@ -393,7 +436,9 @@ def _open_shelf(descriptor):
     if not first:
         state['exhausted'] = True
         state['end_reason'] = 'first page failed' if state.get('end_reason') == 'first page failed' else 'empty page'
-    state['metas'] = _pull_more(state, _ROW_INITIAL, max_pages=4)
+    state['metas'] = state['pending'][:_ROW_INITIAL]
+    state['pending'] = state['pending'][_ROW_INITIAL:]
+    _remembered_row_failure(state)
     _log_row_end(state)
     return state
 
@@ -656,6 +701,61 @@ def _collect_home_rows(results, count, threads, stopped):
     return fetched
 
 
+def _home_load_worker(work, results, stopped, timing):
+    while not stopped():
+        try:
+            key, fetch, fallback = work.get_nowait()
+        except queue.Empty:
+            return
+        started = time.monotonic()
+        try:
+            value = fetch()
+        except Exception as exc:
+            from lib.stremio.addons import addon_error_detail
+            from lib.ui.compat import log
+
+            log('home: row load failed: %s' % addon_error_detail(exc))
+            value = fallback
+        with timing['lock']:
+            timing['jobs'][key] = time.monotonic() - started
+        if not stopped():
+            results.put((key, value))
+
+
+def _load_home_jobs(jobs, stopped, timing):
+    from lib.ui.catalogpages import deferred_saves
+
+    work, results = queue.Queue(), queue.Queue()
+    for job in jobs:
+        work.put(job)
+    with deferred_saves():
+        threads = []
+        for _ in range(min(len(jobs), _MAX_HOME_WORKERS)):
+            thread = threading.Thread(target=_home_load_worker, args=(work, results, stopped, timing),
+                                      name='rivulet-home-load', daemon=True)
+            threads.append(thread)
+            thread.start()
+        return _collect_home_rows(results, len(jobs), threads, stopped)
+
+
+def _log_tab_paint(window, count):
+    import xbmc
+
+    from lib.ui.compat import log
+
+    timing = getattr(window, '_tab_load_timing', None)
+    if timing is None:
+        return
+    with timing['lock']:
+        jobs = dict(timing['jobs'])
+    catalogs = [(key, value) for key, value in jobs.items() if key.startswith('cat:')]
+    slowest, seconds = max(catalogs, key=lambda entry: entry[1]) if catalogs else ('-', 0.0)
+    log('home: tab %s painted %d rows in %.3f s (library %.3f s, continue enrich %.3f s, '
+        'slowest row %s %.3f s, cancelled=%s)' % (
+            timing['tab'], count, time.monotonic() - timing['start'], jobs.get('library', 0.0),
+            timing.get('continue', 0.0), _safe_list_id(slowest), seconds, timing['cancelled']), xbmc.LOGINFO)
+
+
 def _load_rows(window, store, addons, auth):
     """Fetch only this tab's plan. One account read feeds every personal row."""
     from lib.homelayout import resolve
@@ -675,48 +775,28 @@ def _load_rows(window, store, addons, auth):
     def stopped():
         return cancelled.is_set() or _stopping(session_stop)
 
+    timing = {'tab': tab, 'start': time.monotonic(), 'jobs': {}, 'lock': threading.Lock(),
+              'cancelled': False, 'continue': 0.0}
+    window._tab_load_timing = timing
+
     def load():
-        work, results = queue.Queue(), queue.Queue()
         needs_library = any(kind in ('continue', 'library') for _, kind, _, _, _ in plan)
         cached = getattr(window, '_library_entries', None)
+        jobs = []
         if needs_library and cached is None:
-            work.put(('library', None))
+            jobs.append(('library', partial(_fetch_library, store, auth), []))
         for list_id, kind, descriptor, _variant, _heading in plan:
             if kind == 'catalog':
-                work.put((list_id, descriptor))
-        count = work.qsize()
-
-        def worker():
-            while not stopped():
-                try:
-                    key, descriptor = work.get_nowait()
-                except queue.Empty:
-                    return
-                try:
-                    value = _fetch_library(store, auth) if descriptor is None else _open_shelf(dict(descriptor, _stop=cancelled))
-                except Exception as exc:
-                    from lib.stremio.addons import addon_error_detail
-                    from lib.ui.compat import log
-
-                    log('home: row load failed: %s' % addon_error_detail(exc))
-                    value = [] if descriptor is None else {'metas': [], 'exhausted': True}
-                if not stopped():
-                    results.put((key, value))
-
-        from lib.ui.catalogpages import deferred_saves
-
-        with deferred_saves():
-            threads = []
-            for _ in range(min(count, _MAX_HOME_WORKERS)):
-                thread = threading.Thread(target=worker, name='rivulet-home-load', daemon=True)
-                threads.append(thread)
-                thread.start()
-            fetched = _collect_home_rows(results, count, threads, stopped)
+                jobs.append((list_id, partial(_open_shelf, dict(descriptor, _stop=cancelled)),
+                             {'metas': [], 'exhausted': True}))
+        fetched = _load_home_jobs(jobs, stopped, timing)
         if stopped():
             return None
         entries = fetched.pop('library', cached or [])
+        enrich_started = time.monotonic()
         rows = _make_row_states(store, auth, entries, plan, fetched,
                                 getattr(window, '_continue_suppressed', None))
+        timing['continue'] = time.monotonic() - enrich_started
         return entries if needs_library or cached is not None else None, rows
 
     try:
@@ -725,6 +805,7 @@ def _load_rows(window, store, addons, auth):
         cancelled.set()
         load_stops.remove(cancelled)
     if loaded is CANCELLED or not isinstance(loaded, tuple):
+        timing['cancelled'] = True
         return []
     window._library_entries, rows = loaded
     return rows
@@ -763,7 +844,23 @@ def _paint_rows(window, states):
 
 
 def _fill_shelves(window, store, addons, auth, show_continue=True):
-    _paint_rows(window, _load_rows(window, store, addons, auth))
+    states = _load_rows(window, store, addons, auth)
+    _paint_rows(window, states)
+    _log_tab_paint(window, len(states))
+    _top_up_shelves(window)
+
+
+def _top_up_shelves(window):
+    """Only after paint; use the normal generation-checked append workers."""
+    for panel, state in window._rows.items():
+        if state['kind'] != 'catalog' or state.get('exhausted'):
+            continue
+        room = _ROW_INITIAL - len(state['metas'])
+        if room > 0:
+            if _row_waiting(state):
+                _log_skipped_page(state)
+            else:
+                _schedule_shelf_extend(window, panel, room)
 
 
 def mark_library_dirty():
@@ -878,6 +975,7 @@ def _switch_tab(window, tab):
     if snapshot:
         rows, window._tab_last_row = snapshot
         _paint_rows(window, rows)
+        _top_up_shelves(window)
     else:
         store = get_store()
         _fill_shelves(window, store, store.get_enabled_addons(), store.get_auth())
@@ -1311,7 +1409,7 @@ def _apply_shelf_extends(window):
     for generation, panel, state, private, metas in ready:
         if not _current_shelf(window, generation, panel, state):
             continue
-        for key in ('pending', 'seen_ids', 'served', 'exhausted', 'failed', 'end_reason'):
+        for key in ('pending', 'seen_ids', 'served', 'exhausted', 'failed', 'end_reason', 'page_number'):
             if key in private:
                 state[key] = private[key]
         _append_to_shelf(window, panel, metas, sparse=(state['kind'] == 'library'))
@@ -1890,6 +1988,10 @@ class NewHomeWindow(BaseWindow):
             return
         self._build()
         self._built = True
+        shown = getattr(self, '_home_on_shown', None)
+        if shown is not None:
+            self._home_on_shown = None
+            shown()
 
     def close(self):
         _home_stop(self).set()

@@ -27,6 +27,7 @@ _RELOAD_MODULE_NAMES = (
     'lib.ui.gridwindow', 'lib.ui.detailwindow', 'lib.ui.newlook', 'lib.ui.newhome',
     'lib.ui.dialogs', 'lib.ui.dependencies', 'lib.ui.libraryaction', 'lib.ui.homelists',
     'lib.ui.player', 'lib.ui.streamswindow', 'lib.ui.views',
+    'lib.ui.catalogpages',
 )
 
 
