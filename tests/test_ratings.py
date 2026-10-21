@@ -241,7 +241,7 @@ def test_rating_keys_sit_after_a_toggle_and_stay_out_of_the_server_env():
     settings = list(home.iter('setting'))
     assert settings[0].find('control').get('type') != 'edit'
     by_id = {setting.get('id'): setting for setting in settings}
-    headings = {'ratings_omdb_key': '30455', 'ratings_mdblist_key': '30456'}
+    headings = {'ratings_omdb_key': '30543', 'ratings_mdblist_key': '30544'}
     labels = {'ratings_omdb_key': '30453', 'ratings_mdblist_key': '30454'}
     for setting_id, label in labels.items():
         setting = by_id[setting_id]

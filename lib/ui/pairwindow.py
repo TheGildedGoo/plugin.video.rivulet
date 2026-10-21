@@ -45,10 +45,10 @@ PAIR_HINT = 30393
 PAIR_QR = 30394
 PAIR_CANCEL = 30395
 
-#: (setting id, strings.po id). Order is the chooser order.
+#: (setting id, label id, get-key URL, get-key line id). Chooser order.
 PAIRABLE = (
-    ('ratings_omdb_key', 30453),
-    ('ratings_mdblist_key', 30454),
+    ('ratings_omdb_key', 30453, 'https://www.omdbapi.com/apikey.aspx', 30541),
+    ('ratings_mdblist_key', 30454, 'https://mdblist.com/preferences/', 30542),
 )
 
 
@@ -63,10 +63,10 @@ def open_pair_picker():
     from lib.ui.compat import L
     from lib.ui.dialogs import choose
 
-    index = choose(L(30458), [L(string_id) for _setting_id, string_id in PAIRABLE])
+    index = choose(L(30458), [L(entry[1]) for entry in PAIRABLE])
     if index is None or index < 0 or index >= len(PAIRABLE):
         return
-    setting_id, string_id = PAIRABLE[index]
+    setting_id, string_id, _url, _line_id = PAIRABLE[index]
     pair_setting(setting_id, L(string_id))
 
 
@@ -184,12 +184,25 @@ def pair_value(label, prompt=None, cleaner=None, max_length=MAX_KEY_LENGTH, mess
 
 
 def pair_setting(setting_id, label, sleep=None, ipv4=None, bind_host='0.0.0.0', timeout=None):
-    """A ratings key from the phone, written to `setting_id`."""
+    """An allowlisted ratings key, with its provider's get-key link.
+
+    Keep the destination beside both the TV QR and the phone input, so
+    viewers can obtain a key without discovering Settings' help footer.
+    """
     import xbmc
 
     from lib.ui.compat import ADDON, L, log, notify
 
-    key = pair_value(label, sleep=sleep, ipv4=ipv4, bind_host=bind_host, timeout=timeout)
+    entry = next((entry for entry in PAIRABLE if entry[0] == setting_id), None)
+    if entry is None:
+        return
+    _setting_id, _label_id, url, line_id = entry
+    line = L(line_id)
+    key = pair_value(
+        label, prompt=L(30459) + '\n\n' + line,
+        messages={'link': url, 'link_label': line},
+        sleep=sleep, ipv4=ipv4, bind_host=bind_host, timeout=timeout,
+    )
     if not key:
         return
     try:

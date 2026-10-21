@@ -69,9 +69,9 @@
                      action, so it can sit above the fields. Empty means the
                      hero keeps the catalog's IMDb rating and hides the rest.
                      -->
-                <setting id="ratings_pair" type="action" label="30457">
+                <setting id="ratings_pair_omdb" type="action" label="30539" help="30546">
                     <level>0</level>
-                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=pair_key)</data>
+                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=pair_key&amp;setting=ratings_omdb_key)</data>
                     <control type="button" format="action"/>
                 </setting>
                 <setting id="ratings_omdb_key" type="string" label="30453" help="30515">
@@ -81,17 +81,22 @@
                         <allowempty>true</allowempty>
                     </constraints>
                     <control type="edit" format="string">
-                        <heading>30455</heading>
+                        <heading>30543</heading>
                     </control>
                 </setting>
-                <setting id="ratings_mdblist_key" type="string" label="30454">
+                <setting id="ratings_pair_mdblist" type="action" label="30540" help="30546">
+                    <level>0</level>
+                    <data>RunPlugin(plugin://plugin.video.rivulet/?action=pair_key&amp;setting=ratings_mdblist_key)</data>
+                    <control type="button" format="action"/>
+                </setting>
+                <setting id="ratings_mdblist_key" type="string" label="30454" help="30545">
                     <level>0</level>
                     <default></default>
                     <constraints>
                         <allowempty>true</allowempty>
                     </constraints>
                     <control type="edit" format="string">
-                        <heading>30456</heading>
+                        <heading>30544</heading>
                     </control>
                 </setting>
             </group>

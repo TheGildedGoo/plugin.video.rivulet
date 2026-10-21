@@ -6,6 +6,9 @@ import socket
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
+
+import pytest
 
 _SECRET = 'super-secret-omdb-key'
 _REAL_CONNECT = socket.socket.connect
@@ -29,13 +32,13 @@ def _allow_localhost(monkeypatch):
     monkeypatch.setattr(socket, 'create_connection', create_connection)
 
 
-def _load(kodi_stubs):
+def _load(kodi_stubs, **config):
     return kodi_stubs(reload=(
         'lib.ui.compat',
         'lib.ui.uicommon',
         'lib.ui.dialogs',
         'lib.ui.pairwindow',
-    ))
+    ), **config)
 
 
 def _post(url):
@@ -55,9 +58,22 @@ def _notes(ctx):
     return ' '.join(msg for _heading, msg, _icon, _time in ctx.env.notifications)
 
 
-def test_a_phone_post_saves_the_setting_without_logging_the_key(kodi_stubs, monkeypatch):
+@pytest.mark.parametrize('setting_id,url,line_id', [
+    ('ratings_omdb_key', 'https://www.omdbapi.com/apikey.aspx', 30541),
+    ('ratings_mdblist_key', 'https://mdblist.com/preferences/', 30542),
+])
+def test_a_phone_post_saves_the_setting_without_logging_the_key(
+        kodi_stubs, monkeypatch, setting_id, url, line_id):
     _allow_localhost(monkeypatch)
-    ctx = _load(kodi_stubs)
+    # Use the shipped English strings, so the real hint and link are
+    # exercised rather than the fake's STR<id> placeholders.
+    import re
+    po = (Path(__file__).resolve().parents[1] / 'resources/language/'
+          'resource.language.en_gb/strings.po').read_text(encoding='utf-8')
+    localized = {int(sid): text for sid, text in
+                 re.findall(r'msgctxt "#(\d+)"\nmsgid "([^"\n]*)"', po)}
+    ctx = _load(kodi_stubs, localized=localized)
+    ctx.compat.ADDON.setSetting(setting_id, 'old-key')
     windows = []
     real_open = ctx.uicommon.open_window
 
@@ -72,26 +88,39 @@ def test_a_phone_post_saves_the_setting_without_logging_the_key(kodi_stubs, monk
     def sleep(_seconds):
         if not posted['done']:
             posted['done'] = True
-            url = windows[0].getControl(ctx.pairwindow.PAIR_URL).label
-            status, page = _post(url)
+            page_url = windows[0].getControl(ctx.pairwindow.PAIR_URL).label
+            hint = windows[0].getControl(ctx.pairwindow.PAIR_HINT).text
+            assert hint == localized[30459] + '\n\n' + localized[line_id]
+            assert url in hint
+            with urllib.request.urlopen(page_url, timeout=2) as resp:
+                form = resp.read().decode('utf-8')
+            assert '<a href="%s" target="_blank" rel="noopener noreferrer">' % url in form
+            assert localized[line_id] in form
+            assert form.index('<a href=') < form.index('<input name="key"')
+            assert 'old-key' not in form
+            status, page = _post(page_url)
             assert status == 200
             assert _SECRET not in page
-            assert windows[0].getControl(ctx.pairwindow.PAIR_CODE).label in url
+            assert windows[0].getControl(ctx.pairwindow.PAIR_CODE).label in page_url
         return False
 
     ctx.pairwindow.pair_setting(
-        'ratings_omdb_key', 'OMDb', sleep=sleep, ipv4='127.0.0.1', bind_host='127.0.0.1',
+        setting_id, 'Key', sleep=sleep, ipv4='127.0.0.1', bind_host='127.0.0.1',
     )
 
-    assert ctx.compat.ADDON.getSetting('ratings_omdb_key') == _SECRET
+    assert ctx.compat.ADDON.getSetting(setting_id) == _SECRET
+    other = 'ratings_mdblist_key' if setting_id == 'ratings_omdb_key' else 'ratings_omdb_key'
+    assert ctx.compat.ADDON.getSetting(other) == ''
     assert _SECRET not in _logged(ctx)
     assert _SECRET not in _notes(ctx)
     assert windows[0].closed is True
-    assert 'STR30460' in _notes(ctx)
+    assert localized[30460] in _notes(ctx)
 
 
-def test_backing_out_does_not_save(kodi_stubs, monkeypatch):
+@pytest.mark.parametrize('setting_id', ['ratings_omdb_key', 'ratings_mdblist_key'])
+def test_backing_out_does_not_save(kodi_stubs, monkeypatch, setting_id):
     ctx = _load(kodi_stubs)
+    ctx.compat.ADDON.setSetting(setting_id, 'old-key')
     windows = []
     real_open = ctx.uicommon.open_window
     monkeypatch.setattr(ctx.uicommon, 'open_window', lambda *a, **k: windows.append(real_open(*a, **k)) or windows[-1])
@@ -101,20 +130,22 @@ def test_backing_out_does_not_save(kodi_stubs, monkeypatch):
         return False
 
     ctx.pairwindow.pair_setting(
-        'ratings_omdb_key', 'OMDb', sleep=sleep, ipv4='127.0.0.1', bind_host='127.0.0.1',
+        setting_id, 'Key', sleep=sleep, ipv4='127.0.0.1', bind_host='127.0.0.1',
     )
-    assert ctx.compat.ADDON.getSetting('ratings_omdb_key') == ''
+    assert ctx.compat.ADDON.getSetting(setting_id) == 'old-key'
     assert 'STR30460' not in _notes(ctx)
     assert 'STR30462' not in _notes(ctx)
 
 
-def test_an_expired_code_notifies_without_a_key(kodi_stubs):
+@pytest.mark.parametrize('setting_id', ['ratings_omdb_key', 'ratings_mdblist_key'])
+def test_an_expired_code_notifies_without_a_key(kodi_stubs, setting_id):
     ctx = _load(kodi_stubs)
+    ctx.compat.ADDON.setSetting(setting_id, 'old-key')
     ctx.pairwindow.pair_setting(
-        'ratings_omdb_key', 'OMDb', sleep=lambda _s: False, ipv4='127.0.0.1',
+        setting_id, 'Key', sleep=lambda _s: False, ipv4='127.0.0.1',
         bind_host='127.0.0.1', timeout=0,
     )
-    assert ctx.compat.ADDON.getSetting('ratings_omdb_key') == ''
+    assert ctx.compat.ADDON.getSetting(setting_id) == 'old-key'
     assert 'STR30462' in _notes(ctx)
 
 
@@ -157,6 +188,14 @@ def test_no_network_notifies_and_does_not_save(kodi_stubs):
     ctx.pairwindow.pair_setting('ratings_omdb_key', 'OMDb', ipv4='')
     assert ctx.compat.ADDON.getSetting('ratings_omdb_key') == ''
     assert 'STR30461' in _notes(ctx)
+
+
+def test_pair_setting_cannot_write_an_arbitrary_setting(kodi_stubs, monkeypatch):
+    ctx = _load(kodi_stubs)
+    ctx.compat.ADDON.setSetting('server_url', 'existing-server')
+    monkeypatch.setattr(ctx.pairwindow, 'pair_value', lambda *a, **k: pytest.fail('opened pairing'))
+    ctx.pairwindow.pair_setting('server_url', 'Server')
+    assert ctx.compat.ADDON.getSetting('server_url') == 'existing-server'
 
 
 # ---------------------------------------------------------------------------

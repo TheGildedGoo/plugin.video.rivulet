@@ -710,5 +710,27 @@ def test_dialogs_are_rounded_dark_plates(name):
 
 def test_ratings_pair_action_targets_this_addon():
     root = ET.parse(os.path.join(_REPO_ROOT, 'resources', 'settings.xml')).getroot()
-    action = root.find(".//setting[@id='ratings_pair']")
-    assert action.findtext('data') == 'RunPlugin(plugin://plugin.video.rivulet/?action=pair_key)'
+    assert root.find(".//setting[@id='ratings_pair']") is None
+    group = root.find(".//setting[@id='ratings_pair_omdb']/..")
+    settings = list(group.findall('setting'))
+    po = _read(_ENGLISH_PO)
+    strings = {sid: text for sid, text in
+               re.findall(r'msgctxt "#(\d+)"\nmsgid "([^"\n]*)"', po)}
+    for name, heading, url in [
+        ('omdb', '30543', 'https://www.omdbapi.com/apikey.aspx'),
+        ('mdblist', '30544', 'https://mdblist.com/preferences/'),
+    ]:
+        action = group.find("setting[@id='ratings_pair_%s']" % name)
+        field = group.find("setting[@id='ratings_%s_key']" % name)
+        assert settings.index(action) + 1 == settings.index(field)
+        assert action.get('type') == 'action'
+        assert action.findtext('data') == (
+            'RunPlugin(plugin://plugin.video.rivulet/?action=pair_key&setting=ratings_%s_key)' % name)
+        assert field.find('control').get('type') == 'edit'
+        assert field.findtext('control/heading') == heading
+        assert url in strings[heading]
+        assert action.get('help') and field.get('help')
+        assert action.get('help') in strings and field.get('help') in strings
+        assert action.get('label') in strings
+    assert group.find("setting[@id='ratings_omdb_key']").get('help') == '30515'
+    assert '30541' in strings and '30542' in strings
