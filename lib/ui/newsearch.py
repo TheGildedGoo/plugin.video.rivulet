@@ -135,6 +135,14 @@ class NewSearchWindow(BaseWindow):
         if action_id in _BACK_ACTIONS:
             self.close()
             return
+        if action_id == 117:
+            if self.getFocusId() == ROW:
+                from lib.ui.libraryaction import meta_from_item, poster_menu
+
+                meta = meta_from_item(self.getControl(ROW).getSelectedItem())
+                if meta is not None:
+                    poster_menu(meta)
+            return
         if action_id == 4 and self.getFocusId() == LETTERS and not self.getProperty('SearchHasRow'):
             # Kodi must not walk toward a hidden results row.
             return
