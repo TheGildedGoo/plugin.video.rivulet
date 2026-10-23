@@ -69,6 +69,13 @@ _APPLE_MOBILE_MODEL_PREFIXES = ("iphone", "ipad", "ipod", "appletv")
 #: binary itself so the two cannot be separated. Dot-prefixed to keep it
 #: out of the way of resolve_binary()'s lookup.
 TAG_STAMP_NAME = ".server-tag"
+#: Where install_binary() records a SERVER_TAG whose executable it
+#: downloaded but could not exec() on this device. `.server-tag` must keep
+#: describing what is really installed (a working older binary may have
+#: been kept), yet without a second record a device that denies exec()
+#: (SELinux-enforcing Android) would never see the tag match and would
+#: re-download the whole archive on every Kodi start.
+ATTEMPTED_STAMP_NAME = ".server-tag-attempted"
 #: Enough for any plausible tag; a bound so a corrupt/huge stamp file can
 #: never be slurped whole.
 TAG_STAMP_READ_LIMIT = 64
@@ -410,6 +417,15 @@ def _sleep(seconds):
     time.sleep(seconds)
 
 
+def _is_permanent_http_error(exc):
+    """True for a 4xx a retry cannot fix (404 for a missing asset, 403 ...);
+    408 and 429 are the two client errors that are about timing, not the
+    request itself."""
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    return isinstance(status, int) and 400 <= status < 500 and status not in (408, 429)
+
+
 def _hash_file(path):
     digest = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -463,22 +479,34 @@ def _download_attempt(url, dest_path, progress_cb, resume):
         resp.close()
 
 
-def _download_to_file(url, dest_path, progress_cb):
+def _download_to_file(url, dest_path, progress_cb, sleep_fn=None):
     """Stream `url` into `dest_path`, returning the sha256 hex digest.
 
     Retries up to DOWNLOAD_ATTEMPTS times with exponential backoff on
     transport errors, resuming the `.part` file with an HTTP Range request.
-    The returned digest always covers the full file."""
+    The returned digest always covers the full file.
+
+    A permanent 4xx (see `_is_permanent_http_error`) fails at once: a
+    missing or forbidden asset will not appear within seconds, and three
+    attempts would only delay the caller's own retry schedule.
+
+    `sleep_fn(seconds)` replaces the backoff sleep; the service passes one
+    that watches Kodi's abort, so a quit during a failing download does not
+    wait out the backoff. It may raise to cancel the download.
+    """
     if requests is None:
         raise DownloadError('the "requests" package is required to download the server binary')
+    sleep = sleep_fn or _sleep
     last_exc = None
     for attempt in range(DOWNLOAD_ATTEMPTS):
         if attempt:
-            _sleep(DOWNLOAD_BACKOFF * (2 ** (attempt - 1)))
+            sleep(DOWNLOAD_BACKOFF * (2 ** (attempt - 1)))
         try:
             return _download_attempt(url, dest_path, progress_cb, resume=attempt > 0)
         except requests.RequestException as exc:
             last_exc = exc
+            if _is_permanent_http_error(exc):
+                break
         except Exception:
             # Includes a cancel signalled by progress_cb raising DownloadError.
             _safe_remove(dest_path)
@@ -548,10 +576,13 @@ def _extract_library_companion(archive_path, asset_name, dest_dir):
     assets currently ship this member at all, so "not present in this
     archive" is the normal case on every other platform, not a broken
     install -- it must never fail an otherwise-good executable install
-    over an optional file. Written via the same download-then-promote
-    pattern as the executable (temp name, then os.replace()) so a
-    partial write from an interrupted extraction can never leave a
-    truncated .so where resolve_library() would find it.
+    over an optional file. That covers the final os.replace() and every
+    way the archive itself can be unreadable (the same file is extracted
+    again for the executable right after, which then reports the real
+    error). Written via the same download-then-promote pattern as the
+    executable (temp name, then os.replace()) so a partial write from an
+    interrupted extraction can never leave a truncated .so where
+    resolve_library() would find it.
     """
     lib_final_path = os.path.join(dest_dir, LIBRARY_NAME)
     lib_tmp_path = lib_final_path + PART_SUFFIX
@@ -569,10 +600,9 @@ def _extract_library_companion(archive_path, asset_name, dest_dir):
                     return
                 with src, open(lib_tmp_path, "wb") as dst:
                     shutil.copyfileobj(src, dst)
-    except (DownloadError, OSError):
+        os.replace(lib_tmp_path, lib_final_path)
+    except (DownloadError, OSError, tarfile.TarError, zipfile.BadZipFile, EOFError):
         _safe_remove(lib_tmp_path)
-        return
-    os.replace(lib_tmp_path, lib_final_path)
 
 
 def verify_executable(path):
@@ -601,7 +631,7 @@ def verify_executable(path):
         pass
 
 
-def install_binary(dest_dir, progress_cb=None):
+def install_binary(dest_dir, progress_cb=None, sleep_fn=None):
     """Download+install the rivulet-engine binary matching this platform.
 
     Returns the final binary path (matching lib.service_runner.resolve_binary's
@@ -609,7 +639,8 @@ def install_binary(dest_dir, progress_cb=None):
     `progress_cb(done_bytes, total_bytes)` is called for every chunk written
     during the archive download (total_bytes is None when the response
     doesn't advertise a Content-Length); it may raise (e.g. DownloadError
-    on user cancel) to abort the download cleanly.
+    on user cancel) to abort the download cleanly. `sleep_fn(seconds)`
+    replaces the sleep between download retries (see `_download_to_file`).
 
     The downloaded archive's SHA-256 is checked against PINNED_SHA256 -- a
     fixed, reviewed table for SERVER_TAG committed in this repository --
@@ -627,8 +658,10 @@ def install_binary(dest_dir, progress_cb=None):
     passes: an install that turns out to be unrunnable must never take
     down a binary that was already serving (see the upgrade caller in
     lib.service_runner). The one exception is documented at that check.
-    A successful install records SERVER_TAG via `_write_tag_stamp` so a
-    later release bump can tell this binary is out of date.
+    A successful install records SERVER_TAG via `_write_stamp` so a
+    later release bump can tell this binary is out of date. An archive
+    whose executable cannot be exec()'d on this device records it in
+    `ATTEMPTED_STAMP_NAME` instead (see `attempted_tag`).
 
     The optional librivulet-engine.so companion (see LIBRARY_NAME's and
     _extract_library_companion()'s docstrings) is extracted right after
@@ -676,7 +709,7 @@ def install_binary(dest_dir, progress_cb=None):
     archive_path = os.path.join(dest_dir, ".stremio-server" + PART_SUFFIX)
 
     try:
-        digest = _download_to_file(download_url, archive_path, progress_cb)
+        digest = _download_to_file(download_url, archive_path, progress_cb, sleep_fn)
 
         if digest.lower() != expected_sha256.lower():
             raise DownloadError("checksum mismatch for %s" % asset_name)
@@ -706,10 +739,14 @@ def install_binary(dest_dir, progress_cb=None):
                 # latch self-heal if the cause was a transient
                 # noexec/EACCES condition rather than a permanent ban --
                 # resolve_binary() finding it later clears the latch.
-                # Unstamped on purpose: it is unverified, so the next
-                # session treats it as upgradable.
+                # `.server-tag` stays untouched (it must keep describing
+                # what is really installed), but the failed attempt is
+                # recorded: exec() is denied by the device, not by this
+                # tag, so re-downloading the archive on every start would
+                # only repeat the same outcome.
                 if not os.path.exists(final_path):
                     os.replace(tmp_binary_path, final_path)
+                _write_stamp(dest_dir, ATTEMPTED_STAMP_NAME)
                 raise
             os.replace(tmp_binary_path, final_path)
         finally:
@@ -717,8 +754,16 @@ def install_binary(dest_dir, progress_cb=None):
     finally:
         _safe_remove(archive_path)
 
-    _write_tag_stamp(dest_dir)
+    _write_stamp(dest_dir, TAG_STAMP_NAME)
     return final_path
+
+
+def _read_stamp(dest_dir, name):
+    try:
+        with open(os.path.join(dest_dir, name)) as fh:
+            return fh.read(TAG_STAMP_READ_LIMIT).strip() or None
+    except (OSError, UnicodeError):
+        return None
 
 
 def installed_tag(dest_dir):
@@ -727,28 +772,35 @@ def installed_tag(dest_dir):
 
     None covers every case callers must treat identically -- "not the
     current tag": no stamp file (installed before stamping existed, the
-    write failed, or the install was promoted unverified), an unreadable
-    one, one that is not decodable text, and an empty one.
+    write failed, or only an unrunnable build was fetched, see
+    `attempted_tag`), an unreadable one, one that is not decodable text,
+    and an empty one.
+    """
+    return _read_stamp(dest_dir, TAG_STAMP_NAME)
+
+
+def attempted_tag(dest_dir):
+    """Return the SERVER_TAG whose archive was last downloaded but whose
+    executable this device refused to exec(), or None.
+
+    A caller deciding whether `dest_dir` needs a (re)download must treat a
+    tag equal to SERVER_TAG here like a match in `installed_tag()`:
+    fetching the same archive again cannot change the device's answer.
+    """
+    return _read_stamp(dest_dir, ATTEMPTED_STAMP_NAME)
+
+
+def _write_stamp(dest_dir, name):
+    """Record SERVER_TAG as `name` next to the binary in `dest_dir`.
+
+    Best-effort on purpose: the binary is already installed by the time
+    this runs, so failing the whole install over a stamp write would turn
+    a working server into a user-visible error. A missing stamp only costs
+    the reader reporting None, which callers treat as "not the current
+    tag" -- i.e. one redundant reinstall attempt, not a broken install.
     """
     try:
-        with open(os.path.join(dest_dir, TAG_STAMP_NAME)) as fh:
-            return fh.read(TAG_STAMP_READ_LIMIT).strip() or None
-    except (OSError, UnicodeError):
-        return None
-
-
-def _write_tag_stamp(dest_dir):
-    """Record SERVER_TAG next to the binary just installed into `dest_dir`.
-
-    Best-effort on purpose: the binary is already installed and verified
-    by the time this runs, so failing the whole install over a stamp
-    write would turn a working server into a user-visible error. A
-    missing stamp only costs `installed_tag()` reporting None, which
-    callers treat as "not the current tag" -- i.e. one redundant
-    reinstall attempt, not a broken install.
-    """
-    try:
-        with open(os.path.join(dest_dir, TAG_STAMP_NAME), "w") as fh:
+        with open(os.path.join(dest_dir, name), "w") as fh:
             fh.write(SERVER_TAG)
     except OSError:
         pass

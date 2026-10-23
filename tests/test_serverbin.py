@@ -517,6 +517,65 @@ def test_download_to_file_gives_up_after_three_attempts_with_backoff(
     assert not dest.exists()
 
 
+class _StatusResponse(_StreamResponse):
+    def __init__(self, status_code):
+        super().__init__(b"")
+        self.status_code = status_code
+
+    def raise_for_status(self):
+        raise serverbin.requests.HTTPError("HTTP %d" % self.status_code, response=self)
+
+
+@pytest.mark.parametrize("status", [403, 404])
+def test_download_to_file_fails_fast_on_a_permanent_http_error(tmp_path, monkeypatch, fake_requests, status):
+    sleeps = []
+    monkeypatch.setattr(serverbin, "_sleep", sleeps.append)
+    fake_requests.queue_get(_StatusResponse(status))
+    dest = tmp_path / "a.part"
+
+    with pytest.raises(DownloadError, match="download failed"):
+        serverbin._download_to_file("http://x/a", str(dest), None)
+
+    assert len(fake_requests.calls) == 1
+    assert sleeps == []
+    assert not dest.exists()
+
+
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_download_to_file_still_retries_throttling_and_server_errors(
+        tmp_path, monkeypatch, fake_requests, status):
+    monkeypatch.setattr(serverbin, "_sleep", lambda seconds: None)
+    payload = b"payload"
+    fake_requests.queue_get(_StatusResponse(status))
+    fake_requests.queue_get(_StreamResponse(payload))
+    dest = tmp_path / "a.part"
+
+    digest = serverbin._download_to_file("http://x/a", str(dest), None)
+
+    assert digest == hashlib.sha256(payload).hexdigest()
+    assert len(fake_requests.calls) == 2
+
+
+def test_download_to_file_backoff_goes_through_the_given_sleep_and_can_cancel(
+        tmp_path, monkeypatch, fake_requests):
+    """The caller's sleep replaces `time.sleep` for the backoff, and an
+    exception it raises (Kodi abort) ends the download without another
+    attempt."""
+    monkeypatch.setattr(serverbin, "_sleep", lambda seconds: pytest.fail("plain sleep used"))
+    fake_requests.queue_get(serverbin.requests.ConnectionError("down"))
+
+    class _Cancel(Exception):
+        pass
+
+    def cancelling_sleep(seconds):
+        raise _Cancel()
+
+    with pytest.raises(_Cancel):
+        serverbin._download_to_file("http://x/a", str(tmp_path / "a.part"), None, cancelling_sleep)
+
+    assert len(fake_requests.calls) == 1
+
+
 # --- UnsupportedPlatformError / Android gating ------------------------------
 
 
@@ -738,8 +797,10 @@ def test_install_binary_keeps_a_working_binary_when_the_new_one_fails_verificati
 
     assert existing.read_bytes() == b"the-binary-that-works"
     assert not (tmp_path / "rivulet-engine.part").exists()
-    # The stamp still describes what is actually installed.
+    # The stamp still describes what is actually installed; the refusal is
+    # recorded separately so the archive is not fetched again next start.
     assert serverbin.installed_tag(str(tmp_path)) == "v0.9.0"
+    assert serverbin.attempted_tag(str(tmp_path)) == SERVER_TAG
 
 
 def test_install_binary_promotes_an_unverifiable_binary_when_nothing_was_installed(
@@ -747,8 +808,9 @@ def test_install_binary_promotes_an_unverifiable_binary_when_nothing_was_install
     """With nothing to protect there is nothing to lose, and leaving the
     binary in place is what lets lib.service_runner's unsupported_platform
     latch self-heal when the cause was a transient noexec/EACCES mount
-    rather than a permanent ban. It stays unstamped, so the next session
-    treats it as upgradable."""
+    rather than a permanent ban. `.server-tag` stays unwritten (nothing
+    verified), but the refused attempt is recorded so the next session does
+    not download the same archive again."""
     _set_platform(monkeypatch, "Linux", "x86_64")
     monkeypatch.setattr(
         subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(OSError("EACCES")))
@@ -762,6 +824,7 @@ def test_install_binary_promotes_an_unverifiable_binary_when_nothing_was_install
 
     assert (tmp_path / "rivulet-engine").read_bytes() == b"unverifiable"
     assert serverbin.installed_tag(str(tmp_path)) is None
+    assert serverbin.attempted_tag(str(tmp_path)) == SERVER_TAG
 
 
 def test_install_binary_succeeds_even_when_the_stamp_cannot_be_written(
@@ -938,6 +1001,34 @@ def test_install_binary_extracts_companion_library_even_when_exec_verification_f
     assert lib_path == str(tmp_path / serverbin.LIBRARY_NAME)
     with open(lib_path, "rb") as fh:
         assert fh.read() == lib_content
+
+
+def test_install_binary_survives_a_failing_companion_promotion(tmp_path, monkeypatch, fake_requests):
+    """The companion is optional: a failure promoting it (os.replace) must
+    not abort an otherwise-good executable install nor leave the `.part`
+    behind."""
+    _set_platform(monkeypatch, "Linux", "arm64", android_root="/system")
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: None)
+    archive_bytes = _make_tar_gz({"rivulet-engine": b"binary", "librivulet-engine.so": b"lib"})
+    monkeypatch.setitem(
+        PINNED_SHA256, ("Android", "arm64"), hashlib.sha256(archive_bytes).hexdigest())
+    fake_requests.queue_get(_StreamResponse(archive_bytes))
+
+    real_replace = os.replace
+
+    def replace(src, dst):
+        if dst.endswith(serverbin.LIBRARY_NAME):
+            raise OSError("read-only file system")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", replace)
+
+    result_path = install_binary(str(tmp_path))
+
+    assert os.path.isfile(result_path)
+    assert serverbin.resolve_library(str(tmp_path)) is None
+    assert not (tmp_path / (serverbin.LIBRARY_NAME + ".part")).exists()
+    assert serverbin.installed_tag(str(tmp_path)) == SERVER_TAG
 
 
 def test_install_binary_checksum_mismatch_also_skips_the_companion_library(

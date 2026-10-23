@@ -119,10 +119,12 @@ _CONTEXT = {
 
 
 @contextlib.contextmanager
-def _progress_player_env(store, api, sync_enabled=True):
+def _progress_player_env(store, api, sync_enabled=True, spawn_fn=None):
     """Builds one `build_progress_player()` instance against the shared
     fake `xbmc` module, with a plain list-based log recorder (`logs`)
-    instead of a real `xbmc.log()` -- no full `main()` loop involved."""
+    instead of a real `xbmc.log()` -- no full `main()` loop involved.
+    Pushes run inline by default (`spawn_fn` swaps in a controllable
+    worker spawner)."""
     with install_kodi_stubs(reload=()) as ctx:
         xbmc_mod = sys.modules['xbmc']
         logs = []
@@ -132,6 +134,7 @@ def _progress_player_env(store, api, sync_enabled=True):
 
         player = service_runner.build_progress_player(
             xbmc_mod, store, api, log_fn, lambda: sync_enabled,
+            spawn_fn=spawn_fn or (lambda target: target()),
         )
         yield ctx.env, player, logs
 
@@ -146,7 +149,7 @@ def test_main_wires_sync_progress_through_pure_setting_bool(monkeypatch, tmp_pat
     `False` instead of falling back to the True default)."""
     captured = {}
 
-    def fake_build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):
+    def fake_build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn, spawn_fn=None):
         captured['sync_enabled_fn'] = sync_enabled_fn
         return object()
 
@@ -542,6 +545,121 @@ def test_onplaybackerror_before_av_started_clears_context_and_resume_offset():
     assert store.get_resume_offset_ms() is None
     assert store.progress_calls == []  # never accepted -> no local flush
     assert api.datastore_put_calls == []  # never accepted -> no remote push
+
+
+def test_stop_of_the_previous_video_does_not_wipe_the_new_playbacks_context():
+    """`lib.ui.player` writes the new now-playing context and resume offset
+    BEFORE `Player.play()`, and `play()` over a running video first stops
+    it: that stop callback can land before the new item's onAVStarted.
+    Clearing then would strip the new playback of its context and queued
+    resume seek."""
+    store = _FakeProgressStore(now_playing=_CONTEXT)
+    with _progress_player_env(store, _FakeProgressAPI(), sync_enabled=False) as (env, player, logs):
+        player.onAVStarted()  # first video accepted
+        new_context = dict(_CONTEXT, id='tt2', started_at=service_runner.library.iso8601_utc())
+        store.set_now_playing(new_context)
+        store.set_resume_offset_ms(45000)
+        player.onPlayBackStopped()  # the FIRST video's stop callback
+        assert store.get_now_playing() == new_context
+        assert store.get_resume_offset_ms() == 45000
+
+        env.player_get_time = 1.0
+        env.player_get_total_time = 100.0
+        player.onAVStarted()  # the new item starts: it still finds its context + seek
+        assert store.get_resume_offset_ms() is None
+        assert player._accepted_key == service_runner._context_key(new_context)
+
+
+def test_stop_of_an_unrelated_video_leaves_a_pending_context_alone():
+    """Nothing accepted yet: a stop callback cannot be about the context
+    waiting for its onAVStarted (a non-Rivulet video that was playing)."""
+    store = _FakeProgressStore(now_playing=_CONTEXT, resume_offset_ms=45000)
+    with _progress_player_env(store, _FakeProgressAPI(), sync_enabled=False) as (env, player, logs):
+        player.onPlayBackStopped()
+        player.onPlayBackEnded()
+    assert store.get_now_playing() == _CONTEXT
+    assert store.get_resume_offset_ms() == 45000
+
+
+# --- the push runs on a worker, never on the caller -------------------------
+
+
+class _ManualSpawner:
+    """Captures worker targets instead of running them, so a test decides
+    when (and whether) the push thread makes progress."""
+
+    def __init__(self):
+        self.targets = []
+
+    def __call__(self, target):
+        self.targets.append(target)
+
+
+def _tick_while_playing(env, player, position=50.0):
+    env.player_is_playing = True
+    env.player_get_time = position
+    env.player_get_total_time = 100.0
+    player.sample_if_playing()
+
+
+def test_push_does_not_block_the_sampling_tick():
+    """Two API round trips with multi-second timeouts must never run on
+    `main()`'s supervision tick: the tick only queues the push."""
+    store = _FakeProgressStore(now_playing=_CONTEXT, auth={'authKey': 'tok'})
+    api = _FakeProgressAPI()
+    spawner = _ManualSpawner()
+    with _progress_player_env(store, api, sync_enabled=True, spawn_fn=spawner) as (env, player, logs):
+        player.onAVStarted()
+        _tick_while_playing(env, player)
+        assert store.progress_calls  # local cache is written inline
+        assert api.datastore_get_calls == [] and api.datastore_put_calls == []  # network is not
+        assert len(spawner.targets) == 1
+        assert player.drain_pushes(0) is False
+        spawner.targets[0]()  # the worker runs
+        assert len(api.datastore_put_calls) == 1
+        assert player.drain_pushes(0) is True
+
+
+def test_final_push_queues_behind_an_in_flight_push_and_is_never_dropped():
+    store = _FakeProgressStore(now_playing=_CONTEXT, auth={'authKey': 'tok'})
+    api = _FakeProgressAPI()
+    spawner = _ManualSpawner()
+    with _progress_player_env(store, api, sync_enabled=True, spawn_fn=spawner) as (env, player, logs):
+        player.onAVStarted()
+        _tick_while_playing(env, player, position=50.0)  # first periodic push, still queued
+        env.player_is_playing = False
+        player.onPlayBackStopped()  # final push while the worker has not run yet
+        assert len(spawner.targets) == 1  # one worker serves both
+        spawner.targets[0]()
+    positions = [call[2][0]['state']['timeOffset'] for call in api.datastore_put_calls]
+    assert positions == [50000, 50000]  # periodic, then the final one
+
+
+def test_periodic_push_is_dropped_while_one_is_already_queued():
+    store = _FakeProgressStore(now_playing=_CONTEXT, auth={'authKey': 'tok'})
+    api = _FakeProgressAPI()
+    spawner = _ManualSpawner()
+    with _progress_player_env(store, api, sync_enabled=True, spawn_fn=spawner) as (env, player, logs):
+        player.onAVStarted()
+        _tick_while_playing(env, player)
+        player._last_pushed_at = None  # make the next tick due again
+        _tick_while_playing(env, player, position=60.0)
+        spawner.targets[0]()
+    assert len(api.datastore_put_calls) == 1
+
+
+def test_push_worker_survives_a_failing_push_and_runs_the_next_one():
+    store = _FakeProgressStore(now_playing=_CONTEXT, auth={'authKey': 'tok'})
+    api = _FakeProgressAPI(datastore_get_error=RuntimeError('network down'))
+    spawner = _ManualSpawner()
+    with _progress_player_env(store, api, sync_enabled=True, spawn_fn=spawner) as (env, player, logs):
+        player.onAVStarted()
+        _tick_while_playing(env, player)
+        env.player_is_playing = False
+        player.onPlayBackStopped()
+        spawner.targets[0]()
+    assert len(api.datastore_get_calls) == 2  # both attempted
+    assert player.drain_pushes(0) is True
 
 
 def test_onplaybackerror_flush_failure_still_clears_context_and_resume_offset():

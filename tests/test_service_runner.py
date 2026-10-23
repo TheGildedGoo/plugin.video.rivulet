@@ -531,6 +531,30 @@ def test_main_s4me_bridge_disabled_for_non_italian_users(monkeypatch, tmp_path):
     assert enabled is False
 
 
+def test_main_s4me_language_lookup_is_skipped_without_stream4me_and_cached_otherwise(monkeypatch, tmp_path):
+    """Most users lack Stream4Me: for them the per-tick language lookup
+    (getLanguage + a JSON-RPC round trip) is pure waste. With it installed
+    the answer is reused across ticks instead of re-queried every one."""
+    _FakeBridgeSupervisor.instances = []
+    monkeypatch.setattr(service_runner.s4me, "BridgeSupervisor", _FakeBridgeSupervisor)
+    monkeypatch.setattr(service_runner, "probe_listening", lambda *a, **kw: True)
+    lookups = []
+    monkeypatch.setattr(service_runner, "_detect_italian_user", lambda xbmc: lookups.append(1) or True)
+
+    wait = _scripted_wait([], [None, None, None])
+    with _main_env(tmp_path, wait, settings={'server_enable': True}, cond_visibility=lambda cond: False):
+        service_runner.main()
+    assert lookups == []
+    assert [call[0] for call in _FakeBridgeSupervisor.instances[0].apply_calls] == [False] * 3
+
+    _FakeBridgeSupervisor.instances = []
+    wait = _scripted_wait([], [None, None, None])
+    with _main_env(tmp_path, wait, settings={'server_enable': True}, cond_visibility=lambda cond: True):
+        service_runner.main()
+    assert lookups == [1]
+    assert [call[0] for call in _FakeBridgeSupervisor.instances[0].apply_calls] == [True] * 3
+
+
 def test_main_s4me_bridge_respects_user_opt_out(monkeypatch, tmp_path):
     """An Italian user who switches s4me_enable off keeps it off."""
     _FakeBridgeSupervisor.instances = []
@@ -606,6 +630,36 @@ def test_main_s4me_bridge_sync_failure_is_swallowed(monkeypatch, tmp_path):
     wait = _scripted_wait(intervals, [None])
     with _main_env(tmp_path, wait, settings={'server_enable': True}):
         service_runner.main()  # must not raise
+
+
+def test_main_stops_the_child_and_bridge_when_a_tick_raises(monkeypatch, tmp_path):
+    """An exception escaping a supervision tick (a failed notification, an
+    import error, ...) kills the service thread; without `finally` the
+    embedded server stays bound to its port and the S4Me bridge is never
+    told to stop, so the next Kodi start would adopt the orphan as an
+    "external" server."""
+    class _Launched(_FakeBridgeSupervisor):
+        launched = 11499
+
+    _FakeBridgeSupervisor.instances = []
+    monkeypatch.setattr(service_runner.s4me, "BridgeSupervisor", _Launched)
+    monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: '/opt/bin/rivulet-engine')
+    factory, spawned = _make_process_factory([{}])
+    monkeypatch.setattr(service_runner, 'ServerProcess', factory)
+    bridge_shutdowns = []
+    monkeypatch.setattr(service_runner.s4me, "shutdown_bridge", bridge_shutdowns.append)
+
+    def boom(_monitor):
+        raise RuntimeError("tick blew up")
+
+    wait = _scripted_wait([], [boom, None])
+    with _main_env(tmp_path, wait, settings={'server_enable': True}):
+        with pytest.raises(RuntimeError, match="tick blew up"):
+            service_runner.main()
+
+    assert spawned[0].stop_calls == 1
+    assert bridge_shutdowns == [11499]
 
 
 # --- (b) embedded enabled + binary found: spawn, then healthy poll ----------
@@ -738,7 +792,7 @@ def test_main_embedded_enabled_binary_missing_auto_downloads_then_starts(monkeyp
 
     install_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         return os.path.join(dest_dir, service_runner.BINARY_NAME)
 
@@ -790,7 +844,7 @@ def test_main_transient_download_failure_retries_after_backoff_deadline_and_noti
 
     install_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         if len(install_calls) < 3:
             raise serverbin.DownloadError('no network')
@@ -877,7 +931,7 @@ def test_main_embedded_enabled_binary_missing_unsupported_platform_notifies_once
 
     install_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         raise serverbin.UnsupportedPlatformError('exec() is forbidden on Android 10+')
 
@@ -937,7 +991,7 @@ def test_main_settings_changed_resets_unsupported_platform_latch_for_retry(monke
 
     install_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         if len(install_calls) == 1:
             raise serverbin.UnsupportedPlatformError('exec() forbidden')
@@ -1003,7 +1057,7 @@ def test_main_latched_unsupported_platform_rechecks_resolve_binary_at_coarse_cad
 
     install_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         raise serverbin.UnsupportedPlatformError('exec() forbidden')
 
@@ -1063,7 +1117,7 @@ def test_main_latched_unsupported_platform_self_heals_when_resolve_binary_finds_
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: probe_calls.append(1) or False)
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         raise serverbin.UnsupportedPlatformError('exec() forbidden')
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
@@ -1111,7 +1165,7 @@ def test_main_binary_download_aborts_mid_chunk_without_error_notification(monkey
     abort_box = {'requested': False}
     install_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         progress_cb(1000, 10000)  # first chunk: abort not requested yet
         abort_box['requested'] = True  # shutdown arrives mid-download
@@ -1474,7 +1528,7 @@ def test_main_settings_changed_with_no_running_server_resets_state_without_crash
 
     install_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         raise serverbin.DownloadError('still no network')
 
@@ -1802,7 +1856,8 @@ def test_main_autoload_probes_kodis_home_window_for_gui_readiness(monkeypatch, t
     with _autoload_main_env(tmp_path, monkeypatch, wait, settings, cond_visibility=record):
         service_runner.main()
 
-    assert conditions and all(c == 'Window.IsVisible(home)' for c in conditions)
+    gui_probes = [c for c in conditions if 'HasAddon' not in c]  # the S4Me bridge probes its own
+    assert gui_probes and all(c == 'Window.IsVisible(home)' for c in gui_probes)
 
 
 
@@ -1826,7 +1881,7 @@ def test_main_upgrades_a_bundled_binary_installed_under_an_older_server_tag(monk
     install_calls = []
     fresh = os.path.join(str(tmp_path), 'bin', 'freshly-installed')
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         return fresh
 
@@ -1923,7 +1978,7 @@ def test_main_failed_upgrade_still_starts_the_installed_binary(monkeypatch, tmp_
     monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: _bundled(tmp_path))
     monkeypatch.setattr(serverbin, 'installed_tag', lambda dest_dir: 'v0.1.0')
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         raise serverbin.DownloadError('github unreachable')
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
@@ -1950,7 +2005,7 @@ def test_main_attempts_the_upgrade_at_most_once_per_session(monkeypatch, tmp_pat
 
     install_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         raise serverbin.DownloadError('github unreachable')
 
@@ -1980,7 +2035,7 @@ def test_main_upgrade_aborted_by_shutdown_unwinds_without_spawning(monkeypatch, 
 
     progress_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         """Abort the way the real download does: install_binary() itself
         never raises _AbortRequested -- it is main()'s own progress
         callback that does, once per chunk, when Kodi asks to shut down
@@ -2029,6 +2084,7 @@ def test_main_force_library_prefers_library_mode_when_companion_library_present(
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
     monkeypatch.setattr(service_runner, 'resolve_binary', resolve_binary_must_not_run)
     monkeypatch.setattr(serverbin, 'install_binary', install_binary_must_not_run)
+    monkeypatch.setattr(serverbin, 'installed_tag', lambda dest_dir: serverbin.SERVER_TAG)
     monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
 
     factory, spawned = _make_library_process_factory([{}])
@@ -2115,7 +2171,7 @@ def test_main_unsupported_platform_falls_back_to_library_mode_immediately(monkey
     monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: None)
     monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         raise serverbin.UnsupportedPlatformError('exec() forbidden')
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
@@ -2162,7 +2218,7 @@ def test_main_unsupported_platform_self_heals_into_library_mode_when_library_app
 
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         raise serverbin.UnsupportedPlatformError('exec() forbidden')
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
@@ -2204,7 +2260,7 @@ def test_main_unsupported_platform_still_latches_when_no_library_available(monke
     monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: None)
     monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: None)
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         raise serverbin.UnsupportedPlatformError('exec() forbidden')
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
@@ -2226,24 +2282,92 @@ def test_main_unsupported_platform_still_latches_when_no_library_available(monke
     ]
 
 
-def test_main_library_mode_never_consults_the_stale_upgrade_helper(monkeypatch, tmp_path):
-    """Deferred-upgrade contract: `lib.libserver._load_library()` refuses
-    a different path in the same process, so any SERVER_TAG upgrade of
-    the on-disk .so must wait for the next Kodi start (a fresh process)
-    -- library mode must never call the exec-mode upgrade-if-stale
-    helper (`serverbin.installed_tag`/a second `install_binary()`) at
-    all."""
+def test_main_download_retry_backoff_unwinds_on_kodi_abort(monkeypatch, tmp_path):
+    """The sleep between download retries must watch Kodi's abort: a quit
+    during a failing download must not wait out the backoff (or, worse,
+    spend another connect timeout on the next attempt)."""
+    monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: None)
+    slept = []
+
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
+        slept.append(True)
+        sleep_fn(2.0)  # Kodi reports the abort during this wait
+        pytest.fail('install_binary kept retrying after the abort')
+
+    monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
+    factory, spawned = _make_process_factory([])
+    monkeypatch.setattr(service_runner, 'ServerProcess', factory)
+
+    intervals = []
+    with _main_env(tmp_path, _scripted_wait(intervals, [None]), settings={'server_enable': True}) as ctx:
+        service_runner.main()
+
+    assert slept == [True]
+    assert spawned == []
+    assert [n for n in ctx.env.notifications if n[1] == 'STR30063'] == []
+    assert any('aborted' in msg for msg, level in ctx.env.log_calls if level == ctx.xbmc.LOGINFO)
+
+
+def test_main_does_not_redownload_for_a_tag_the_device_already_refused_to_exec(monkeypatch, tmp_path):
+    """On an exec-denying (SELinux-enforcing Android) device the archive
+    installs but never verifies, so `.server-tag` never matches: without
+    the attempted-tag record every Kodi start would fetch the whole archive
+    again and show the "downloading" toast."""
+    monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
+    monkeypatch.setattr(service_runner, 'resolve_binary', lambda *a, **kw: _bundled(tmp_path))
+    monkeypatch.setattr(serverbin, 'installed_tag', lambda dest_dir: None)
+    monkeypatch.setattr(serverbin, 'attempted_tag', lambda dest_dir: serverbin.SERVER_TAG)
+
+    def install_must_not_run(*args, **kwargs):
+        pytest.fail('install_binary must not repeat an attempt already made for this SERVER_TAG')
+
+    monkeypatch.setattr(serverbin, 'install_binary', install_must_not_run)
+    factory, spawned = _make_process_factory([{}])
+    monkeypatch.setattr(service_runner, 'ServerProcess', factory)
+
+    with _main_env(tmp_path, _scripted_wait([], [None]), settings={'server_enable': True}) as ctx:
+        service_runner.main()
+
+    assert spawned[0].binary == _bundled(tmp_path)
+    assert ctx.env.notifications == []
+
+
+def test_main_force_library_refreshes_a_stale_install_once_before_loading(monkeypatch, tmp_path):
+    """`server_force_library` never resolves an executable, so the
+    exec-mode stale-tag check never ran for it and a librivulet-engine.so
+    from an older SERVER_TAG was loaded forever. The one check happens at
+    startup, before the library is first loaded in this fresh process
+    (`lib.libserver._load_library()` refuses a different path later), and
+    never again for the session."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
     monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
+    monkeypatch.setattr(serverbin, 'installed_tag', lambda dest_dir: 'v0.1.0')
+    install_calls = []
+    monkeypatch.setattr(
+        serverbin, 'install_binary',
+        lambda dest_dir, progress_cb=None, sleep_fn=None: install_calls.append(dest_dir) or '/x')
+    factory, spawned = _make_library_process_factory([{'poll_sequence': [1]}, {}])
+    monkeypatch.setattr(libserver, 'LibraryServer', factory)
 
-    def installed_tag_must_not_run(*args, **kwargs):
-        pytest.fail('installed_tag must not be consulted in library mode')
+    wait = _scripted_wait([], [None, None, None])
+    settings = {'server_enable': True, 'server_force_library': True}
+    with _main_env(tmp_path, wait, settings=settings):
+        service_runner.main()
 
-    def install_binary_must_not_run(*args, **kwargs):
-        pytest.fail('install_binary must not run in library mode with a companion library present')
+    assert install_calls == [os.path.join(str(tmp_path), 'bin')]  # once, despite the crash restart
+    assert len(spawned) == 2
 
-    monkeypatch.setattr(serverbin, 'installed_tag', installed_tag_must_not_run)
-    monkeypatch.setattr(serverbin, 'install_binary', install_binary_must_not_run)
+
+def test_main_force_library_keeps_the_installed_library_when_the_refresh_fails(monkeypatch, tmp_path):
+    monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
+    monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
+    monkeypatch.setattr(serverbin, 'installed_tag', lambda dest_dir: None)
+
+    def offline(dest_dir, progress_cb=None, sleep_fn=None):
+        raise serverbin.DownloadError('offline')
+
+    monkeypatch.setattr(serverbin, 'install_binary', offline)
     factory, spawned = _make_library_process_factory([{}])
     monkeypatch.setattr(libserver, 'LibraryServer', factory)
 
@@ -2253,6 +2377,7 @@ def test_main_library_mode_never_consults_the_stale_upgrade_helper(monkeypatch, 
         service_runner.main()
 
     assert len(spawned) == 1
+    assert spawned[0].library_path == '/opt/lib/librivulet-engine.so'
 
 
 def test_main_library_mode_restart_backoff_on_failed_spawn(monkeypatch, tmp_path):
@@ -2322,6 +2447,7 @@ def test_main_library_mode_is_silent_across_crash_restarts(monkeypatch, tmp_path
     be logged, never shown as a Kodi notification."""
     monkeypatch.setattr(service_runner, 'probe_listening', lambda *a, **kw: False)
     monkeypatch.setattr(serverbin, 'resolve_library', lambda dest_dir: '/opt/lib/librivulet-engine.so')
+    monkeypatch.setattr(serverbin, 'installed_tag', lambda dest_dir: serverbin.SERVER_TAG)
 
     factory, spawned = _make_library_process_factory([
         {'poll_sequence': [1]},  # exits right away -> triggers a crash restart
@@ -2436,7 +2562,7 @@ def test_main_unsupported_platform_latch_survives_failed_library_start_in_both_b
 
     install_calls = []
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         install_calls.append(dest_dir)
         raise serverbin.UnsupportedPlatformError('exec() forbidden')
 
@@ -2500,7 +2626,7 @@ def test_main_latched_self_heal_falls_back_to_executable_when_library_start_fail
 
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         raise serverbin.UnsupportedPlatformError('exec() forbidden')
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
@@ -2554,7 +2680,7 @@ def test_main_unsupported_platform_error_branch_falls_back_to_executable_when_li
 
     monkeypatch.setattr(service_runner, 'resolve_binary', fake_resolve_binary)
 
-    def fake_install_binary(dest_dir, progress_cb=None):
+    def fake_install_binary(dest_dir, progress_cb=None, sleep_fn=None):
         raise serverbin.UnsupportedPlatformError('exec() forbidden')
 
     monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)

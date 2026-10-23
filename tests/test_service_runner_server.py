@@ -97,9 +97,11 @@ def test_resolve_binary_finds_the_android_private_dir_location(monkeypatch, tmp_
     assert service_runner.resolve_binary('', str(addon_data)) == str(bundled)
 
 
-def test_resolve_binary_prefers_plain_bundled_dir_over_android_private_dir(monkeypatch, tmp_path):
-    """<addon_data_dir>/bin is checked before serverbin.install_dir()'s
-    pick -- a binary already sitting at the historical location wins."""
+def test_resolve_binary_prefers_install_dir_over_a_legacy_plain_bin_dir(monkeypatch, tmp_path):
+    """serverbin.install_dir()'s pick wins over the historical
+    <addon_data_dir>/bin: the stale-tag check stamps and reinstalls into
+    install_dir(), so a leftover pre-Android-support binary in the plain
+    directory must not shadow the upgraded one on later sessions."""
     addon_data = tmp_path / 'addon_data'
     bin_dir = addon_data / 'bin'
     bin_dir.mkdir(parents=True)
@@ -112,6 +114,18 @@ def test_resolve_binary_prefers_plain_bundled_dir_over_android_private_dir(monke
     _make_executable(private_bundled)
 
     monkeypatch.setattr(serverbin, 'install_dir', lambda profile_dir, addon_id: str(private_dir))
+    assert service_runner.resolve_binary('', str(addon_data)) == str(private_bundled)
+
+
+def test_resolve_binary_falls_back_to_a_legacy_plain_bin_dir(monkeypatch, tmp_path):
+    addon_data = tmp_path / 'addon_data'
+    bin_dir = addon_data / 'bin'
+    bin_dir.mkdir(parents=True)
+    plain_bundled = bin_dir / service_runner.BINARY_NAME
+    _make_executable(plain_bundled)
+
+    monkeypatch.setattr(
+        serverbin, 'install_dir', lambda profile_dir, addon_id: str(tmp_path / 'private' / 'bin'))
     assert service_runner.resolve_binary('', str(addon_data)) == str(plain_bundled)
 
 

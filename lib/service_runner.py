@@ -302,38 +302,43 @@ def server_url_for_log(server_url):
 
 def _bundled_bin_dirs(addon_data_dir):
     """Yield, in order and de-duplicated, the directories resolve_binary()/
-    is_bundled_binary() must treat as "ours": the plain `<addon_data_dir>/bin`
-    every platform used before Android support existed, and
-    serverbin.install_dir()'s pick for the current environment -- the
-    Android app-private location when applicable, or that exact same plain
-    directory everywhere else, in which case the dedup below yields
-    nothing further (an exact no-op on every non-Android platform).
+    is_bundled_binary() must treat as "ours": serverbin.install_dir()'s pick
+    for the current environment first -- the Android app-private location
+    when applicable, or the plain `<addon_data_dir>/bin` everywhere else --
+    then the plain `<addon_data_dir>/bin` every platform used before
+    Android support existed (an exact no-op on every non-Android platform,
+    where both are the same directory).
 
-    A generator, and `lib.serverbin` is imported only after the plain
-    directory has been yielded, on purpose: both callers consume this
-    lazily and stop at their first hit, so the already-installed case --
-    every supervision-loop iteration in the nothing-of-ours-running
-    branch, not just startup -- never pays serverbin's module-scope
-    hashlib/tarfile/zipfile/subprocess imports. Same import-budget
-    discipline as probe_listening()'s deferred requests import.
+    install_dir() MUST come first: `_upgrade_bundled_if_stale()` stamps and
+    re-installs into install_dir(), so a leftover pre-Android-support binary
+    in the plain directory that won the lookup would shadow every later
+    upgrade -- the fresh install would be used for one session, after which
+    the stale, possibly non-executable legacy file would be spawned again
+    while the stamp next to the new one kept saying "up to date".
+
+    `lib.serverbin` is imported here although it costs its module-scope
+    hashlib/tarfile/zipfile/subprocess imports: the already-installed case
+    imports it anyway for the stale-tag check right after, and the paths
+    that never need it (an external server answering, the embedded server
+    disabled) return before reaching resolve_binary() at all.
     """
-    plain = os.path.join(addon_data_dir, "bin")
-    yield plain
-
     from lib import serverbin
 
     preferred = serverbin.install_dir(addon_data_dir, ADDON_ID)
-    if preferred != plain:
-        yield preferred
+    yield preferred
+
+    plain = os.path.join(addon_data_dir, "bin")
+    if plain != preferred:
+        yield plain
 
 
 def resolve_binary(explicit_path, addon_data_dir):
     """Resolve the rivulet-engine binary path.
 
-    Priority: explicit setting -> <addon_data_dir>/bin/rivulet-engine[.exe]
-    -> the Android app-private bin dir serverbin.install_dir() would target
-    for this addon_data_dir (see _bundled_bin_dirs() -- a no-op search on
-    every non-Android platform) -> PATH lookup. Returns None when nothing
+    Priority: explicit setting -> the bin dir serverbin.install_dir() targets
+    for this addon_data_dir (the Android app-private dir where applicable,
+    else <addon_data_dir>/bin) -> the legacy <addon_data_dir>/bin on Android
+    (see _bundled_bin_dirs()) -> PATH lookup. Returns None when nothing
     usable is found.
     """
     if explicit_path and os.path.isfile(explicit_path) and os.access(explicit_path, os.X_OK):
@@ -737,7 +742,7 @@ def _context_key(context):
     return (context.get("type"), context.get("id"), context.get("video_id"), context.get("started_at"))
 
 
-def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # noqa: C901 - legacy; ratchet
+def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn, spawn_fn=None):  # noqa: C901 - legacy; ratchet
     """Return an `xbmc.Player` subclass instance reporting playback
     progress for Rivulet-originated playback only, and performing the
     one-shot resume seek `lib.ui.player` queues via
@@ -767,7 +772,17 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # 
     bool`, `log_fn(level, message)`) rather than an `xbmcaddon.Addon`/
     `xbmc.log` reference directly, so this factory itself needs no
     xbmc-specific type beyond the `xbmc_module.Player` base class.
+
+    The `datastoreGet`+`datastorePut` push to the Stremio API runs on a
+    daemon worker (`spawn_fn`, default `_spawn_daemon`), one at a time,
+    never on the caller: both calls carry the API's multi-second timeout,
+    and the callers are `main()`'s supervision tick (health checks,
+    restarts, the abort check) and Kodi's playback callbacks, none of
+    which may stall behind a slow account server. `drain_pushes()` lets
+    shutdown give a queued final push a bounded moment to finish.
     """
+
+    spawn = spawn_fn or _spawn_push_worker
 
     class _RivuletPlayer(xbmc_module.Player):
         def __init__(self):
@@ -783,6 +798,14 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # 
             #: ~0.1s after `CVideoPlayer::CloseFile()`), so the final flush can
             #: never read the player itself - it replays this instead.
             self._last_sample = None
+            #: Pushes waiting for the single worker, oldest first. Guarded
+            #: by `_push_lock`, as is `_push_running` (a worker is alive
+            #: and will drain the list before it exits).
+            self._push_jobs = []
+            self._push_running = False
+            self._push_lock = threading.Lock()
+            self._push_idle = threading.Event()
+            self._push_idle.set()
 
         def onAVStarted(self):
             context = store.get_now_playing()
@@ -818,26 +841,41 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # 
             # drop mid-attempt). Without this, a failed attempt's
             # context/resume offset would stay persisted for the next
             # unrelated video the long-lived Player instance sees start.
-            self._terminate()
+            self._terminate(failed=True)
 
-        def _terminate(self):
-            # Shared terminal-callback cleanup: the final flush only
+        def _terminate(self, failed=False):
+            # Shared terminal-callback cleanup. The final flush only
             # happens for a context this SAME instance already accepted
             # via onAVStarted (an error/stop firing before that point
             # must never persist/push a sample of playback that never
-            # really started for Rivulet). Clearing BOTH the now-playing
-            # context and any queued resume offset stays unconditional.
+            # really started for Rivulet).
+            #
+            # The persisted now-playing context and resume offset are
+            # cleared only when this callback is about THEM, i.e. when
+            # the stored context is the one this instance accepted, or
+            # when playback FAILED before anything was accepted (the
+            # attempt the context was written for just died). Otherwise
+            # the callback belongs to some other video: `lib.ui.player`
+            # writes the new context BEFORE `Player.play()`, and `play()`
+            # over a running video first stops that one, so its stop
+            # callback can land between the write and the new item's
+            # onAVStarted -- clearing there would strip the new playback
+            # of its context and queued resume seek. A stale leftover is
+            # still swept by the age check in onAVStarted/sample_if_playing.
             context = store.get_now_playing()
-            if context is not None and _context_key(context) == self._accepted_key:
+            accepted = context is not None and _context_key(context) == self._accepted_key
+            if accepted:
                 try:
                     self._flush(context, final=True)
                 except Exception as exc:  # noqa: BLE001 - final flush is best-effort; cleanup below is unconditional
                     log_fn(xbmc_module.LOGWARNING, "final flush failed: %r" % (exc,))
+            owns_context = accepted or (failed and self._accepted_key is None)
             self._accepted_key = None
             self._last_sample = None
             self._last_local_write_at = None
-            store.set_now_playing(None)
-            store.set_resume_offset_ms(None)
+            if owns_context:
+                store.set_now_playing(None)
+                store.set_resume_offset_ms(None)
 
         def sample_if_playing(self):
             """Call once per `main()` loop tick -- a no-op unless BOTH
@@ -916,14 +954,60 @@ def build_progress_player(xbmc_module, store, api, log_fn, sync_enabled_fn):  # 
             if not should_push_now(self._last_pushed_at, now, final):
                 return
             self._last_pushed_at = now
-            self._push(context, position_ms, duration_ms)
+            self._queue_push(context, position_ms, duration_ms, final)
+
+        def _queue_push(self, context, position_ms, duration_ms, final):
+            """Hand one push to the single worker thread; never blocks.
+
+            A periodic push is dropped when anything is already queued or
+            in flight -- the next one is 90s away and carries a newer
+            position anyway. A final push is never dropped: it is the last
+            word on that playback, and queuing it behind an in-flight push
+            keeps the order the API sees correct."""
+            job = (context, position_ms, duration_ms)
+            with self._push_lock:
+                if self._push_running:
+                    if final or not self._push_jobs:
+                        self._push_jobs.append(job)
+                    return
+                self._push_jobs.append(job)
+                self._push_running = True
+                self._push_idle.clear()
+            try:
+                spawn(self._push_worker)
+            except Exception as exc:  # noqa: BLE001 - a thread that cannot start must not fail the caller; local progress is already saved
+                with self._push_lock:
+                    self._push_jobs.clear()
+                    self._push_running = False
+                    self._push_idle.set()
+                log_fn(xbmc_module.LOGWARNING, "library push not started: %r" % (exc,))
+
+        def _push_worker(self):
+            while True:
+                with self._push_lock:
+                    if not self._push_jobs:
+                        self._push_running = False
+                        self._push_idle.set()
+                        return
+                    job = self._push_jobs.pop(0)
+                try:
+                    self._push(*job)
+                except Exception as exc:  # noqa: BLE001 - one bad push must not strand the queued ones
+                    log_fn(xbmc_module.LOGWARNING, "library push failed: %r" % (exc,))
+
+        def drain_pushes(self, timeout):
+            """Wait up to `timeout` seconds for queued/in-flight pushes to
+            finish; True when none remain. Called once at shutdown so the
+            final push of a playback that ended with Kodi does not die
+            with the daemon thread."""
+            return self._push_idle.wait(timeout)
 
         def _push(self, context, position_ms, duration_ms):
-            """Best-effort `datastorePut`: only when logged in AND the
-            'sync_progress' setting is on. A failure here is logged and
-            swallowed -- `_flush` above has already written the local
-            progress cache regardless, so a Stremio API hiccup never
-            costs the user their local resume position."""
+            """Best-effort `datastorePut`, run on the worker thread: only
+            when logged in AND the 'sync_progress' setting is on. A failure
+            here is logged and swallowed -- `_flush` above has already
+            written the local progress cache regardless, so a Stremio API
+            hiccup never costs the user their local resume position."""
             if not sync_enabled_fn():
                 return
             auth = store.get_auth()
@@ -1048,13 +1132,28 @@ class ProgressPuller:
         self._log(self._levels.info, "library pull: %d records, %d progress entries updated" % (len(items), written))
 
 
-def _spawn_daemon(target):
+def _spawn_daemon(target, name="rivulet-library-pull"):
     """Start `target` on a daemon thread and return the thread -- daemon so
     a request still in flight at Kodi quit never holds the interpreter."""
-    thread = threading.Thread(target=target, name="rivulet-library-pull")
+    thread = threading.Thread(target=target, name=name)
     thread.daemon = True
     thread.start()
     return thread
+
+
+def _spawn_push_worker(target):
+    return _spawn_daemon(target, name="rivulet-library-push")
+
+
+#: Longest `Supervisor.shutdown()` waits for the progress player's push
+#: worker: long enough for one API round trip on a healthy link, short
+#: enough that a dead network cannot hold up Kodi's quit.
+PUSH_DRAIN_SECONDS = 3.0
+
+#: How many supervision ticks `main()` reuses its last
+#: `_detect_italian_user()` answer for (about five minutes at the healthy
+#: cadence).
+ITALIAN_USER_RECHECK_TICKS = 150
 
 
 def _detect_italian_user(xbmc):
@@ -1064,7 +1163,7 @@ def _detect_italian_user(xbmc):
     Takes the `xbmc` module so it stays importable (and patchable) outside
     Kodi. Every Kodi call is guarded: a missing API or a malformed
     JSON-RPC reply must read as "not Italian", never raise, because this
-    runs on every supervision tick."""
+    runs inside the supervision loop."""
     import json
 
     ui_language = None
@@ -1324,6 +1423,14 @@ class Supervisor:
         if self.monitor.abortRequested():
             raise _AbortRequested()
 
+    def _abort_aware_sleep(self, seconds):
+        """Backoff sleep between download retries for
+        serverbin.install_binary(): waits on Kodi's abort instead of
+        `time.sleep`, so a quit during a failing download unwinds at once
+        rather than after the remaining backoff."""
+        if self.monitor.waitForAbort(seconds):
+            raise _AbortRequested()
+
     def _upgrade_bundled_if_stale(self, binary, state):
         """Reinstall `binary` when SERVER_TAG has moved past the tag it was
         installed from. Returns the path to use (the fresh one on success,
@@ -1351,27 +1458,44 @@ class Supervisor:
                 or binary == self.monitor.binary_setting):
             return binary
         state.upgrade_attempted = True
+        return self._reinstall_if_stale(binary)
 
+    def _reinstall_if_stale(self, current):
+        """Re-run `serverbin.install_binary()` into `install_dir()` when the
+        tag stamp there is not SERVER_TAG. Returns the freshly installed
+        executable path, or `current` when nothing was needed or the
+        install failed (non-fatal: whatever is installed still works).
+        `_AbortRequested` propagates.
+
+        The archive carries both the executable and the library-mode
+        companion, so this is also what refreshes a stale
+        `librivulet-engine.so` -- `_dispatch_unsupervised()` calls it
+        directly for `server_force_library`, which never resolves an
+        executable to hand to `_upgrade_bundled_if_stale()`."""
         from lib import serverbin
 
         bin_dir = serverbin.install_dir(self.profile_dir, ADDON_ID)
         installed = serverbin.installed_tag(bin_dir)
-        if installed == serverbin.SERVER_TAG:
-            return binary
+        if serverbin.SERVER_TAG in (installed, serverbin.attempted_tag(bin_dir)):
+            # `attempted_tag` covers a device that denies exec() (SELinux
+            # on Android): the archive was already fetched once for this
+            # tag, and fetching it again every Kodi start cannot help.
+            return current
 
         self._info(
             f"upgrading rivulet-engine binary from {installed or 'an unstamped install'} "
             f"to {serverbin.SERVER_TAG}")
         self._notify(30069)
         try:
-            return serverbin.install_binary(bin_dir, progress_cb=self._abort_progress)
+            return serverbin.install_binary(
+                bin_dir, progress_cb=self._abort_progress, sleep_fn=self._abort_aware_sleep)
         except _AbortRequested:
             raise
-        except Exception as exc:  # noqa: BLE001 - a stale binary still works; never block the spawn
+        except Exception as exc:  # noqa: BLE001 - a stale install still works; never block the spawn
             self._warn(
                 f"rivulet-engine binary upgrade to {serverbin.SERVER_TAG} failed: {exc}, "
                 f"keeping the installed one")
-            return binary
+            return current
 
     def _note_server_mode(self, state, mode):
         """Log, once per change, that streaming goes through a server this
@@ -1467,6 +1591,16 @@ class Supervisor:
             # c-shared library mode whenever a companion .so is on disk.
             library_path = self._resolve_library_candidate()
             if library_path is not None:
+                if not state.upgrade_attempted:
+                    # The executable path's stale-tag check never runs in
+                    # this mode, so without it a librivulet-engine.so from
+                    # an older SERVER_TAG would be loaded forever.
+                    state.upgrade_attempted = True
+                    try:
+                        self._reinstall_if_stale(None)
+                    except _AbortRequested:
+                        self._info("rivulet-engine library upgrade aborted, shutting down")
+                        return IDLE_POLL_INTERVAL, True
                 state.notified_missing = False
                 state.unsupported_platform = False
                 state.proc, interval = self._start_library_server(library_path, state)
@@ -1553,6 +1687,7 @@ class Supervisor:
             serverbin.install_binary(
                 serverbin.install_dir(self.profile_dir, ADDON_ID),
                 progress_cb=self._abort_progress,
+                sleep_fn=self._abort_aware_sleep,
             )
         except _AbortRequested:
             # Not a failure -- Kodi is shutting down. No error
@@ -1626,20 +1761,29 @@ class Supervisor:
         return interval
 
     def run(self):
+        """Supervise until Kodi aborts. `shutdown()` runs in `finally`: an
+        exception escaping any tick (a failed notification, an import
+        error while resolving the library companion, ...) would otherwise
+        kill this thread with the embedded rivulet-engine still bound to
+        its port and the S4Me bridge never told to stop -- the next Kodi
+        start would then adopt that orphan as an "external" server and
+        never apply new settings to it."""
         state = self.state
         monitor = self.monitor
-        while not monitor.abortRequested():
-            self.tick_progress_and_restart(state)
-            self._sync_bridge()
+        try:
+            while not monitor.abortRequested():
+                self.tick_progress_and_restart(state)
+                self._sync_bridge()
 
-            interval, should_break = self.dispatch(state)
-            if should_break:
-                break
+                interval, should_break = self.dispatch(state)
+                if should_break:
+                    break
 
-            interval = self._autoload_interval(interval)
-            if monitor.waitForAbort(interval):
-                break
-        self.shutdown()
+                interval = self._autoload_interval(interval)
+                if monitor.waitForAbort(interval):
+                    break
+        finally:
+            self.shutdown()
 
     def shutdown(self):
         # Kodi never delivers the abort to the RunScript-launched bridge in
@@ -1654,6 +1798,14 @@ class Supervisor:
         if self.state.proc is not None:
             self._info("shutting down embedded server")
             self._stop_process(self.state.proc)
+
+        # Last: the final push of a playback that ended with Kodi runs on a
+        # daemon thread that would otherwise die with the interpreter.
+        try:
+            if not self.progress_player.drain_pushes(PUSH_DRAIN_SECONDS):
+                self._warn("progress push still in flight at shutdown, giving up on it")
+        except Exception as exc:  # noqa: BLE001 - shutdown must finish regardless
+            self._warn("progress push drain failed: %r" % (exc,))
 
 
 def main():
@@ -1712,21 +1864,39 @@ def main():
     # and idempotent, so calling this every supervision tick is fine.
     s4me_bridge = s4me.BridgeSupervisor(addon.getAddonInfo("path"))
 
+    italian_cache = {"ticks_left": 0, "value": False}
+
+    def is_italian_user_cached():
+        # getLanguage + a Settings.GetSettingValue JSON-RPC round trip are
+        # pointless to repeat every tick: the answer only changes when the
+        # user edits Kodi's language settings, which a few minutes' lag
+        # absorbs without anyone noticing. Counted in ticks, not seconds,
+        # because the loop's sleep varies by branch.
+        if italian_cache["ticks_left"] <= 0:
+            italian_cache["value"] = _detect_italian_user(xbmc)
+            italian_cache["ticks_left"] = ITALIAN_USER_RECHECK_TICKS
+        italian_cache["ticks_left"] -= 1
+        return italian_cache["value"]
+
     def sync_s4me_bridge():
         try:
             # Stream4Me's channels are Italian-language sites: the bridge
             # only runs for Italian users who also have Stream4Me
             # installed. s4me_enable defaults to on, so for those users it
             # is active without setup; the setting (hidden from everyone
-            # else by settings.xml) lets them turn it off.
+            # else by settings.xml) lets them turn it off. Installed-ness
+            # is checked first: it is one cheap builtin, and most users
+            # lack Stream4Me, so they never pay for the language lookup.
+            has_addon = bool(xbmc.getCondVisibility("System.HasAddon(%s)" % s4me.S4ME_ADDON_ID))
             enabled = (
-                _settings.setting_bool(addon, "s4me_enable", True)
-                and _detect_italian_user(xbmc)
+                has_addon
+                and _settings.setting_bool(addon, "s4me_enable", True)
+                and is_italian_user_cached()
             )
             s4me_bridge.apply(
                 enabled,
                 _settings.setting_int(addon, "s4me_port", s4me.DEFAULT_PORT),
-                lambda: bool(xbmc.getCondVisibility("System.HasAddon(%s)" % s4me.S4ME_ADDON_ID)),
+                lambda: has_addon,
                 xbmc.executebuiltin,
                 store,
                 log_fn=lambda message: log(xbmc.LOGWARNING, "s4me bridge: %s" % message),
