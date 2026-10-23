@@ -263,23 +263,43 @@ def _maybe_resume_offset_ms(store, stype, sid, video_id):
     return position_ms
 
 
-def _record_now_playing_and_maybe_resume(stype, sid, video_id, item_meta):
+def _content_id(sid, item_meta):
+    """The id local progress is keyed on: `item_meta['meta']['id']` when
+    present, else `sid`. For a series this is the show's own library id
+    (`sid` passed in is the season/stream-picker id), so local resume/
+    progress and the stored now-playing context stay rooted at the show,
+    keyed together with the exact episode `video_id`. A movie has no
+    series meta id, so it falls back to `sid`."""
+    return ((item_meta or {}).get('meta') or {}).get('id') or sid
+
+
+def _ask_resume_offset(stype, sid, video_id, item_meta):
+    """Prompt to resume from local progress and return the chosen offset
+    in ms, or `None` (nothing cached, out of band, declined, setting off).
+
+    Asked BEFORE the "Preparing stream" dialog and the torrent pre-buffer
+    start: the keep-alive pin's 60 s clock begins when pre-buffer ends, so
+    a prompt shown afterwards ate into it and a slow answer left the
+    engine without piece priority right before `Player().play()`.
+
+    Never raises: a broken store must never block playback."""
+    try:
+        return _maybe_resume_offset_ms(get_store(), stype, _content_id(sid, item_meta), video_id)
+    except Exception as exc:  # noqa: BLE001 - a broken store must never block playback
+        log('player: resume lookup failed for %s/%s: %r' % (stype, sid, exc), xbmc.LOGWARNING)
+        return None
+
+
+def _record_now_playing(stype, sid, video_id, item_meta, resume_offset_ms):
     """Best-effort: persist the "now playing" context
     (`lib.store.Store.set_now_playing`, consumed by
-    `lib.service_runner`'s background progress tracker) and, when local
-    progress exists for `(stype, content_id, video_id)` in a resumable
-    band, prompt the user and queue a one-shot resume-seek offset the
-    service's `onAVStarted` performs - `ListItem.setProperty(
-    'StartOffset')` is unreliable for the direct `xbmc.Player().play()`
-    path this addon's custom windows use, hence an explicit post-start
-    seek rather than a resume property (see `lib.service_runner`).
-
-    `content_id` is `item_meta['meta']['id']` when present, else `sid` -
-    for a series this is the show's own library id (`sid` passed in is
-    the season/stream-picker id), so local resume/progress and the
-    stored now-playing context stay rooted at the show, keyed together
-    with the exact episode `video_id`. A movie has no series meta id, so
-    `content_id` falls back to `sid` exactly as before.
+    `lib.service_runner`'s background progress tracker) and queue the
+    one-shot resume-seek offset the service's `onAVStarted` performs -
+    `ListItem.setProperty('StartOffset')` is unreliable for the direct
+    `xbmc.Player().play()` path this addon's custom windows use, hence an
+    explicit post-start seek rather than a resume property (see
+    `lib.service_runner`). `resume_offset_ms` comes from
+    `_ask_resume_offset`.
 
     Never raises: a broken store write must never block playback that
     has already been resolved.
@@ -287,12 +307,10 @@ def _record_now_playing_and_maybe_resume(stype, sid, video_id, item_meta):
     try:
         store = get_store()
         meta = (item_meta or {}).get('meta') or {}
-        content_id = meta.get('id') or sid
-        resume_offset_ms = _maybe_resume_offset_ms(store, stype, content_id, video_id)
         art = (item_meta or {}).get('art') or {}
         store.set_now_playing({
             'type': stype,
-            'id': content_id,
+            'id': _content_id(sid, item_meta),
             'video_id': video_id,
             'name': (item_meta or {}).get('label') or meta.get('name') or '',
             'poster': art.get('poster') or meta.get('poster'),
@@ -687,29 +705,34 @@ _session = None
 
 
 def _register_session(server, info_hash, pin):
+    """Make `(server, info_hash, pin)` the current session.
+
+    A session it supersedes is ended, not just un-pinned: its watcher
+    exits as "superseded" without cleaning up, so the old torrent would
+    otherwise stay on the engine downloading and seeding. The engine is
+    left alone when the new session is the same torrent (another file, or
+    a re-pick) - removing it would delete what was just pre-buffered."""
     global _session
     with _session_lock:
         previous, _session = _session, (server, info_hash, pin)
     if previous is not None and previous[2] is not pin:
-        previous[2].stop()
+        _release_session(previous, remove=previous[1] != info_hash)
 
 
-def _end_session():
-    """Playback ended (or never started): stop the keep-alive pin and
-    best-effort `/{ih}/remove` the engine (short timeout, never raises).
+def _release_session(session, remove=True):
+    """Stop `session`'s pin and, unless `remove` is False or
+    `bt_keep_torrents` is on, best-effort `/{ih}/remove` the engine (short
+    timeout, never raises).
 
     `bt_keep_torrents` skips the removal (issue #66): a user running a
     long-lived external server wants the torrent left there to seed.
     The pin still stops - it only exists to hold the stream open during
     pre-buffer and playback, not to keep the torrent alive."""
-    global _session
-    with _session_lock:
-        current, _session = _session, None
-    if current is None:
-        return
-    server, info_hash, pin = current
+    server, info_hash, pin = session
     with contextlib.suppress(Exception):
         pin.stop()
+    if not remove:
+        return
     if setting_bool('bt_keep_torrents', False):
         log('player: keeping torrent %s on the server (bt_keep_torrents)' % info_hash, xbmc.LOGINFO)
         return
@@ -717,11 +740,30 @@ def _end_session():
         server.remove_engine(info_hash, timeout=2)
 
 
+def _end_session():
+    """Playback ended (or never started): release the current session."""
+    global _session
+    with _session_lock:
+        current, _session = _session, None
+    if current is not None:
+        _release_session(current)
+
+
 def _end_session_if(pin):
+    """End the current session only if it is still `pin`'s. The identity
+    check and the pop share one lock hold: checked apart, a session
+    registered in between would be ended by the old watcher."""
+    global _session
     with _session_lock:
         if _session is None or _session[2] is not pin:
             return
-    _end_session()
+        current, _session = _session, None
+    _release_session(current)
+
+
+def _current_pin():
+    with _session_lock:
+        return None if _session is None else _session[2]
 
 
 def _watch_playback_end():
@@ -1376,22 +1418,59 @@ def _resolve_playable_item(stream, stype, sid, item_meta=None, video_id=None):
     `video_id` (optional) is the specific episode id actually being
     played, when the caller has one - threaded into the "now playing"
     context (`lib.store.Store.set_now_playing`) and the local progress-
-    cache lookup/write key (see `_record_now_playing_and_maybe_resume`).
+    cache lookup/write key (see `_record_now_playing`).
     `None` (a movie, or a caller with no episode id of its own) behaves
     exactly as before this parameter existed.
+
+    The resume prompt, if any, is asked before the dialog and the torrent
+    pre-buffer start (see `_ask_resume_offset`). A torrent session
+    registered by pre-buffer is ended again when the resolve then fails or
+    is cancelled (a Back during the subtitle wait, a ListItem error):
+    nothing would ever start the watcher that normally ends it, so the
+    pin would keep reading and the torrent would stay on the engine.
     """
+    resume_offset_ms = _ask_resume_offset(stype, sid, video_id, item_meta)
+    session_before = _current_pin()
+    try:
+        url, list_item = _build_playable_item(stream, stype, sid, item_meta, video_id)
+    except BaseException:
+        _abandon_session(session_before)
+        raise
+    if list_item is None:
+        _abandon_session(session_before)
+        return None, None
+    _record_now_playing(stype, sid, video_id, item_meta, resume_offset_ms)
+    return url, list_item
+
+
+def _abandon_session(session_before):
+    """End a torrent session registered since `session_before` was the
+    current pin. A session that was already current is left alone: it is
+    a video still playing, which a failed new pick must not tear down."""
+    pin = _current_pin()
+    if pin is not None and pin is not session_before:
+        _end_session_if(pin)
+
+
+def _build_playable_item(stream, stype, sid, item_meta, video_id):
+    """Body of `_resolve_playable_item`: `(url, list_item)` or
+    `(None, None)`, owning the "Preparing stream" dialog."""
     stream = stream or {}
     behavior_hints = stream.get('behaviorHints') or {}
     title = behavior_hints.get('filename') or stream.get('title') or stream.get('name') or ''
 
     server = _server_client()
     dialog = RivuletProgress()
-    dialog.create(L(30080), title)
     resolved_filename = None
-    # Started before anything else so the lookup overlaps the resolve and
-    # the pre-buffer; awaited (bounded) below while the dialog is still up.
-    subtitle_fetch = _SubtitleFetch.start(behavior_hints, stype, sid)
+    subtitle_fetch = None
+    # `create()` registers the dialog as a transient before it shows it; a
+    # raise partway must still reach the `finally`'s `close()`, or the
+    # registration outlives the dialog and swallows every later Back.
     try:
+        dialog.create(L(30080), title)
+        # Started before anything else so the lookup overlaps the resolve and
+        # the pre-buffer; awaited (bounded) below while the dialog is still up.
+        subtitle_fetch = _SubtitleFetch.start(behavior_hints, stype, sid)
         monitor = xbmc.Monitor()
 
         raw_url = stream.get('url')
@@ -1501,8 +1580,6 @@ def _resolve_playable_item(stream, stype, sid, item_meta=None, video_id=None):
 
     if subtitle_fetch is not None and subtitle_fetch.urls:
         list_item.setSubtitles(subtitle_fetch.urls)
-
-    _record_now_playing_and_maybe_resume(stype, sid, video_id, item_meta)
 
     return url, list_item
 

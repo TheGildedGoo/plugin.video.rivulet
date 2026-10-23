@@ -569,20 +569,12 @@ msgid "search only"
 msgstr "仅搜索"
 
 msgctxt "#30200"
-msgid "%d SOURCE"
-msgstr "%d 来源"
-
-msgctxt "#30201"
-msgid "%d SOURCES"
-msgstr "%d 来源"
+msgid "SOURCES: %d"
+msgstr "来源: %d"
 
 msgctxt "#30202"
-msgid "%d ADDON"
-msgstr "%d 插件"
-
-msgctxt "#30203"
-msgid "%d ADDONS"
-msgstr "%d 插件"
+msgid "ADDONS: %d"
+msgstr "插件: %d"
 
 msgctxt "#30204"
 msgid "%d SEASON"
@@ -601,8 +593,8 @@ msgid "%d EPISODES"
 msgstr "%d 集"
 
 msgctxt "#30208"
-msgid "%d CACHED"
-msgstr "%d 已缓存"
+msgid "CACHED: %d"
+msgstr "已缓存: %d"
 
 msgctxt "#30209"
 msgid "select"
@@ -823,12 +815,8 @@ msgid "Cached only"
 msgstr "仅显示已缓存"
 
 msgctxt "#30262"
-msgid "%d source hidden by filters"
-msgstr "已被过滤器隐藏 %d 个来源"
-
-msgctxt "#30263"
-msgid "%d sources hidden by filters"
-msgstr "已被过滤器隐藏 %d 个来源"
+msgid "Hidden by filters: %d"
+msgstr "被过滤器隐藏: %d"
 
 msgctxt "#30264"
 msgid "Filters matched nothing - showing all sources"

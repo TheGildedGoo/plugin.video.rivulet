@@ -569,20 +569,12 @@ msgid "search only"
 msgstr "tylko wyszukiwanie"
 
 msgctxt "#30200"
-msgid "%d SOURCE"
-msgstr "%d ŹRÓDŁO"
-
-msgctxt "#30201"
-msgid "%d SOURCES"
-msgstr "%d ŹRÓDŁA"
+msgid "SOURCES: %d"
+msgstr "ŹRÓDŁA: %d"
 
 msgctxt "#30202"
-msgid "%d ADDON"
-msgstr "%d DODATEK"
-
-msgctxt "#30203"
-msgid "%d ADDONS"
-msgstr "%d DODATKI"
+msgid "ADDONS: %d"
+msgstr "DODATKI: %d"
 
 msgctxt "#30204"
 msgid "%d SEASON"
@@ -601,8 +593,8 @@ msgid "%d EPISODES"
 msgstr "%d ODCINKI"
 
 msgctxt "#30208"
-msgid "%d CACHED"
-msgstr "%d BUFOROWANE"
+msgid "CACHED: %d"
+msgstr "BUFOROWANE: %d"
 
 msgctxt "#30209"
 msgid "select"
@@ -823,11 +815,7 @@ msgid "Cached only"
 msgstr "Tylko z pamięci podręcznej"
 
 msgctxt "#30262"
-msgid "%d source hidden by filters"
-msgstr "Ukryte przez filtry: %d"
-
-msgctxt "#30263"
-msgid "%d sources hidden by filters"
+msgid "Hidden by filters: %d"
 msgstr "Ukryte przez filtry: %d"
 
 msgctxt "#30264"

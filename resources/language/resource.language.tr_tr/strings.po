@@ -569,20 +569,12 @@ msgid "search only"
 msgstr "yalnızca arama"
 
 msgctxt "#30200"
-msgid "%d SOURCE"
-msgstr "%d KAYNAK"
-
-msgctxt "#30201"
-msgid "%d SOURCES"
-msgstr "%d KAYNAKLAR"
+msgid "SOURCES: %d"
+msgstr "KAYNAKLAR: %d"
 
 msgctxt "#30202"
-msgid "%d ADDON"
-msgstr "%d EKLENTİ"
-
-msgctxt "#30203"
-msgid "%d ADDONS"
-msgstr "%d EKLENTİLER"
+msgid "ADDONS: %d"
+msgstr "EKLENTİLER: %d"
 
 msgctxt "#30204"
 msgid "%d SEASON"
@@ -601,8 +593,8 @@ msgid "%d EPISODES"
 msgstr "%d BÖLÜMLER"
 
 msgctxt "#30208"
-msgid "%d CACHED"
-msgstr "%d ÖNBELLEKTE"
+msgid "CACHED: %d"
+msgstr "ÖNBELLEKTE: %d"
 
 msgctxt "#30209"
 msgid "select"
@@ -823,12 +815,8 @@ msgid "Cached only"
 msgstr "Yalnızca önbelleğe alınmış"
 
 msgctxt "#30262"
-msgid "%d source hidden by filters"
-msgstr "Filtreler nedeniyle %d kaynak gizlendi"
-
-msgctxt "#30263"
-msgid "%d sources hidden by filters"
-msgstr "Filtreler nedeniyle %d kaynak gizlendi"
+msgid "Hidden by filters: %d"
+msgstr "Filtrelerce gizlenen: %d"
 
 msgctxt "#30264"
 msgid "Filters matched nothing - showing all sources"

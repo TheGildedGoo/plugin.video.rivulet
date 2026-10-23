@@ -572,6 +572,49 @@ def test_server_download_success_notifies_with_path_and_closes_dialog(load_route
     assert ctx.env.notifications == [('Rivulet', 'installed to %s' % expected_path, 'info', 4000)]
 
 
+def test_server_download_pumps_kodi_input_so_back_can_cancel(load_router, monkeypatch):
+    """Kodi hands the script a queued Back only from inside `waitForAbort()`;
+    the download callback must give it that chance or Cancel is dead."""
+    ctx = load_router(localized={30062: 'installed to %s'})
+    monkeypatch.setattr(sys, 'argv', ['plugin://x/', '7', '?action=server_download'])
+    now = [100.0]
+    monkeypatch.setattr(ctx.router.time, 'monotonic', lambda: now[0])
+    pumps_seen = []
+
+    def fake_install_binary(dest_dir, progress_cb=None):
+        for _ in range(3):
+            progress_cb(1, 10)  # same instant: throttled, no pump
+        pumps_seen.append(ctx.env.monitor_abort_calls)
+        now[0] += 1.0
+        progress_cb(2, 10)  # a second later: pumps
+        pumps_seen.append(ctx.env.monitor_abort_calls)
+        return os.path.join(dest_dir, 'rivulet-engine')
+
+    monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
+
+    ctx.router.run()
+
+    assert pumps_seen == [0, 1]
+
+
+def test_server_download_aborts_when_kodi_shuts_down_during_pump(load_router, monkeypatch):
+    ctx = load_router(monitor_abort=True)
+    monkeypatch.setattr(sys, 'argv', ['plugin://x/', '7', '?action=server_download'])
+    now = [100.0]
+    monkeypatch.setattr(ctx.router.time, 'monotonic', lambda: now[0])
+
+    def fake_install_binary(dest_dir, progress_cb=None):
+        now[0] += 1.0
+        progress_cb(1, 10)
+        raise AssertionError('download must stop at the first pump')  # pragma: no cover
+
+    monkeypatch.setattr(serverbin, 'install_binary', fake_install_binary)
+
+    ctx.router.run()
+
+    assert ctx.env.notifications == [('Rivulet', 'STR30063', 'info', 4000)]
+
+
 def test_server_download_no_asset_error_notifies_platform_and_logs_warning(load_router, monkeypatch):
     """The notification must tell the user what platform was actually
     detected (os_name/arch from serverbin.platform_key()), not just the

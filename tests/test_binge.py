@@ -141,6 +141,18 @@ def test_next_video_tiebreaks_by_released_date_when_season_episode_are_equal():
     assert next_video(meta, 'older')['id'] == 'newer'
 
 
+def test_next_video_orders_string_seasons_and_episodes_numerically():
+    """Addons that send "10"/"2" as strings sorted lexicographically (or raised on
+    an int/str mix), so binge never advanced correctly for them."""
+    meta = {'videos': [
+        _video('e10', '1', '10'),
+        _video('e2', '1', '2'),
+        _video('e9', 1, 9),
+    ]}
+    assert next_video(meta, 'e2')['id'] == 'e9'
+    assert next_video(meta, 'e9')['id'] == 'e10'
+
+
 # ---------------------------------------------------------------------------
 # pick_binge_stream()
 # ---------------------------------------------------------------------------

@@ -126,9 +126,12 @@ def busy_dialog(heading, message=''):
     from lib.ui.dialogs import RivuletBusy
 
     dialog = RivuletBusy()
-    dialog.create(heading, message)
-    dialog.update(0, message)
+    # `create()` registers the dialog as a transient before showing it, so
+    # a raise partway through must still reach `close()`: a registration
+    # that outlives its dialog swallows every later Back on every screen.
     try:
+        dialog.create(heading, message)
+        dialog.update(0, message)
         yield dialog
     finally:
         dialog.close()

@@ -143,6 +143,27 @@ def test_busy_dialog_closes_the_dialog_even_when_the_body_raises(load_uicommon):
     assert windows[0].closed is True
 
 
+def test_busy_dialog_whose_show_raises_does_not_leave_a_transient_registered(load_uicommon, monkeypatch):
+    """`create()` registers the dialog before `show()`; a raise in between used to
+    skip `close()`, and the stale registration swallowed every later Back."""
+    ctx = load_uicommon()
+    uicommon = ctx.uicommon
+
+    class _ShowFailed(Exception):
+        pass
+
+    def _boom(self):
+        raise _ShowFailed()
+
+    monkeypatch.setattr(ctx.dialogs._TransientDialog, 'show', _boom)
+
+    with pytest.raises(_ShowFailed):
+        with uicommon.busy_dialog('My Heading'):
+            pass  # pragma: no cover - create() raised first
+
+    assert uicommon.transient_dialog_active() is False
+
+
 # ---------------------------------------------------------------------------
 # addon_skin_path()
 # ---------------------------------------------------------------------------

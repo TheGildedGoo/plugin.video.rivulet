@@ -11,10 +11,15 @@ lib.ui.urlutil instead; this module keeps only the mutable
 ADDON_HANDLE/BASE_URL dispatch state and the querystring parser.
 """
 import sys
+import time
 from urllib.parse import parse_qs
 
 ADDON_HANDLE = -1
 BASE_URL = ''
+
+#: Minimum gap between two `deliver_queued_input()` calls while the server
+#: binary downloads (same value and reasoning as `player._CANCEL_PUMP_SECONDS`).
+_CANCEL_PUMP_SECONDS = 0.25
 
 
 def _parse_params(raw_qs):
@@ -128,13 +133,26 @@ def _download_server_binary():
     from lib import serverbin
     from lib.ui.compat import ADDON_ID, L, addon_profile_dir, log, notify
     from lib.ui.dialogs import RivuletProgress
+    from lib.ui.uicommon import deliver_queued_input
 
     dest_dir = serverbin.install_dir(addon_profile_dir(), ADDON_ID)
 
     dialog = RivuletProgress()
     dialog.create(L(30061))
+    last_pump = time.monotonic()
 
     def progress_cb(done, total):
+        # The download runs on this (script) thread, and Kodi hands it a
+        # queued Back press only from inside `Monitor.waitForAbort()`, which
+        # nothing here calls: without the pump `iscanceled()` stayed False
+        # until the download finished. Throttled because the callback fires
+        # per chunk and four pumps a second still honour Back inside ~0.25 s.
+        nonlocal last_pump
+        now = time.monotonic()
+        if now - last_pump >= _CANCEL_PUMP_SECONDS:
+            last_pump = now
+            if deliver_queued_input():
+                raise serverbin.DownloadError('Kodi is shutting down')
         if dialog.iscanceled():
             raise serverbin.DownloadError('cancelled by user')
         percent = int(done * 100 / total) if total else 0

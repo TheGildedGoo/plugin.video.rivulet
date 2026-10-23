@@ -569,20 +569,12 @@ msgid "search only"
 msgstr "بحث فقط"
 
 msgctxt "#30200"
-msgid "%d SOURCE"
-msgstr "%d مصدر"
-
-msgctxt "#30201"
-msgid "%d SOURCES"
-msgstr "%d مصادر"
+msgid "SOURCES: %d"
+msgstr "المصادر: %d"
 
 msgctxt "#30202"
-msgid "%d ADDON"
-msgstr "%d إضافة"
-
-msgctxt "#30203"
-msgid "%d ADDONS"
-msgstr "%d إضافات"
+msgid "ADDONS: %d"
+msgstr "الإضافات: %d"
 
 msgctxt "#30204"
 msgid "%d SEASON"
@@ -601,8 +593,8 @@ msgid "%d EPISODES"
 msgstr "%d حلقات"
 
 msgctxt "#30208"
-msgid "%d CACHED"
-msgstr "%d مخزّن مؤقتًا"
+msgid "CACHED: %d"
+msgstr "المخزّنة مؤقتًا: %d"
 
 msgctxt "#30209"
 msgid "select"
@@ -823,11 +815,7 @@ msgid "Cached only"
 msgstr "المخزّن مؤقتًا فقط"
 
 msgctxt "#30262"
-msgid "%d source hidden by filters"
-msgstr "عدد المصادر المخفية بواسطة الفلاتر: %d"
-
-msgctxt "#30263"
-msgid "%d sources hidden by filters"
+msgid "Hidden by filters: %d"
 msgstr "عدد المصادر المخفية بواسطة الفلاتر: %d"
 
 msgctxt "#30264"

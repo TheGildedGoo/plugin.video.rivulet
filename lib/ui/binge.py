@@ -40,6 +40,8 @@ next episode's own pairs by quality, so "no match" falls back to the best
 of THOSE rather than nothing at all.
 """
 
+from lib.ui.playbackmeta import coerce_int
+
 
 def next_video(meta, current_video_id):
     """Return the `meta['videos']` entry that follows `current_video_id`
@@ -61,8 +63,8 @@ def next_video(meta, current_video_id):
         return None
 
     current, candidate = ordered[position], ordered[position + 1]
-    current_season = current.get('season') or 0
-    candidate_season = candidate.get('season') or 0
+    current_season = coerce_int(current.get('season'))
+    candidate_season = coerce_int(candidate.get('season'))
     if candidate_season == 0 and current_season != 0:
         return None
     return candidate
@@ -78,8 +80,10 @@ def _sort_key(video):
     release date (ISO 8601 strings sort correctly as plain text) as the
     final tiebreaker for entries that tie on season/episode - mirroring
     `LibraryItemState::watched_bitfield()`'s three-key sort shape."""
-    season = video.get('season') or 0
-    episode = video.get('episode') or 0
+    # Coerced: an addon sending "10" and "2" as strings would otherwise
+    # sort lexicographically, and a mix of int and str raises in sorted().
+    season = coerce_int(video.get('season'))
+    episode = coerce_int(video.get('episode'))
     return (season == 0, season, episode, video.get('released') or '')
 
 

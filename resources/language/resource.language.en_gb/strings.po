@@ -569,19 +569,11 @@ msgid "search only"
 msgstr ""
 
 msgctxt "#30200"
-msgid "%d SOURCE"
-msgstr ""
-
-msgctxt "#30201"
-msgid "%d SOURCES"
+msgid "SOURCES: %d"
 msgstr ""
 
 msgctxt "#30202"
-msgid "%d ADDON"
-msgstr ""
-
-msgctxt "#30203"
-msgid "%d ADDONS"
+msgid "ADDONS: %d"
 msgstr ""
 
 msgctxt "#30204"
@@ -601,7 +593,7 @@ msgid "%d EPISODES"
 msgstr ""
 
 msgctxt "#30208"
-msgid "%d CACHED"
+msgid "CACHED: %d"
 msgstr ""
 
 msgctxt "#30209"
@@ -823,11 +815,7 @@ msgid "Cached only"
 msgstr ""
 
 msgctxt "#30262"
-msgid "%d source hidden by filters"
-msgstr ""
-
-msgctxt "#30263"
-msgid "%d sources hidden by filters"
+msgid "Hidden by filters: %d"
 msgstr ""
 
 msgctxt "#30264"

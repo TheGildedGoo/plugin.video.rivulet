@@ -569,20 +569,12 @@ msgid "search only"
 msgstr "только поиск"
 
 msgctxt "#30200"
-msgid "%d SOURCE"
-msgstr "%d ИСТОЧНИК"
-
-msgctxt "#30201"
-msgid "%d SOURCES"
-msgstr "%d ИСТОЧНИКА"
+msgid "SOURCES: %d"
+msgstr "ИСТОЧНИКИ: %d"
 
 msgctxt "#30202"
-msgid "%d ADDON"
-msgstr "%d ДОПОЛНЕНИЕ"
-
-msgctxt "#30203"
-msgid "%d ADDONS"
-msgstr "%d ДОПОЛНЕНИЯ"
+msgid "ADDONS: %d"
+msgstr "ДОПОЛНЕНИЯ: %d"
 
 msgctxt "#30204"
 msgid "%d SEASON"
@@ -601,8 +593,8 @@ msgid "%d EPISODES"
 msgstr "%d ЭПИЗОДА"
 
 msgctxt "#30208"
-msgid "%d CACHED"
-msgstr "%d В КЭШЕ"
+msgid "CACHED: %d"
+msgstr "В КЭШЕ: %d"
 
 msgctxt "#30209"
 msgid "select"
@@ -823,11 +815,7 @@ msgid "Cached only"
 msgstr "Только кешированные"
 
 msgctxt "#30262"
-msgid "%d source hidden by filters"
-msgstr "Скрыто фильтрами: %d"
-
-msgctxt "#30263"
-msgid "%d sources hidden by filters"
+msgid "Hidden by filters: %d"
 msgstr "Скрыто фильтрами: %d"
 
 msgctxt "#30264"

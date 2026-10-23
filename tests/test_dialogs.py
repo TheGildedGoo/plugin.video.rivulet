@@ -332,6 +332,29 @@ def test_countdown_cancelled_via_back_action_returns_none(load_dialogs, monkeypa
     assert countdown._window is None  # closed itself on the way out
 
 
+def test_countdown_back_pressed_during_the_last_second_still_cancels(load_dialogs, monkeypatch):
+    """Queued input is delivered inside the final `waitForAbort()`; the loop
+    then ends, and used to return True and auto-play despite the Back."""
+    ctx = load_dialogs()
+    d = ctx.dialogs
+    windows = []
+    real_open_window = d.open_window
+
+    def _capturing_open_window(window_cls, xml_name, *args, **kwargs):
+        windows.append(real_open_window(window_cls, xml_name, *args, **kwargs))
+        return windows[-1]
+
+    class _BackOnLastTick(_ScriptedMonitor):
+        def waitForAbort(self, timeout=None):
+            if self.calls == 2:  # the third and last second of a 3 s countdown
+                windows[0]._canceled = True
+            return super().waitForAbort(timeout)
+
+    monkeypatch.setattr(d, 'open_window', _capturing_open_window)
+    result = d.RivuletCountdown().run('Next episode', 'Playing The Pilot', 3, monitor=_BackOnLastTick())
+    assert result is None
+
+
 def test_countdown_skipped_via_select_action_returns_true_immediately(load_dialogs, monkeypatch):
     ctx = load_dialogs()
     d = ctx.dialogs

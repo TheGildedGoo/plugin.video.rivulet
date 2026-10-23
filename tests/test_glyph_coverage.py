@@ -72,9 +72,9 @@ _BBCODE_RE = re.compile(r'\[/?(?:B|I|COLOR|UPPERCASE|LOWERCASE|CAPITALIZE|CR)[^\
 #: checked. Adding a `Mono26` control that Python populates without
 #: listing it fails `test_python_populated_mono_controls_are_declared`.
 _DECLARED_MONO_CONTROLS = {
-    30100: 'streamswindow SOURCES_COUNT - "%d SOURCES", digits and ASCII only',
-    30101: 'streamswindow ADDONS_COUNT - "%d ADDONS", digits and ASCII only',
-    30102: 'streamswindow CACHED_COUNT - "%d CACHED", digits and ASCII only',
+    30100: 'streamswindow SOURCES_COUNT - "SOURCES: %d", digits and ASCII only',
+    30101: 'streamswindow ADDONS_COUNT - "ADDONS: %d", digits and ASCII only',
+    30102: 'streamswindow CACHED_COUNT - "CACHED: %d", digits and ASCII only',
     30303: 'dialogs PROGRESS_PERCENT - "%d%%", digits and ASCII only',
     30306: 'dialogs PROGRESS_STATS - caller-supplied speed/peers text '
            '(e.g. strings.po #30082 "%s/s \u2014 %d peers"), digits/ASCII plus '

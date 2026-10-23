@@ -65,7 +65,9 @@ for the episode after that. The user stopping the episode instead of
 letting it end, cancelling the countdown, a monitor abort, no next
 episode, or no fetchable stream for it all fall back to the
 SAME "reopen the picker" round trip described above - `open_streams()`
-still only ever returns False.
+still only ever returns False. The picker reopens for the LAST episode the
+chain auto-played (with that episode's sources), not the one it started
+from.
 
 Every installed addon's own stream fetch runs CONCURRENTLY, not one at
 a time: real user logs showed the old serial `for` loop - each addon
@@ -95,7 +97,9 @@ import xbmcgui
 from lib.stremio import streaminfo
 from lib.ui.binge import next_video, pick_binge_stream
 from lib.ui.dependencies import get_client, get_store
+from lib.ui.playbackmeta import episode_code
 from lib.ui.uicommon import (
+    CANCELLED,
     BaseWindow,
     busy_dialog,
     close_windows_for_playback,
@@ -137,17 +141,13 @@ _MAX_STREAM_ADDON_WORKERS = 8
 #: `open_streams()`'s fan-out still has an addon outstanding.
 _LOADING_STRING_ID = 30185
 
-#: strings.po ids for the left column's localized 'N SOURCE(S)' / 'N
-#: ADDON(S)' / 'N CACHED' summary counts (see _rebuild_list()) -
-#: singular msgstr picked for a count of exactly 1, plural otherwise
-#: (0 included, matching the plural rule every target language's own
-#: translation uses for "not one"). CACHED has only one form: it
-#: describes how many of the sources are cached, not a countable noun
-#: of its own.
-_SOURCE_STRING_ID = 30200
-_SOURCES_STRING_ID = 30201
-_ADDON_STRING_ID = 30202
-_ADDONS_STRING_ID = 30203
+#: strings.po ids for the left column's localized 'SOURCES: N' / 'ADDONS: N'
+#: / 'CACHED: N' summary counts (see _rebuild_list()). Deliberately
+#: `Label: %d` rather than 'N SOURCE' / 'N SOURCES' pairs: the catalogs
+#: have no plural-form machinery, and a one-vs-many pick is wrong for
+#: Polish, Russian, Arabic and Turkish at most values.
+_SOURCES_STRING_ID = 30200
+_ADDONS_STRING_ID = 30202
 _CACHED_STRING_ID = 30208
 
 #: strings.po id for the range terminator a still-running series gets in
@@ -174,10 +174,9 @@ _MIN_QUALITY_HEIGHTS = {'480p': 480, '720p': 720, '1080p': 1080, '2160p': 2160}
 
 #: strings.po ids for the INFO_PANEL's "N hidden by filters" line and the
 #: "filters matched nothing" fallback notice - see `_rebuild_list()`'s
-#: filtering step. Singular/plural picked the same way as
-#: `_SOURCE_STRING_ID`/`_SOURCES_STRING_ID` above.
+#: filtering step. Count-neutral for the same reason as the summary
+#: counts above.
 _HIDDEN_STRING_ID = 30262
-_HIDDEN_PLURAL_STRING_ID = 30263
 _FILTERS_MATCHED_NOTHING_STRING_ID = 30264
 
 #: Settle pause between "Kodi announced the player closed"
@@ -392,6 +391,13 @@ class StreamsWindow(BaseWindow):
         import xbmc
         xbmc.executebuiltin('Action(noop)')
 
+    def _has_pending(self):
+        """True if `add_pairs()`/`set_loading()` queued anything. Cheap (a
+        lock and two checks) so `onAction()` can ask on every action,
+        mouse-moves included, before touching a single Kodi control."""
+        with self._pending_lock:
+            return bool(self._pending_batches) or self._pending_loading is not None
+
     def _merge_pending(self):
         """Pull whatever `add_pairs()`/`set_loading()` queued onto
         `self.pairs`/`self._loading` - GUI thread only. Re-sorts the
@@ -439,6 +445,10 @@ class StreamsWindow(BaseWindow):
         cursor in a stable spot on screen, rather than jumping to some
         unrelated stream elsewhere in the list just because it happens
         to share the old raw index."""
+        if not self._has_pending():
+            return
+        # Focus is read BEFORE the merge: the row's `position` property is
+        # an index into the pre-merge `self.pairs`, which the merge re-sorts.
         control = self.getControl(LIST)
         focused = control.getSelectedItem()
         focus_index = control.getSelectedPosition()
@@ -618,14 +628,27 @@ class StreamsWindow(BaseWindow):
         # localized "now" rather than left as a dangling dash - see
         # `playbackmeta.year_range()`; DetailWindow and the coverflow
         # hero print the same range from the same id.
-        year = year_range(meta.get('releaseInfo') or meta.get('year') or '', L(_NOW_STRING_ID))
-        runtime = meta.get('runtime') or ''
+        # Every meta field is addon-supplied (untrusted third-party JSON)
+        # and goes into INFO_PANEL text, where Kodi evaluates label markup:
+        # escape_label() each one, and str() first where a number is
+        # legitimate (rating, runtime) since it returns '' for a non-string.
+        year = escape_label(year_range(
+            meta.get('releaseInfo') or meta.get('year') or '', L(_NOW_STRING_ID)
+        ))
+        runtime = escape_label(str(meta.get('runtime') or ''))
         top_line = ' \u00b7 '.join(part for part in (year, runtime) if part)
         lines = [top_line] if top_line else []
         rating = meta.get('imdbRating')
         if rating:
-            lines.append('\u2605 %s' % rating)
-        genres = (meta.get('genres') or [])[:3]
+            lines.append('\u2605 %s' % escape_label(str(rating)))
+        raw_genres = meta.get('genres')
+        # A hostile or buggy addon can send non-string entries (or a bare
+        # string): ' / '.join() would raise out of onInit() and the picker
+        # would fail to open.
+        genres = [
+            escape_label(genre) for genre in (raw_genres if isinstance(raw_genres, (list, tuple)) else ())
+            if isinstance(genre, str) and genre
+        ][:3]
         if genres:
             lines.append(' / '.join(genres))
         if single_provider:
@@ -636,7 +659,7 @@ class StreamsWindow(BaseWindow):
         if matched_nothing:
             lines.append(L(_FILTERS_MATCHED_NOTHING_STRING_ID))
         elif hidden_count:
-            lines.append(L(_HIDDEN_STRING_ID if hidden_count == 1 else _HIDDEN_PLURAL_STRING_ID) % hidden_count)
+            lines.append(L(_HIDDEN_STRING_ID) % hidden_count)
         if self._loading:
             lines.append(L(_LOADING_STRING_ID))
         self.getControl(INFO_PANEL).setText('\n'.join(lines))
@@ -647,18 +670,12 @@ class StreamsWindow(BaseWindow):
         # for its whole content) and CACHED needs its own green tint.
         # `provider_count` is the distinct-addon count already computed
         # by `_stream_filter_view()` above for the single-provider
-        # dedupe. Singular/plural msgstr picked per count - '1 ADDONS'
-        # is wrong in English, and worse once translated, since most
-        # locales don't pluralize like English.
+        # dedupe.
         cached_count = sum(1 for info, _stream in display_pairs if info.get('cached') is True)
         source_count = len(display_pairs)
         addon_count = provider_count
-        self.getControl(SOURCES_COUNT).setLabel(
-            L(_SOURCE_STRING_ID if source_count == 1 else _SOURCES_STRING_ID) % source_count
-        )
-        self.getControl(ADDONS_COUNT).setLabel(
-            L(_ADDON_STRING_ID if addon_count == 1 else _ADDONS_STRING_ID) % addon_count
-        )
+        self.getControl(SOURCES_COUNT).setLabel(L(_SOURCES_STRING_ID) % source_count)
+        self.getControl(ADDONS_COUNT).setLabel(L(_ADDONS_STRING_ID) % addon_count)
         self.getControl(CACHED_COUNT).setLabel(L(_CACHED_STRING_ID) % cached_count)
 
     def _row_render(self, info, include_addon):
@@ -744,7 +761,14 @@ class StreamsWindow(BaseWindow):
         # Drain first, on the GUI thread, exactly like
         # infowindow.ShowcaseWindow.onAction() calls _apply_enriched()
         # before its own per-focus work - see add_pairs()/set_loading().
-        self._apply_pending()
+        try:
+            self._apply_pending()
+        except Exception as exc:  # noqa: BLE001 - a failed live merge must not eat Back
+            # An action can land before onInit() or during teardown, when
+            # getControl() raises; the user's Back must still close the
+            # picker.
+            from lib.ui.compat import log
+            log('streamswindow: live merge failed: %r' % (exc,))
         super().onAction(action)
 
     @gated_input
@@ -857,7 +881,8 @@ def _wait_for_playback_end(player=None, monitor=None, start_timeout=_PLAYBACK_ST
     stream that never starts at all moved, not how quickly this loop
     reacts to either. If it never does start (resolution failed past
     the point `play_direct()` still returned True, or Kodi itself
-    couldn't play the url), there is nothing left to wait out: the user
+    couldn't play the url - an `onPlayBackError()` ends this wait at
+    once instead of running out the budget), there is nothing left to wait out: the user
     already saw `play_direct()`'s own failure notification, so this
     returns `(True, False)` (safe to reopen,
     Once playback DOES begin, it polls again until `isPlaying()` goes
@@ -913,17 +938,21 @@ def _wait_for_playback_end(player=None, monitor=None, start_timeout=_PLAYBACK_ST
         `isPlaying()` alone cannot - it reports False as soon as
         playback stops for ANY reason - and records that Kodi has
         announced the player closed (`playback_finished`), which is the
-        only signal that CVideoPlayer::CloseFile() has returned."""
+        only signal that CVideoPlayer::CloseFile() has returned, and
+        whether the stream failed to open at all (`open_failed`: an error
+        callback with no `onAVStarted()` since)."""
 
         def __init__(self):
             super().__init__()
             self.ended_naturally = False
             self.playback_finished = False
+            self.open_failed = False
 
         def onAVStarted(self):
             # A new item replaced one that was playing (Kodi calls the old
             # item's stop callback first): only a stop AFTER this start counts.
             self.playback_finished = False
+            self.open_failed = False
 
         def onPlayBackEnded(self):
             self.ended_naturally = True
@@ -936,6 +965,7 @@ def _wait_for_playback_end(player=None, monitor=None, start_timeout=_PLAYBACK_ST
         def onPlayBackError(self):
             self.ended_naturally = False
             self.playback_finished = True
+            self.open_failed = True
 
     try:
         if player is None:
@@ -949,6 +979,15 @@ def _wait_for_playback_end(player=None, monitor=None, start_timeout=_PLAYBACK_ST
                 break
             if monitor.waitForAbort(tick):
                 return False, False
+            if getattr(player, 'open_failed', False):
+                # Kodi reported the stream failed to open: `isPlaying()` will
+                # never go True, and waiting out the budget would leave the
+                # user locked in the player phase (input ignored, a relaunch
+                # swallowed) for up to `start_timeout`. Only the ERROR
+                # callback counts here: a plain stop callback may be the
+                # stale one of an item this play replaced.
+                log('streamswindow: playback failed to open - reopening', xbmc.LOGINFO)
+                return True, False
         else:
             # Never started within the budget - play_direct()'s own
             # failure notification already told the user; just reopen.
@@ -1225,15 +1264,17 @@ def _stream_targets(stype, sid, meta=None):
 
 def _meta_with_imdb(stype, sid, meta):
     """`meta`, or the full meta when `sid` is not IMDb-keyed and `meta`
-    (a catalog preview) names no IMDb id. Back on the spinner keeps
-    `meta`."""
+    (a catalog preview) names no IMDb id. Returns `uicommon.CANCELLED`
+    when the user pressed Back on the lookup spinner: that is "go back",
+    and carrying on would open a second spinner for the stream fetch that
+    needs a second Back."""
     if str(sid or '').startswith('tt') or imdb_id_for(meta):
         return meta
     if isinstance(meta, dict) and meta.get('videos'):
         # A full series meta already: asking again gives the same answer.
         return meta
     from lib.ui.compat import L
-    from lib.ui.uicommon import CANCELLED, run_cancellable
+    from lib.ui.uicommon import run_cancellable
     from lib.ui.views import _fetch_meta
 
     try:
@@ -1246,7 +1287,9 @@ def _meta_with_imdb(stype, sid, meta):
         log('streamswindow: IMDb meta lookup for %s/%s failed: %s' % (stype, sid, type(exc).__name__),
             xbmc.LOGWARNING)
         return meta
-    if full is CANCELLED or not isinstance(full, dict):
+    if full is CANCELLED:
+        return CANCELLED
+    if not isinstance(full, dict):
         return meta
     # Only the ids are taken: the caller's meta (its art, its episode
     # list) stays what the screens built.
@@ -1454,7 +1497,7 @@ def _binge_label(video):
     there is no shared, lower-layer module beneath either of them to
     hold one copy instead."""
     title = video.get('title') or video.get('name') or video.get('id') or ''
-    return 'S%02dE%02d \u00b7 %s' % (video.get('season') or 0, video.get('episode') or 0, title)
+    return '%s \u00b7 %s' % (episode_code(video.get('season'), video.get('episode')), title)
 
 
 def _binge_heading(show_name, video):
@@ -1527,16 +1570,19 @@ def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
     Loops internally rather than telling its caller "keep going": each
     successfully auto-played episode immediately tries the ONE after it
     too, matching the "loop for the episode after that" requirement.
-    Returns `None` the moment there is nothing left to binge into (not a
-    series, no `video_id`/`meta`, the 'binge_enable' setting is off,
+    The chain stops the moment there is nothing left to binge into (not
+    a series, no `video_id`/`meta`, the 'binge_enable' setting is off,
     `lib.ui.binge.next_video()` found no next episode, its streams could
     not be fetched, the countdown was cancelled, the auto-played episode
     was stopped rather than played through to its own natural end, or
-    `play_direct()` itself failed) - the caller must fall back to its own
-    normal "reopen the picker" step, exactly as if this function had
-    never run. Returns
-    `False` the moment a `monitor.waitForAbort()` fires anywhere in the
-    chain (Kodi shutting down) - the caller must return False
+    `play_direct()` itself failed). Then it returns `None` when no
+    episode was auto-played - the caller reopens its own picker, exactly
+    as if this function had never run - or `(video, pairs)` for the LAST
+    episode that was auto-played: the picker must reopen for THAT
+    episode, since the user just watched it and a picker for the episode
+    they started from would replay it under the wrong progress key.
+    Returns `False` the moment a `monitor.waitForAbort()` fires anywhere
+    in the chain (Kodi shutting down) - the caller must return False
     immediately instead, reopening nothing, same as every other abort
     check in this module."""
     if stype != 'series' or video_id is None or not meta:
@@ -1552,6 +1598,7 @@ def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
 
     show_name = meta.get('name') or meta.get('id') or ''
     current_video_id = video_id
+    last_played = None
     binge_group = (played_info or {}).get('binge_group')
     countdown_seconds = setting_int(
         _BINGE_COUNTDOWN_SETTING, _BINGE_COUNTDOWN_DEFAULT_SECONDS, minimum=_BINGE_COUNTDOWN_MIN_SECONDS,
@@ -1561,18 +1608,18 @@ def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
         while True:
             candidate = next_video(meta, current_video_id)
             if candidate is None:
-                return None
+                return last_played
 
             next_pairs = _fetch_stream_pairs(stype, candidate.get('id'), meta)
             if not next_pairs:
-                return None
+                return last_played
             sort_key = ADDON.getSetting('stream_sort') or 'quality'
             next_pairs = streaminfo.sort_streams(next_pairs, key=sort_key)
             picked_info, picked_stream = pick_binge_stream(next_pairs, binge_group)
 
             countdown = _binge_countdown(_binge_label(candidate), countdown_seconds)
             if countdown is None:
-                return None
+                return last_played
             if countdown is False:
                 return False
 
@@ -1582,7 +1629,8 @@ def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
                 on_ready=close_windows_for_playback,
                 video_id=candidate.get('id'),
             ):
-                return None
+                return last_played
+            last_played = (candidate, next_pairs)
             log('streamswindow: binge-watching auto-played %r' % candidate.get('id'), xbmc.LOGINFO)
 
             proceed, ended_naturally = _wait_for_playback_end()
@@ -1594,7 +1642,7 @@ def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
                 # letting it end - stop the chain here, exactly like any
                 # other "nothing left to binge into" case above.
                 end_player_phase()
-                return None
+                return last_played
             if xbmc.Monitor().waitForAbort(_REOPEN_SETTLE_SECONDS):
                 end_player_phase()
                 return False
@@ -1607,7 +1655,7 @@ def _try_binge_watch(stype, meta, poster, art, video_id, played_info):
     except Exception as exc:  # noqa: BLE001 - a binge-chain hiccup must fall back to the picker, never crash open_streams()
         end_player_phase()
         log('streamswindow: binge-watching failed: %r (falling back to the picker)' % (exc,), xbmc.LOGWARNING)
-        return None
+        return last_played
 
 
 class _PickerFeed:
@@ -1703,6 +1751,9 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
         # choosing addons: an addon that also takes this id as it is
         # must not keep the IMDb-only ones (most stream addons) out.
         meta = _meta_with_imdb(stype, (meta or {}).get('id') or sid, meta)
+        if meta is CANCELLED:
+            log('streamswindow: IMDb lookup cancelled by the user', xbmc.LOGINFO)
+            return False
     addons = _stream_targets(stype, sid, meta)
     if not addons:
         log('streamswindow: no enabled addon serves %s/%s streams' % (stype, sid), xbmc.LOGINFO)
@@ -1871,12 +1922,20 @@ def open_streams(stype, sid, poster=None, heading='', art=None, meta=None, video
         # but only when the just-played episode ran through to its own
         # natural end; the user pressing stop must fall straight through
         # to reopening the picker, never auto-play the next episode.
-        # None means the normal fall-back; False means a monitor abort
-        # fired mid-chain, which must return False immediately instead,
-        # reopening nothing, same as every other abort check above.
+        # None means nothing was auto-played (reopen as-is); False means a
+        # monitor abort fired mid-chain, which must return False
+        # immediately instead, reopening nothing, same as every other abort
+        # check above; anything else is the last auto-played episode and its
+        # sources, which the picker reopens for - not the episode the chain
+        # started from.
         if ended_naturally:
             played_info = win.played_pair[0] if win.played_pair else None
-            if _try_binge_watch(stype, meta, poster, art, video_id, played_info) is False:
+            binged = _try_binge_watch(stype, meta, poster, art, video_id, played_info)
+            if binged is False:
                 return False
+            if binged:
+                last_video, pairs = binged
+                sid = video_id = last_video.get('id')
+                heading = _binge_heading((meta or {}).get('name') or (meta or {}).get('id') or '', last_video)
 
         log('streamswindow: reopening StreamsWindow after playback (%d streams)' % len(pairs), xbmc.LOGINFO)

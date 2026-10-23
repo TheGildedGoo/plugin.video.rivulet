@@ -36,10 +36,9 @@ _DEFAULT_SETTINGS = {
 # ids production code formats with `%` need real placeholders (see
 # `_prebuffer_torrent`'s dialog.update() text, lib/ui's "Searching %s...",
 # "Checking %s...", "Season %d" strings, streamswindow.py/detailwindow.py's
-# singular/plural 'N SOURCE(S)'/'N ADDON(S)'/'N SEASON(S)'/'N EPISODE(S)'/
-# 'N CACHED' summary labels, detailwindow.py's per-episode '%d%% WATCHED'
-# readout, and streamswindow.py's singular/plural 'N source(s) hidden by
-# filters' line); every other id not explicitly configured falls back to
+# 'SOURCES: N'/'ADDONS: N'/'CACHED: N' summary labels,
+# detailwindow.py's singular/plural 'N SEASON(S)'/'N EPISODE(S)' labels, detailwindow.py's per-episode '%d%% WATCHED'
+# readout, and streamswindow.py's 'Hidden by filters: N' line); every other id not explicitly configured falls back to
 # a deterministic 'STR<id>' marker (see `FakeAddon.getLocalizedString`)
 # so assertions never need real strings.po text. 30189-30192, 30194,
 # 30196, 30197, and 30209-30211 (select/back/exit) are plain (non-`%`)
@@ -55,18 +54,15 @@ _DEFAULT_LOCALIZED = {
     30186: 'Searching %s...',
     30187: 'Checking %s...',
     30188: 'Season %d',
-    30200: '%d SOURCE',
-    30201: '%d SOURCES',
-    30202: '%d ADDON',
-    30203: '%d ADDONS',
+    30200: 'SOURCES: %d',
+    30202: 'ADDONS: %d',
     30204: '%d SEASON',
     30205: '%d SEASONS',
     30206: '%d EPISODE',
     30207: '%d EPISODES',
-    30208: '%d CACHED',
+    30208: 'CACHED: %d',
     30212: '%d%% WATCHED',
-    30262: '%d source hidden by filters',
-    30263: '%d sources hidden by filters',
+    30262: 'Hidden by filters: %d',
     30315: '%d new episode ready to watch',
     30316: '%d new episodes ready to watch',
     30341: '%s needs configuration. Open %s in a browser, configure it, then paste the resulting manifest URL',

@@ -1211,7 +1211,7 @@ def test_resolve_waits_for_late_subtitles_under_the_dialog_then_attaches_them(ko
     _install_subtitle_fetch(monkeypatch, kodi_stubs.player, fetch)
     closed_before_play = []
     monkeypatch.setattr(
-        kodi_stubs.player, '_record_now_playing_and_maybe_resume',
+        kodi_stubs.player, '_record_now_playing',
         lambda *a: closed_before_play.append(env.dialog_closed_count),
     )
 
@@ -1222,6 +1222,110 @@ def test_resolve_waits_for_late_subtitles_under_the_dialog_then_attaches_them(ko
     assert closed_before_play == [1]  # the dialog was closed only after the wait
     _url, list_item = env.player_play_calls[0]
     assert list_item.subtitles == ['https://x/late.srt']
+
+
+class _SessionServer:
+    def __init__(self):
+        self.removed = []
+
+    def remove_engine(self, info_hash, timeout=None):
+        self.removed.append(info_hash)
+
+
+class _SessionPin:
+    def __init__(self):
+        self.stopped = False
+
+    def stop(self):
+        self.stopped = True
+
+
+def test_cancel_after_prebuffer_ends_the_torrent_session(kodi_stubs, monkeypatch):
+    """The pin and the engine's torrent used to outlive a Back pressed during the
+    subtitle wait: no playback watcher exists yet to end the session."""
+    player = kodi_stubs.player
+    _ServerScript(resolve_url='http://127.0.0.1:11470/%s/0' % INFO_HASH).install(monkeypatch, player)
+    server, pin = _SessionServer(), _SessionPin()
+
+    def fake_prebuffer(_server, stream, url, dialog, monitor, item_meta=None):
+        player._register_session(server, INFO_HASH, pin)
+        return True, url, None
+
+    monkeypatch.setattr(player, '_prebuffer_torrent', fake_prebuffer)
+    monkeypatch.setattr(player, '_await_subtitles', lambda *a, **k: False)
+
+    assert player.play_direct({'infoHash': INFO_HASH, 'fileIdx': 0}, 'movie', 'tt95') is False
+
+    assert pin.stopped
+    assert server.removed == [INFO_HASH]
+    assert player._current_pin() is None
+
+
+def test_a_failed_pick_does_not_end_the_session_of_a_video_still_playing(kodi_stubs, monkeypatch):
+    player = kodi_stubs.player
+    _ServerScript(resolve_url=None).install(monkeypatch, player)
+    server, pin = _SessionServer(), _SessionPin()
+    player._register_session(server, 'a' * 40, pin)
+
+    assert player.play_direct({'url': 'https://example.com/a.mp4'}, 'movie', 'tt96') is False
+
+    assert not pin.stopped
+    assert server.removed == []
+
+
+def test_registering_a_new_torrent_ends_the_superseded_one(kodi_stubs):
+    player = kodi_stubs.player
+    server, old_pin, new_pin = _SessionServer(), _SessionPin(), _SessionPin()
+    player._register_session(server, 'a' * 40, old_pin)
+
+    player._register_session(server, 'b' * 40, new_pin)
+
+    assert old_pin.stopped and not new_pin.stopped
+    assert server.removed == ['a' * 40]
+
+
+def test_re_registering_the_same_torrent_keeps_its_engine(kodi_stubs):
+    """A re-pick of the same torrent must not delete what it just pre-buffered."""
+    player = kodi_stubs.player
+    server, old_pin, new_pin = _SessionServer(), _SessionPin(), _SessionPin()
+    player._register_session(server, INFO_HASH, old_pin)
+
+    player._register_session(server, INFO_HASH, new_pin)
+
+    assert old_pin.stopped
+    assert server.removed == []
+
+
+def test_a_superseded_watcher_cannot_end_the_newer_session(kodi_stubs):
+    player = kodi_stubs.player
+    server, old_pin, new_pin = _SessionServer(), _SessionPin(), _SessionPin()
+    player._register_session(server, 'a' * 40, old_pin)
+    player._register_session(server, 'b' * 40, new_pin)
+
+    player._end_session_if(old_pin)
+
+    assert not new_pin.stopped
+    assert player._current_pin() is new_pin
+
+
+def test_resolve_asks_to_resume_before_the_dialog_and_prebuffer(kodi_stubs, monkeypatch):
+    """The keep-alive pin's clock starts at pre-buffer; a prompt shown after it
+    ran the pin out while the user was still reading."""
+    player = kodi_stubs.player
+    order = []
+    _ServerScript(resolve_url='http://127.0.0.1:11470/%s/0' % INFO_HASH).install(monkeypatch, player)
+    monkeypatch.setattr(player, '_ask_resume_offset', lambda *a: order.append('resume') or 5000)
+    monkeypatch.setattr(player, '_record_now_playing', lambda *a: order.append(('record', a[-1])))
+
+    def fake_prebuffer(server, stream, url, dialog, monitor, item_meta=None):
+        order.append('prebuffer')
+        return True, url, None
+
+    monkeypatch.setattr(player, '_prebuffer_torrent', fake_prebuffer)
+
+    assert player.play_direct({'infoHash': INFO_HASH, 'fileIdx': 0}, 'movie', 'tt97') is True
+
+    assert order == ['resume', 'prebuffer', ('record', 5000)]
 
 
 def test_resolve_gives_up_on_subtitles_after_the_grace_and_still_plays(kodi_stubs, monkeypatch):

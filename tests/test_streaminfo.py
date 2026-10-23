@@ -1398,6 +1398,11 @@ def test_parse_rating_handles_unparseable_values(value, expected):
 
 @pytest.mark.parametrize("value,expected", [
     ("132 min", 132 * 60),
+    ("132", 132 * 60),
+    ("2h 15min", 2 * 3600 + 15 * 60),
+    ("2 h 15 m", 2 * 3600 + 15 * 60),
+    ("1h", 3600),
+    ("45m", 45 * 60),
     (None, None),
     ("?", None),
 ])

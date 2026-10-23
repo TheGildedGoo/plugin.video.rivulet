@@ -255,9 +255,9 @@ def test_oninit_renders_sources_addons_and_cached_summary_counts(load_streamswin
 
     win.onInit()
 
-    assert win.getControl(ctx.streamswindow.SOURCES_COUNT).label == '3 SOURCES'
-    assert win.getControl(ctx.streamswindow.ADDONS_COUNT).label == '2 ADDONS'
-    assert win.getControl(ctx.streamswindow.CACHED_COUNT).label == '2 CACHED'
+    assert win.getControl(ctx.streamswindow.SOURCES_COUNT).label == 'SOURCES: 3'
+    assert win.getControl(ctx.streamswindow.ADDONS_COUNT).label == 'ADDONS: 2'
+    assert win.getControl(ctx.streamswindow.CACHED_COUNT).label == 'CACHED: 2'
 
 
 def test_oninit_summary_counts_are_zero_when_there_are_no_pairs(load_streamswindow):
@@ -267,35 +267,9 @@ def test_oninit_summary_counts_are_zero_when_there_are_no_pairs(load_streamswind
 
     win.onInit()
 
-    assert win.getControl(ctx.streamswindow.SOURCES_COUNT).label == '0 SOURCES'
-    assert win.getControl(ctx.streamswindow.ADDONS_COUNT).label == '0 ADDONS'
-    assert win.getControl(ctx.streamswindow.CACHED_COUNT).label == '0 CACHED'
-
-
-@pytest.mark.parametrize('pair_count,expected', [(1, '1 SOURCE'), (2, '2 SOURCES')], ids=['n1-singular', 'n2-plural'])
-def test_oninit_sources_count_label_singular_vs_plural(load_streamswindow, pair_count, expected):
-    ctx = load_streamswindow()
-    win = _make_window(ctx.streamswindow)
-    win.pairs = [({'addon': 'AddonA', 'cached': False}, {})] * pair_count
-
-    win.onInit()
-
-    assert win.getControl(ctx.streamswindow.SOURCES_COUNT).label == expected
-
-
-@pytest.mark.parametrize(
-    'addon_names,expected',
-    [(['AddonA'], '1 ADDON'), (['AddonA', 'AddonB'], '2 ADDONS')],
-    ids=['n1-singular', 'n2-plural'],
-)
-def test_oninit_addons_count_label_singular_vs_plural(load_streamswindow, addon_names, expected):
-    ctx = load_streamswindow()
-    win = _make_window(ctx.streamswindow)
-    win.pairs = [({'addon': name, 'cached': False}, {}) for name in addon_names]
-
-    win.onInit()
-
-    assert win.getControl(ctx.streamswindow.ADDONS_COUNT).label == expected
+    assert win.getControl(ctx.streamswindow.SOURCES_COUNT).label == 'SOURCES: 0'
+    assert win.getControl(ctx.streamswindow.ADDONS_COUNT).label == 'ADDONS: 0'
+    assert win.getControl(ctx.streamswindow.CACHED_COUNT).label == 'CACHED: 0'
 
 
 def test_oninit_escapes_addon_supplied_markup_in_provider_property_via_line_and_heading(load_streamswindow):
@@ -352,23 +326,9 @@ def test_rebuild_list_hides_stream_excluded_by_max_size_and_shrinks_counts(load_
     # position stays a self.pairs index, not a display-list index, so
     # _apply_pending()'s focus-by-identity restore keeps working.
     assert items[0].getProperty('position') == '0'
-    assert win.getControl(ctx.streamswindow.SOURCES_COUNT).label == '1 SOURCE'
-    assert win.getControl(ctx.streamswindow.ADDONS_COUNT).label == '1 ADDON'
-    assert win.getControl(ctx.streamswindow.INFO_PANEL).text == 'via AddonA\n1 source hidden by filters'
-
-
-def test_rebuild_list_hidden_count_is_plural_for_more_than_one(load_streamswindow):
-    ctx = load_streamswindow()
-    win = _make_window(ctx.streamswindow)
-    ctx.env.addon.settings['playback_max_size_gb'] = '1'
-    kept = {'addon': 'AddonA', 'raw': 'Kept', 'size_bytes': 500 * 1024 * 1024}
-    big_a = {'addon': 'AddonA', 'raw': 'BigA', 'size_bytes': 5 * 1024 ** 3}
-    big_b = {'addon': 'AddonA', 'raw': 'BigB', 'size_bytes': 5 * 1024 ** 3}
-    win.pairs = [(kept, {}), (big_a, {}), (big_b, {})]
-
-    win.onInit()
-
-    assert win.getControl(ctx.streamswindow.INFO_PANEL).text == 'via AddonA\n2 sources hidden by filters'
+    assert win.getControl(ctx.streamswindow.SOURCES_COUNT).label == 'SOURCES: 1'
+    assert win.getControl(ctx.streamswindow.ADDONS_COUNT).label == 'ADDONS: 1'
+    assert win.getControl(ctx.streamswindow.INFO_PANEL).text == 'via AddonA\nHidden by filters: 1'
 
 
 def test_rebuild_list_falls_back_to_showing_everything_when_filters_match_nothing(load_streamswindow):
@@ -393,7 +353,7 @@ def test_rebuild_list_falls_back_to_showing_everything_when_filters_match_nothin
 
     items = win.getControl(ctx.streamswindow.LIST).items
     assert [item.getProperty('position') for item in items] == ['0', '1']
-    assert win.getControl(ctx.streamswindow.SOURCES_COUNT).label == '2 SOURCES'
+    assert win.getControl(ctx.streamswindow.SOURCES_COUNT).label == 'SOURCES: 2'
     notice = 'via AddonA\nSTR%d' % ctx.streamswindow._FILTERS_MATCHED_NOTHING_STRING_ID
     assert win.getControl(ctx.streamswindow.INFO_PANEL).text == notice
 
@@ -677,6 +637,57 @@ def test_onaction_non_back_action_does_not_close(load_streamswindow):
     win.onAction(xbmcgui.Action(1))
 
     assert win.closed is False
+
+
+def test_onaction_with_nothing_pending_makes_no_native_control_calls(load_streamswindow, monkeypatch):
+    """Every action, mouse-moves included, used to read the list's selection
+    before checking whether a live merge had anything to do."""
+    ctx = load_streamswindow()
+    import xbmcgui
+    win = _make_window(ctx.streamswindow)
+    touched = []
+    monkeypatch.setattr(win, 'getControl', lambda control_id: touched.append(control_id))
+
+    win.onAction(xbmcgui.Action(107))
+
+    assert touched == []
+
+
+def test_onaction_back_still_closes_when_the_live_merge_cannot_reach_its_controls(load_streamswindow, monkeypatch):
+    """An action landing before onInit() or during teardown makes getControl()
+    raise; that must not swallow the Back."""
+    ctx = load_streamswindow()
+    import xbmcgui
+    win = _make_window(ctx.streamswindow)
+    win.add_pairs([({'addon': 'A', 'raw': 'Row'}, {'url': 'https://a.example/a.mp4'})])
+
+    def _boom(control_id):
+        raise RuntimeError('control not found')
+
+    monkeypatch.setattr(win, 'getControl', _boom)
+
+    win.onAction(xbmcgui.Action(10))
+
+    assert win.closed is True
+
+
+def test_oninit_survives_non_string_genres_and_escapes_addon_meta_in_the_info_panel(load_streamswindow):
+    ctx = load_streamswindow()
+    win = _make_window(ctx.streamswindow)
+    win.pairs = [({'addon': 'A', 'raw': 'Row'}, {})]
+    win.meta = {
+        'genres': [7, None, '[B]Drama[/B]', 'Crime'],
+        'runtime': '$INFO[System.ProfileName]',
+        'imdbRating': 8.5,
+        'releaseInfo': '[COLOR red]2011[/COLOR]',
+    }
+
+    win.onInit()
+
+    text = win.getControl(ctx.streamswindow.INFO_PANEL).text
+    assert '[B]' not in text and '[COLOR' not in text and '$INFO' not in text
+    assert '\u2605 8.5' in text
+    assert 'Drama / Crime' in text
 
 
 # ---------------------------------------------------------------------------

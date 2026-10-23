@@ -637,6 +637,27 @@ def test_wait_for_playback_end_returns_true_when_playback_never_starts_within_ti
     assert monitor.calls == 2
 
 
+def test_wait_for_playback_end_gives_up_at_once_when_kodi_reports_the_stream_failed_to_open(load_streamswindow):
+    """`isPlaying()` never goes True for a stream Kodi cannot open; waiting out
+    the whole start budget left the user locked in the player phase."""
+    ctx = load_streamswindow()
+    sw = ctx.streamswindow
+    player = _ScriptedPlayer(is_playing=False)
+    player.open_failed = False
+
+    def abort(n):
+        if n == 2:
+            player.open_failed = True  # the error callback, delivered inside this wait
+        return False
+
+    monitor = _ScriptedMonitor(abort=abort)
+
+    result = sw._wait_for_playback_end(player=player, monitor=monitor, start_timeout=45.0, tick=0.5)
+
+    assert result == (True, False)
+    assert monitor.calls == 2  # not the 90 ticks of the full budget
+
+
 def test_wait_for_playback_end_returns_false_immediately_on_monitor_abort_before_playing(load_streamswindow):
     ctx = load_streamswindow()
     sw = ctx.streamswindow
@@ -1045,10 +1066,12 @@ class _OnceThenBackOutWindow:
     picker double for, without a real onClick()/doModal() event loop."""
 
     @staticmethod
-    def build(streamswindow_mod, played_pair, start_calls):
+    def build(streamswindow_mod, played_pair, start_calls, start_details=None):
         class RecordingWindow(streamswindow_mod.StreamsWindow):
             def start(self, pairs, stype, sid, poster=None, heading='', art=None, meta=None, video_id=None):
                 start_calls.append(sid)
+                if start_details is not None:
+                    start_details.append((sid, video_id, heading, [stream.get('name') for _i, stream in pairs]))
                 if len(start_calls) == 1:
                     self.played_pair = played_pair
                     return True
@@ -1095,7 +1118,7 @@ def test_open_streams_stopping_a_played_episode_does_not_auto_play_the_next_one(
     assert [call[2] for call in client.calls] == ['s1e1']  # next episode's streams never even fetched
 
 
-def test_open_streams_binge_watch_auto_plays_the_next_episode_then_reopens_the_original_picker(
+def test_open_streams_binge_watch_auto_plays_the_next_episode_then_reopens_the_picker_for_it(
     load_streamswindow, monkeypatch,
 ):
     ctx = load_streamswindow()
@@ -1105,9 +1128,11 @@ def test_open_streams_binge_watch_auto_plays_the_next_episode_then_reopens_the_o
     next_stream = {'name': 'Episode Two', 'behaviorHints': {}, 'url': 'https://a.example/e2.mp4'}
     client = _wire_series_addon(sw, {'s1e1': [played_stream], 's1e2': [next_stream]})
     start_calls = []
+    start_details = []
     played_info = streaminfo.parse_stream(played_stream, addon_name='Addon')
     monkeypatch.setattr(
-        sw, 'StreamsWindow', _OnceThenBackOutWindow.build(sw, (played_info, played_stream), start_calls),
+        sw, 'StreamsWindow',
+        _OnceThenBackOutWindow.build(sw, (played_info, played_stream), start_calls, start_details),
     )
     play_direct_calls = []
     monkeypatch.setattr(
@@ -1128,7 +1153,11 @@ def test_open_streams_binge_watch_auto_plays_the_next_episode_then_reopens_the_o
     result = sw.open_streams('series', 's1e1', meta=_TWO_EPISODE_SERIES_META, video_id='s1e1')
 
     assert result is False
-    assert start_calls == ['s1e1', 's1e1']  # opened once (played), reopened once (chain fell back)
+    # Opened once (played); reopened once for the episode the chain ended on -
+    # the one the user just watched - not the one they started from, which
+    # would replay episode 1 under episode 1's progress key.
+    assert start_calls == ['s1e1', 's1e2']
+    assert start_details[1] == ('s1e2', 's1e2', 'Show \u2013 S01E02 \u00b7 Two', ['Episode Two'])
     assert len(play_direct_calls) == 1  # only the auto-played next episode goes through play_direct here
     auto_stream, auto_stype, auto_sid, auto_item_meta, auto_on_ready, auto_video_id = play_direct_calls[0]
     assert (auto_stream, auto_stype, auto_sid) == (next_stream, 'series', 's1e2')
@@ -1202,7 +1231,7 @@ def test_open_streams_binge_watch_chain_continues_through_a_third_episode(
 
     assert result is False
     assert [sid for sid, _stream in play_direct_calls] == ['s1e2', 's1e3']
-    assert start_calls == ['s1e1', 's1e1']  # the original picker only ever reopens once the WHOLE chain ends
+    assert start_calls == ['s1e1', 's1e3']  # the picker only reopens once the WHOLE chain ends, for the last episode
     assert [call[2] for call in client.calls] == ['s1e1', 's1e2', 's1e3']
 
 
@@ -1211,8 +1240,8 @@ def test_open_streams_binge_watch_stopping_the_auto_played_episode_ends_the_chai
 ):
     """Stopping episode 2 (auto-played by the binge chain) must end the
     chain right there - never continue on into episode 3 - and fall back
-    to reopening the ORIGINAL picker, same as any other "nothing left to
-    binge into" case."""
+    to reopening the picker for episode 2 (the last one watched), same as
+    any other "nothing left to binge into" case."""
     ctx = load_streamswindow()
     sw = ctx.streamswindow
     ctx.env.addon.settings['binge_countdown'] = 1
@@ -1247,7 +1276,7 @@ def test_open_streams_binge_watch_stopping_the_auto_played_episode_ends_the_chai
 
     assert result is False
     assert [sid for sid, _stream in play_direct_calls] == ['s1e2']  # chain stopped after episode 2
-    assert start_calls == ['s1e1', 's1e1']  # falls back to reopening the ORIGINAL picker
+    assert start_calls == ['s1e1', 's1e2']  # reopens for the episode just stopped
     assert [call[2] for call in client.calls] == ['s1e1', 's1e2']  # episode 3 was never even fetched
 
 

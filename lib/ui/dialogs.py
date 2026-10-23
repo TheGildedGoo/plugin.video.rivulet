@@ -440,7 +440,11 @@ class RivuletCountdown:
                 self._panel.label(COUNTDOWN_REMAINING, '%d s' % remaining)
                 if monitor.waitForAbort(1.0):
                     return False
-            return True
+            # Queued input is delivered inside the final wait above, after
+            # which the loop ends without another top-of-loop check: a Back
+            # pressed in the last second must still cancel the autoplay.
+            # (A skip needs no check - running out also returns True.)
+            return None if self._window.iscanceled() else True
         finally:
             self.close()
 

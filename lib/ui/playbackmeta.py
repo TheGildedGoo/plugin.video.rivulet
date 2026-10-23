@@ -193,10 +193,14 @@ def human_size(num_bytes):
 _YEAR_RE = re.compile(r'\d{4}')
 
 #: Regex for the first run of digits in a Stremio `runtime` string
-#: (e.g. '132 min') - every Stremio addon's `runtime` field is minutes,
-#: never seconds, hence `_SECONDS_PER_MINUTE` below.
+#: (e.g. '132 min') - a bare number is minutes, never seconds, hence
+#: `_SECONDS_PER_MINUTE` below.
 _RUNTIME_MINUTES_RE = re.compile(r'\d+')
+#: Explicit unit forms some addons send instead ('2h 15min', '1 h', '45m').
+_RUNTIME_HOURS_RE = re.compile(r'(\d+)\s*h', re.IGNORECASE)
+_RUNTIME_UNIT_MINUTES_RE = re.compile(r'(\d+)\s*m', re.IGNORECASE)
 _SECONDS_PER_MINUTE = 60
+_SECONDS_PER_HOUR = 3600
 
 
 def sanitize_title(text):
@@ -469,33 +473,45 @@ def parse_rating(value):
 
 
 def parse_duration_seconds(value):
-    """Best-effort duration in SECONDS out of a Stremio `runtime` string
-    such as '132 min' - the first run of digits found is taken as
-    MINUTES (the unit every Stremio addon's `runtime` field actually
-    uses) and converted to the seconds
-    `InfoTagVideo.setDuration()`/legacy `setInfo('video', {'duration':
-    ...})` both expect. Returns None for an unparseable value like '?' -
-    never raises.
+    """Best-effort duration in SECONDS out of a Stremio `runtime` string,
+    in the seconds `InfoTagVideo.setDuration()`/legacy `setInfo('video',
+    {'duration': ...})` both expect. Handles '132 min' and a bare '132'
+    (minutes - the unit the `runtime` field normally uses) as well as the
+    explicit-unit '2h 15min' / '1h' shapes some addons send; reading the
+    first digit run of the latter as minutes made a two-hour film 2
+    minutes long. Returns None for an unparseable value like '?' - never
+    raises.
     """
     if value is None:
         return None
-    match = _RUNTIME_MINUTES_RE.search(str(value))
+    text = str(value)
+    hours = _RUNTIME_HOURS_RE.search(text)
+    minutes = _RUNTIME_UNIT_MINUTES_RE.search(text)
+    if hours or minutes:
+        return (
+            (int(hours.group(1)) * _SECONDS_PER_HOUR if hours else 0)
+            + (int(minutes.group(1)) * _SECONDS_PER_MINUTE if minutes else 0)
+        )
+    match = _RUNTIME_MINUTES_RE.search(text)
     if not match:
         return None
     return int(match.group()) * _SECONDS_PER_MINUTE
 
 
+def coerce_int(value):
+    """`int(value)`, or 0 for anything that is not an integer (missing,
+    None, 'x'). Stremio addons send `season`/`episode` as strings (or omit
+    them), which `%02d` formatting and int/str ordering both choke on."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
 def episode_code(season, episode):
     """'S01E03' - zero-padded season/episode (Specials as S00Exx). Both
-    inputs are coerced via `int()` with a 0 fallback: some Stremio
-    addons send `season`/`episode` as strings (or omit them), which
-    '%02d' formatting raises TypeError/ValueError on outright."""
-    def _int(value):
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return 0
-    return 'S%02dE%02d' % (_int(season), _int(episode))
+    inputs go through `coerce_int()`."""
+    return 'S%02dE%02d' % (coerce_int(season), coerce_int(episode))
 
 
 def resolve_art(art, meta):

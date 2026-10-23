@@ -265,14 +265,19 @@ def test_a_fetched_imdb_id_lets_an_imdb_only_addon_be_asked(load, monkeypatch):
     assert [entry[2] for entry in sw._stream_targets('movie', 'tmdb:603', merged)] == ['tt0133093']
 
 
-def test_a_cancelled_imdb_lookup_keeps_the_preview(load, monkeypatch):
+def test_back_on_the_imdb_lookup_cancels_the_stream_lookup_too(load, monkeypatch):
+    """Back on the IMDb spinner used to mean "carry on": a second spinner for
+    the stream fetch opened and the user needed a second Back."""
     ctx = load()
     sw = ctx.streamswindow
     import lib.ui.uicommon as uicommon
 
     preview = {'id': 'tmdb:603', 'name': 'The Matrix'}
     monkeypatch.setattr(uicommon, 'run_cancellable', lambda *_args: uicommon.CANCELLED)
-    assert sw._meta_with_imdb('movie', 'tmdb:603', preview) is preview
+    assert sw._meta_with_imdb('movie', 'tmdb:603', preview) is uicommon.CANCELLED
+
+    monkeypatch.setattr(sw, '_stream_targets', lambda *a, **k: pytest.fail('went on to the stream lookup'))
+    assert sw.open_streams('movie', 'tmdb:603', meta=preview) is False
 
 
 def test_a_failing_imdb_meta_lookup_keeps_the_preview_and_is_logged(load, monkeypatch):
