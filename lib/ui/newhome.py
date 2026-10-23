@@ -454,8 +454,26 @@ def _open_shelf(descriptor):
     return state
 
 
+def _forget_library_meta(window):
+    """Drop the in-flight library meta request without touching its item.
+
+    ``_library_meta_latest`` holds the ListItem that ``getSelectedItem()``
+    returned. That wrapper does not keep Kodi's item alive: once its
+    container is reset the item is freed, and the next
+    ``setProperty('meta_state', ...)`` on it segfaulted Kodi (removing a
+    title from Continue with the context menu rebuilt the shelf, then
+    ``paint_hero`` wrote to the old focused item). Call this before any
+    reset; the worker sees ``latest`` change and discards its answer.
+    """
+    with _library_meta_lock(window):
+        window._library_meta_latest = None
+        window._library_meta_pending = None
+        window._library_meta_ready = []
+
+
 def _set_shelf(window, list_id, label_id, prop, heading, items):
     control = window.getControl(list_id)
+    _forget_library_meta(window)
     control.reset()
     if items:
         control.addItems(items)
@@ -1392,9 +1410,18 @@ def _offer_library(window, item, control_id=None):
 
 def _note_focus(window):
     """Remember where the remote is, so the next Up can tell a dead end
-    from a move (`HomeWindow.onAction`)."""
+    from a move (`HomeWindow.onAction`), and prefetch the focused row's
+    next page. Paging is best-effort: its failure must not cost the focus
+    bookkeeping the dead-end Up logic relies on."""
     try:
         _maybe_extend_focused_shelf(window)
+    except Exception as exc:  # noqa: BLE001 - see docstring
+        import xbmc
+
+        from lib.ui.compat import log
+
+        log('home: paging check failed: %s' % type(exc).__name__, xbmc.LOGDEBUG)
+    try:
         window._last_focus = window.getFocusId()
         if window._last_focus in getattr(window, '_rows', {}):
             window._tab_last_row = window._last_focus
@@ -2197,6 +2224,7 @@ class NewHomeWindow(BaseWindow):
             _tab_load_incomplete(self, 'failed')
             _cancel_shelf_extends(self)
             self._rows = {}
+            _forget_library_meta(self)
             for list_id, prop, _counter in _ROW_COUNTERS:
                 self.setProperty(prop, '')
                 self.getControl(list_id).reset()
@@ -2264,7 +2292,6 @@ class NewHomeWindow(BaseWindow):
             _focus_first(self)
         elif focus != BROWSE_LIST and getattr(self, '_last_focus', None) == BROWSE_LIST:
             _select_active_chip(self)
-        _maybe_extend_focused_shelf(self)
         paint_hero(self)
         _note_focus(self)
 
