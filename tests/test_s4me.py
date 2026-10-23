@@ -296,6 +296,32 @@ def test_apply_missing_version_field_counts_as_stale():
     assert store.set_calls == []
 
 
+def test_apply_foreign_service_on_the_port_is_never_shut_down_or_relaunched():
+    """Another service holding the port is not ours to POST /shutdown to
+    (the stale-bridge path does that every relaunch interval), and a
+    relaunch could not bind anyway -- it is only left offline, logged once."""
+    store = _FakeStore()
+    launches = []
+    shutdowns = []
+    logs = []
+    clock = _FakeClock()
+    supervisor = s4me.BridgeSupervisor("/addon/root", clock=clock)
+
+    supervisor.apply(True, 11480, lambda: True, launches.append, store)
+    for _ in range(4):
+        clock.advance(s4me.RELAUNCH_BACKOFF_SECONDS + 1)
+        supervisor.apply(
+            True, 11480, lambda: True, launches.append, store,
+            probe_fn=lambda port: s4me.FOREIGN_SERVICE,
+            shutdown_fn=shutdowns.append, log_fn=logs.append,
+        )
+
+    assert shutdowns == []
+    assert len(launches) == 1
+    assert len(logs) == 1
+    assert store.set_calls == []
+
+
 def test_apply_repeated_stale_backs_off_and_logs_once():
     """A bridge that keeps answering stale (e.g. a pre-1.1.0 build with no
     /shutdown route) gets retried on the full backoff, logged once, and is
@@ -502,47 +528,6 @@ def test_apply_disabling_never_active_skips_shutdown():
 
 
 
-# --- probe_manifest ---------------------------------------------------------
-
-
-def test_probe_manifest_true_on_successful_response(monkeypatch):
-    import urllib.request
-
-    class _Resp:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
-    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: _Resp())
-
-    assert s4me.probe_manifest(11480) is True
-
-
-def test_probe_manifest_true_on_http_error_status(monkeypatch):
-    import urllib.error
-    import urllib.request
-
-    def _raise(*a, **k):
-        raise urllib.error.HTTPError("url", 404, "not found", {}, None)
-
-    monkeypatch.setattr(urllib.request, "urlopen", _raise)
-
-    assert s4me.probe_manifest(11480) is True
-
-
-def test_probe_manifest_false_on_connection_failure(monkeypatch):
-    import urllib.request
-
-    def _raise(*a, **k):
-        raise ConnectionRefusedError("refused")
-
-    monkeypatch.setattr(urllib.request, "urlopen", _raise)
-
-    assert s4me.probe_manifest(11480) is False
-
-
 # --- probe_manifest_version ---------------------------------------------------
 
 
@@ -570,27 +555,28 @@ def test_probe_manifest_version_returns_the_served_version(monkeypatch):
     assert s4me.probe_manifest_version(11480) == "1.1.0"
 
 
-def test_probe_manifest_version_empty_string_for_foreign_manifest_id(monkeypatch):
+def test_probe_manifest_version_foreign_service_for_foreign_manifest_id(monkeypatch):
     """A different service on the port (wrong/missing manifest id) is never
-    adopted, even if it serves a matching version."""
+    adopted, even if it serves a matching version -- and it is reported
+    apart from a stale bridge, because only the latter may be shut down."""
     import json
     import urllib.request
 
     body = json.dumps({"id": "com.other.addon", "version": s4me.MANIFEST["version"]}).encode("utf-8")
     monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: _JsonResp(body))
-    assert s4me.probe_manifest_version(11480) == ""
+    assert s4me.probe_manifest_version(11480) is s4me.FOREIGN_SERVICE
 
     body = json.dumps({"version": s4me.MANIFEST["version"]}).encode("utf-8")
     monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: _JsonResp(body))
-    assert s4me.probe_manifest_version(11480) == ""
+    assert s4me.probe_manifest_version(11480) is s4me.FOREIGN_SERVICE
 
 
-def test_probe_manifest_version_empty_string_on_invalid_json(monkeypatch):
+def test_probe_manifest_version_foreign_service_on_invalid_json(monkeypatch):
     import urllib.request
 
     monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: _JsonResp(b"not json"))
 
-    assert s4me.probe_manifest_version(11480) == ""
+    assert s4me.probe_manifest_version(11480) is s4me.FOREIGN_SERVICE
 
 
 def test_probe_manifest_version_empty_string_on_missing_version_field(monkeypatch):
@@ -603,12 +589,12 @@ def test_probe_manifest_version_empty_string_on_missing_version_field(monkeypatc
     assert s4me.probe_manifest_version(11480) == ""
 
 
-def test_probe_manifest_version_empty_string_on_non_object_json(monkeypatch):
+def test_probe_manifest_version_foreign_service_on_non_object_json(monkeypatch):
     import urllib.request
 
     monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: _JsonResp(b"[1, 2, 3]"))
 
-    assert s4me.probe_manifest_version(11480) == ""
+    assert s4me.probe_manifest_version(11480) is s4me.FOREIGN_SERVICE
 
 
 def test_probe_manifest_version_reads_body_off_http_error_responses(monkeypatch):

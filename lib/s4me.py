@@ -112,7 +112,7 @@ def shutdown_url(port):
     return "http://127.0.0.1:%d/shutdown" % port
 
 
-#: Timeout for one `probe_manifest()` HTTP round-trip -- short because this
+#: Timeout for one `probe_manifest_version()` HTTP round-trip -- short because this
 #: runs on the same settings-refresh cadence as the rest of `main()`'s
 #: supervision tick and must never stall it (mirrors
 #: `lib.service_runner.PROBE_TIMEOUT`).
@@ -146,37 +146,18 @@ RELAUNCH_BACKOFF_SECONDS = 30.0
 STALE_RELAUNCH_DELAY_SECONDS = 2.0
 
 
-def probe_manifest(port, timeout=PROBE_TIMEOUT_SECONDS):
-    """True if `/manifest.json` answers at `127.0.0.1:port` -- confirms the
-    `RunScript()` bridge actually imported Stream4Me and bound its socket,
-    rather than trusting `xbmc.executebuiltin()`'s fire-and-forget return
-    (see `BridgeSupervisor.apply()`).
-
-    Any completed HTTP exchange, including an HTTP error status, counts as
-    "answering" -- same convention as
-    `lib.service_runner.probe_listening()`, whose docstring explains why.
-
-    `urllib.request`/`urllib.error` are imported here, not at module scope,
-    for the same import-cost reason as `probe_listening()`: this module is
-    imported on every settings refresh, but the probe itself only runs
-    while the bridge is enabled and not yet confirmed ready.
-    """
-    import urllib.error
-    import urllib.request
-
-    try:
-        with urllib.request.urlopen(manifest_url(port), timeout=timeout):
-            pass
-        return True
-    except urllib.error.HTTPError:
-        return True
-    except (urllib.error.URLError, OSError, ValueError):
-        return False
+#: What `probe_manifest_version()` returns when the port is held by
+#: something that is not this bridge. Distinct from `""` (our own bridge,
+#: manifest without a usable version -> stale) because the two need
+#: opposite handling: a stale bridge is ours to `/shutdown` and replace,
+#: while POSTing `/shutdown` at a foreign service every relaunch interval
+#: would poke somebody else's process for as long as it holds the port.
+FOREIGN_SERVICE = object()
 
 
 def probe_manifest_version(port, timeout=PROBE_TIMEOUT_SECONDS):
     """Return the `version` the bridge answering at `127.0.0.1:port`
-    reports in its `/manifest.json`, distinguishing three outcomes
+    reports in its `/manifest.json`, distinguishing four outcomes
     `BridgeSupervisor.apply()` needs told apart:
 
       * a `str` -- the manifest's own `version` field, verbatim. Compared
@@ -187,18 +168,20 @@ def probe_manifest_version(port, timeout=PROBE_TIMEOUT_SECONDS):
         from this module's `MANIFEST["version"]` can never be the one
         `RunScript()` would launch now, so it must be shut down and
         replaced rather than trusted.
-      * `""` -- the bridge answered (even with an HTTP error status,
-        same convention as `probe_manifest()`) but the body was not
-        valid JSON, was not a JSON object, or had no string `version`
-        field -- treated exactly like a version mismatch by `apply()`,
-        since a well-formed current bridge always serves one.
+      * `""` -- this bridge answered (even with an HTTP error status) with
+        our manifest `id` but no string `version` field -- treated exactly
+        like a version mismatch by `apply()`, since a well-formed current
+        bridge always serves one.
+      * `FOREIGN_SERVICE` -- something answered that is not this bridge: a
+        body that is not a JSON object, or a manifest with another `id`.
+        Never adopted, never shut down.
       * `None` -- nothing answered at all (connection refused, timed
         out, DNS/OS-level failure) -- the ordinary "not launched yet, or
-        crashed" case, handled the same as `probe_manifest()` returning
-        `False`.
+        crashed" case.
 
     `urllib.request`/`urllib.error`/`json` are imported here, not at
-    module scope, for the same import-cost reason as `probe_manifest()`.
+    module scope: this module is imported on every settings refresh, but
+    the probe itself only runs while the bridge is enabled.
     """
     import json
     import urllib.error
@@ -218,10 +201,9 @@ def probe_manifest_version(port, timeout=PROBE_TIMEOUT_SECONDS):
     try:
         manifest = json.loads(body)
     except ValueError:
-        return ""
+        return FOREIGN_SERVICE
     if not isinstance(manifest, dict) or manifest.get("id") != MANIFEST["id"]:
-        # Something else (not this bridge) holds the port: never adopt it.
-        return ""
+        return FOREIGN_SERVICE
     version = manifest.get("version")
     return version if isinstance(version, str) else ""
 
@@ -235,8 +217,7 @@ def shutdown_bridge(port, timeout=PROBE_TIMEOUT_SECONDS):
     the old process still holds it.
 
     Every failure is swallowed: an old bridge build that predates the
-    `/shutdown` route answers 404 (`HTTPError`, caught same as
-    `probe_manifest()`'s "answering" case elsewhere -- here it just means
+    `/shutdown` route answers 404 (`HTTPError` -- here it just means
     "nothing to wait for, `apply()`'s short relaunch delay covers Kodi's
     own zombie-reap time instead"); one already gone by the time this
     fires refuses the connection. Callers must never let this raise --
@@ -245,7 +226,7 @@ def shutdown_bridge(port, timeout=PROBE_TIMEOUT_SECONDS):
     raises) keeps that belt-and-braces rather than load-bearing.
 
     `urllib.request`/`urllib.error` imported here for the same
-    import-cost reason as `probe_manifest()`.
+    import-cost reason as `probe_manifest_version()`.
     """
     import urllib.error
     import urllib.request
@@ -385,6 +366,8 @@ class BridgeSupervisor:
         #: escalation and the log-once guard in `apply()`.
         self._stale_relaunches = 0
         self._stale_logged = False
+        #: Log-once guard for a non-bridge service holding the port.
+        self._foreign_logged = False
         #: Separate gate timer for the stale-bridge relaunch cadence
         #: (short delay first, then `RELAUNCH_BACKOFF_SECONDS`) -- kept
         #: apart from `_next_relaunch_at` (which `_launch()` always sets
@@ -416,6 +399,7 @@ class BridgeSupervisor:
             self._next_relaunch_at = 0.0
             self._stale_relaunches = 0
             self._stale_logged = False
+            self._foreign_logged = False
             self._next_stale_retry_at = 0.0
             store.remove_builtin_addon(BUILTIN_ID)
             return
@@ -429,6 +413,7 @@ class BridgeSupervisor:
             self._published = False
             self._stale_relaunches = 0
             self._stale_logged = False
+            self._foreign_logged = False
             self._next_stale_retry_at = 0.0
             # Transient: a fresh launch (first activation, or a port
             # change) is in flight. Mark any existing descriptor offline
@@ -439,6 +424,23 @@ class BridgeSupervisor:
             return
 
         answer = probe_fn(port)
+        if answer is FOREIGN_SERVICE:
+            # Something else holds the port. It is not ours to `/shutdown`,
+            # and a relaunch could not bind anyway: stay offline, say so
+            # once, and keep probing until the port frees up (`answer is
+            # None` then relaunches through the normal gate).
+            if self._published:
+                self._published = False
+                store.set_builtin_addon_offline(BUILTIN_ID)
+            if not self._foreign_logged and log_fn is not None:
+                log_fn(
+                    "port %d is held by a service that is not the s4me bridge; "
+                    "leaving it alone until it frees the port" % port
+                )
+                self._foreign_logged = True
+            return
+        self._foreign_logged = False
+
         if answer is not None and answer != MANIFEST["version"]:
             # Stale: something answers, but not the build this Rivulet
             # install would launch now -- most likely a leftover process
@@ -491,9 +493,7 @@ class BridgeSupervisor:
         self._stale_relaunches = 0
         self._stale_logged = False
         self._next_stale_retry_at = 0.0
-
-        if self._published:
-            store.set_builtin_addon(BUILTIN_ID, manifest_url(port), MANIFEST)
+        store.set_builtin_addon(BUILTIN_ID, manifest_url(port), MANIFEST)
 
     def launched_port(self):
         """The port the bridge was last launched on, or `None` when this
