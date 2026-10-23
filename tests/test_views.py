@@ -124,7 +124,8 @@ class FakeStore:
         `set_addons()`."""
         self.update_addons_calls.append(transform)
         new_addons = transform(self._addons)
-        self.set_addons(new_addons)
+        if new_addons != self._addons:  # real store skips no-op writes
+            self.set_addons(new_addons)
         return new_addons
 
 
@@ -203,7 +204,7 @@ class FakeStremioAPI:
     def addon_collection_get(self, auth_key):
         if self._addon_collection_error is not None:
             raise self._addon_collection_error
-        return self._addon_collection_result
+        return self._addon_collection_result if self._addon_collection_result is not None else []
 
     def addon_collection_set(self, auth_key, addons):
         self.addon_collection_set_calls.append((auth_key, list(addons)))
@@ -1785,6 +1786,55 @@ def test_sync_addons_if_logged_in_generic_error_does_not_clear_auth(load_views):
     assert result is False
     assert store.auth_set_calls == []
     assert ctx.env.notifications[-1][1] == 'STR30035'
+
+
+def test_sync_pulls_remote_only_addons_before_push_so_they_are_not_deleted(load_views):
+    """addonCollectionSet replaces the account collection: an addon added
+    from another Stremio client must be merged in before the push."""
+    ctx = load_views()
+    views = ctx.views
+    local = {'transportUrl': 'https://local.example/manifest.json', 'flags': {}}
+    web = {'transportUrl': 'https://web.example/manifest.json', 'manifest': {'id': 'org.web'}}
+    store = FakeStore(addons=[local], auth={'authKey': 'abc123'})
+    api = FakeStremioAPI(addon_collection_result=[web])
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, api)
+
+    assert views._sync_addons_if_logged_in(store) is True
+
+    assert api.addon_collection_set_calls == [('abc123', [local, web])]
+
+
+def test_sync_after_local_removal_does_not_resurrect_the_removed_addon(load_views):
+    """The account still lists a just-uninstalled addon; the pull before
+    the push must not union it back, or an uninstall never sticks."""
+    ctx = load_views()
+    views = ctx.views
+    local = {'transportUrl': 'https://local.example/manifest.json', 'flags': {}}
+    gone = {'transportUrl': 'https://gone.example/manifest.json', 'manifest': {'id': 'org.gone'}}
+    web = {'transportUrl': 'https://web.example/manifest.json', 'manifest': {'id': 'org.web'}}
+    store = FakeStore(addons=[local], auth={'authKey': 'abc123'})
+    api = FakeStremioAPI(addon_collection_result=[gone, web])
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, api)
+
+    assert views._sync_addons_if_logged_in(store, removed_url=gone['transportUrl']) is True
+
+    assert api.addon_collection_set_calls == [('abc123', [local, web])]
+
+
+def test_sync_does_not_push_when_the_pre_push_pull_fails(load_views):
+    ctx = load_views()
+    views = ctx.views
+    store = FakeStore(addons=[{'transportUrl': 'https://a.example/manifest.json', 'flags': {}}], auth={'authKey': 'k'})
+    api = FakeStremioAPI(addon_collection_error=ApiError('down'))
+    _wire_data_layer(views, store, FakeAddonClient())
+    _wire_api(views, api)
+
+    assert views._sync_addons_if_logged_in(store) is False
+
+    assert api.addon_collection_set_calls == []
+    assert store.auth_set_calls == []
 
 
 # ---------------------------------------------------------------------------

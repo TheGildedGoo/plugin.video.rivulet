@@ -1719,3 +1719,164 @@ def test_open_detail_not_found_still_closes_the_busy_dialog_around_the_fetch(
     assert result is False
     assert busy.created == [('STR30033', '')]
     assert busy.closed == 1
+
+
+# ---------------------------------------------------------------------------
+# Open-time watched marks: `onInit()` fires `_start_watched_fetch()`, a daemon
+# thread that looks the library item up and hands it to the GUI thread via
+# the `Action(noop)` drain at the top of `onAction()` - never writing to a
+# control off the GUI thread, never when logged out, never after close().
+# ---------------------------------------------------------------------------
+
+_WATCHED_VIDEOS = [
+    {'id': 'tt1:1:1', 'season': 1, 'episode': 1, 'title': 'Pilot'},
+    {'id': 'tt1:1:2', 'season': 1, 'episode': 2, 'title': 'Second'},
+    {'id': 'tt1:1:3', 'season': 1, 'episode': 3, 'title': 'Third'},
+]
+
+
+def _watched_item(*watched_ids):
+    from lib.stremio.watchedbitfield import set_video_watched
+    ids = [video['id'] for video in _WATCHED_VIDEOS]
+    serial = None
+    for video_id in watched_ids:
+        serial = set_video_watched(serial, ids, video_id, True)
+    return {'_id': 'tt1', 'state': {'watched': serial}}
+
+
+def _opened_detail_window(ctx):
+    win = _make_window(ctx.detailwindow)
+    win.start({'id': 'tt1', 'name': 'Show', 'videos': list(_WATCHED_VIDEOS)}, 'series')
+    win.onInit()
+    return win
+
+
+def _watched_marks(win, ctx):
+    items = win.getControl(ctx.detailwindow.LIST).items
+    return [item.getProperty('watched') for item in items]
+
+
+def _drain(win):
+    import xbmcgui
+    win.onAction(xbmcgui.Action(0))
+
+
+def test_open_time_fetch_marks_watched_episodes_without_blocking_oninit(load_detailwindow, monkeypatch):
+    import threading
+    ctx = load_detailwindow()
+    gate = threading.Event()
+
+    class _GatedApi(_FakeLibraryApi):
+        def get_library_item(self, auth_key, item_id):
+            assert gate.wait(5)
+            return super().get_library_item(auth_key, item_id)
+
+    store = _FakeAuthStore({'authKey': 'tok'})
+    api = _GatedApi(item=_watched_item('tt1:1:2'))
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+    monkeypatch.setattr(ctx.dependencies, 'get_api', lambda: api)
+
+    win = _opened_detail_window(ctx)  # returns while the lookup is still parked
+
+    assert _watched_marks(win, ctx) == ['', '', '']
+    assert win._watched_thread.is_alive()
+    gate.set()
+    win._watched_thread.join(5)
+    # The worker only queued the answer and woke the GUI thread.
+    assert _watched_marks(win, ctx) == ['', '', '']
+    assert 'Action(noop)' in ctx.env.executed_builtins
+
+    win.getControl(ctx.detailwindow.LIST).selected_index = 2
+    _drain(win)
+
+    assert api.get_calls == [('tok', 'tt1')]
+    assert _watched_marks(win, ctx) == ['', '1', '']
+    assert win.getControl(ctx.detailwindow.LIST).items[1].legacy_info == {'playcount': 1, 'overlay': 5}
+    assert win.getControl(ctx.detailwindow.LIST).selected_index == 2  # cursor not snapped back to the top
+
+
+def test_open_time_fetch_logged_out_makes_no_request(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow()
+    _store, api = _wire_library_deps(monkeypatch, ctx, auth=None, item=_watched_item('tt1:1:2'))
+
+    win = _opened_detail_window(ctx)
+    _drain(win)
+
+    assert win._watched_thread is None
+    assert api.get_calls == []
+    assert _watched_marks(win, ctx) == ['', '', '']
+    assert 'Action(noop)' not in ctx.env.executed_builtins
+
+
+def test_open_time_fetch_failure_leaves_rows_unmarked(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow()
+    _store, api = _wire_library_deps(monkeypatch, ctx, auth={'authKey': 'tok'}, get_error=ApiError('boom'))
+
+    win = _opened_detail_window(ctx)
+    win._watched_thread.join(5)
+    _drain(win)
+
+    assert api.get_calls == [('tok', 'tt1')]
+    assert _watched_marks(win, ctx) == ['', '', '']
+    assert 'Action(noop)' not in ctx.env.executed_builtins
+
+
+def test_open_time_fetch_without_a_library_record_marks_nothing(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow()
+    _wire_library_deps(monkeypatch, ctx, auth={'authKey': 'tok'}, item=None)
+
+    win = _opened_detail_window(ctx)
+    win._watched_thread.join(5)
+    _drain(win)
+
+    assert _watched_marks(win, ctx) == ['', '', '']
+
+
+def test_open_time_fetch_landing_after_close_is_dropped(load_detailwindow, monkeypatch):
+    import threading
+    ctx = load_detailwindow()
+    gate = threading.Event()
+
+    class _GatedApi(_FakeLibraryApi):
+        def get_library_item(self, auth_key, item_id):
+            assert gate.wait(5)
+            return super().get_library_item(auth_key, item_id)
+
+    store = _FakeAuthStore({'authKey': 'tok'})
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+    monkeypatch.setattr(ctx.dependencies, 'get_api', lambda: _GatedApi(item=_watched_item('tt1:1:2')))
+    win = _opened_detail_window(ctx)
+
+    win.close()
+    gate.set()
+    win._watched_thread.join(5)
+    _drain(win)
+
+    assert win._watched_pending is None
+    assert _watched_marks(win, ctx) == ['', '', '']
+    assert 'Action(noop)' not in ctx.env.executed_builtins
+
+
+def test_open_time_fetch_older_than_the_context_menu_lookup_is_dropped(load_detailwindow, monkeypatch):
+    """The context menu's own live lookup is authoritative: an open-time
+    answer still in flight predates it and must not overwrite its marks."""
+    import threading
+    ctx = load_detailwindow()
+    gate = threading.Event()
+
+    class _GatedApi(_FakeLibraryApi):
+        def get_library_item(self, auth_key, item_id):
+            assert gate.wait(5)
+            return super().get_library_item(auth_key, item_id)
+
+    store = _FakeAuthStore({'authKey': 'tok'})
+    monkeypatch.setattr(ctx.dependencies, 'get_store', lambda: store)
+    monkeypatch.setattr(ctx.dependencies, 'get_api', lambda: _GatedApi(item=_watched_item('tt1:1:1')))
+    win = _opened_detail_window(ctx)
+
+    win._remember_watched(_watched_item('tt1:1:3'))
+    gate.set()
+    win._watched_thread.join(5)
+    _drain(win)
+
+    assert _watched_marks(win, ctx) == ['', '', '1']

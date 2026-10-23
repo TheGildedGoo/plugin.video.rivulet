@@ -39,6 +39,7 @@ import time
 import xbmcgui
 
 from lib.stremio.addons import _base_type
+from lib.stremio.watchedbitfield import sorted_video_ids, watched_video_ids
 from lib.ui.playbackmeta import episode_code as _pm_episode_code
 from lib.ui.playbackmeta import resolve_art
 from lib.ui.uicommon import (
@@ -439,6 +440,18 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         #: after a playback or trailer round trip.
         self._resume_position = None
         self.should_close_caller = False
+        self._watched_ids = set()
+        #: Worker->GUI handoff for the open-time library fetch (see
+        #: `_start_watched_fetch()`), same queue + `Action(noop)` shape as
+        #: `StreamsWindow`'s live merge. `_watched_epoch` is bumped under
+        #: `_watched_lock` by every authoritative writer of `_watched_ids`
+        #: (`_remember_watched()`), by `_start_watched_fetch()` and by
+        #: `close()`: a fetch started under an older epoch is stale and
+        #: its result is dropped instead of queued or applied.
+        self._watched_lock = threading.Lock()
+        self._watched_epoch = 0
+        self._watched_pending = None
+        self._watched_thread = None
 
     def start(self, meta, stype):
         """doModal() showing `meta`'s episode list. Returns True if
@@ -455,6 +468,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self._video_by_id = {video.get('id'): video for video in self.videos}
         self.season_groups = _group_by_season(self.meta.get('videos'))
         self.season_index = self._default_season_index()
+        self._watched_ids = set()
         active = self._active_videos()
         _prefetch_s4me_streams(self.stype, active[0].get('id') if active else None)
         self.doModal()
@@ -505,7 +519,11 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             properties['aired'] = _short_date(properties.get('aired'))
             # One setProperties() call instead of one setProperty() call
             # per key - each is a Python->C++ boundary crossing.
+            if video.get('id') in self._watched_ids:
+                properties['watched'] = '1'
             item.setProperties(properties)
+            if video.get('id') in self._watched_ids:
+                item.setInfo('video', {'playcount': 1, 'overlay': 5})
             if percent is not None:
                 # The same legacy setInfo('video', {resumetime,
                 # totaltime}) shape any Kodi video plugin uses to badge
@@ -624,9 +642,81 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             select = self._resume_position[1]
         self._populate_episode_list(self._active_videos(), select)
         self.setFocusId(LIST)
+        self._start_watched_fetch()
+
+    def close(self):
+        # Invalidate any in-flight watched fetch before the controls go
+        # away: its result is then discarded by the worker, never queued
+        # for a window that is no longer on screen.
+        with self._watched_lock:
+            self._watched_epoch += 1
+            self._watched_pending = None
+        super().close()
+
+    def _start_watched_fetch(self):
+        """Open-time watched state: when logged in, look up this title's
+        library item on a daemon thread and let `_apply_watched_pending()`
+        paint the episodes' `watched` marks once it lands. Logged out
+        makes no request at all, and `onInit()` never waits on the
+        network (the context menu's own lookup, which needs the answer to
+        build its rows, is the blocking counterpart).
+
+        The worker never touches a control or a ListItem: it only queues
+        the item under `_watched_lock` and wakes the GUI thread with
+        `Action(noop)` (a ListItem must not be written off the GUI
+        thread, and the window may be gone by the time the answer
+        arrives - `close()` bumps the epoch so a late answer is dropped).
+        A failed lookup leaves the rows unmarked: no guessed state, and
+        no log call from the thread (see `_prefetch_s4me_streams()` for
+        the same reason)."""
+        from lib.ui.compat import log
+        from lib.ui.dependencies import get_api, get_store
+
+        try:
+            auth = get_store().get_auth()
+        except Exception as exc:  # noqa: BLE001 - an unreadable local cache must never break onInit()
+            log('detailwindow: auth lookup failed, watched marks skipped: %r' % (exc,))
+            return
+        video_id = self.meta.get('id')
+        if not auth or not video_id:
+            return
+        auth_key = auth.get('authKey')
+        with self._watched_lock:
+            self._watched_epoch += 1
+            epoch = self._watched_epoch
+            self._watched_pending = None
+
+        def _worker():
+            try:
+                item = get_api().get_library_item(auth_key, video_id)
+            except Exception:  # noqa: BLE001 - best-effort paint; the context menu reports real failures
+                return
+            if not item:
+                return
+            with self._watched_lock:
+                if epoch != self._watched_epoch:
+                    return
+                self._watched_pending = item
+            try:
+                import xbmc
+                xbmc.executebuiltin('Action(noop)')
+            except Exception:  # noqa: BLE001 - interpreter/Kodi teardown
+                pass
+
+        self._watched_thread = threading.Thread(target=_worker, daemon=True)
+        self._watched_thread.start()
+
+    def _apply_watched_pending(self):
+        """Paint whatever `_start_watched_fetch()`'s worker queued - GUI
+        thread only (`onAction()`'s `Action(noop)` drain)."""
+        with self._watched_lock:
+            item, self._watched_pending = self._watched_pending, None
+        if item is not None:
+            self._remember_watched(item)
 
     @gated_input
     def onAction(self, action):
+        self._apply_watched_pending()
         action_id = action.getId()
         if action_id in _SEASON_NAV_ACTIONS and self.getFocusId() == SEASON_BAR:
             self._sync_season_from_bar()
@@ -698,6 +788,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             # Back on the lookup spinner: no menu, stay on the episode list.
             return
         auth, item, lookup_ok = state
+        self._remember_watched(item)
         in_library = bool(item) and not item.get('removed')
         watched = bool(item) and bool((item.get('state') or {}).get('flaggedWatched'))
 
@@ -775,6 +866,34 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             return auth, None, False
         return auth, item, True
 
+    def _remember_watched(self, item):
+        """Cache the episodes `item.state.watched` marks as watched, for
+        `_build_episode_items()` to badge. An unreadable bitmap (or no
+        item) caches nothing -- never a guessed mark."""
+        ids = watched_video_ids(((item or {}).get('state') or {}).get('watched'), sorted_video_ids(self.videos))
+        ids = ids or set()
+        with self._watched_lock:
+            # Authoritative answer: any open-time fetch still in flight
+            # predates it and must not overwrite it.
+            self._watched_epoch += 1
+            self._watched_pending = None
+        changed = ids != self._watched_ids
+        self._watched_ids = ids
+        if changed:
+            self._paint_watched()
+
+    def _paint_watched(self):
+        """Re-mark the live `LIST` rows from `self._watched_ids` in place.
+        Deliberately not `_populate_episode_list()`: a reset() would snap
+        the selection back to the top under the user's cursor, which an
+        open-time fetch landing late would do mid-scroll."""
+        control = self.getControl(LIST)
+        for position in range(control.size()):
+            item = control.getListItem(position)
+            watched = item.getProperty('row_id') in self._watched_ids
+            item.setProperty('watched', '1' if watched else '')
+            item.setInfo('video', {'playcount': 1 if watched else 0, 'overlay': 5 if watched else 4})
+
     def _toggle_library(self, auth, item, add, lookup_ok):
         """Push an explicit `library_add_payload()` (built fresh from
         `self.meta` -- see that function's own docstring for why it
@@ -828,9 +947,10 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             notify(L(30302))
             return
         base = item if item is not None else library.build_library_item(self.meta)
-        payload = library.mark_watched_payload(base, watched)
+        payload = library.mark_watched_payload(base, watched, video_ids=sorted_video_ids(self.videos))
         if not self._push_library_item(auth, payload):
             return
+        self._remember_watched(payload)
         notify(L(30299) if watched else L(30300))
 
     @staticmethod

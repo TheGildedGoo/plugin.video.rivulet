@@ -213,7 +213,8 @@ class AddonsWindow(BaseWindow):
             notify(L(_PROTECTED_MESSAGE_STRING_ID))
             return
 
-        _sync_addons_if_logged_in(self.store, cancellable=True)
+        _sync_addons_if_logged_in(
+            self.store, cancellable=True, removed_url=descriptor.get('transportUrl'))
         notify(L(30013))
         self._reload()
 

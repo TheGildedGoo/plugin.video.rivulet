@@ -613,12 +613,18 @@ class _SyncStore:
     def get_addons(self):
         return [{'transportUrl': 'https://a.example/manifest.json', 'manifest': {'id': 'a'}}]
 
+    def update_addons(self, transform, max_attempts=3):
+        return transform(self.get_addons())
+
     def set_auth(self, value):
         self.auth_set_calls.append(value)
 
 
 def _fake_api(ctx, monkeypatch, push):
     class _Api:
+        def addon_collection_get(self, auth_key):
+            return []
+
         def addon_collection_set(self, auth_key, payload):
             return push(auth_key, payload)
 

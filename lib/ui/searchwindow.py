@@ -332,6 +332,36 @@ def _query_catalog(client, transport_url, cat, query):
     return metas, None
 
 
+#: First try plus two silent retries when a catalog errors. An empty
+#: success is the catalog's answer. Local to this fan-out, same reason
+#: `_MAX_SEARCH_WORKERS` is not shared with the streams pool.
+_SEARCH_ATTEMPTS = 3
+_SEARCH_RETRY_BACKOFF_SECONDS = (0.4, 0.8)
+
+
+def _pause_before_search_retry(seconds):
+    """See `streamswindow._pause_before_stream_retry`. Returns True when
+    Kodi is aborting and the worker should stop."""
+    if seconds <= 0:
+        return False
+    return xbmc.Monitor().waitForAbort(seconds)
+
+
+def _query_catalog_retrying(client, transport_url, cat, query):
+    """`_query_catalog()` with silent retries on failure only. The
+    collector still sees one answer per catalog, so the spinner stays
+    up until the retries are done or the user backs out (the collector
+    polls cancellation on its own thread)."""
+    metas, failure = [], 'failed'
+    for attempt in range(_SEARCH_ATTEMPTS):
+        metas, failure = _query_catalog(client, transport_url, cat, query)
+        if failure is None or attempt + 1 >= _SEARCH_ATTEMPTS:
+            return metas, failure
+        if _pause_before_search_retry(_SEARCH_RETRY_BACKOFF_SECONDS[attempt]):
+            return metas, failure
+    return metas, failure
+
+
 def _start_search_workers(client, query, jobs):
     """Fan `_query_catalog()` out across a small, genuinely BOUNDED pool of
     raw daemon threads fed by a `queue.Queue`, and return the results
@@ -353,12 +383,17 @@ def _start_search_workers(client, query, jobs):
     results = queue.Queue()
 
     def _worker():
-        while True:
-            try:
-                index, transport_url, cat = work.get_nowait()
-            except queue.Empty:
-                return
-            results.put((index, _query_catalog(client, transport_url, cat, query)))
+        try:
+            while True:
+                try:
+                    index, transport_url, cat = work.get_nowait()
+                except queue.Empty:
+                    return
+                results.put((index, _query_catalog_retrying(client, transport_url, cat, query)))
+        finally:
+            release = getattr(client, '_release_worker_session', None)
+            if callable(release):
+                release()
 
     for _ in range(min(len(jobs), _MAX_SEARCH_WORKERS)):
         threading.Thread(target=_worker, daemon=True).start()

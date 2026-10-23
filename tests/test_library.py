@@ -524,3 +524,19 @@ def test_progress_from_library_item_ignores_infinite_numbers():
     assert library.progress_from_library_item(
         _remote(state={"lastWatched": "2026-01-02T03:04:05Z", "timeOffset": float("inf"), "duration": 1000})
     ) is None
+
+
+def test_mark_watched_payload_updates_watched_bitfield_for_all_videos():
+    from lib.stremio import watchedbitfield as wb
+    ids = ['tt1:1:1', 'tt1:1:2', 'tt1:1:3']
+    item = {'_id': 'tt1', 'state': {'flaggedWatched': 0, 'timesWatched': 0, 'watched': None}}
+    done = library.mark_watched_payload(item, True, video_ids=ids)
+    assert wb.watched_video_ids(done['state']['watched'], ids) == set(ids)
+    undone = library.mark_watched_payload(done, False, video_ids=ids)
+    assert wb.watched_video_ids(undone['state']['watched'], ids) == set()
+
+
+def test_mark_watched_payload_keeps_untrusted_bitfield():
+    item = {'_id': 'tt1', 'state': {'watched': 'garbage'}}
+    done = library.mark_watched_payload(item, True, video_ids=['a', 'b'])
+    assert done['state']['watched'] == 'garbage'

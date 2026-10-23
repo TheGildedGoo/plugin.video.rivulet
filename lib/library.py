@@ -33,15 +33,20 @@ HEAD 7f69095a):
   caller can hand one straight to ``datastore_put`` unmodified.
 
 CRITICAL -- read this before touching ``state.watched`` anywhere:
-``state.watched`` is a ``stremio-watched-bitfield``-encoded (a packed
-per-episode bitfield; see the ``stremio-watched-bitfield`` Rust crate)
-value this addon does not decode or encode. :func:`merge_playback` NEVER
-computes or touches it -- it is carried over from the existing item
-byte-for-byte, or left ``None`` for a brand-new item. Synthesising or
-guessing this field would silently corrupt the user's REAL Stremio
-library the next moment any official Stremio client reads it back.
+``state.watched`` is a ``stremio-watched-bitfield``-encoded packed
+per-episode bitfield, codec in :mod:`lib.stremio.watchedbitfield`.
+:func:`merge_playback` NEVER computes or touches it -- it is carried over
+byte-for-byte, or left ``None`` for a brand-new item. Only
+:func:`mark_watched_payload` rewrites it, and only when the caller passes
+the series' ``video_ids`` AND the codec can trust the existing string
+(parseable, anchor still in the list); otherwise the original value is
+kept untouched. Never synthesise or guess this field: a wrong value
+silently corrupts the user's REAL Stremio library the next time any
+official Stremio client reads it back.
 """
 import datetime
+
+from lib.stremio import watchedbitfield
 
 #: Default `posterShape` for a freshly-built item. stremio-core's own
 #: `PosterShape` enum defaults to `Poster` for anything else
@@ -190,8 +195,8 @@ def merge_playback(item, position_ms, duration_ms, video_id=None, now=None):
        `duration_ms * WATCHED_THRESHOLD_RATIO`, `flaggedWatched` flips
        to 1 and `timesWatched` increments by exactly one.
 
-    `state.watched` -- the per-episode `stremio-watched-bitfield` this
-    addon does not implement -- is copied over completely UNTOUCHED, see
+    `state.watched` -- the per-episode `stremio-watched-bitfield` -- is
+    copied over completely UNTOUCHED, see
     the module docstring's CRITICAL note. Every other top-level field
     (`removed`/`temp`/`name`/`poster`/`behaviorHints`/...) is copied
     unchanged; only `_mtime` and `state` differ in the result.
@@ -346,7 +351,7 @@ def library_remove_payload(item, now=None):
     return result
 
 
-def mark_watched_payload(item, watched, now=None):
+def mark_watched_payload(item, watched, now=None, video_ids=None):
     """Return a NEW LibraryItem dict (`item` is never mutated) setting
     `item['state']['flaggedWatched']` to `watched` -- the explicit
     "Mark as watched"/"Mark as unwatched" action, using exactly the
@@ -367,10 +372,13 @@ def mark_watched_payload(item, watched, now=None):
     not erase that history.
 
     An `item` with no `state` at all yet (never played, never added)
-    gets a fresh default one first, same as `merge_playback()`. The
-    `state.watched` per-episode bitfield is never touched here either --
-    see the module docstring's CRITICAL note; this function only ever
-    writes `flaggedWatched`/`timesWatched`.
+    gets a fresh default one first, same as `merge_playback()`.
+
+    `video_ids` (a series' video ids in `watchedbitfield.sorted_video_ids`
+    order) additionally sets/clears every episode's bit in
+    `state.watched`, so official clients show the same per-episode marks.
+    If the existing string cannot be trusted the field is left as it was
+    -- see the module docstring's CRITICAL note.
     """
     now_iso = iso8601_utc(now)
     original_state = item.get('state')
@@ -380,6 +388,10 @@ def mark_watched_payload(item, watched, now=None):
     state['flaggedWatched'] = 1 if watched else 0
     if watched and not was_watched:
         state['timesWatched'] = int(state.get('timesWatched') or 0) + 1
+    if video_ids:
+        updated = watchedbitfield.set_all_watched(state.get('watched'), video_ids, watched)
+        if updated is not None:
+            state['watched'] = updated
 
     result = dict(item)
     result['state'] = state

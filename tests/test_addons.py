@@ -1186,3 +1186,43 @@ def test_redirect_to_https_is_followed():
         ]
     )
     assert client.manifest(MANIFEST_URL) == {"id": "org.moved"}
+
+
+def test_addon_client_worker_thread_gets_its_own_session_and_releases_it():
+    """`requests.Session` is not thread-safe: a fan-out worker must not use
+    the session the client was built with, and gets the same User-Agent."""
+    import threading
+
+    client = AddonClient()
+    seen = {}
+
+    def _worker():
+        session = client._active_session()
+        seen['session'] = session
+        seen['again'] = client._active_session()
+        seen['ua'] = session.headers['User-Agent']
+        client._release_worker_session()
+        seen['after'] = client._worker_sessions.session
+
+    thread = threading.Thread(target=_worker)
+    thread.start()
+    thread.join()
+
+    assert client._active_session() is client.session
+    assert seen['session'] is not client.session
+    assert seen['again'] is seen['session']
+    assert seen['ua'] == client.session.headers['User-Agent']
+    assert seen['after'] is None
+
+
+def test_addon_client_substituted_session_is_used_from_worker_threads():
+    import threading
+
+    client = AddonClient()
+    client.session = FakeSession([])
+    seen = []
+    thread = threading.Thread(target=lambda: seen.append(client._active_session()))
+    thread.start()
+    thread.join()
+
+    assert seen == [client.session]

@@ -74,11 +74,14 @@ call bounded by `AddonClient`'s own 15s timeout - taking as long as
 27.6s to open this picker, and 5.0s even in the ordinary case, because
 one slow or unresponsive addon held up every addon queued behind it
 (`streamswindow: 1 addon(s) failed` on every single fetch, whether or
-not that addon was the slow one). `_fetch_stream_pairs()` (still used,
-unchanged, by `_try_binge_watch()`) fetches every addon concurrently
-but still blocks until all of them answer; `open_streams()` goes
-further and opens the picker as soon as the FIRST addon answers,
-letting the rest stream their own results in live onto the open
+not that addon was the slow one). `_fetch_stream_pairs()` (still used
+by `_try_binge_watch()`) fetches every addon concurrently but still
+blocks until all of them answer; `open_streams()` goes
+further and opens the picker as soon as the FIRST addon answers with
+streams. A timeout or error is retried silently (see
+`_STREAM_ATTEMPTS`) while the spinner stays up; an empty success is
+the addon's answer and is not retried. The rest stream their own
+results in live onto the open
 `StreamsWindow` (`StreamsWindow.add_pairs()`/`set_loading()`) exactly
 like `infowindow.ShowcaseWindow`'s background meta-enrich worker feeds
 an already-open coverflow - see that module's docstring and
@@ -1145,6 +1148,56 @@ def _query_addon_streams(client, transport_url, addon_name, stype, sid):
     return pairs, False, None
 
 
+#: First try plus two silent retries. A dead addon used to become
+#: "No streams found" (#30030) the moment its one request timed out,
+#: and the same tap a second later succeeded. Only a failed attempt
+#: is retried — an addon that answers `[]` has nothing, and asking
+#: again would only hold the spinner.
+_STREAM_ATTEMPTS = 3
+
+#: Short waits between those retries, long enough for a stalled addon
+#: to accept a new connection, short enough that the spinner does not
+#: feel stuck. Local to this fan-out, the same way
+#: `_MAX_STREAM_ADDON_WORKERS` is: each call site bounds its own pool
+#: and its own patience.
+_STREAM_RETRY_BACKOFF_SECONDS = (0.4, 0.8)
+
+
+def _pause_before_stream_retry(seconds):
+    """Wait out one silent-retry backoff. Returns True if Kodi is
+    aborting, in which case the worker should post the failure it
+    already has and stop.
+
+    `Monitor.waitForAbort` is what every other spinner-side wait in
+    this addon uses: the test stubs return immediately (they advance a
+    fake clock), and a timeout of `<= 0` would wait forever on Kodi,
+    so a non-positive `seconds` skips the call entirely."""
+    if seconds <= 0:
+        return False
+    import xbmc
+
+    return xbmc.Monitor().waitForAbort(seconds)
+
+
+def _query_addon_streams_retrying(client, transport_url, addon_name, stype, sid):
+    """`_query_addon_streams()` with silent retries on failure only.
+
+    The consumer still sees one `(pairs, failed, reason)` per addon,
+    so the spinner stays up until a real stream arrives or every
+    attempt has failed. Backing out does not wait for the backoff:
+    the consumer polls cancellation on its own thread while this one
+    sleeps."""
+    pairs, failed, reason = [], True, None
+    for attempt in range(_STREAM_ATTEMPTS):
+        pairs, failed, reason = _query_addon_streams(
+            client, transport_url, addon_name, stype, sid)
+        if not failed or attempt + 1 >= _STREAM_ATTEMPTS:
+            return pairs, failed, reason
+        if _pause_before_stream_retry(_STREAM_RETRY_BACKOFF_SECONDS[attempt]):
+            return pairs, failed, reason
+    return pairs, failed, reason
+
+
 def _supported_stream_addons(stype, sid):
     """Every installed addon whose manifest declares `stream` support
     for (stype, sid) - the exact filter the old serial loop applied
@@ -1351,14 +1404,21 @@ def _start_stream_fetch_workers(stype, sid, addons):
     results = queue.Queue()
 
     def _worker():
-        while True:
-            try:
-                transport_url, addon_name, request_id = work.get_nowait()
-            except queue.Empty:
-                return
-            addon_pairs, failed, reason = _query_addon_streams(
-                client, transport_url, addon_name, stype, request_id)
-            results.put((addon_name, addon_pairs, failed, reason))
+        try:
+            while True:
+                try:
+                    transport_url, addon_name, request_id = work.get_nowait()
+                except queue.Empty:
+                    return
+                addon_pairs, failed, reason = _query_addon_streams_retrying(
+                    client, transport_url, addon_name, stype, request_id)
+                results.put((addon_name, addon_pairs, failed, reason))
+        finally:
+            # Drop this thread's private requests session. A fake client
+            # has no such method and keeps the object the test substituted.
+            release = getattr(client, '_release_worker_session', None)
+            if callable(release):
+                release()
 
     for _ in range(min(len(addons), _MAX_STREAM_ADDON_WORKERS)):
         threading.Thread(target=_worker, daemon=True).start()

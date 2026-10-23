@@ -273,7 +273,8 @@ def test_open_streams_addonerror_is_logged_and_skipped_not_fatal(load_streamswin
     result = sw.open_streams('movie', 'tt1')
 
     assert result is False
-    assert [call[0] for call in client.calls] == [failing_transport, ok_transport]
+    assert sorted(call[0] for call in client.calls) == (
+        [failing_transport] * sw._STREAM_ATTEMPTS + [ok_transport])
     assert [s for _info, s in captured['pairs']] == [ok_stream]
     # The failing addon must never hit ERROR (that was the noisy old
     # behavior) - one DEBUG line naming its safe scheme+host, plus exactly
@@ -416,8 +417,9 @@ def test_open_streams_multiple_addon_failures_still_log_a_single_aggregate_warni
 
     assert result is False
     debug_msgs = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGDEBUG]
-    assert sum(1 for msg in debug_msgs if 'fail-a.example' in msg) == 1
-    assert sum(1 for msg in debug_msgs if 'fail-b.example' in msg) == 1
+    # Each failing addon is tried `_STREAM_ATTEMPTS` times before it counts as failed.
+    assert sum(1 for msg in debug_msgs if 'fail-a.example' in msg) == sw._STREAM_ATTEMPTS
+    assert sum(1 for msg in debug_msgs if 'fail-b.example' in msg) == sw._STREAM_ATTEMPTS
     assert not any('boom a' in msg or 'boom b' in msg for msg in debug_msgs)
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
     assert len(warnings) == 1
@@ -924,7 +926,8 @@ def test_fetch_stream_pairs_aggregates_every_addon_and_logs_a_single_warning_on_
     pairs = sw._fetch_stream_pairs('movie', 'tt1')
 
     assert [s for _info, s in pairs] == [ok_stream]
-    assert sorted(call[0] for call in client.calls) == [failing_transport, ok_transport]
+    assert sorted(call[0] for call in client.calls) == (
+        [failing_transport] * sw._STREAM_ATTEMPTS + [ok_transport])
     warnings = [msg for msg, lvl in ctx.env.log_calls if lvl == xbmc.LOGWARNING]
     assert warnings == ['[plugin.video.rivulet] streamswindow: 1 addon(s) failed: Failing (AddonError)']
 

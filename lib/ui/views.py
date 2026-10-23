@@ -37,7 +37,7 @@ from lib.stremio.addons import (
 )
 from lib.stremio.api import ApiError, StremioAPI
 from lib.stremio.contentrating import filter_metas, is_adult_catalog
-from lib.ui import compat, dialogs, router, urlutil
+from lib.ui import addonsync, compat, dialogs, router, urlutil
 from lib.ui.compat import L, log, notify
 from lib.ui.dependencies import get_client, get_store
 from lib.ui.uicommon import CANCELLED, run_cancellable
@@ -80,7 +80,7 @@ def _url_for(action, **params):
 _SOFT_DEADLINE_S = 4.0
 
 
-def _fan_out(fn, items, max_workers):
+def _fan_out(fn, items, max_workers, client=None):
     """Call `fn(item)` once per item, fanned out over up to `max_workers`
     raw daemon `threading.Thread` workers pulling from a `queue.Queue` -
     NOT `concurrent.futures.ThreadPoolExecutor` (see `_SOFT_DEADLINE_S`'s
@@ -88,6 +88,12 @@ def _fan_out(fn, items, max_workers):
     pairs, one per item, in completion order (not input order) - callers
     read from it directly so they can apply their own winner/deadline
     semantics on top of the same daemon-thread fan-out.
+
+    `client`, when given, has its per-thread requests session closed as
+    each worker exits (`AddonClient._release_worker_session`). Callers
+    that do not pass it still get a private session per worker via
+    `AddonClient._active_session()`; that session is closed when the
+    thread drops it.
     """
     work = queue.Queue()
     for index, item in enumerate(items):
@@ -95,19 +101,24 @@ def _fan_out(fn, items, max_workers):
     results = queue.Queue()
 
     def _worker():
-        while True:
-            try:
-                index, item = work.get_nowait()
-            except queue.Empty:
-                return
-            results.put((index, fn(item)))
+        try:
+            while True:
+                try:
+                    index, item = work.get_nowait()
+                except queue.Empty:
+                    return
+                results.put((index, fn(item)))
+        finally:
+            release = getattr(client, '_release_worker_session', None)
+            if callable(release):
+                release()
 
     for _ in range(min(len(items), max_workers)):
         threading.Thread(target=_worker, daemon=True).start()
     return results
 
 
-def _map_addons(fn, items):
+def _map_addons(fn, items, client=None):
     """Call `fn(item)` once per item in `items`, fanned out across a small
     bounded thread pool, and return the results in the same order as
     `items` - a drop-in replacement for `[fn(item) for item in items]`
@@ -135,7 +146,7 @@ def _map_addons(fn, items):
         return []
     if len(items) == 1:
         return [fn(items[0])]
-    results = _fan_out(fn, items, _MAX_ADDON_WORKERS)
+    results = _fan_out(fn, items, _MAX_ADDON_WORKERS, client=client)
     out = [None] * len(items)
     remaining = len(items)
     deadline = time.monotonic() + _SOFT_DEADLINE_S
@@ -390,12 +401,17 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
         results = queue.Queue()
 
         def _worker():
-            while True:
-                try:
-                    index, descriptor = work.get_nowait()
-                except queue.Empty:
-                    return
-                results.put((index, _fetch_one(descriptor)))
+            try:
+                while True:
+                    try:
+                        index, descriptor = work.get_nowait()
+                    except queue.Empty:
+                        return
+                    results.put((index, _fetch_one(descriptor)))
+            finally:
+                release = getattr(client, '_release_worker_session', None)
+                if callable(release):
+                    release()
 
         for _ in range(min(len(targets), _MAX_ADDON_WORKERS)):
             threading.Thread(target=_worker, daemon=True).start()
@@ -737,7 +753,7 @@ def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hi
     notify(message)
 
 
-def _sync_addons_if_logged_in(store, notify_success=False, cancellable=False):
+def _sync_addons_if_logged_in(store, notify_success=False, cancellable=False, removed_url=None):
     """Best-effort push of the local addon collection back to Stremio's
     remote sync API when the user is logged in. A failed push is
     notified (not just logged) - previously silent, which made a real
@@ -768,26 +784,37 @@ def _sync_addons_if_logged_in(store, notify_success=False, cancellable=False):
     push is neither a success nor a failure: nothing is notified, the
     auth is untouched, and the return value is False - the local change
     already happened and the next sync pushes the whole collection
-    anyway (it is a full-collection set, not a delta)."""
+    anyway (it is a full-collection set, not a delta).
+
+    `removed_url` names an addon just uninstalled locally, so the
+    pull-before-push does not union it straight back from the account."""
+    from lib.store import ConcurrentUpdateError
+
     auth = store.get_auth()
     if not auth:
         if notify_success:
             notify(L(30020))
         return False
     try:
-        payload = []
-        for descriptor in store.get_addons():
-            flags = descriptor.get('flags')
-            if flags and 'disabled' in flags:
-                descriptor = dict(descriptor)
-                flags = dict(flags)
-                del flags['disabled']
-                descriptor['flags'] = flags
-            payload.append(descriptor)
         auth_key = auth.get('authKey')
 
         def push():
-            StremioAPI().addon_collection_set(auth_key, payload)
+            # addonCollectionSet REPLACES the account collection, so a
+            # stale local list would delete an addon added from another
+            # Stremio client. Pull + union first; a failed pull raises
+            # ApiError before anything is pushed.
+            api = StremioAPI()
+            addonsync.pull_account_addons(store, api, auth_key, removed_url)
+            payload = []
+            for descriptor in store.get_addons():
+                flags = descriptor.get('flags')
+                if flags and 'disabled' in flags:
+                    descriptor = dict(descriptor)
+                    flags = dict(flags)
+                    del flags['disabled']
+                    descriptor['flags'] = flags
+                payload.append(descriptor)
+            api.addon_collection_set(auth_key, payload)
 
         if cancellable:
             # Only the network push runs on the worker; every notify/
@@ -810,6 +837,12 @@ def _sync_addons_if_logged_in(store, notify_success=False, cancellable=False):
             # install/remove/login paths, where a "session expired" popup
             # would be out of context.
             store.set_auth(None)
+        notify(L(30035))
+        return False
+    except ConcurrentUpdateError as exc:
+        # The pre-push pull could not be persisted: do NOT push a list
+        # that may lack remote-only addons.
+        log('views._sync_addons_if_logged_in: pull merge failed: %r' % (exc,), xbmc.LOGERROR)
         notify(L(30035))
         return False
     if notify_success:
@@ -845,7 +878,7 @@ def _refresh_addon_manifests(store, client):
             log('views._refresh_addon_manifests: %s failed: %s' % (safe_url_for_log(transport_url), addon_error_detail(exc)), xbmc.LOGWARNING)
             return None
 
-    fetched = _map_addons(_fetch, descriptors)
+    fetched = _map_addons(_fetch, descriptors, client=client)
     refreshed = {}
     for descriptor, manifest in zip(descriptors, fetched):
         if manifest and manifest.get('id') and manifest != descriptor.get('manifest'):
