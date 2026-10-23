@@ -198,6 +198,8 @@ after a UI change to refresh the gallery.
 
 ---
 
+Rotten Tomatoes, Popcornmeter and Metacritic are trademarks of their owners; Rivulet's icons are original artwork that only identifies where a score comes from.
+
 <div align="center">
   <sub>Licensed under <a href="LICENSE">MIT</a>. Not affiliated with Stremio.</sub>
 </div>

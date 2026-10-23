@@ -22,14 +22,22 @@ from .fakes import FakeListItem
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _SKIN_DIR = os.path.join(_REPO_ROOT, 'resources', 'skins', 'Default', '1080i')
 
-#: xml filename -> frozenset of every id a <control id="..."> element
-#: declares in resources/skins/Default/1080i/<filename>, or None for a
-#: filename with no such file. Populated lazily by _declared_control_ids()
+#: XML filename -> {control id: XML type}, or None for a missing file.
+#: Populated lazily by _declared_controls()
 #: and never invalidated - the skin files don't change mid test-run, and
 #: this is on WindowXML.__init__'s path for every window built across a
 #: 1510-test suite, so parsing each file more than once would be wasted
 #: work many times over.
-_SKIN_CONTROL_IDS = {}
+_SKIN_CONTROLS = {}
+
+#: Window.cpp::GetControlById's Python wrapper cases, expressed as XML
+#: types. Grouplist, scrollbar, multiimage and unknown types are absent.
+#: https://github.com/xbmc/xbmc/blob/master/xbmc/interfaces/legacy/Window.cpp
+WRAPPABLE_CONTROL_TYPES = frozenset((
+    'button', 'togglebutton', 'label', 'spincontrol', 'fadelabel', 'textbox',
+    'image', 'progress', 'slider', 'videowindow', 'list', 'wraplist',
+    'fixedlist', 'panel', 'group', 'radiobutton', 'edit',
+))
 
 
 class SwigPyObjectType(type):
@@ -65,10 +73,8 @@ def _swig_check_setattr(cls, name):
     raise AttributeError("type '%s' has no attribute '%s'" % (cls.__qualname__, name))
 
 
-def _declared_control_ids(xml_name):
-    """Return the set of ids `resources/skins/Default/1080i/<xml_name>`
-    declares via `<control id="...">`, or None if `xml_name` is falsy or
-    names a file that does not exist there.
+def _declared_controls(xml_name):
+    """Return declared id/type pairs, or None for an unknown XML file.
 
     None is WindowXML's escape hatch, not an error: a test that builds
     the fake directly with no args (or a bogus name) never went near a
@@ -76,19 +82,19 @@ def _declared_control_ids(xml_name):
     getControl(), same as before this check existed."""
     if not xml_name:
         return None
-    if xml_name in _SKIN_CONTROL_IDS:
-        return _SKIN_CONTROL_IDS[xml_name]
+    if xml_name in _SKIN_CONTROLS:
+        return _SKIN_CONTROLS[xml_name]
     path = os.path.join(_SKIN_DIR, xml_name)
     if not os.path.isfile(path):
-        ids = None
+        controls = None
     else:
-        ids = frozenset(
-            int(control.get('id'))
+        controls = {
+            int(control.get('id')): control.get('type')
             for control in ET.parse(path).getroot().iter('control')
             if control.get('id') is not None
-        )
-    _SKIN_CONTROL_IDS[xml_name] = ids
-    return ids
+        }
+    _SKIN_CONTROLS[xml_name] = controls
+    return controls
 
 
 def make_xbmc(env, info_labels=None, cond_visibility=None):
@@ -118,6 +124,24 @@ def make_xbmc(env, info_labels=None, cond_visibility=None):
     def getInfoLabel(label):
         return labels.get(label, '')
 
+    def executeJSONRPC(request):
+        """Answers Textures.GetTextures from `env.cached_textures`; any
+        other method gets an empty result."""
+        import json as _json
+
+        env.jsonrpc_calls.append(request)
+        try:
+            payload = _json.loads(request)
+        except ValueError:
+            return _json.dumps({'error': {'code': -32700}})
+        if payload.get('method') == 'Textures.GetTextures':
+            wanted = (((payload.get('params') or {}).get('filter') or {}).get('value')) or ''
+            cached = env.cached_textures
+            hit = cached is None or wanted in cached
+            textures = [{'textureid': 1, 'url': wanted}] if hit and wanted else []
+            return _json.dumps({'id': payload.get('id'), 'jsonrpc': '2.0', 'result': {'textures': textures}})
+        return _json.dumps({'id': payload.get('id'), 'jsonrpc': '2.0', 'result': {}})
+
     #: Kodi's own core-string catalog (id < 1000), distinct from the addon's
     #: strings.po - only the two ids `dialogs.confirm()` callers pass for
     #: default Yes/No buttons are faked; anything else falls back to the
@@ -130,6 +154,7 @@ def make_xbmc(env, info_labels=None, cond_visibility=None):
     module.log = log
     module.executebuiltin = executebuiltin
     module.getInfoLabel = getInfoLabel
+    module.executeJSONRPC = executeJSONRPC
     module.getCondVisibility = getCondVisibility
     module.getLocalizedString = getLocalizedString
 
@@ -272,8 +297,11 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             # of a silently-approved action.
             return yesno_answers.pop(0) if yesno_answers else False
 
-        def notification(self, heading, message, icon=None, time=4000):
+        def notification(self, heading, message, icon=None, time=4000, sound=True):
+            # The recorded tuple stays four items: existing assertions
+            # unpack it. The chime is the parallel list.
             env.notifications.append((heading, message, icon, time))
+            env.notification_sounds.append(bool(sound))
 
     class DialogProgress:
         def create(self, heading, message=''):
@@ -296,6 +324,18 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
 
         def __init__(self, window_id=0):
             self._props = env.window_properties.setdefault(window_id, {})
+            self.controls = []
+            self.shown = False
+            self.closed = False
+
+        def addControl(self, control):
+            self.controls.append(control)
+
+        def show(self):
+            self.shown = True
+
+        def close(self):
+            self.closed = True
 
         def setProperty(self, key, value):
             self._props[key] = value
@@ -347,6 +387,7 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             self.selected_index = 0
 
         def reset(self):
+            self.reset_calls = getattr(self, 'reset_calls', 0) + 1
             self.items = []
 
         def setImage(self, image):
@@ -396,6 +437,23 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
                 raise ValueError('Index out of range')
             return self.items[position]
 
+    class ControlImage:
+        """1x1 poster warmer. ``setImage`` is what fills Kodi's texture cache."""
+
+        def __init__(self, x, y, width, height, filename='', aspectRatio=0, colorDiffuse=''):
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+            self.image = filename
+            self.images = []
+            if filename:
+                self.images.append(filename)
+
+        def setImage(self, filename, useCache=True):
+            self.image = filename
+            self.images.append(filename)
+
     class FakeAction:
         """Stand-in for `xbmcgui.Action`: only `getId()` is used by
         `lib.ui.infowindow.ShowcaseWindow.onAction()`; a test builds one
@@ -427,7 +485,9 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
         would have caught `RuntimeError: Non-Existent Control 30340/
         30341` before it shipped: ConfirmDialog/OptionListDialog wrote to
         controls before doModal() had loaded the window, a try/except
-        swallowed the real exception, and the picker rendered empty."""
+        swallowed the real exception, and the picker rendered empty.
+        Declared types must also have a Window.cpp Python wrapper: a
+        grouplist id exists but still cannot be returned by getControl()."""
 
         def __init__(self, *args, **kwargs):
             self._controls = {}
@@ -440,11 +500,14 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             #: GridWindow drives each band row's visibility through them
             #: (see its onInit()).
             self.properties = {}
-            self._valid_control_ids = _declared_control_ids(args[0] if args else None)
+            self._control_types = _declared_controls(args[0] if args else None)
 
         def getControl(self, control_id):
-            if self._valid_control_ids is not None and control_id not in self._valid_control_ids:
-                raise RuntimeError('Non-Existent Control %d' % control_id)
+            if self._control_types is not None:
+                if control_id not in self._control_types:
+                    raise RuntimeError('Non-Existent Control %d' % control_id)
+                if self._control_types[control_id] not in WRAPPABLE_CONTROL_TYPES:
+                    raise RuntimeError('Unknown control type for python')
             return self._controls.setdefault(control_id, FakeWindowControl())
 
         def setProperty(self, key, value):
@@ -472,6 +535,7 @@ def make_xbmcgui(env, dialog_inputs=None, dialog_yesno=None):
             self.closed = True
 
     module.Window = Window
+    module.ControlImage = ControlImage
     module.Dialog = Dialog
     module.DialogProgress = DialogProgress
     module.WindowXML = WindowXML

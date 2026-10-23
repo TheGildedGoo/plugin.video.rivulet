@@ -145,10 +145,8 @@ def test_translated_catalog_ids_are_known_to_english():
 
 def test_translated_catalog_ids_cover_english():
     """Complement of `test_translated_catalog_ids_are_known_to_english`:
-    every translated catalog must define every id English defines, not
-    merely a subset of them. Together the two tests pin each catalog's
-    id set as exactly equal to English's. This is the check that would
-    have caught #30148-#30152 silently missing from 12 of 14 catalogs - a
+    translated catalogs define English's ids.
+    This would have caught #30148-#30152 missing from 12 of 14 catalogs - a
     catalog that only omits ids ships English text on those ids at
     runtime, defeating the point of translating it."""
     english_ids = set(_english_ids())

@@ -159,7 +159,8 @@ def test_home_action_opens_homewindow_on_success(load_default):
 
 def test_home_action_falls_back_to_container_update_on_homewindow_error(load_default):
     def _raise():
-        raise RuntimeError('HomeWindow.onInit blew up')
+        from lib.ui.homewindow import HomeOpenError
+        raise HomeOpenError('construction failed')
 
     _ns, ctx = load_default(
         ['plugin://plugin.video.rivulet/', '5', '?action=home'], open_home=_raise,
@@ -282,3 +283,83 @@ def test_service_calls_service_runner_main_exactly_once(monkeypatch):
     monkeypatch.setattr(service_runner, 'main', lambda: calls.append(True))
     runpy.run_path(SERVICE_PY, run_name='__main__')
     assert calls == [True]
+
+
+@pytest.mark.parametrize('failure', ['construct', 'build', 'rows'])
+def test_home_recovery_is_limited_to_window_open_failures(monkeypatch, failure):
+    names = _RELOAD_MODULE_NAMES + ('lib.ui.newhome', 'lib.ui.newlook', 'lib.ui.dependencies')
+    with install_kodi_stubs(reload=names) as ctx:
+        opened = []
+        original = ctx.homewindow.open_window
+
+        class Store:
+            def get_auth(self):
+                if failure == 'build':
+                    raise RuntimeError('https://user:secret@example.test/secret')
+                return None
+
+            def get_enabled_addons(self):
+                return []
+
+        class Window(ctx.newhome.NewHomeWindow):
+            def doModal(self):
+                self.onInit()
+                opened.append(self)
+                assert not self.closed
+                assert all(not self.getProperty(prop) for _lid, prop, _counter in
+                           ctx.newhome._ROW_COUNTERS)
+
+        def construct(cls, xml):
+            if failure == 'construct':
+                raise RuntimeError('https://user:secret@example.test/secret')
+            return original(cls, xml)
+
+        def broken_rows(*args):
+            raise RuntimeError('https://user:secret@example.test/secret')
+
+        monkeypatch.setattr(ctx.newhome, 'NewHomeWindow', Window)
+        monkeypatch.setattr(ctx.newhome, 'get_store', Store)
+        monkeypatch.setattr(ctx.newhome, '_fill_shelves', broken_rows)
+        monkeypatch.setattr(ctx.homewindow, 'open_window', construct)
+        monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '5', ''])
+        runpy.run_path(DEFAULT_PY, run_name='__main__')
+        recovered = any('Container.Update' in cmd for cmd in ctx.env.executed_builtins)
+        assert recovered is (failure == 'construct')
+        assert bool(opened) is (failure != 'construct')
+        assert any('failed' in msg for msg, _level in ctx.env.log_calls)
+        assert not any('secret' in msg or 'user:' in msg for msg, _level in ctx.env.log_calls)
+
+
+@pytest.mark.parametrize('startup', ['launch_action', 'dismiss_busy_dialog'])
+def test_startup_probe_and_busy_cleanup_errors_recover_safely(load_default, monkeypatch, startup):
+    def prepare(ctx):
+        def fail():
+            raise RuntimeError('https://user:secret@host/private?token=hidden')
+        monkeypatch.setattr(ctx.uicommon, startup, fail)
+
+    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', ''], before=prepare)
+    assert ctx.open_home_calls == []
+    assert any('Container.Update' in cmd for cmd in ctx.env.executed_builtins)
+    messages = [msg for msg, _ in ctx.env.log_calls if 'failed to open' in msg]
+    assert len(messages) == 1 and 'RuntimeError' in messages[0]
+    assert 'secret' not in messages[0] and 'hidden' not in messages[0]
+
+
+def test_a_failing_show_request_recovers_safely(load_default, monkeypatch):
+    # Issue #73 path (alive UI in the player phase while a video plays): if
+    # posting the show request itself fails, recovery runs once and no second
+    # Home opens over the running one.
+    def before(ctx):
+        _owner(ctx, phase='player')
+        ctx.env.player_is_playing = True
+
+        def fail():
+            raise RuntimeError('https://user:secret@host/private?token=hidden')
+        monkeypatch.setattr(ctx.uicommon, 'request_ui_show', fail)
+
+    _ns, ctx = load_default(['plugin://plugin.video.rivulet/', '5', ''], before=before)
+    assert ctx.open_home_calls == []
+    assert any('Container.Update' in cmd for cmd in ctx.env.executed_builtins)
+    messages = [msg for msg, _ in ctx.env.log_calls if 'failed to open' in msg]
+    assert len(messages) == 1 and 'RuntimeError' in messages[0]
+    assert 'secret' not in messages[0] and 'hidden' not in messages[0]

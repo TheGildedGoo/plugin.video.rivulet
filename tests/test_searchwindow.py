@@ -56,7 +56,7 @@ from tests.kodistubs import install_kodi_stubs
 
 _RELOAD_MODULE_NAMES = (
     'lib.ui.compat', 'lib.ui.dependencies', 'lib.ui.uicommon', 'lib.ui.dialogs',
-    'lib.ui.infowindow', 'lib.ui.detailwindow', 'lib.ui.searchwindow',
+    'lib.ui.infowindow', 'lib.ui.detailwindow', 'lib.ui.searchwindow', 'lib.ui.newsearch',
 )
 
 
@@ -170,7 +170,7 @@ def _adult_search_catalog_descriptor(transport, name='Adult Addon'):
 # ---------------------------------------------------------------------------
 
 
-def test_reload_builds_only_the_new_search_row_when_history_is_empty(load_searchwindow, monkeypatch):
+def test_reload_builds_the_new_search_and_phone_rows_when_history_is_empty(load_searchwindow, monkeypatch):
     ctx = load_searchwindow()
     _wire_store(ctx.searchwindow, _FakeStore())
     win = _make_window(ctx.searchwindow)
@@ -178,10 +178,13 @@ def test_reload_builds_only_the_new_search_row_when_history_is_empty(load_search
     win.onInit()
 
     items = win.getControl(ctx.searchwindow.LIST).items
-    assert len(items) == 1
+    assert len(items) == 2
     assert items[0].getProperty('position') == 'new'
     assert items[0].getLabel() == 'STR30042'
     assert items[0].label2 == 'STR30043'
+    assert items[1].getProperty('position') == 'phone'
+    assert items[1].getLabel() == 'STR30483'
+    assert items[1].label2 == 'STR30484'
     assert win.getFocusId() == ctx.searchwindow.LIST
 
 
@@ -193,10 +196,10 @@ def test_reload_builds_new_row_plus_history_rows_plus_trailing_clear_row(load_se
     win.onInit()
 
     items = win.getControl(ctx.searchwindow.LIST).items
-    assert [item.getLabel() for item in items] == ['STR30042', 'batman', 'robin', 'STR30044']
-    assert [item.getProperty('position') for item in items] == ['new', '0', '1', 'clear']
-    assert items[1].label2 == 'STR30045'
+    assert [item.getLabel() for item in items] == ['STR30042', 'STR30483', 'batman', 'robin', 'STR30044']
+    assert [item.getProperty('position') for item in items] == ['new', 'phone', '0', '1', 'clear']
     assert items[2].label2 == 'STR30045'
+    assert items[3].label2 == 'STR30045'
 
 
 # ---------------------------------------------------------------------------
@@ -244,7 +247,7 @@ def test_onclick_clear_position_dispatches_to_clear_history(load_searchwindow, m
     _wire_store(ctx.searchwindow, _FakeStore(history=['batman']))
     win = _make_window(ctx.searchwindow)
     win.onInit()
-    win.getControl(ctx.searchwindow.LIST).selected_index = 2  # the trailing Clear row
+    win.getControl(ctx.searchwindow.LIST).selected_index = 3  # the trailing Clear row
     calls = []
     monkeypatch.setattr(win, '_clear_history', lambda: calls.append('clear'))
 
@@ -258,7 +261,7 @@ def test_onclick_numeric_position_reruns_that_historys_exact_query(load_searchwi
     _wire_store(ctx.searchwindow, _FakeStore(history=['batman', 'robin']))
     win = _make_window(ctx.searchwindow)
     win.onInit()
-    win.getControl(ctx.searchwindow.LIST).selected_index = 2  # the 'robin' row
+    win.getControl(ctx.searchwindow.LIST).selected_index = 3  # the 'robin' row
     calls = []
     monkeypatch.setattr(win, '_run_search', lambda query: calls.append(query))
 
@@ -684,7 +687,7 @@ def test_run_search_reloads_the_list_after_the_fetch_loop(load_searchwindow, mon
     win._run_search('batman')
 
     items = win.getControl(ctx.searchwindow.LIST).items
-    assert [item.getLabel() for item in items] == ['STR30042', 'batman', 'STR30044']
+    assert [item.getLabel() for item in items] == ['STR30042', 'STR30483', 'batman', 'STR30044']
 
 
 def test_run_search_nonempty_aggregate_opens_the_coverflow(load_searchwindow, monkeypatch):
@@ -1581,7 +1584,7 @@ def test_clear_history_declined_leaves_history_untouched_and_does_not_reload(loa
 
     assert store.cleared == 0
     items = win.getControl(ctx.searchwindow.LIST).items
-    assert [item.getLabel() for item in items] == ['STR30042', 'batman', 'STR30044']
+    assert [item.getLabel() for item in items] == ['STR30042', 'STR30483', 'batman', 'STR30044']
 
 
 def test_clear_history_confirmed_clears_and_reloads_to_new_search_only(load_searchwindow, monkeypatch):
@@ -1598,8 +1601,7 @@ def test_clear_history_confirmed_clears_and_reloads_to_new_search_only(load_sear
     assert store.cleared == 1
     assert captured == [('STR30044', 'STR30046', 'Yes', 'No')]
     items = win.getControl(ctx.searchwindow.LIST).items
-    assert len(items) == 1
-    assert items[0].getProperty('position') == 'new'
+    assert [item.getProperty('position') for item in items] == ['new', 'phone']
 
 
 # ---------------------------------------------------------------------------
@@ -1639,7 +1641,7 @@ def test_start_returns_true_when_the_modal_run_sets_should_close_caller(load_sea
     def fake_domodal():
         real_domodal()
         win.onInit()
-        win.getControl(ctx.searchwindow.LIST).selected_index = 1  # the 'batman' history row
+        win.getControl(ctx.searchwindow.LIST).selected_index = 2  # the 'batman' history row
         win.onClick(ctx.searchwindow.LIST)
 
     win.doModal = fake_domodal
@@ -1659,7 +1661,7 @@ def test_open_search_opens_window_against_the_right_skin_and_returns_start_resul
     ctx = load_searchwindow(addon_info={'path': '/addon/path'})
     captured = {}
 
-    class RecordingWindow(ctx.searchwindow.SearchWindow):
+    class RecordingWindow(ctx.newsearch.NewSearchWindow):
         def __init__(self, *args, **kwargs):
             captured['init_args'] = args
             super().__init__(*args, **kwargs)
@@ -1668,12 +1670,12 @@ def test_open_search_opens_window_against_the_right_skin_and_returns_start_resul
             captured['started'] = True
             return True
 
-    monkeypatch.setattr(ctx.searchwindow, 'SearchWindow', RecordingWindow)
+    monkeypatch.setattr(ctx.newsearch, 'NewSearchWindow', RecordingWindow)
 
     result = ctx.searchwindow.open_search()
 
     assert result is True
-    assert captured['init_args'] == ('SearchWindow.xml', '/addon/path', 'Default', '1080i')
+    assert captured['init_args'] == ('NewSearchWindow.xml', '/addon/path', 'Default', '1080i')
     assert captured['started'] is True
 
 
@@ -1681,7 +1683,7 @@ def test_open_search_window_is_closed_exactly_once_when_start_raises(load_search
     ctx = load_searchwindow(addon_info={'path': '/addon/path'})
     captured = {}
 
-    class ExplodingWindow(ctx.searchwindow.SearchWindow):
+    class ExplodingWindow(ctx.newsearch.NewSearchWindow):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.close_calls = 0
@@ -1697,7 +1699,7 @@ def test_open_search_window_is_closed_exactly_once_when_start_raises(load_search
             # normal-path close) never gets a chance to run.
             raise RuntimeError('onInit blew up')
 
-    monkeypatch.setattr(ctx.searchwindow, 'SearchWindow', ExplodingWindow)
+    monkeypatch.setattr(ctx.newsearch, 'NewSearchWindow', ExplodingWindow)
 
     result = ctx.searchwindow.open_search()
 
@@ -1729,7 +1731,7 @@ def test_reload_prefers_an_already_injected_store_over_the_shared_provider(load_
     win.onInit()  # must not raise
 
     assert [item.getLabel() for item in win.getControl(ctx.searchwindow.LIST).items] == [
-        'STR30042', 'batman', 'STR30044',
+        'STR30042', 'STR30483', 'batman', 'STR30044',
     ]
 
 
@@ -1885,3 +1887,72 @@ def test_a_cancelled_search_says_nothing_about_the_catalogs_still_out(load_searc
     report.unanswered = ['Slow']
     report.canceled = True
     assert sw._search_notice(report) is None
+
+
+def test_onclick_phone_position_dispatches_to_phone_search(load_searchwindow, monkeypatch):
+    ctx = load_searchwindow()
+    _wire_store(ctx.searchwindow, _FakeStore())
+    win = _make_window(ctx.searchwindow)
+    win.onInit()
+    win.getControl(ctx.searchwindow.LIST).selected_index = 1  # Search from your phone
+    calls = []
+    monkeypatch.setattr(win, '_phone_search', lambda: calls.append('phone'))
+
+    win.onClick(ctx.searchwindow.LIST)
+
+    assert calls == ['phone']
+
+
+
+def test_phone_search_runs_the_query_the_phone_posted(load_searchwindow, monkeypatch):
+    """Nothing is typed with the remote; the query arrives stripped."""
+    ctx = load_searchwindow()
+    store = _FakeStore(addons=[_search_catalog_descriptor('https://a.example/manifest.json')])
+    _wire_store(ctx.searchwindow, store)
+    win = _make_window(ctx.searchwindow)
+    win.onInit()
+    import lib.ui.pairwindow as pairwindow
+
+    monkeypatch.setattr(pairwindow, 'phone_search', lambda: '  batman ')
+    calls = []
+    monkeypatch.setattr(win, '_run_search', lambda query: calls.append(query))
+
+    win._phone_search()
+
+    assert calls == ['batman']
+    assert ctx.env.dialog_input_prompts == []
+
+
+
+def test_phone_search_backed_out_runs_nothing(load_searchwindow, monkeypatch):
+    ctx = load_searchwindow()
+    store = _FakeStore(addons=[_search_catalog_descriptor('https://a.example/manifest.json')])
+    _wire_store(ctx.searchwindow, store)
+    win = _make_window(ctx.searchwindow)
+    win.onInit()
+    import lib.ui.pairwindow as pairwindow
+
+    monkeypatch.setattr(pairwindow, 'phone_search', lambda: '')
+    calls = []
+    monkeypatch.setattr(win, '_run_search', lambda query: calls.append(query))
+
+    win._phone_search()
+
+    assert calls == []
+
+
+
+def test_phone_search_with_nothing_searchable_never_opens_the_page(load_searchwindow, monkeypatch):
+    ctx = load_searchwindow()
+    _wire_store(ctx.searchwindow, _FakeStore(addons=[]))
+    win = _make_window(ctx.searchwindow)
+    win.onInit()
+    import lib.ui.pairwindow as pairwindow
+
+    opened = []
+    monkeypatch.setattr(pairwindow, 'phone_search', lambda: opened.append(True) or 'x')
+
+    win._phone_search()
+
+    assert opened == []
+    assert ctx.env.notifications == [('Rivulet', 'STR30381', 'info', 6000)]

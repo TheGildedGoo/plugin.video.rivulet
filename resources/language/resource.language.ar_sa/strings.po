@@ -648,13 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "الشاشة الرئيسية"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "إظهار الأفلام"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "إظهار المسلسلات"
+
+
+
+
 
 msgctxt "#30222"
 msgid "Show Anime"
@@ -672,17 +670,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "يشغل الآن"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "أخرى"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "تصفح الكتالوجات غير الأفلام والمسلسلات والأنيمي"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "إظهار أخرى"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +700,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "تمت المشاهدة"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "إظهار المتابعة"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1002,10 +992,6 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "يعرض الكتالوج أول %d صفحات فقط؛ لن يتم تحميل المزيد من العناصر"
 
-msgctxt "#30412"
-msgid "Dark dialogs"
-msgstr "مربعات حوار داكنة"
-
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "الاحتفاظ بالتورنت بعد التشغيل (المشاركة)"
@@ -1021,3 +1007,410 @@ msgstr "إزالة من متابعة المشاهدة؟"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "البحث غير مكتمل، كتالوجات لم تردّ في الوقت: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "المكتبة"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "عناوين محفوظة في مكتبة ستريميو"
+
+
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "مكتبتك فارغة. أضف عنوانًا من صفحته."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "تسجيل الدخول"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "سجّل الدخول هنا مرة واحدة. يحتفظ Rivulet بتسجيل دخول Stremio خاص به."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d د"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "استئناف %s من %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "استئناف من %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "قائمة الحلقات"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "التفاصيل"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "مفتاح API لـ OMDb"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "مفتاح API لـ MDBList"
+
+
+
+
+
+
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "إقران مفتاح"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "افتح هذه الصفحة على الهاتف والصق المفتاح. يعمل لمدة 3 دقائق."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "تم حفظ المفتاح"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "تعذر بدء الإقران. يحتاج التلفاز إلى شبكة."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "انتهت صلاحية هذا الرمز. حاول مرة أخرى."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "حفظ"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "تم الحفظ. يمكنك إغلاق هذه الصفحة."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "هذا الرمز غير مطابق."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "أدخل مفتاحًا."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "تم الحفظ مسبقًا."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "هذا المفتاح طويل جدًا."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "تعذر حفظ المفتاح."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "التثبيت من الهاتف"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "اكتب العنوان"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "افتح هذه الصفحة على الهاتف والصق رابط تثبيت الإضافة. يعمل لمدة 3 دقائق."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "إعداد هذه الإضافة"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "الصق رابطًا يبدأ بـ https://."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "هذا الرابط طويل جدًا."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "تسجيل الدخول بالهاتف"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "اكتب البريد الإلكتروني وكلمة المرور"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "امسح رمز QR أو افتح العنوان على الهاتف وسجّل الدخول إلى Stremio هناك."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "البحث من الهاتف"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "اكتبه على الهاتف"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "افتح هذه الصفحة على الهاتف واكتب ما تريد البحث عنه. يعمل لمدة 3 دقائق."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "اكتب شيئًا للبحث عنه."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "هذا البحث طويل جدًا."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "تم تسجيل الدخول"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "ينتهي في %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "الرئيسية"
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "لا يوجد إعلان لهذا العنوان."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "تعذر تشغيل الإعلان. شغّل خادم البث أو ثبّت إضافة YouTube في Kodi."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "الإعلان"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "تم مسح البيانات المخزنة. يُعاد تحميل الصفحة الرئيسية عند مغادرة الإعدادات."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "تحديث البيانات المخزنة"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "ينسى صفحات الكتالوج والتفاصيل والتقييمات وفحوص الشعارات المحفوظة، لتطلبها الشاشات التالية من الإضافات من جديد. يبقى حسابك وإضافاتك وتقدمك."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "تُشغَّل الإعلانات عبر إضافة YouTube في Kodi. هل تريد تثبيتها الآن؟"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "لم يبدأ الإعلان. شغّل أي فيديو في إضافة YouTube في Kodi للتحقق منها."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "الانتقال إلى المسلسل"
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr "هل تريد تقييمات Rotten Tomatoes وMetacritic؟ احصل على مفتاح مجاني من omdbapi.com/apikey.aspx وأدخله هنا."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "محتواي"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "إزالة من متابعة المشاهدة"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "ترتيب قوائم الرئيسية"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "اختر القوائم التي تعرضها كل علامة تبويب وترتيبها."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "القوائم: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "استعادة الافتراضي"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "إضافة قائمة"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "نقل لأعلى"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "نقل لأسفل"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "إزالة من علامة التبويب هذه"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "عرض أيضًا في…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "علامة التبويب هذه ممتلئة"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "إعادة قوائم الرئيسية إلى الافتراضي؟"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "أفلام جديدة"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "مسلسلات جديدة"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "أفلام أنمي جديدة"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "مسلسلات أنمي جديدة"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "أفلام المكتبة"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "مسلسلات المكتبة"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "أفلام أنمي"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "مسلسلات أنمي"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "تصفح الكتالوج الكامل"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "هل تريد استبدال قائمة متابعة المشاهدة لعلامة التبويب هذه؟"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "أدخل مفتاح OMDb بهاتفك (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "أدخل مفتاح MDBList بهاتفك (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "احصل على مفتاح OMDb مجاني: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "احصل على مفتاح MDBList مجاني (سجّل الدخول ثم اختر مفتاح API): https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "مفتاح API لخدمة OMDb، احصل عليه من https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "مفتاح API لخدمة MDBList، احصل عليه من https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "يعرض رمز QR. امسحه بهاتفك والصق المفتاح هناك ليُحفظ هنا."
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "تريد تقييمات MDBList؟ احصل على مفتاح مجاني من https://mdblist.com/preferences/ (سجّل الدخول ثم أنشئ مفتاح API) وأدخله هنا. تضيف MDBList أيضًا تقييم جمهور Rotten Tomatoes."
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "خيارات"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "استخدم الهاتف"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "اكتشف"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "النتائج"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "مرحبًا"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "ابحث عن الأفلام والمسلسلات وغيرها. اختر الحروف أو استخدم هاتفك."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "بحث"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "لا توجد نتائج لـ “%s”"

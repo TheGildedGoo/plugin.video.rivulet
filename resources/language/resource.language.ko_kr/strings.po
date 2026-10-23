@@ -648,13 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "홈 화면"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "영화 표시"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "시리즈 표시"
+
+
+
+
 
 msgctxt "#30222"
 msgid "Show Anime"
@@ -672,17 +670,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "지금 재생함"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "기타"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "영화, 시리즈 또는 애니메이션이 아닌 카탈로그 탐색"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "기타 표시"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +700,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "시청 완료"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "이어보기 표시"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1002,10 +992,6 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "카탈로그에는 처음 %d페이지만 표시되며 나머지 항목은 불러오지 않습니다"
 
-msgctxt "#30412"
-msgid "Dark dialogs"
-msgstr "어두운 대화 상자"
-
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "재생 후 토렌트 유지 (시드)"
@@ -1021,3 +1007,410 @@ msgstr "이어 보기에서 제거할까요?"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "검색이 불완전함, 응답이 너무 느린 카탈로그: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "라이브러리"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "Stremio 라이브러리에 저장된 제목"
+
+
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "라이브러리가 비어 있습니다. 제목 페이지에서 추가하세요."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "로그인"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "여기에서 한 번 로그인하세요. Rivulet은 자체 Stremio 로그인을 사용합니다."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d분"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s %s부터 이어보기"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "%s부터 이어보기"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "에피소드 목록"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "상세 정보"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API 키"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API 키"
+
+
+
+
+
+
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "키 페어링"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "휴대폰에서 이 페이지를 열고 키를 붙여넣으세요. 3분 동안 유효합니다."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "키를 저장했습니다"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "페어링을 시작하지 못했습니다. TV에 네트워크가 필요합니다."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "이 코드는 만료되었습니다. 다시 시도하세요."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "저장"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "저장했습니다. 이 페이지를 닫아도 됩니다."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "이 코드가 일치하지 않습니다."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "키를 입력하세요."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "이미 저장했습니다."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "이 키는 너무 깁니다."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "키를 저장하지 못했습니다."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "휴대폰에서 설치"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "주소 입력"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "휴대폰에서 이 페이지를 열고 애드온 설치 링크를 붙여넣으세요. 3분 동안 유효합니다."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "이 애드온 설정"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "https://로 시작하는 링크를 붙여넣으세요."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "이 링크는 너무 깁니다."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "휴대폰으로 로그인"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "이메일과 비밀번호 입력"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "휴대폰으로 QR을 스캔하거나 주소를 열고 그곳에서 Stremio에 로그인하세요."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "휴대폰으로 검색"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "휴대폰으로 입력"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "휴대폰에서 이 페이지를 열고 검색할 내용을 입력하세요. 3분 동안 유효합니다."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "검색할 내용을 입력하세요."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "검색어가 너무 깁니다."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "로그인됨"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "%s 종료"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "홈"
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "이 작품의 예고편이 없습니다."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "예고편을 재생할 수 없습니다. 스트리밍 서버를 시작하거나 Kodi YouTube 애드온을 설치하세요."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "예고편"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "캐시된 데이터를 지웠습니다. 설정을 나가면 홈이 다시 로드됩니다."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "캐시 데이터 새로 고침"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "저장된 카탈로그 페이지, 작품 정보, 평점, 로고 확인 결과를 지워 다음 화면에서 애드온에 다시 요청합니다. 계정, 애드온, 시청 기록은 유지됩니다."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "예고편은 Kodi의 YouTube 애드온으로 재생됩니다. 지금 설치할까요?"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "예고편이 시작되지 않았습니다. Kodi의 YouTube 애드온에서 아무 동영상이나 재생해 확인하세요."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "시리즈로 이동"
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr "Rotten Tomatoes 및 Metacritic 점수를 보시겠습니까? omdbapi.com/apikey.aspx에서 무료 키를 받아 여기에 입력하세요."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "내 콘텐츠"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "계속 보기에서 제거"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "홈 목록 정렬"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "각 탭에 표시할 목록과 순서를 선택하세요."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "목록: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "기본값으로 재설정"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "목록 추가"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "위로 이동"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "아래로 이동"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "이 탭에서 제거"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "다른 탭에도 표시…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "이 탭이 가득 찼습니다"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "홈 목록을 기본값으로 재설정할까요?"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "새 영화"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "새 시리즈"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "새 애니메이션 영화"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "새 애니메이션 시리즈"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "라이브러리 영화"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "라이브러리 시리즈"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "애니메이션 영화"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "애니메이션 시리즈"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "전체 카탈로그 탐색"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "이 탭의 계속 보기 목록을 바꿀까요?"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "휴대폰으로 OMDb 키 입력 (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "휴대폰으로 MDBList 키 입력 (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "무료 OMDb 키 받기: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "무료 MDBList 키 받기 (로그인 후 API 키 선택): https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "OMDb API 키 발급: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "MDBList API 키 발급: https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "QR 코드를 표시합니다. 휴대폰으로 스캔한 뒤 키를 붙여 넣으면 여기에 저장됩니다."
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "MDBList 평점을 보려면 https://mdblist.com/preferences/ 에서 무료 키를 발급받아 (로그인 후 API 키 생성) 여기에 입력하세요. MDBList는 Rotten Tomatoes 관객 점수도 추가합니다."
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "옵션"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "휴대폰 사용"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "둘러보기"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "검색 결과"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "환영합니다"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "영화, 시리즈 등을 검색하세요. 글자를 고르거나 휴대폰을 사용하세요."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "검색"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "“%s”에 대한 결과 없음"

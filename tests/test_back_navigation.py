@@ -415,25 +415,6 @@ def test_back_during_a_discover_link_fetch_opens_no_results(load_ui, monkeypatch
     assert ctx.env.notifications == []
 
 
-def test_back_during_my_stuff_load_opens_no_grid(load_ui, monkeypatch):
-    ctx = load_ui()
-    spinners = _track_spinners(monkeypatch, ctx)
-    _press_back_on_pump(ctx, spinners)
-
-    class _Store:
-        def get_progress_entries(self):
-            return []
-
-    monkeypatch.setattr(ctx.mystuff, 'get_store', lambda: _Store())
-    monkeypatch.setattr(ctx.gridwindow, 'open_grid', lambda *a, **k: pytest.fail('grid opened'))
-
-    with _gate([]) as gate:
-        monkeypatch.setattr(ctx.mystuff, '_fetch_library_entries', lambda store: gate())
-        started = time.monotonic()
-        assert ctx.mystuff.open_my_stuff() is False
-
-        _assert_prompt(started)
-    assert ctx.env.notifications == []  # not even "nothing here yet"
 
 
 def test_back_during_the_first_addon_catalog_load_leaves_the_screen(load_ui, monkeypatch):

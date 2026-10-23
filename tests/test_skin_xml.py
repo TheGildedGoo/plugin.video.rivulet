@@ -79,8 +79,9 @@ def test_skin_file_discovery_finds_every_window():
     """Guards every other test in this file: a glob that silently matches
     nothing would make every rule below pass by scanning zero files."""
     paths = _skin_files()
-    # 14 windows, plus the 5 dark dialog variants (tools/build_dark_dialogs.py).
-    assert len(paths) == 19, 'expected 19 window XMLs in %s, found %d: %s' % (_SKIN_DIR, len(paths), paths)
+    # Keep search independently testable when the episode-page commit is split out.
+    expected = 16 + int(os.path.isfile(os.path.join(_SKIN_DIR, 'NewDetailWindow.xml')))
+    assert len(paths) == expected, 'expected %d window XMLs in %s, found %d: %s' % (expected, _SKIN_DIR, len(paths), paths)
 
 
 @pytest.mark.parametrize('path', _skin_files(), ids=lambda p: os.path.basename(p))
@@ -674,3 +675,53 @@ def test_window_close_animation_is_rejected_regression(tmp_path):
         encoding='utf-8',
     )
     assert len(_window_close_animations(str(bad))) == 1
+
+
+def test_home_row_navigation_follows_the_entire_slot_chain():
+    """A copied row must go Up to its predecessor, never to itself."""
+    root = ET.parse(os.path.join(_SKIN_DIR, 'NewHomeWindow.xml')).getroot()
+    panels = {int(panel.get('id')): panel for panel in root.iter('control')
+              if panel.get('type') == 'panel' and panel.get('id')}
+    for panel_id in range(30040, 30053):
+        panel = panels[panel_id]
+        expected_up = 30010 if panel_id == 30040 else panel_id - 1
+        expected_down = panel_id + 1 if panel_id < 30052 else panel_id
+        assert int(panel.findtext('onup')) != panel_id, panel_id
+        assert int(panel.findtext('onup')) == expected_up, panel_id
+        assert int(panel.findtext('ondown')) == expected_down, panel_id
+        for direction in ('onleft', 'onright'):
+            assert int(panel.findtext(direction)) == panel_id, (panel_id, direction)
+
+
+_DIALOGS = ('DarkBusyDialog.xml', 'DarkProgressDialog.xml', 'DarkCountdownDialog.xml',
+            'DarkConfirmDialog.xml', 'DarkOptionListDialog.xml', 'PairDialog.xml')
+
+
+
+
+def test_ratings_pair_action_targets_this_addon():
+    root = ET.parse(os.path.join(_REPO_ROOT, 'resources', 'settings.xml')).getroot()
+    assert root.find(".//setting[@id='ratings_pair']") is None
+    group = root.find(".//setting[@id='ratings_pair_omdb']/..")
+    settings = list(group.findall('setting'))
+    po = _read(_ENGLISH_PO)
+    strings = {sid: text for sid, text in
+               re.findall(r'msgctxt "#(\d+)"\nmsgid "([^"\n]*)"', po)}
+    for name, heading, url in [
+        ('omdb', '30543', 'https://www.omdbapi.com/apikey.aspx'),
+        ('mdblist', '30544', 'https://mdblist.com/preferences/'),
+    ]:
+        action = group.find("setting[@id='ratings_pair_%s']" % name)
+        field = group.find("setting[@id='ratings_%s_key']" % name)
+        assert settings.index(action) + 1 == settings.index(field)
+        assert action.get('type') == 'action'
+        assert action.findtext('data') == (
+            'RunPlugin(plugin://plugin.video.rivulet/?action=pair_key&setting=ratings_%s_key)' % name)
+        assert field.find('control').get('type') == 'edit'
+        assert field.findtext('control/heading') == heading
+        assert url in strings[heading]
+        assert action.get('help') and field.get('help')
+        assert action.get('help') in strings and field.get('help') in strings
+        assert action.get('label') in strings
+    assert group.find("setting[@id='ratings_omdb_key']").get('help') == '30515'
+    assert '30541' in strings and '30542' in strings

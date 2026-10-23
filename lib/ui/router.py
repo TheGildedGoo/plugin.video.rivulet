@@ -76,6 +76,9 @@ def run():
         'server_download': lambda p: _download_server_binary(),
         'advancedsettings_install': lambda p: _install_advancedsettings(),
         'sync_addons_now': _view_action('sync_addons_now'),
+        'pair_key': lambda p: _pair_key(p.get('setting')),
+        'refresh_cache': lambda p: _refresh_cache(),
+        'home_lists': lambda p: _home_lists(),
     }
 
     # Any action not in this dict - unrecognized, or a favourite/.strm URL
@@ -90,6 +93,28 @@ def run():
     except Exception as exc:  # noqa: BLE001 - last-resort guard, must never crash Kodi
         log('router: action "%s" failed: %r' % (action, exc), xbmc.LOGERROR)
         _fail_gracefully(action)
+
+
+def _refresh_cache():
+    """Action 'refresh_cache': Settings > Home screen > Refresh cached
+    data (`lib.ui.cacherefresh`)."""
+    from lib.ui.cacherefresh import refresh_from_settings
+    refresh_from_settings()
+
+
+def _pair_key(setting=None):
+    """Action 'pair_key': the Settings button that shows a code and a QR.
+
+    Imported here so a playback launch never loads the dialog.
+    """
+    from lib.ui.compat import L
+    from lib.ui.pairwindow import PAIRABLE, open_pair_picker, pair_setting
+
+    for setting_id, label_id, _url, _line_id in PAIRABLE:
+        if setting == setting_id:
+            pair_setting(setting_id, L(label_id))
+            return
+    open_pair_picker()
 
 
 def _download_server_binary():
@@ -176,3 +201,10 @@ def _fail_gracefully(action):
         xbmcplugin.setResolvedUrl(ADDON_HANDLE, False, xbmcgui.ListItem())
     else:
         xbmcplugin.endOfDirectory(ADDON_HANDLE, succeeded=False)
+
+
+def _home_lists():
+    """Settings action; import dialogs only when the configurator opens."""
+    from lib.ui.homelists import open_configurator
+
+    open_configurator()

@@ -3,7 +3,7 @@
 
 """Shared data helpers and RunPlugin script actions for plugin.video.rivulet.
 
-The addon's real UI is the custom WindowXML dialog stack (HomeWindow,
+The addon's real UI is the custom WindowXML dialog stack (NewHomeWindow,
 CatalogPickerWindow, infowindow.ShowcaseWindow, DetailWindow,
 StreamsWindow, SearchWindow, AddonsWindow, LibraryWindow) - this module no
 longer builds any of their directory listings. What remains here is:
@@ -17,7 +17,7 @@ longer builds any of their directory listings. What remains here is:
   `open_settings`) - side effects, not listings, so they finish with
   _finish_action() instead of xbmcplugin.endOfDirectory() on their own.
 - `home()`, the minimal recovery directory default.py falls back to when
-  opening the custom HomeWindow itself raises.
+  constructing or opening NewHomeWindow fails.
 """
 import queue
 import threading
@@ -420,6 +420,103 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
     return result
 
 
+_HOME_META_RETRY_CONTEXT = threading.local()
+_STOCK_META_RETRY_PAUSE = _pause_before_meta_retry
+_STOCK_META_CLIENT = get_client
+
+
+class _HomeMetaClient:
+    """Observe definitive replies without changing upstream's lookup text.
+
+    The proxy is local to one lookup and is captured by its fan-out
+    workers. A timeout from any provider prevents a negative session
+    entry; a later Home load must be able to try that provider again.
+    """
+
+    def __init__(self, client):
+        self.client = client
+        self.answered = False
+        self.failed = False
+        self.lock = threading.Lock()
+
+    def __getattr__(self, name):
+        return getattr(self.client, name)
+
+    def meta(self, *args, **kwargs):
+        try:
+            result = self.client.meta(*args, **kwargs)
+        except Exception as exc:
+            with self.lock:
+                if isinstance(exc, AddonError) and exc.category == 'HTTP 404':
+                    self.answered = True
+                else:
+                    self.failed = True
+            raise
+        with self.lock:
+            self.answered = True
+        return result
+
+
+def _meta_client_with_home_context():
+    client = getattr(_HOME_META_RETRY_CONTEXT, 'client', None)
+    return client if client is not None else _STOCK_META_CLIENT()
+
+
+get_client = _meta_client_with_home_context
+
+
+def _fetch_meta_for_home(stype, sid, should_stop, stop_event=None, on_not_found=None, **kw):
+    """Home owns the result, while the upstream lookup stays unchanged.
+
+    Already-running HTTP/fan-out finishes under upstream's limits. Home's
+    next focus request is never started after close, and a late result is
+    never handed back to its window. Retry pauses on this caller's thread
+    observe Home close without changing concurrent stock callers' pauses.
+    """
+    if should_stop():
+        return None
+    previous = getattr(_HOME_META_RETRY_CONTEXT, 'should_stop', None)
+    previous_event = getattr(_HOME_META_RETRY_CONTEXT, 'stop_event', None)
+    previous_client = getattr(_HOME_META_RETRY_CONTEXT, 'client', None)
+    client = _HomeMetaClient(get_client()) if on_not_found is not None else previous_client
+    _HOME_META_RETRY_CONTEXT.should_stop = should_stop
+    _HOME_META_RETRY_CONTEXT.stop_event = stop_event
+    _HOME_META_RETRY_CONTEXT.client = client
+    try:
+        result = _fetch_meta(stype, sid, **kw)
+    finally:
+        _HOME_META_RETRY_CONTEXT.should_stop = previous
+        _HOME_META_RETRY_CONTEXT.stop_event = previous_event
+        _HOME_META_RETRY_CONTEXT.client = previous_client
+    if should_stop():
+        return None
+    if result is None and on_not_found is not None and client.answered and not client.failed:
+        on_not_found()
+    return result
+
+
+def _pause_home_meta_retry(seconds, stopped, stop_event=None):
+    """One interruptible backoff; the existing maximum pause is below 1 s."""
+    from lib.ui.background import monitor
+
+    if stopped() or monitor().abortRequested():
+        return True
+    return bool((stop_event or threading.Event()).wait(seconds) or stopped() or monitor().abortRequested())
+
+
+def _pause_meta_retry_with_home_context(seconds):
+    stopped = getattr(_HOME_META_RETRY_CONTEXT, 'should_stop', None)
+    if stopped is None:
+        return _STOCK_META_RETRY_PAUSE(seconds)
+    return _pause_home_meta_retry(seconds, stopped, getattr(_HOME_META_RETRY_CONTEXT, 'stop_event', None))
+
+
+# Keep the upstream function text intact. Only the caller thread that
+# entered Home's wrapper gets its cancellable pause; upstream fan-out and
+# stock callers keep their normal bounded backoff. No per-call global swap.
+_pause_before_meta_retry = _pause_meta_retry_with_home_context
+
+
 def _fetch_catalog(transport, ctype, cid, extra=None):
     """Fetch one catalog's metas via the shared AddonClient - imported
     lazily by CatalogPickerWindow and infowindow's discover-link picker
@@ -522,45 +619,81 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
     first = _fetch_catalog(transport, ctype, cid, extra=base_extra or None)
 
     seen = set()
-
-    def _dedupe(page):
-        """This page's not-yet-seen metas, in order (`fresh`), and that
-        same list with adult-flagged metas additionally dropped when
-        `hide_adult` is on (`filtered` - what callers actually see).
-        Kept separate so a page that IS new but happens to be entirely
-        adult content is not mistaken for the addon re-serving an
-        already-seen window (see the loop's `if not fresh` check
-        below, which must see the PRE-filter freshness)."""
-        fresh = []
-        for meta_obj in page:
-            key = meta_obj.get('id') if isinstance(meta_obj, dict) else None
-            if key is not None:
-                if key in seen:
-                    continue
-                seen.add(key)
-            fresh.append(meta_obj)
-        filtered = filter_metas(fresh) if hide_adult else fresh
-        return fresh, filtered
-
-    _, filtered_first = _dedupe(first)
+    _, filtered_first = _dedupe_page(first, seen, hide_adult)
     yield filtered_first
 
     if not first or not catalog_supports_extra(catalog, 'skip'):
         return
     if any(name == 'skip' for name, _value in base_extra):
         return
+    yield from _follow_pages(transport, ctype, cid, base_extra, len(first), len(first), seen, hide_adult)
 
-    page_size = len(first)
-    #: Metas the addon has actually served so far, duplicates and all -
-    #: NOT the deduped count. This is what the next `skip` is counted
-    #: from, so a page that comes back longer or shorter than the first
-    #: can't make the following request skip past (or back over) items
-    #: the addon never served.
-    served = len(first)
 
-    for page_index in range(1, _MAX_CATALOG_PAGES):
+def iter_catalog_pages_after(transport, ctype, cid, served, seen_ids, extra=None,
+                             catalog=None, manifest=None, page_limit=_MAX_CATALOG_PAGES, fetch_page=None,
+                             stop_short=True, raise_on_error=False, on_end=None):
+    """The pages after a first page the caller already has.
+
+    Home's rows hold page one from the disk cache. Resuming used to
+    build `iter_catalog_pages()` and throw its first page away, which
+    fetched page one again before page two. `served` is how many metas
+    page one held and is where `skip` starts; `seen_ids` are the ids
+    already on screen, so a title cannot appear twice. Same stopping
+    rules as `iter_catalog_pages()`.
+    """
+    from lib.stremio.addons import catalog_supports_extra
+
+    hide_adult = _adult_filtering_enabled()
+    if hide_adult and is_adult_catalog(catalog if catalog is not None else {'type': ctype}, manifest):
+        return
+    base_extra = list(extra or [])
+    if not served or not catalog_supports_extra(catalog, 'skip'):
+        if on_end:
+            on_end('no skip' if served else 'empty page')
+        return
+    if any(name == 'skip' for name, _value in base_extra):
+        if on_end:
+            on_end('fixed skip')
+        return
+    seen = set(key for key in (seen_ids or ()) if key is not None)
+    yield from _follow_pages(transport, ctype, cid, base_extra, served, served, seen, hide_adult,
+                             page_limit, fetch_page, stop_short, raise_on_error, on_end)
+
+
+def _dedupe_page(page, seen, hide_adult):
+    """This page's not-yet-seen metas, in order (`fresh`), and that
+    same list with adult-flagged metas additionally dropped when
+    `hide_adult` is on (`filtered` - what callers actually see).
+    Kept separate so a page that IS new but happens to be entirely
+    adult content is not mistaken for the addon re-serving an
+    already-seen window (see `_follow_pages`'s `if not fresh` check,
+    which must see the PRE-filter freshness). `seen` is updated."""
+    fresh = []
+    for meta_obj in page:
+        key = meta_obj.get('id') if isinstance(meta_obj, dict) else None
+        if key is not None:
+            if key in seen:
+                continue
+            seen.add(key)
+        fresh.append(meta_obj)
+    filtered = filter_metas(fresh) if hide_adult else fresh
+    return fresh, filtered
+
+
+def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hide_adult,
+                  page_limit=_MAX_CATALOG_PAGES, fetch_page=None, stop_short=True,
+                  raise_on_error=False, on_end=None):
+    """Pages two onward. `served` is the metas the addon has actually
+    served so far, duplicates and all - NOT the deduped count. This is
+    what the next `skip` is counted from, so a page that comes back
+    longer or shorter than the first can't make the following request
+    skip past (or back over) items the addon never served."""
+    page_index = 0
+    fetch = fetch_page or _fetch_catalog
+    while page_limit is None or page_index + 1 < page_limit:
+        page_index += 1
         try:
-            page = _fetch_catalog(
+            page = fetch(
                 transport, ctype, cid,
                 extra=base_extra + [('skip', served)],
             )
@@ -568,11 +701,15 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
             log('views.iter_catalog_pages: %s page %d failed: %s - keeping what landed'
                 % (safe_url_for_log(transport), page_index, addon_error_detail(exc)),
                 xbmc.LOGWARNING)
+            if raise_on_error:
+                raise
             return
         if not page:
+            if on_end:
+                on_end('empty page')
             return
         served += len(page)
-        fresh, filtered = _dedupe(page)
+        fresh, filtered = _dedupe_page(page, seen, hide_adult)
         # A page with nothing new means the addon is ignoring `skip` and
         # re-serving the same window - stop rather than loop to the cap.
         # Judged on `fresh` (pre-filter): a page that IS new but entirely
@@ -580,9 +717,11 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
         if not fresh:
             log('views.iter_catalog_pages: %s page %d added nothing new - stopping'
                 % (safe_url_for_log(transport), page_index), xbmc.LOGINFO)
+            if on_end:
+                on_end('added nothing new')
             return
         yield filtered
-        if len(page) < page_size:
+        if stop_short and len(page) < page_size:
             return
 
     log('views.iter_catalog_pages: %s hit the %d-page cap'
@@ -752,9 +891,9 @@ def _refresh_addon_manifests(store, client):
 @_safe_listing
 def home():
     """Recovery directory - NOT Rivulet's home screen any more (that is
-    now the custom `HomeWindow`). This is what `default.py` falls back to
-    when opening `HomeWindow` itself raises, e.g. a broken skin missing
-    the InfoWindow/DetailWindow XML the custom UI depends on.
+    now the custom `NewHomeWindow`). This is what `default.py` falls back to
+    when constructing or opening `NewHomeWindow` fails. Data/row failures
+    are handled within Home and leave the affected row empty.
 
     It deliberately offers only Settings: every other screen is now a
     custom WindowXML dialog that depends on those same skin resources,
@@ -803,26 +942,58 @@ def sync_addons_now():
     _finish_action(handle, refresh=False)
 
 
-def login():
-    handle = router.ADDON_HANDLE
+def _typed_login(api):
+    """Email and password on the on-screen keyboard. The result, or None."""
     dialog = xbmcgui.Dialog()
     email = dialog.input(L(30024))
     if not email:
-        _finish_action(handle, refresh=False)
-        return
+        return None
     password = dialog.input(L(30025), option=xbmcgui.ALPHANUM_HIDE_INPUT)
     if not password:
-        _finish_action(handle, refresh=False)
-        return
-
-    api = StremioAPI()
+        return None
     try:
-        result = api.login(email, password)
+        return api.login(email, password)
     except ApiError as exc:
         log('views.login failed: %r' % (exc,), xbmc.LOGERROR)
         notify(L(30023))
-        _finish_action(handle, refresh=False)
-        return
+        return None
+
+
+def login():
+    """The Settings "Sign in" action: `sign_in()`, then end the plugin call.
+
+    Only a RunPlugin call owns a directory handle to end. Home and the
+    hubs are windows and call `sign_in()` directly (#22): ending the
+    long-spent handle from there logged an error and refreshed whatever
+    container sat under the window.
+    """
+    handle = router.ADDON_HANDLE
+    result = sign_in()
+    _finish_action(handle, refresh=bool(result))
+
+
+def sign_in():
+    """Sign in: approve a code on a phone, or type email and password.
+
+    The phone way is Stremio's own code sign-in; nothing is typed on the
+    TV and no password crosses the network here. The keyboard stays for
+    anyone who prefers it (phone remote apps can type into it).
+
+    The auth result once the account is stored, else None. Touches no
+    plugin handle.
+    """
+    api = StremioAPI()
+    picked = dialogs.choose(L(30427), [L(30480), L(30481)])
+    if picked == 0:
+        from lib.ui.pairwindow import link_sign_in
+
+        result = link_sign_in(api=api)
+    elif picked == 1:
+        result = _typed_login(api)
+    else:
+        result = None
+    if not result:
+        return None
 
     store = get_store()
     store.set_auth(result)
@@ -881,7 +1052,7 @@ def login():
 
     user = result.get('user') or {}
     notify(L(30022) % (user.get('email') or user.get('name') or ''))
-    _finish_action(handle)
+    return result
 
 
 def logout():

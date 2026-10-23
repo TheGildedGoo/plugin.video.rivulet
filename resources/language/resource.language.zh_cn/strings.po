@@ -648,13 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "主屏幕"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "显示电影"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "显示剧集"
+
+
+
+
 
 msgctxt "#30222"
 msgid "Show Anime"
@@ -672,17 +670,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "立即播放"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "其他"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "浏览不是电影、剧集或动漫的目录"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "显示其他"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +700,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "已观看"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "显示继续观看"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1002,10 +992,6 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "目录仅显示前 %d 页;更多项目不会加载"
 
-msgctxt "#30412"
-msgid "Dark dialogs"
-msgstr "深色对话框"
-
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "播放后保留种子（做种）"
@@ -1021,3 +1007,410 @@ msgstr "从继续观看中移除？"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "搜索不完整，响应过慢的目录：%d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "媒体库"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "已保存在 Stremio 媒体库中的条目"
+
+
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "媒体库是空的。请在条目页面添加。"
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "登录"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "请在此登录一次。Rivulet使用自己的 Stremio 登录。"
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d 分钟"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s 从 %s 继续播放"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "从 %s 继续播放"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "剧集列表"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "详情"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API 密钥"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API 密钥"
+
+
+
+
+
+
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "配对密钥"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "在手机上打开此页面并粘贴密钥。有效时间为 3 分钟。"
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "密钥已保存"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "无法开始配对。电视需要连接到网络。"
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "此代码已过期。请重试。"
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "保存"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "已保存。可以关闭此页面。"
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "此代码不匹配。"
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "请输入密钥。"
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "已经保存。"
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "此密钥太长。"
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "无法保存密钥。"
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "从手机安装"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "输入地址"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "在手机上打开此页面并粘贴插件的安装链接。有效时间为 3 分钟。"
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "配置此插件"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "请粘贴以 https:// 开头的链接。"
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "此链接太长。"
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "用手机登录"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "输入邮箱和密码"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "用手机扫描二维码或打开该地址，然后在那里登录 Stremio。"
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "从手机搜索"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "在手机上输入"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "在手机上打开此页面并输入要搜索的内容。有效时间为 3 分钟。"
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "请输入要搜索的内容。"
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "搜索内容太长。"
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "已登录"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "%s 结束"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "主页"
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "此影片没有预告片。"
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "无法播放预告片。请启动流媒体服务器或安装 Kodi 的 YouTube 插件。"
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "预告片"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "已清除缓存数据。离开设置后主页将重新加载。"
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "刷新缓存数据"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "清除已保存的目录页面、影片详情、评分和徽标检查结果，让后续界面重新向插件请求。账户、插件和观看进度保留。"
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "预告片通过 Kodi 的 YouTube 插件播放。现在安装吗？"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "预告片未能开始播放。请在 Kodi 的 YouTube 插件中播放任意视频进行检查。"
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "前往剧集"
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr "想要显示 Rotten Tomatoes 和 Metacritic 评分？请在 omdbapi.com/apikey.aspx 获取免费密钥并在此输入。"
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "我的内容"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "从继续观看中移除"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "排列主页列表"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "选择每个标签页显示的列表及其顺序。"
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "列表数：%d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "恢复默认"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "添加列表"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "上移"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "下移"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "从此标签页移除"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "同时显示在…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "此标签页已满"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "将主页列表恢复为默认设置？"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "新电影"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "新剧集"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "新动画电影"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "新动画剧集"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "媒体库电影"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "媒体库剧集"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "动画电影"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "动画剧集"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "浏览完整目录"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "替换此标签页的继续观看列表？"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "用手机输入 OMDb 密钥 (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "用手机输入 MDBList 密钥 (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "获取免费的 OMDb 密钥：https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "获取免费的 MDBList 密钥（登录后选择 API 密钥）：https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "OMDb API 密钥，获取地址：https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "MDBList API 密钥，获取地址：https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "显示 QR 码。用手机扫描并在手机上粘贴密钥，即可保存到此处。"
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "想查看 MDBList 评分？请在 https://mdblist.com/preferences/ 获取免费密钥（登录后生成 API 密钥），然后在此处输入。MDBList 还提供 Rotten Tomatoes 观众评分。"
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "选项"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "用手机"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "发现"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "结果"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "欢迎"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "搜索电影、剧集等。选择字母，或使用手机。"
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "搜索"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "没有“%s”的结果"

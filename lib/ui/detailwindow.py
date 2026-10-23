@@ -56,6 +56,10 @@ POSTER = 30004
 HEADING = 30005
 LIST = 30002
 SEASON_BAR = 30007
+OPTIONS = 30009
+TRAILER = 30012
+LOGO = 30023
+_WATCHED_TICK_PERCENT = 90
 
 #: Right-aligned "N EPISODES" readout for the season the episode list
 #: (LIST) is currently showing - a plain window label DetailWindow sets
@@ -189,32 +193,91 @@ def _season_count(season_groups):
     return sum(1 for season, _label, _videos in season_groups if season != 0)
 
 
-def _episode_properties(video):
-    """Map one video/episode meta to the string Properties
-    `DetailWindow.xml`'s itemlayout reads via
-    `$INFO[ListItem.Property(...)]`: `thumb` (episode still - may be
-    empty, the row's thumb `<control>` degrades gracefully to nothing),
-    `line2` (first line of the episode's plot, falling back to its air
-    date, falling back to empty), and `code`/`title` - the episode code
-    and title split back out of `_episode_label()`'s one combined
-    string so the skin can style them apart (mono/blue code, bold white
-    title). Per-episode `runtime` was investigated (neither the Stremio
-    Video shape nor anything this addon's meta/store carries one) and
-    is deliberately NOT exposed here - there is no real value to bind.
-    `watched_percent` - the localized '%d%% WATCHED' readout, when there
-    is any - is set separately by `DetailWindow._build_episode_items()`, which
-    needs a `Store` this pure function deliberately does not touch."""
+def _episode_properties(video, fallback=''):
+    """Legacy code/title/line2 plus the new row still, full plot, date and runtime."""
     video = video or {}
     plot = (video.get('overview') or '').strip()
     line1 = plot.splitlines()[0] if plot else ''
     released = video.get('released') or ''
     aired = released.split('T', 1)[0] if released else ''
+    raw_thumb = video.get('thumbnail')
+    thumb = raw_thumb.strip() if isinstance(raw_thumb, str) else ''
     return {
-        'thumb': video.get('thumbnail') or '',
+        'thumb': thumb or fallback or '',
         'line2': escape_label(line1 or aired or ''),
         'code': _episode_code(video),
         'title': _episode_title(video),
+        # The new-look rows (NewDetailWindow.xml): "1x01. Title", the air
+        # date (ISO here; _build_episode_items formats it), the whole
+        # plot, and a runtime when the meta has one (TMDB-backed metas do).
+        'ep_title': _episode_row_title(video),
+        'aired': aired,
+        'plot': escape_label(plot),
+        'runtime': _short_runtime(video.get('runtime')),
     }
+
+
+def _episode_row_title(video):
+    """'1\u00d701. Title': season x episode, the way the episode list reads."""
+    title = _episode_title(video)
+    try:
+        season = int(video.get('season'))
+        episode = int(video.get('episode'))
+    except (TypeError, ValueError):
+        return title
+    return '%d\u00d7%02d. %s' % (season, episode, title)
+
+
+def _short_runtime(value):
+    """'1h 11m' / '54m' from a runtime ('71 min', 71, '71'), or ''."""
+    from lib.ui.playbackmeta import parse_duration_seconds
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        value = '%d' % value
+    seconds = parse_duration_seconds(value)
+    if not seconds:
+        return ''
+    minutes = int(seconds // 60)
+    hours, minutes = divmod(minutes, 60)
+    return '%dh %dm' % (hours, minutes) if hours else '%dm' % minutes
+
+
+def _short_date(iso_date):
+    """``2024-02-27`` in Kodi's short date format (``27/02/2024``), or
+    the input when it cannot be read."""
+    text = str(iso_date or '').strip()
+    if not text:
+        return ''
+    try:
+        stamp = time.strptime(text[:10], '%Y-%m-%d')
+    except ValueError:
+        return text
+    fmt = ''
+    try:
+        import xbmc
+
+        fmt = xbmc.getRegion('dateshort') or ''
+    except Exception:
+        fmt = ''
+    try:
+        return time.strftime(fmt or '%d/%m/%Y', stamp)
+    except Exception:
+        return text
+
+
+def _show_logo(window, logo_url):
+    """Keep the text title until the existing logo cache knows the image."""
+    from lib.ui.newhome import _logo_known_good, _warm_logos
+
+    wanted = logo_url or ''
+    logo = wanted if _logo_known_good(wanted) else ''
+    try:
+        if wanted and not logo:
+            _warm_logos(window, [wanted])
+        window.setProperty('HeroLogo', logo)
+        window.getControl(LOGO).setImage(logo)
+    except Exception:
+        pass
 
 
 def _episode_heading(show_name, video):
@@ -424,14 +487,18 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         from lib.ui.compat import L
 
         sid = self.meta.get('id')
+        raw_poster = self.meta.get('poster')
+        fallback = raw_poster.strip() if isinstance(raw_poster, str) else ''
         items = []
         for video in videos:
             item = xbmcgui.ListItem(_episode_label(video))
-            properties = _episode_properties(video)
+            properties = _episode_properties(video, fallback)
             properties['row_id'] = video.get('id')
             progress = self._episode_progress(self.stype, sid, video.get('id'))
             percent = _watched_percent(progress)
             properties['watched_percent'] = L(_WATCHED_STRING_ID) % percent if percent is not None else ''
+            properties['watched'] = '1' if percent is not None and percent >= _WATCHED_TICK_PERCENT else ''
+            properties['aired'] = _short_date(properties.get('aired'))
             # One setProperties() call instead of one setProperty() call
             # per key - each is a Python->C++ boundary crossing.
             item.setProperties(properties)
@@ -536,6 +603,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self.getControl(HEADING).setLabel(
             '[B]%s[/B]' % escape_label((self.meta.get('name') or self.meta.get('id') or '').upper()),
         )
+        _show_logo(self, self.meta.get('logo'))
         self.getControl(METADATA_LINE).setLabel(_metadata_line(self.meta, _season_count(self.season_groups)))
         self.getControl(GENRES_LINE).setLabel(_genres_line(self.meta))
 
@@ -548,11 +616,34 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         action_id = action.getId()
         if action_id in _SEASON_NAV_ACTIONS and self.getFocusId() == SEASON_BAR:
             self._sync_season_from_bar()
+        elif action_id in _SEASON_NAV_ACTIONS and self.getFocusId() == LIST:
+            self._step_episode(-1 if action_id == 1 else 1)
         if action_id == _CONTEXT_MENU_ACTION:
             self._open_context_menu()
             return
         if action_id in BACK_ACTIONS:
             self.close()
+
+    def _step_episode(self, delta):
+        """Select the episode `delta` rows away, clamped to the season.
+
+        `selectItem` scrolls a row that sits below the visible window
+        into view. The list already holds every episode of the season;
+        this only moves the cursor."""
+        control = self.getControl(LIST)
+        count = control.size()
+        if count <= 0:
+            return
+        pos = control.getSelectedPosition()
+        if pos < 0:
+            pos = 0
+        nxt = pos + delta
+        if nxt < 0:
+            nxt = 0
+        elif nxt >= count:
+            nxt = count - 1
+        if nxt != pos:
+            control.selectItem(nxt)
 
     def _open_credits(self):
         """'Cast & Crew' row of `_open_context_menu()`: `self.meta` is
@@ -577,7 +668,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         The Add/Remove and watched ROW WORDING must reflect the
         account's CURRENT state, never a locally-cached guess (this
         addon caches no library items at all -- see
-        `lib.ui.mystuff._fetch_library_entries()`'s identical live
+        `lib.ui.mystuff._read_library_entries()`'s identical live
         fetch) -- `_current_library_state()` fetches it fresh every time
         this menu opens, logged in or not. `lookup_ok` is forwarded
         unchanged to `_toggle_library()`/`_toggle_watched()`: a failed
@@ -600,6 +691,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             L(30196),
             L(30294) if in_library else L(30293),
             L(30296) if watched else L(30295),
+            L(30499),
         ]
         picked = dialogs.choose(self.meta.get('name') or self.meta.get('id') or '', rows)
         if picked == 0:
@@ -608,6 +700,16 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             self._toggle_library(auth, item, add=not in_library, lookup_ok=lookup_ok)
         elif picked == 2:
             self._toggle_watched(auth, item, watched=not watched, lookup_ok=lookup_ok)
+        elif picked == 3:
+            self._play_trailer()
+
+    def _play_trailer(self):
+        """The show's trailer (lib/ui/trailer.py). The episode list comes
+        back where it was when the trailer stops."""
+        from lib.ui.trailer import play_trailer
+
+        meta = self.meta if isinstance(self.meta, dict) else {}
+        play_trailer(meta, meta.get('type') or self.stype, meta.get('id') or '')
 
     def _current_library_state(self):
         """`(auth, item, lookup_ok)` for `self.meta` -- `auth` is
@@ -750,6 +852,12 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
 
     @gated_input
     def onClick(self, control_id):
+        if control_id == OPTIONS:
+            self._open_context_menu()
+            return
+        if control_id == TRAILER:
+            self._play_trailer()
+            return
         if control_id == SEASON_BAR:
             self._sync_season_from_bar()
             self.setFocusId(LIST)
@@ -957,7 +1065,7 @@ def open_detail(stype, sid):
     log('detailwindow: opening DetailWindow for %s/%s' % (stype, sid), xbmc.LOGINFO)
     win = None
     try:
-        win = open_window(DetailWindow, 'DetailWindow.xml')
+        win = open_window(DetailWindow, 'NewDetailWindow.xml')
         return win.start(meta_obj, stype)
     except Exception as exc:  # a skin/UI failure must surface, not vanish
         log('detailwindow: window failed to open: %r' % (exc,), xbmc.LOGERROR)

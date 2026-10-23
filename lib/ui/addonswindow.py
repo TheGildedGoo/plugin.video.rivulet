@@ -153,9 +153,11 @@ class AddonsWindow(BaseWindow):
 
     def _install(self):
         from lib.ui.compat import L, notify
-        from lib.ui.uicommon import fetch_and_validate_addon
+        from lib.ui.pairwindow import ask_addon_url
+        from lib.ui.uicommon import confirm_addon_install, fetch_and_validate_addon
 
-        url = xbmcgui.Dialog().input(L(30010))
+        # Paste the link on a phone; the keyboard is the second choice.
+        url = ask_addon_url(L(30010))
         if not url:
             return
 
@@ -164,6 +166,9 @@ class AddonsWindow(BaseWindow):
             return
         if error_string_id is not None:
             notify(L(error_string_id))
+            return
+
+        if not confirm_addon_install(manifest, transport_url):
             return
 
         from lib.ui.views import _sync_addons_if_logged_in

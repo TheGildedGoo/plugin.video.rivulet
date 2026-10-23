@@ -648,13 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "Startscherm"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "Films tonen"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "Series tonen"
+
+
+
+
 
 msgctxt "#30222"
 msgid "Show Anime"
@@ -672,17 +670,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "speelt nu af"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "Overige"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "Bladeren door catalogi die geen films, series of anime zijn"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "Overige tonen"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +700,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "BEKEKEN"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "Verder tonen"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1002,10 +992,6 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "De catalogus toont alleen de eerste %d pagina's; meer items worden niet geladen"
 
-msgctxt "#30412"
-msgid "Dark dialogs"
-msgstr "Donkere dialoogvensters"
-
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "Torrents na afspelen behouden (seeden)"
@@ -1021,3 +1007,410 @@ msgstr "Verwijderen uit Verder kijken?"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "Zoekopdracht onvolledig, te trage catalogi: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "Bibliotheek"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "Titels in je Stremio-bibliotheek"
+
+
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "Je bibliotheek is leeg. Voeg een titel toe vanaf de pagina."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "Aanmelden"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "Meld je hier eenmaal aan. Rivulet heeft een eigen Stremio-login."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d min"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "Hervat %s vanaf %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "Hervat vanaf %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Afleveringen"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Details"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API-sleutel"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API-sleutel"
+
+
+
+
+
+
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Een sleutel koppelen"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Open deze pagina op de telefoon en plak de sleutel. Hij werkt 3 minuten."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Sleutel opgeslagen"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "Koppelen kon niet starten. De tv heeft een netwerk nodig."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Deze code is verlopen. Probeer het opnieuw."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Opslaan"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Opgeslagen. Je kunt deze pagina sluiten."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Deze code komt niet overeen."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Voer een sleutel in."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Al opgeslagen."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Deze sleutel is te lang."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "De sleutel kon niet worden opgeslagen."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Installeren via de telefoon"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Adres typen"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Open deze pagina op de telefoon en plak de installatielink van de add-on. Hij werkt 3 minuten."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Deze add-on configureren"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "Plak een link die met https:// begint."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Deze link is te lang."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "Aanmelden met de telefoon"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "E-mail en wachtwoord typen"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "Scan de QR of open het adres op de telefoon en meld je daar aan bij Stremio."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Zoeken via de telefoon"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Typ het op de telefoon"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Open deze pagina op de telefoon en typ waarnaar je zoekt. Hij werkt 3 minuten."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Typ iets om te zoeken."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Deze zoekopdracht is te lang."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Aangemeld"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "Eindigt om %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "Start"
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "Geen trailer voor deze titel."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "De trailer kan niet worden afgespeeld. Start de streamingserver of installeer de YouTube-add-on van Kodi."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "Trailer"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Gecachte gegevens gewist. Start laadt opnieuw zodra je Instellingen verlaat."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Gecachte gegevens vernieuwen"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Vergeet opgeslagen cataloguspagina's, titelgegevens, beoordelingen en logocontroles, zodat de volgende schermen je add-ons opnieuw vragen. Je account, add-ons en voortgang blijven."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Trailers spelen via de YouTube-add-on van Kodi. Nu installeren?"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "De trailer startte niet. Speel een willekeurige video af in de YouTube-add-on van Kodi om die te controleren."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "Naar de serie"
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr "Wil je scores van Rotten Tomatoes en Metacritic? Haal een gratis sleutel op via omdbapi.com/apikey.aspx en vul die hier in."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "Mijn inhoud"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "Verwijderen uit Verder kijken"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "Startlijsten indelen"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "Kies welke lijsten elk tabblad toont en in welke volgorde."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "Lijsten: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "Standaard herstellen"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "Lijst toevoegen"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "Omhoog"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "Omlaag"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "Uit dit tabblad verwijderen"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "Ook tonen in…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "Dit tabblad is vol"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "Startlijsten herstellen naar standaard?"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "Nieuwe films"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "Nieuwe series"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "Nieuwe animefilms"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "Nieuwe animeseries"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "Films in bibliotheek"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "Series in bibliotheek"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "Animefilms"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "Animeseries"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "Volledige catalogus bekijken"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "De lijst Verder kijken van dit tabblad vervangen?"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "OMDb-sleutel invoeren met je telefoon (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "MDBList-sleutel invoeren met je telefoon (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "Een gratis OMDb-sleutel aanvragen: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "Een gratis MDBList-sleutel aanvragen (inloggen, dan API-sleutel): https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "OMDb-API-sleutel, verkrijgbaar op https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "MDBList-API-sleutel, verkrijgbaar op https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "Toont een QR-code. Scan deze met je telefoon en plak daar de sleutel om deze hier op te slaan."
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "Wil je MDBList-scores? Vraag een gratis sleutel aan op https://mdblist.com/preferences/ (log in en genereer een API-sleutel) en voer deze hier in. MDBList voegt ook de publieksscore van Rotten Tomatoes toe."
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Opties"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Via telefoon"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Ontdekken"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Resultaten"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Welkom"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Zoek films, series en meer. Kies letters of gebruik je telefoon."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Zoeken"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Geen resultaten voor ‘%s’"

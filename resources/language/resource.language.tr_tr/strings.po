@@ -648,13 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "Ana ekran"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "Filmleri göster"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "Dizileri göster"
+
+
+
+
 
 msgctxt "#30222"
 msgid "Show Anime"
@@ -672,17 +670,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "şimdi oynatır"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "Diğer"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "Film, dizi veya anime olmayan kataloglara göz at"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "Diğer göster"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +700,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "İZLENDİ"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "Devam et'i göster"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1002,10 +992,6 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "Katalog yalnızca ilk %d sayfayı gösteriyor; diğer öğeler yüklenmiyor"
 
-msgctxt "#30412"
-msgid "Dark dialogs"
-msgstr "Koyu iletişim kutuları"
-
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "Oynatmadan sonra torrentleri tut (seed)"
@@ -1021,3 +1007,410 @@ msgstr "İzlemeye devam et listesinden kaldırılsın mı?"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "Arama eksik, çok yavaş kataloglar: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "Kitaplık"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "Stremio kitaplığınızdaki başlıklar"
+
+
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "Kitaplığınız boş. Bir başlığı sayfasından ekleyin."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "Giriş"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "Burada bir kez oturum açın. Rivulet kendi Stremio girişini kullanır."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d dk"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "%s, %s konumundan devam"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "%s konumundan devam"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Bölüm listesi"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Ayrıntılar"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "OMDb API anahtarı"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "MDBList API anahtarı"
+
+
+
+
+
+
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Bir anahtar eşle"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve anahtarı yapıştır. 3 dakika geçerlidir."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Anahtar kaydedildi"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "Eşleme başlayamadı. TV'nin bir ağa ihtiyacı var."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Bu kodun süresi doldu. Yeniden dene."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Kaydet"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Kaydedildi. Bu sayfayı kapatabilirsin."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Bu kod eşleşmiyor."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Bir anahtar gir."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Zaten kaydedildi."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Bu anahtar çok uzun."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "Anahtar kaydedilemedi."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Telefondan yükle"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Adresi yaz"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve eklentinin yükleme bağlantısını yapıştır. 3 dakika geçerlidir."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Bu eklentiyi yapılandır"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "https:// ile başlayan bir bağlantı yapıştır."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Bu bağlantı çok uzun."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "Telefonla giriş yap"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "E-posta ve şifreyi yaz"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "Telefonda QR'ı tara ya da adresi aç ve orada Stremio'ya giriş yap."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Telefondan ara"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Telefonda yaz"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Bu sayfayı telefonda aç ve ne aradığını yaz. 3 dakika geçerlidir."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Aramak için bir şey yaz."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Bu arama çok uzun."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Oturum açık"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "Bitiş: %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "Ana sayfa"
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "Bu başlık için fragman yok."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "Fragman oynatılamıyor. Akış sunucusunu başlatın veya Kodi'nin YouTube eklentisini yükleyin."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "Fragman"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Önbellek temizlendi. Ayarlardan çıktığınızda ana sayfa yeniden yüklenir."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Önbelleği yenile"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Kayıtlı katalog sayfalarını, ayrıntıları, puanları ve logo kontrollerini unutur; sonraki ekranlar eklentilere yeniden sorar. Hesabınız, eklentileriniz ve ilerlemeniz kalır."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Fragmanlar Kodi'nin YouTube eklentisiyle oynatılır. Şimdi yüklensin mi?"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "Fragman başlamadı. Kontrol etmek için Kodi'nin YouTube eklentisinde herhangi bir video oynatın."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "Diziye git"
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr "Rotten Tomatoes ve Metacritic puanlarını mı istiyorsunuz? omdbapi.com/apikey.aspx adresinden ücretsiz bir anahtar alın ve buraya girin."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "İçeriklerim"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "Devam Et listesinden kaldır"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "Ana sayfa listelerini düzenle"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "Her sekmede hangi listelerin hangi sırayla gösterileceğini seçin."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "Listeler: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "Varsayılana sıfırla"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "Liste ekle"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "Yukarı taşı"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "Aşağı taşı"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "Bu sekmeden kaldır"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "Şurada da göster…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "Bu sekme dolu"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "Ana sayfa listeleri varsayılana sıfırlansın mı?"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "Yeni Filmler"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "Yeni Diziler"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "Yeni Anime Filmleri"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "Yeni Anime Dizileri"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "Kitaplık Filmleri"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "Kitaplık Dizileri"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "Anime Filmleri"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "Anime Dizileri"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "Tüm kataloğa göz at"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "Bu sekmenin Devam Et listesi değiştirilsin mi?"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "OMDb anahtarını telefonla gir (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "MDBList anahtarını telefonla gir (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "Ücretsiz OMDb anahtarı al: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "Ücretsiz MDBList anahtarı al (giriş yap, ardından API anahtarı): https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "OMDb API anahtarı alma adresi: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "MDBList API anahtarı alma adresi: https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "QR kodu gösterir. Telefonunuzla tarayıp anahtarı oraya yapıştırın; anahtar buraya kaydedilir."
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "MDBList puanlarını mı istiyorsunuz? https://mdblist.com/preferences/ adresinden ücretsiz bir anahtar alın (giriş yapıp API anahtarı oluşturun) ve buraya girin. MDBList, Rotten Tomatoes izleyici puanını da ekler."
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Seçenekler"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Telefonla"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Keşfet"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Sonuçlar"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Hoş geldiniz"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Film, dizi ve daha fazlasını arayın. Harf seçin ya da telefonunuzu kullanın."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Ara"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "“%s” için sonuç yok"

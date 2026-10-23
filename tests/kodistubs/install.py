@@ -63,7 +63,10 @@ def install_kodi_stubs(reload=(), addon_info=None, settings=None, localized=None
     the cached `lib.ui` package object for each `reload` name is
     snapshotted and restored too.
     """
-    reload_names = tuple(reload)
+    # The real interpreter owns one background monitor. Each isolated
+    # stub session is a new interpreter and must not inherit another
+    # session's monitor/abort state.
+    reload_names = ('lib.ui.background',) + tuple(name for name in reload if name != 'lib.ui.background')
     leaves = [name.rsplit('.', 1)[-1] for name in reload_names]
     parent_names = [name.rsplit('.', 1)[0] if '.' in name else None for name in reload_names]
 

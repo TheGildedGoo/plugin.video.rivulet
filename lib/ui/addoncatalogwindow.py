@@ -612,12 +612,18 @@ class AddonCatalogWindow(BaseWindow):
         page in-app is impossible - `WindowXMLDialog` has no browser -
         so this never attempts to fetch or display it, only its URL."""
         from lib.ui.compat import L, notify
-        from lib.ui.uicommon import escape_label, fetch_and_validate_addon
+        from lib.ui.pairwindow import ask_addon_url
+        from lib.ui.uicommon import confirm_addon_install, escape_label, fetch_and_validate_addon
 
         manifest = descriptor.get('manifest') or {}
         transport_url = descriptor.get('transportUrl') or ''
-        heading = L(30341) % (escape_label(manifest.get('name', '?')), _configure_url(transport_url))
-        pasted_url = xbmcgui.Dialog().input(heading)
+        name = escape_label(manifest.get('name', '?'))
+        configure_url = _configure_url(transport_url)
+        heading = L(30341) % (name, configure_url)
+        # The phone page links to the configure page, so the viewer
+        # configures there and pastes the link it hands out. The keyboard
+        # path keeps the old prompt.
+        pasted_url = ask_addon_url(heading, configure_url=configure_url, title=name)
         if not pasted_url:
             return
 
@@ -626,6 +632,9 @@ class AddonCatalogWindow(BaseWindow):
             return
         if error_id:
             notify(L(error_id))
+            return
+
+        if not confirm_addon_install(configured_manifest, pasted_transport_url):
             return
 
         from lib.ui.views import _sync_addons_if_logged_in

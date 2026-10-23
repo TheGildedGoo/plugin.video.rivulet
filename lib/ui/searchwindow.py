@@ -9,11 +9,14 @@ way `lib.ui.catalogpicker.CatalogPickerWindow` does for Discover - Back
 from the results now correctly returns here.
 
 Row 0 is always "New search…" (prompts a query, mirrors the old
-behavior); every history row re-runs that past query (the closest thing
-to autocompletion `xbmcgui.Dialog().input()` allows - see the module's
-own history rows as the suggestion surface); a trailing "Clear search
-history" row appears once there's history to clear. Picking a result
-title opens `lib.ui.detailwindow` for it. Built/run via `open_search()`.
+behavior); row 1 is "Search from your phone" (the query is typed on a
+phone through `lib.ui.pairwindow.phone_search`, so nothing is typed with
+the remote); every history row re-runs that past query (the closest
+thing to autocompletion `xbmcgui.Dialog().input()` allows - see the
+module's own history rows as the suggestion surface); a trailing "Clear
+search history" row appears once there's history to clear. Picking a
+result title opens `lib.ui.detailwindow` for it. Built/run via
+`open_search()`.
 """
 import queue
 import threading
@@ -29,7 +32,6 @@ from lib.ui.uicommon import (
     deliver_queued_input,
     escape_label,
     gated_input,
-    open_window,
 )
 
 LIST = 30002
@@ -69,7 +71,9 @@ class SearchWindow(BaseWindow):
 
         new_item = xbmcgui.ListItem(label=L(30042), label2=L(30043))
         new_item.setProperty('position', 'new')
-        items = [new_item]
+        phone_item = xbmcgui.ListItem(label=L(30483), label2=L(30484))
+        phone_item.setProperty('position', 'phone')
+        items = [new_item, phone_item]
         for index, query in enumerate(history):
             item = xbmcgui.ListItem(label=query, label2=L(30045))
             item.setProperty('position', str(index))
@@ -91,6 +95,9 @@ class SearchWindow(BaseWindow):
         if position == 'new':
             self._new_search()
             return
+        if position == 'phone':
+            self._phone_search()
+            return
         if position == 'clear':
             self._clear_history()
             return
@@ -111,6 +118,19 @@ class SearchWindow(BaseWindow):
         # different (uncached, `%20`-suffixed) request to an addon, and a
         # blank entry is a cancel, not a search for "".
         query = (xbmcgui.Dialog().input(L(30001)) or '').strip()
+        if not query:
+            return
+        self._run_search(query)
+
+    def _phone_search(self):
+        """The query typed on a phone. Same guard as `_new_search`."""
+        from lib.ui.compat import L, notify
+        from lib.ui.pairwindow import phone_search
+
+        if not _search_catalogs(self.store or get_store()):
+            notify(L(30381), time_ms=_NOTICE_MS)
+            return
+        query = (phone_search() or '').strip()
         if not query:
             return
         self._run_search(query)
@@ -777,28 +797,7 @@ def _feed_index(store, client):
 
 
 def open_search():
-    """Open the search history/new-query picker. Returns True if the
-    caller should also close (see `SearchWindow.start`)."""
-    from lib.ui.compat import L, log, notify
+    """Open the one-page search. True when the caller should also close."""
+    from lib.ui import newsearch
 
-    log('searchwindow: opening SearchWindow', xbmc.LOGINFO)
-    win = None
-    try:
-        win = open_window(SearchWindow, 'SearchWindow.xml')
-        return win.start()
-    except Exception as exc:  # a skin/UI failure must surface, not vanish
-        log('searchwindow: window failed to open: %r' % (exc,), xbmc.LOGERROR)
-        notify(L(30032))
-        return False
-    finally:
-        # A normal return means SearchWindow already closed itself (its
-        # own onAction/onClick calls self.close()) before .start()
-        # returned - but an exception raised from WITHIN .start() (onInit(),
-        # or a callback mid-doModal()) skips that self-close entirely.
-        # Close unconditionally here so no exit path leaves a zombie modal
-        # window behind; closing an already-closed window is a safe no-op.
-        if win is not None:
-            try:
-                win.close()
-            except Exception:
-                pass
+    return newsearch.open_search()

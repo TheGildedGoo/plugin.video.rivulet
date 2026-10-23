@@ -840,3 +840,50 @@ def test_run_dispatching_views_action_never_imports_player(load_router, monkeypa
 
     assert 'lib.ui.player' not in sys.modules
     assert ctx.views.calls == [('home', (), {})]
+
+
+def test_pair_key_opens_the_picker_and_not_the_player(load_router, monkeypatch):
+    ctx = load_router()
+    import lib.ui.pairwindow as pairwindow
+    called = []
+    monkeypatch.setattr(pairwindow, 'open_pair_picker', lambda: called.append('pair'))
+    monkeypatch.setattr(sys, 'argv', ['plugin://plugin.video.rivulet/', '7', '?action=pair_key'])
+
+    ctx.router.run()
+
+    assert called == ['pair']
+    assert ctx.player.calls == []
+    assert ctx.views.calls == []
+
+
+@pytest.mark.parametrize('setting_id,label_id', [
+    ('ratings_omdb_key', 30453), ('ratings_mdblist_key', 30454),
+])
+def test_pair_key_setting_opens_that_key_directly(load_router, monkeypatch, setting_id, label_id):
+    ctx = load_router()
+    import lib.ui.pairwindow as pairwindow
+    called = []
+    monkeypatch.setattr(pairwindow, 'open_pair_picker', lambda: pytest.fail('opened chooser'))
+    monkeypatch.setattr(pairwindow, 'pair_setting', lambda *args: called.append(args))
+    monkeypatch.setattr(sys, 'argv', [
+        'plugin://plugin.video.rivulet/', '7', '?action=pair_key&setting=' + setting_id,
+    ])
+    ctx.router.run()
+    assert called == [(setting_id, 'STR%d' % label_id)]
+    assert ctx.player.calls == []
+    assert ctx.views.calls == []
+
+
+def test_pair_key_unknown_setting_falls_back_without_writing(load_router, monkeypatch):
+    ctx = load_router()
+    import lib.ui.pairwindow as pairwindow
+    called = []
+    monkeypatch.setattr(pairwindow, 'open_pair_picker', lambda: called.append('picker'))
+    monkeypatch.setattr(pairwindow, 'pair_setting', lambda *args: pytest.fail('paired arbitrary id'))
+    monkeypatch.setattr(pairwindow, 'pair_value', lambda *a, **k: pytest.fail('opened pairing'))
+    monkeypatch.setattr(ctx.compat.ADDON, 'setSetting', lambda *a: pytest.fail('wrote setting'))
+    monkeypatch.setattr(sys, 'argv', [
+        'plugin://plugin.video.rivulet/', '7', '?action=pair_key&setting=server_url',
+    ])
+    ctx.router.run()
+    assert called == ['picker']

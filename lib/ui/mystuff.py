@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 M0Rf30
 # SPDX-License-Identifier: MIT
 
-"""open_my_stuff(): the merged "My Stuff" screen - one grid combining
+"""Shared My Stuff band helpers used by Home and the retained grid: combining
 what the Home menu used to split across two rows ("Continue watching",
 `lib.ui.continuewatching`, and "Library", `lib.ui.librarywindow`) plus a
 third band those two never surfaced at all: titles finished recently.
@@ -31,10 +31,13 @@ computed here as "this series is next-up" and the actual episode is
 resolved lazily by `lib.ui.binge.next_video()` once the meta is in hand
 (see `resolve_next_up()`).
 
-Everything above `open_my_stuff()` is a pure function of its arguments -
-no store, no addon, no Kodi imports - so tests/test_mystuff.py exercises
-every band with plain dicts.
+The merge and band helpers are pure functions of their arguments, so
+tests/test_mystuff.py exercises every band with plain dicts. Account reads
+and metadata enrichment below are the explicit I/O boundary.
 """
+import threading
+from typing import Dict
+
 from lib.ui.dependencies import get_store
 
 #: Progress band edges, as a percent of duration. Mirrors
@@ -254,41 +257,94 @@ def resolve_next_up(item, meta):
     return next_video(meta, video_id)
 
 
-def has_content(store):
-    """Cheap gate for whether the Home "My Stuff" row should be shown at
-    all - True iff the local progress cache holds at least one bandable
-    entry, or the user is logged in (in which case they may have a
-    library worth opening, which cannot be checked without a network
-    call). `get_progress_entries()`/`get_auth()` are both pure local
-    reads, so this is safe on every Home render."""
-    if any(_band_for(percent_watched(e), e.get('type')) for e in latest_by_title(store.get_progress_entries())):
-        return True
-    return bool(store.get_auth())
 
 
-def _fetch_library_entries(store):
-    """The user's Stremio library datastore, or [] when logged out or the
-    call fails. A library failure must never sink the whole screen - the
-    local played bands work fully offline and logged out, which is
-    exactly the state a fresh device is in - so this logs and degrades to
-    empty rather than propagating (`open_library()`'s old behaviour was
-    to notify and show nothing at all)."""
-    import xbmc
+# Writes that have been pushed and must show before the next
+# datastoreGet echoes them. Keyed by `_id`. A later fetch drops a
+# write once the account row is at least as new and agrees on `removed`.
+# Only the new-look Home (`lib.ui.newhome`) records and applies these.
+_library_writes: Dict[str, dict] = {}
+_library_write_lock = threading.Lock()
 
-    from lib.stremio.api import ApiError, StremioAPI
-    from lib.ui.compat import log
+
+def clear_library_writes():
+    """Test hook. Production never calls this."""
+    with _library_write_lock:
+        _library_writes.clear()
+
+
+def note_library_write(item):
+    """Remember a libraryItem this process just put.
+
+    Painting from this copy is what makes Add and Remove show up on the
+    new-look Home's Library row without waiting for the account to echo
+    the change.
+    """
+    if not isinstance(item, dict):
+        return
+    item_id = item.get('_id')
+    if not item_id:
+        return
+    with _library_write_lock:
+        _library_writes[item_id] = item
+
+
+def apply_library_writes(entries):
+    """`entries` (a libraryItem datastore read) with this process's
+    pending writes laid over it. An account row at least as new as the
+    write, and agreeing on `removed`, wins and retires the write."""
+    with _library_write_lock:
+        pending = dict(_library_writes)
+    if not pending:
+        return list(entries or [])
+    out = []
+    seen = set()
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            out.append(entry)
+            continue
+        item_id = entry.get('_id')
+        overlay = pending.pop(item_id, None) if item_id else None
+        if overlay is None:
+            out.append(entry)
+            if item_id:
+                seen.add(item_id)
+            continue
+        remote_m = entry.get('_mtime') or ''
+        local_m = overlay.get('_mtime') or ''
+        if remote_m >= local_m and bool(entry.get('removed')) == bool(overlay.get('removed')):
+            with _library_write_lock:
+                current = _library_writes.get(item_id)
+                if (
+                    isinstance(current, dict)
+                    and (current.get('_mtime') or '') <= remote_m
+                    and bool(current.get('removed')) == bool(entry.get('removed'))
+                ):
+                    _library_writes.pop(item_id, None)
+            out.append(entry)
+        else:
+            out.append(overlay)
+        if item_id:
+            seen.add(item_id)
+    for item_id, item in pending.items():
+        if item_id not in seen:
+            out.append(item)
+    return out
+
+
+
+def _read_library_entries(store):
+    """Raw account read: Home must distinguish failure from an empty library."""
+    from lib.stremio.api import StremioAPI
 
     auth = store.get_auth()
     if not auth:
         return []
-    try:
-        return StremioAPI().datastore_get(auth.get('authKey'), collection='libraryItem', all=True) or []
-    except ApiError as exc:
-        log('mystuff: datastore_get failed, showing local bands only: %r' % (exc,), xbmc.LOGWARNING)
-        return []
+    return StremioAPI().datastore_get(auth.get('authKey'), collection='libraryItem', all=True)
 
 
-def _enrich(items):
+
+def _enrich(items, fetch_meta=None, map_items=None):
     """Fill in name/poster for merged items that have none - the played
     bands on a logged-out device, where no library entry supplied them.
 
@@ -308,6 +364,9 @@ def _enrich(items):
     """
     from lib.ui import views
 
+    fetch_meta = fetch_meta or views._fetch_meta
+    map_items = map_items or views._map_addons
+
     # A next-up item is fetched even when it already has name and poster:
     # those come from the library entry, which carries no `videos`, and
     # without that list `_label_next_episodes()` cannot say which episode
@@ -326,7 +385,7 @@ def _enrich(items):
         flag `store_cached_metas()` below needs to avoid re-stamping TTLs
         on entries that were already cached."""
         was_fresh = []
-        meta = views._fetch_meta(
+        meta = fetch_meta(
             item['type'], item['id'], store=False,
             on_miss=lambda: was_fresh.append(True),
         )
@@ -337,7 +396,7 @@ def _enrich(items):
     # same as a failed fetch rather than crash unpacking None.
     fetched = [
         result if result is not None else (None, False)
-        for result in views._map_addons(_fetch, needs_fetch)
+        for result in map_items(_fetch, needs_fetch)
     ]
 
     store = get_store()
@@ -400,52 +459,3 @@ def _label_next_episodes(items):
             continue
         from lib.ui.playbackmeta import episode_code
         item['next_label'] = episode_code(season, episode)
-
-
-def open_my_stuff():
-    """Fetch both sources, merge them, and show the result in the grid.
-    Returns True if the caller (HomeWindow) should also close (playback
-    started somewhere down the open_detail() chain)."""
-    import xbmc
-
-    from lib.ui.compat import L, log, notify
-    from lib.ui.uicommon import CANCELLED, run_cancellable
-
-    store = get_store()
-
-    def _load():
-        merged = merge_entries(store.get_progress_entries(), _fetch_library_entries(store))
-        items = _enrich(merged)
-        _label_next_episodes(items)
-        return items
-
-    items = run_cancellable(_load, L(30033))
-    if items is CANCELLED:
-        return False
-
-    if not items:
-        notify(L(30030))
-        return False
-
-    log('mystuff: opening grid (%d items)' % len(items), xbmc.LOGINFO)
-
-    def _remove(item):
-        # Played bands come from local progress only (see `merge_entries`),
-        # so dropping it removes the card for good (issue #65).
-        removed = store.remove_progress_title(item.get('type'), item.get('id'))
-        log('mystuff: removed %s/%s from Continue watching (%d entries)'
-            % (item.get('type'), item.get('id'), removed), xbmc.LOGINFO)
-        return removed > 0
-
-    try:
-        from lib.ui.gridwindow import open_grid
-        selected = open_grid(group_by_band(items), heading=L(30241), on_remove=_remove)
-    except Exception as exc:  # a skin/UI failure must surface, not vanish
-        log('mystuff: grid failed to open: %r' % (exc,), xbmc.LOGERROR)
-        notify(L(30032))
-        return False
-    if not selected:
-        return False
-
-    from lib.ui.detailwindow import open_detail
-    return open_detail(selected.get('type'), selected.get('id'))

@@ -648,13 +648,11 @@ msgctxt "#30219"
 msgid "Home screen"
 msgstr "Pantalla de inicio"
 
-msgctxt "#30220"
-msgid "Show Movies"
-msgstr "Mostrar Películas"
 
-msgctxt "#30221"
-msgid "Show Series"
-msgstr "Mostrar Series"
+
+
+
+
 
 msgctxt "#30222"
 msgid "Show Anime"
@@ -672,17 +670,11 @@ msgctxt "#30225"
 msgid "plays now"
 msgstr "reproduce ahora"
 
-msgctxt "#30227"
-msgid "Other"
-msgstr "Otros"
 
-msgctxt "#30228"
-msgid "Browse catalogs that aren't film, series or anime"
-msgstr "Explorar catálogos que no son películas, series ni anime"
 
-msgctxt "#30229"
-msgid "Show Other"
-msgstr "Mostrar Otros"
+
+
+
 
 msgctxt "#30230"
 msgid "Open Rivulet automatically on Kodi startup"
@@ -708,9 +700,7 @@ msgctxt "#30243"
 msgid "WATCHED"
 msgstr "VISTO"
 
-msgctxt "#30244"
-msgid "Show Continue"
-msgstr "Mostrar Continuar"
+
 
 msgctxt "#30245"
 msgid "Continue watching"
@@ -1002,10 +992,6 @@ msgctxt "#30411"
 msgid "Catalog shows only the first %d pages; more items are not loaded"
 msgstr "El catálogo solo muestra las primeras %d páginas; no se cargan más elementos"
 
-msgctxt "#30412"
-msgid "Dark dialogs"
-msgstr "Diálogos oscuros"
-
 msgctxt "#30413"
 msgid "Keep torrents after playback (seed)"
 msgstr "Conservar torrents tras la reproducción (seed)"
@@ -1021,3 +1007,410 @@ msgstr "¿Quitar de Seguir viendo?"
 msgctxt "#30416"
 msgid "Search incomplete, catalogs too slow to answer: %d"
 msgstr "Búsqueda incompleta, catálogos demasiado lentos: %d"
+
+msgctxt "#30422"
+msgid "Library"
+msgstr "Biblioteca"
+
+msgctxt "#30423"
+msgid "Titles saved in your Stremio library"
+msgstr "Títulos guardados en tu biblioteca de Stremio"
+
+
+
+msgctxt "#30426"
+msgid "Your library is empty. Add a title from its page."
+msgstr "Tu biblioteca está vacía. Añade un título desde su página."
+
+msgctxt "#30427"
+msgid "Sign in"
+msgstr "Entrar"
+
+msgctxt "#30428"
+msgid "Sign in once here. Rivulet keeps its own Stremio login."
+msgstr "Entra una vez aquí. Rivulet tiene su propio inicio de sesión de Stremio."
+
+msgctxt "#30429"
+msgid "%d min"
+msgstr "%d min"
+
+msgctxt "#30438"
+msgid "Resume %s from %s"
+msgstr "Reanudar %s desde %s"
+
+msgctxt "#30439"
+msgid "Resume from %s"
+msgstr "Reanudar desde %s"
+
+msgctxt "#30440"
+msgid "Episode list"
+msgstr "Lista de episodios"
+
+msgctxt "#30441"
+msgid "Details"
+msgstr "Detalles"
+
+msgctxt "#30453"
+msgid "OMDb API key"
+msgstr "Clave API de OMDb"
+
+msgctxt "#30454"
+msgid "MDBList API key"
+msgstr "Clave API de MDBList"
+
+
+
+
+
+
+
+msgctxt "#30458"
+msgid "Pair a key"
+msgstr "Emparejar una clave"
+
+msgctxt "#30459"
+msgid "Open this page on your phone and paste the key. It works for 3 minutes."
+msgstr "Abre esta página en el teléfono y pega la clave. Funciona durante 3 minutos."
+
+msgctxt "#30460"
+msgid "Key saved"
+msgstr "Clave guardada"
+
+msgctxt "#30461"
+msgid "Pairing could not start. The TV needs a network."
+msgstr "No se pudo iniciar el emparejamiento. El televisor necesita una red."
+
+msgctxt "#30462"
+msgid "That code expired. Try again."
+msgstr "Ese código caducó. Inténtalo de nuevo."
+
+msgctxt "#30463"
+msgid "Save"
+msgstr "Guardar"
+
+msgctxt "#30464"
+msgid "Saved. You can close this page."
+msgstr "Guardado. Puedes cerrar esta página."
+
+msgctxt "#30465"
+msgid "That code does not match."
+msgstr "Ese código no coincide."
+
+msgctxt "#30466"
+msgid "Enter a key."
+msgstr "Introduce una clave."
+
+msgctxt "#30467"
+msgid "Already saved."
+msgstr "Ya está guardado."
+
+msgctxt "#30468"
+msgid "That key is too long."
+msgstr "Esa clave es demasiado larga."
+
+msgctxt "#30469"
+msgid "Could not save the key."
+msgstr "No se pudo guardar la clave."
+
+msgctxt "#30474"
+msgid "Install from your phone"
+msgstr "Instalar desde el teléfono"
+
+msgctxt "#30475"
+msgid "Type the address"
+msgstr "Escribir la dirección"
+
+msgctxt "#30476"
+msgid "Open this page on your phone and paste the addon's install link. It works for 3 minutes."
+msgstr "Abre esta página en el teléfono y pega el enlace de instalación del complemento. Funciona durante 3 minutos."
+
+msgctxt "#30477"
+msgid "Configure this addon"
+msgstr "Configurar este complemento"
+
+msgctxt "#30478"
+msgid "Paste a link that starts with https://."
+msgstr "Pega un enlace que empiece por https://."
+
+msgctxt "#30479"
+msgid "That link is too long."
+msgstr "Ese enlace es demasiado largo."
+
+msgctxt "#30480"
+msgid "Sign in with your phone"
+msgstr "Entrar con el teléfono"
+
+msgctxt "#30481"
+msgid "Type email and password"
+msgstr "Escribir correo y contraseña"
+
+msgctxt "#30482"
+msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
+msgstr "Escanea el QR o abre la dirección en el teléfono e inicia sesión en Stremio allí."
+
+msgctxt "#30483"
+msgid "Search from your phone"
+msgstr "Buscar desde el teléfono"
+
+msgctxt "#30484"
+msgid "Type it on your phone"
+msgstr "Escríbelo en el teléfono"
+
+msgctxt "#30485"
+msgid "Open this page on your phone and type what to search for. It works for 3 minutes."
+msgstr "Abre esta página en el teléfono y escribe lo que quieres buscar. Funciona durante 3 minutos."
+
+msgctxt "#30486"
+msgid "Type something to search for."
+msgstr "Escribe algo para buscar."
+
+msgctxt "#30487"
+msgid "That search is too long."
+msgstr "Esa búsqueda es demasiado larga."
+
+msgctxt "#30488"
+msgid "Signed in"
+msgstr "Sesión iniciada"
+
+msgctxt "#30494"
+msgid "Ends at %s"
+msgstr "Termina a las %s"
+
+msgctxt "#30495"
+msgid "Home"
+msgstr "Inicio"
+
+msgctxt "#30497"
+msgid "No trailer for this title."
+msgstr "Este título no tiene tráiler."
+
+msgctxt "#30498"
+msgid "Can't play the trailer. Start the streaming server or install Kodi's YouTube add-on."
+msgstr "No se puede reproducir el tráiler. Inicia el servidor de streaming o instala el complemento de YouTube de Kodi."
+
+msgctxt "#30499"
+msgid "Trailer"
+msgstr "Tráiler"
+
+msgctxt "#30501"
+msgid "Cached data cleared. Home reloads when you leave Settings."
+msgstr "Datos en caché borrados. Inicio se recarga al salir de Ajustes."
+
+msgctxt "#30502"
+msgid "Refresh cached data"
+msgstr "Actualizar datos en caché"
+
+msgctxt "#30503"
+msgid "Forgets saved catalog pages, title details, ratings and logo checks, so the next screens ask your addons again. Your account, addons and progress stay."
+msgstr "Olvida las páginas de catálogo, los detalles, las valoraciones y las comprobaciones de logotipos guardados, para que las siguientes pantallas vuelvan a preguntar a tus complementos. Tu cuenta, complementos y progreso se mantienen."
+
+msgctxt "#30504"
+msgid "Trailers play through Kodi's YouTube add-on. Install it now?"
+msgstr "Los tráileres se reproducen con el complemento de YouTube de Kodi. ¿Instalarlo ahora?"
+
+msgctxt "#30510"
+msgid "The trailer would not start. Try playing any video in Kodi's YouTube add-on to check it."
+msgstr "El tráiler no se inició. Reproduce cualquier vídeo en el complemento de YouTube de Kodi para comprobarlo."
+
+msgctxt "#30514"
+msgid "Go to series"
+msgstr "Ir a la serie"
+
+msgctxt "#30515"
+msgid "Want Rotten Tomatoes and Metacritic scores? Get a free key at omdbapi.com/apikey.aspx and enter it here."
+msgstr "¿Quieres las puntuaciones de Rotten Tomatoes y Metacritic? Consigue una clave gratuita en omdbapi.com/apikey.aspx e introdúcela aquí."
+
+
+msgctxt "#30516"
+msgid "My Stuff"
+msgstr "Mis contenidos"
+
+
+msgctxt "#30517"
+msgid "Remove from Continue"
+msgstr "Quitar de Continuar"
+
+
+msgctxt "#30518"
+msgid "Arrange Home lists"
+msgstr "Organizar listas de Inicio"
+
+
+msgctxt "#30519"
+msgid "Choose which lists each tab shows, and in what order."
+msgstr "Elige qué listas muestra cada pestaña y en qué orden."
+
+
+msgctxt "#30520"
+msgid "Lists: %d"
+msgstr "Listas: %d"
+
+
+msgctxt "#30521"
+msgid "Reset to default"
+msgstr "Restablecer valores predeterminados"
+
+
+msgctxt "#30522"
+msgid "Add a list"
+msgstr "Añadir una lista"
+
+
+msgctxt "#30523"
+msgid "Move up"
+msgstr "Subir"
+
+
+msgctxt "#30524"
+msgid "Move down"
+msgstr "Bajar"
+
+
+msgctxt "#30525"
+msgid "Remove from this tab"
+msgstr "Quitar de esta pestaña"
+
+
+msgctxt "#30526"
+msgid "Also show in…"
+msgstr "Mostrar también en…"
+
+
+msgctxt "#30527"
+msgid "This tab is full"
+msgstr "Esta pestaña está llena"
+
+
+msgctxt "#30528"
+msgid "Reset Home lists to default?"
+msgstr "¿Restablecer las listas de Inicio?"
+
+
+msgctxt "#30529"
+msgid "New Movies"
+msgstr "Películas nuevas"
+
+
+msgctxt "#30530"
+msgid "New Series"
+msgstr "Series nuevas"
+
+
+msgctxt "#30531"
+msgid "New Anime Movies"
+msgstr "Películas de anime nuevas"
+
+
+msgctxt "#30532"
+msgid "New Anime Series"
+msgstr "Series de anime nuevas"
+
+
+msgctxt "#30533"
+msgid "Library Movies"
+msgstr "Películas de la biblioteca"
+
+
+msgctxt "#30534"
+msgid "Library Series"
+msgstr "Series de la biblioteca"
+
+
+msgctxt "#30535"
+msgid "Anime Movies"
+msgstr "Películas de anime"
+
+
+msgctxt "#30536"
+msgid "Anime Series"
+msgstr "Series de anime"
+
+
+msgctxt "#30537"
+msgid "Browse full catalog"
+msgstr "Explorar catálogo completo"
+
+
+msgctxt "#30538"
+msgid "Replace this tab’s Continue list?"
+msgstr "¿Reemplazar la lista Continuar de esta pestaña?"
+
+
+msgctxt "#30539"
+msgid "Enter OMDb key with your phone (QR)"
+msgstr "Introducir la clave de OMDb con el móvil (QR)"
+
+
+msgctxt "#30540"
+msgid "Enter MDBList key with your phone (QR)"
+msgstr "Introducir la clave de MDBList con el móvil (QR)"
+
+
+msgctxt "#30541"
+msgid "Get a free OMDb key: https://www.omdbapi.com/apikey.aspx"
+msgstr "Consigue una clave gratuita de OMDb: https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30542"
+msgid "Get a free MDBList key (sign in, then API key): https://mdblist.com/preferences/"
+msgstr "Consigue una clave gratuita de MDBList (inicia sesión y ve a la clave API): https://mdblist.com/preferences/"
+
+
+msgctxt "#30543"
+msgid "OMDb API key, get one at https://www.omdbapi.com/apikey.aspx"
+msgstr "Clave API de OMDb, disponible en https://www.omdbapi.com/apikey.aspx"
+
+
+msgctxt "#30544"
+msgid "MDBList API key, get one at https://mdblist.com/preferences/"
+msgstr "Clave API de MDBList, disponible en https://mdblist.com/preferences/"
+
+
+msgctxt "#30546"
+msgid "Shows a QR code. Scan it with your phone, paste the key there and it's saved here."
+msgstr "Muestra un código QR. Escanéalo con el móvil y pega allí la clave para guardarla aquí."
+
+
+msgctxt "#30547"
+msgid "Want MDBList scores? Get a free key at https://mdblist.com/preferences/ (sign in, then generate an API key) and enter it here. MDBList also adds the Rotten Tomatoes audience score."
+msgstr "¿Quieres puntuaciones de MDBList? Consigue una clave gratuita en https://mdblist.com/preferences/ (inicia sesión y genera una clave API) e introdúcela aquí. MDBList también añade la puntuación del público de Rotten Tomatoes."
+
+
+msgctxt "#30492"
+msgid "Options"
+msgstr "Opciones"
+
+
+msgctxt "#30505"
+msgid "Use phone"
+msgstr "Usar móvil"
+
+
+msgctxt "#30506"
+msgid "Discover"
+msgstr "Descubrir"
+
+
+msgctxt "#30507"
+msgid "Results"
+msgstr "Resultados"
+
+
+msgctxt "#30508"
+msgid "Welcome"
+msgstr "Bienvenido"
+
+
+msgctxt "#30509"
+msgid "Search for movies, shows and more. Pick letters, or use your phone."
+msgstr "Busca películas, series y más. Elige letras o usa tu móvil."
+
+
+msgctxt "#30511"
+msgid "Search"
+msgstr "Buscar"
+
+
+msgctxt "#30513"
+msgid "No results for “%s”"
+msgstr "Sin resultados para «%s»"
