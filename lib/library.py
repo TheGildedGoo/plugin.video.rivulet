@@ -456,7 +456,10 @@ def progress_from_library_item(item):
     try:
         offset = max(0, int(state.get('timeOffset') or 0))
         duration = max(0, int(state.get('duration') or 0))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: Python's `json` accepts the literal `Infinity`, and
+        # `int(float('inf'))` raises it -- one hostile record must not abort
+        # the whole library pull.
         return None
     if state.get('flaggedWatched'):
         if duration <= 0:

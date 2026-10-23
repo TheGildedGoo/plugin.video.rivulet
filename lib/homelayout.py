@@ -66,13 +66,22 @@ def valid_id(value):
 
 
 def normalize(layout):
+    """Return a validated copy of ``layout``.
+
+    A tab the saved layout lacks takes its default rows and an unknown tab
+    is dropped, so one missing or extra tab (a layout saved by another
+    build) costs only that tab. Rejecting the whole file for it, as this
+    once did, made the next Settings edit overwrite the user's entire
+    arrangement with the defaults. An envelope naming no known tab at all
+    is still refused: nothing in it is recognisable.
+    """
     if (not isinstance(layout, dict) or type(layout.get('version')) is not int
             or layout.get('version') != 1 or not isinstance(layout.get('tabs'), dict)
-            or set(layout['tabs']) != set(TABS)):
+            or not set(layout['tabs']) & set(TABS)):
         raise LayoutError('invalid Home layout envelope')
     result = {'version': 1, 'tabs': {}}
     for tab in TABS:
-        source = layout['tabs'][tab]
+        source = layout['tabs'].get(tab, DEFAULT['tabs'][tab])
         if not isinstance(source, list):
             raise LayoutError('invalid Home tab lists')
         continued, posters = [], []

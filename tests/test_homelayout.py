@@ -217,3 +217,47 @@ def test_crunchyroll_defaults_to_anime_but_explicit_placements_win():
     assert [entry[0] for entry in h.resolve(layout, 'anime', cats) if entry[1] == 'catalog'] == [entry['list_id'] for entry in anime]
     layout['tabs']['series'].append('cat:streaming|series|cru')
     assert 'cat:streaming|series|cru' in [entry[0] for entry in h.resolve(layout, 'series', cats)]
+
+
+def test_missing_and_extra_tabs_cost_only_those_tabs():
+    layout = empty()
+    layout['tabs']['home'] = ['library']
+    del layout['tabs']['anime']
+    layout['tabs']['future'] = ['library']
+    result = h.normalize(layout)
+    assert result['tabs']['home'] == ['library']
+    assert result['tabs']['anime'] == h.DEFAULT['tabs']['anime']
+    assert 'future' not in result['tabs']
+
+
+@pytest.mark.parametrize('payload', ['{bad', '{"version":2,"tabs":{}}'])
+def test_rejected_layout_is_moved_aside_once_and_not_relogged(tmp_path, payload, caplog):
+    store = Store(str(tmp_path))
+    path = tmp_path / 'home_layout.json'
+    path.write_text(payload)
+    assert store.get_home_layout() == h.DEFAULT
+    assert (tmp_path / 'home_layout.json.bak').read_text() == payload
+    assert not path.exists()
+    caplog.clear()
+    assert store.get_home_layout() == h.DEFAULT
+    assert caplog.text == ''
+
+
+def test_unreadable_layout_is_left_untouched(tmp_path, monkeypatch):
+    import builtins
+    store = Store(str(tmp_path))
+    layout = empty()
+    layout['tabs']['home'] = ['cat:a|movie|one']
+    store.set_home_layout(layout)
+    real_open = builtins.open
+
+    def flaky(file, *args, **kwargs):
+        if str(file).endswith('home_layout.json'):
+            raise PermissionError(13, 'in use')
+        return real_open(file, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, 'open', flaky)
+    assert store.get_home_layout() == h.DEFAULT
+    monkeypatch.undo()
+    assert store.get_home_layout() == layout
+    assert not (tmp_path / 'home_layout.json.bak').exists()

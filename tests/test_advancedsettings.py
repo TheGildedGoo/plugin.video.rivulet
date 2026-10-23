@@ -217,6 +217,8 @@ def test_install_dest_absent_and_error_chained_when_replace_fails(tmp_path, monk
     def _boom(_src, _dst):
         raise OSError('simulated power cut between copy and rename')
 
+    # Hard links unsupported -> install() falls back to os.replace().
+    monkeypatch.setattr(os, 'link', _boom)
     monkeypatch.setattr(os, 'replace', _boom)
 
     with pytest.raises(AdvancedSettingsError) as excinfo:
@@ -238,12 +240,50 @@ def test_install_leaves_no_temp_file_in_dest_directory_when_replace_fails(tmp_pa
     def _boom(_src, _dst):
         raise OSError('simulated power cut between copy and rename')
 
+    # Hard links unsupported -> install() falls back to os.replace().
+    monkeypatch.setattr(os, 'link', _boom)
     monkeypatch.setattr(os, 'replace', _boom)
 
     with pytest.raises(AdvancedSettingsError):
         install(str(source), str(dest))
 
     assert os.listdir(str(dest_dir)) == []
+
+
+def test_install_never_clobbers_a_dest_created_after_the_exists_check(tmp_path, monkeypatch):
+    """The user (or Kodi) may create advancedsettings.xml between install()'s
+    os.path.exists() check and the publish step; the late file must survive."""
+    source = tmp_path / 'source.xml'
+    source.write_text(_TEMPLATE_TEXT, encoding='utf-8')
+    dest = tmp_path / 'dest.xml'
+    real_copyfile = shutil.copyfile
+
+    def _copy_then_user_creates_dest(src, dst):
+        real_copyfile(src, dst)
+        dest.write_text('<advancedsettings><!-- mine --></advancedsettings>', encoding='utf-8')
+
+    monkeypatch.setattr(shutil, 'copyfile', _copy_then_user_creates_dest)
+
+    assert install(str(source), str(dest)) == STATUS_EXISTS
+    assert dest.read_text(encoding='utf-8') == '<advancedsettings><!-- mine --></advancedsettings>'
+    assert sorted(os.listdir(str(tmp_path))) == ['dest.xml', 'source.xml']
+
+
+def test_install_without_hard_link_support_still_installs(tmp_path, monkeypatch):
+    """FAT/exFAT and some network mounts refuse os.link(); install() must
+    still succeed there, via the os.replace() fallback."""
+    source = tmp_path / 'source.xml'
+    source.write_text(_TEMPLATE_TEXT, encoding='utf-8')
+    dest = tmp_path / 'dest.xml'
+
+    def _no_links(_src, _dst):
+        raise PermissionError('filesystem does not support hard links')
+
+    monkeypatch.setattr(os, 'link', _no_links)
+
+    assert install(str(source), str(dest)) == STATUS_INSTALLED
+    assert dest.read_text(encoding='utf-8') == _TEMPLATE_TEXT
+    assert sorted(os.listdir(str(tmp_path))) == ['dest.xml', 'source.xml']
 
 
 @pytest.mark.parametrize('existing_content', ['', 'not xml, just garbage left by a power cut'],

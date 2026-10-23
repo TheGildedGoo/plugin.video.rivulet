@@ -87,11 +87,12 @@ make parallel    # pytest -n auto
 
 **String formatting is printf-style.** `UP031` is globally ignored (`pyproject.toml:44-48`); ~198 sites use `"%s" %`. Consistent with the 3.8 floor. Do not modernize them.
 
-**State and persistence** (`lib/store.py`) — JSON files under the addon's `addon_data` dir: `addons`, `auth`, `search_history` (15 entries), `now_playing`, `resume_offset`, `progress` (500 entries, 180-day sweep, daily), `last_version`.
+**State and persistence** (`lib/store.py`) — JSON files under the addon's `addon_data` dir: `addons`, `auth`, `search_history` (15 entries), `now_playing`, `resume_offset`, `progress` (500 entries, 180-day sweep, daily), `last_version`, `home_layout`.
+- Reads distinguish *missing* (seed/empty), *unreadable* (an `OSError` other than not-found: never write over it) and *corrupt* (kept as `<name>.corrupt` before the default replaces it). `_atomic_write` fsyncs and retries `os.replace` on `PermissionError`.
 - `update_addons()` (`store.py:977`) is the **only** compare-and-swap path, because Kodi runs `default.py` as concurrent OS processes. It deliberately bypasses the read cache — it must see current on-disk bytes.
 - Everything else is plain read-modify-write, with the rationale at `store.py:43-53` (a lost search-history or progress entry is low-stakes).
 - No `fcntl`/`msvcrt`: the addon runs on Linux, Windows, Android and macOS.
-- `_cached_read()` memoizes on an `os.stat()` fingerprint; its key set is a closed seven paths, so its missing size cap is safe. Making that key set data-controlled would not be.
+- `_cached_read()` memoizes on an `os.stat()` fingerprint; its key set is a closed seven paths (`addons`, `auth`, `search_history`, `now_playing`, `resume_offset`, `last_version`, `progress`; `home_layout` is deliberately read fresh, outside it), so its missing size cap is safe. Making that key set data-controlled would not be.
 
 **Dependency injection.** `lib/ui/dependencies.py` exposes lazy singletons (`get_store()`, `get_client()`) injected into windows; windows do not construct their own.
 

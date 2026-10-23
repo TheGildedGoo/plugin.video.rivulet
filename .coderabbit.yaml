@@ -67,7 +67,9 @@ reviews:
         (MAX_PROGRESS_ENTRIES, MAX_SEARCH_HISTORY, MAX_PROGRESS_AGE_DAYS) are
         deliberate - flag new cached or persisted collections that lack an
         equivalent bound or eviction path. _read_cache has no size cap on
-        purpose: its keys are a closed set of seven fixed file paths, so flag
+        purpose: its keys are a closed set of seven fixed file paths
+        (addons, auth, search_history, now_playing, resume_offset, last_version,
+        progress; home_layout is read fresh on purpose), so flag
         anything that makes that key set data-controlled, not the missing cap.
         Writes use optimistic compare-and-swap rather than OS locking; flag
         changes that assume exclusive access.

@@ -35,8 +35,10 @@ def install(source_path, dest_path):
     there (non-destructive: an existing advancedsettings.xml might be the
     user's own tuning, or another addon's), otherwise copies the file and
     returns STATUS_INSTALLED. The copy itself is atomic: it lands in a
-    temporary file in dest's own directory first, then a single
-    os.replace() swaps it into place. advancedsettings.xml is parsed by
+    fsynced temporary file in dest's own directory first, then a single
+    hard link publishes it (see _publish(): unlike os.replace() it cannot
+    clobber a file that appeared after the existence check).
+    advancedsettings.xml is parsed by
     Kodi core itself at startup, not by this addon, and this addon's
     target hardware (Raspberry Pi / Android TV boxes running off SD card
     or eMMC) treats sudden power loss as routine rather than exceptional
@@ -69,7 +71,13 @@ def install(source_path, dest_path):
             # mkstemp() is 0600 by design; the plain copyfile() this
             # replaced produced 0666 & ~umask (0644 for the default 022).
             os.chmod(tmp_path, 0o644)
-            os.replace(tmp_path, dest_path)
+            # fsync before publishing: on ext4 and SD/eMMC the rename can
+            # reach the disk before the data, and the zero-length file a
+            # power loss then leaves would satisfy os.path.exists() above
+            # forever. 'r+b' because Windows' fsync needs a writable handle.
+            with open(tmp_path, 'r+b') as fh:
+                os.fsync(fh.fileno())
+            installed = _publish(tmp_path, dest_path)
         except Exception:
             try:
                 os.remove(tmp_path)
@@ -79,7 +87,35 @@ def install(source_path, dest_path):
     except OSError as exc:
         raise AdvancedSettingsError('failed to install advancedsettings.xml: %s' % exc) from exc
 
-    return STATUS_INSTALLED
+    return STATUS_INSTALLED if installed else STATUS_EXISTS
+
+
+def _publish(tmp_path, dest_path):
+    """Move `tmp_path` to `dest_path` without ever replacing an existing
+    `dest_path`; return whether it was installed (the temp file is gone
+    either way).
+
+    The os.path.exists() check in install() is only a fast path: the user
+    (or Kodi, or another addon) can create advancedsettings.xml between
+    that check and the swap, and os.replace() would silently overwrite it.
+    os.link() refuses an existing destination atomically, so it closes the
+    window. Filesystems without hard links (FAT/exFAT, some network mounts)
+    fall back to check-then-os.replace(), which keeps the narrow window
+    there rather than failing the install.
+    """
+    try:
+        os.link(tmp_path, dest_path)
+    except FileExistsError:
+        os.remove(tmp_path)
+        return False
+    except (OSError, NotImplementedError, AttributeError):
+        if os.path.exists(dest_path):
+            os.remove(tmp_path)
+            return False
+        os.replace(tmp_path, dest_path)
+        return True
+    os.remove(tmp_path)
+    return True
 
 
 def read_recommended_xml(source_path):

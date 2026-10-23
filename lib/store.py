@@ -37,16 +37,23 @@ JSON files live under ``data_dir``:
   ``datastore_put`` and pulls the account's watch state back in through
   :func:`Store.merge_remote_progress`, both only when logged in AND the
   "sync_progress" setting is on.
-* ``seen_episodes.json`` -- the capped ``lib.newepisodes.mark_seen`` set of
-  ``(type, id, video_id)`` composite keys naming which "new episode" Home
-  row candidates the user has already acted on, so a dismissed episode
-  never reappears there. Written wholesale by :meth:`Store.set_seen_episodes`
-  (the caller runs :func:`lib.newepisodes.mark_seen` first) -- never through
-  :meth:`Store.update_addons`, which is addons.json's own compare-and-swap.
+* ``last_version.json`` -- the addon version the user was last told
+  about (see :meth:`Store.get_last_seen_version`).
+* ``home_layout.json`` -- the user's Home arrangement
+  (:meth:`Store.get_home_layout`), read fresh rather than through the
+  read cache.
 
-Writes are atomic (write to a temp file, then ``os.replace``) so a crash or
-power loss never leaves a half-written JSON file behind. A corrupt file on
-read is tolerated and treated the same as a missing one.
+Writes are atomic (write to a temp file, fsync it, then ``os.replace``) so
+a crash or power loss never leaves a half-written JSON file behind.
+
+Reads tell three situations apart, because treating them alike once let a
+transient error wipe a user's data: a file that is *missing* is seeded or
+treated as empty; one that is *unreadable* right now (Windows sharing
+violation, flaky Android storage -- an ``OSError`` other than "not found")
+is never written over, since its content is probably fine; one that is
+*corrupt* (not valid UTF-8/JSON, or the wrong shape) is copied to
+``<name>.corrupt`` before the fresh default replaces it, so the user's
+bytes stay recoverable.
 
 Kodi can run multiple ``default.py`` OS processes concurrently (e.g. the
 user keeps navigating while a slow addon-install action is still
@@ -74,6 +81,7 @@ import datetime
 import heapq
 import json
 import os
+import shutil
 import tempfile
 import time
 import zlib
@@ -85,7 +93,6 @@ NOW_PLAYING_FILENAME = "now_playing.json"
 RESUME_OFFSET_FILENAME = "resume_offset.json"
 PROGRESS_FILENAME = "progress.json"
 LAST_VERSION_FILENAME = "last_version.json"
-SEEN_EPISODES_FILENAME = "seen_episodes.json"
 HOME_LAYOUT_FILENAME = "home_layout.json"
 
 #: Most-recent-first cap for the persisted search history list.
@@ -743,8 +750,45 @@ DEFAULT_ADDONS = [{'transportUrl': 'https://v3-cinemeta.strem.io/manifest.json',
   'flags': {'official': True, 'protected': True}}]
 
 
+#: ``os.replace`` attempts before :func:`_atomic_write` gives up on a
+#: ``PermissionError``. On Windows the swap fails for as long as another
+#: process (``default.py`` reading the file, an antivirus scan) holds the
+#: target open, which is momentary; the service's playback flush calls this
+#: from a ``Player`` callback, where raising would drop the sample.
+_REPLACE_ATTEMPTS = 5
+_REPLACE_RETRY_DELAY_SECONDS = 0.05
+
+#: A ``.tmp-*`` file older than this is the leftover of a write that never
+#: reached ``os.replace`` (Kodi killed mid-write), not one in flight.
+_STALE_TMP_SECONDS = 60
+
+#: Outcomes of :func:`_read_text`.
+_MISSING = "missing"
+_UNREADABLE = "unreadable"
+_UNDECODABLE = "undecodable"
+_CORRUPT = "corrupt"
+_OK = "ok"
+
+
+def _replace_with_retry(tmp_path, path):
+    """``os.replace`` that rides out a transient Windows sharing violation."""
+    for attempt in range(_REPLACE_ATTEMPTS):
+        try:
+            os.replace(tmp_path, path)
+            return
+        except PermissionError:
+            if attempt == _REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(_REPLACE_RETRY_DELAY_SECONDS)
+
+
 def _atomic_write(path, data, compact=False):
     """Write ``data`` as JSON to ``path`` via a tmp-file + rename.
+
+    The temp file is fsynced before the rename: without it ext4 and the
+    SD/eMMC boxes this addon runs on can persist the rename but not the
+    data, leaving a zero-length file after power loss -- which reads as
+    corrupt and would reseed ``addons.json`` or log the user out.
 
     ``compact`` writes without indentation (``separators=(',', ':')``)
     for frequently-rewritten, machine-only files (progress/now_playing/
@@ -756,7 +800,7 @@ def _atomic_write(path, data, compact=False):
     directory = os.path.dirname(path) or "."
     fd, tmp_path = tempfile.mkstemp(prefix=".tmp-", dir=directory)
     try:
-        with os.fdopen(fd, "w") as fh:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             # `fh.write(json.dumps(...))` rather than `json.dump(data,
             # fh, ...)` -- `json.dump` always drives the pure-Python
             # `iterencode` (no C-accelerated one-shot path), while
@@ -767,7 +811,9 @@ def _atomic_write(path, data, compact=False):
                 fh.write(json.dumps(data, separators=(',', ':')))
             else:
                 fh.write(json.dumps(data, indent=2, sort_keys=False))
-        os.replace(tmp_path, path)
+            fh.flush()
+            os.fsync(fh.fileno())
+        _replace_with_retry(tmp_path, path)
     except Exception:
         try:
             os.remove(tmp_path)
@@ -776,9 +822,39 @@ def _atomic_write(path, data, compact=False):
         raise
 
 
-def _read_raw(path):
-    """Return the exact on-disk text of ``path``, or ``None`` if it is
-    missing or unreadable.
+def _sweep_stale_tmp(directory):
+    """Delete ``.tmp-*`` leftovers older than :data:`_STALE_TMP_SECONDS`.
+
+    Progress is written every ~15s during playback, so a Kodi kill between
+    ``mkstemp`` and ``os.replace`` is likely to strand one; nothing else
+    ever removes it. The age guard keeps a write in flight in another
+    process safe.
+    """
+    cutoff = time.time() - _STALE_TMP_SECONDS
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return
+    for name in names:
+        if not name.startswith(".tmp-"):
+            continue
+        tmp_path = os.path.join(directory, name)
+        try:
+            if os.path.getmtime(tmp_path) < cutoff:
+                os.remove(tmp_path)
+        except OSError:
+            pass
+
+
+def _read_text(path):
+    """Return ``(status, raw)`` for ``path``, telling apart a file that is
+    absent from one that exists but cannot be used.
+
+    ``_MISSING`` -- no such file. ``_UNREADABLE`` -- an I/O error other
+    than "not found" (sharing violation, flaky storage): the content may
+    be perfectly good, so callers must not write over it.
+    ``_UNDECODABLE`` -- the bytes are not UTF-8, so no JSON this module
+    wrote. ``_OK`` -- ``raw`` is the exact on-disk text.
 
     Reading the raw text once and parsing that exact string (rather than
     reading the file twice) guarantees a parsed value and its before/after
@@ -787,10 +863,21 @@ def _read_raw(path):
     apart from its own read.
     """
     try:
-        with open(path) as fh:
-            return fh.read()
-    except (OSError, UnicodeDecodeError):
-        return None
+        with open(path, encoding="utf-8") as fh:
+            return _OK, fh.read()
+    except FileNotFoundError:
+        return _MISSING, None
+    except UnicodeDecodeError:
+        return _UNDECODABLE, None
+    except OSError:
+        return _UNREADABLE, None
+
+
+def _read_raw(path):
+    """Return the on-disk text of ``path``, or ``None`` if it is missing
+    or unusable. For read-only accessors that only need a best-effort
+    value; anything that may write back must use :func:`_load_json`."""
+    return _read_text(path)[1]
 
 
 def _parse_json(raw, default):
@@ -806,6 +893,55 @@ def _parse_json(raw, default):
 def _read_json(path, default):
     """Read JSON from ``path``, tolerating a missing or corrupt file."""
     return _parse_json(_read_raw(path), default)
+
+
+def _classify_json(text_result, expected_type):
+    """Turn a :func:`_read_text` result into ``(status, value)``.
+
+    ``status`` is :data:`_OK` only when the text parsed to an instance of
+    ``expected_type``; text that parses to something else counts as
+    :data:`_CORRUPT` like malformed JSON does, and so does an undecodable
+    file. :data:`_MISSING` and :data:`_UNREADABLE` pass through. ``value``
+    is ``None`` unless the status is :data:`_OK`.
+    """
+    status, raw = text_result
+    if status == _UNDECODABLE:
+        return _CORRUPT, None
+    if status != _OK:
+        return status, None
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return _CORRUPT, None
+    if not isinstance(value, expected_type):
+        return _CORRUPT, None
+    return _OK, value
+
+
+def _load_json(path, expected_type):
+    """Read ``path`` for a read-modify-write: ``(status, value)`` -- see
+    :func:`_classify_json`."""
+    return _classify_json(_read_text(path), expected_type)
+
+
+def _dict_entries(addons):
+    """``addons`` without non-dict entries (a hand-edited or partly
+    corrupt ``addons.json``), which every ``a.get(...)`` consumer would
+    otherwise crash on. Returns ``addons`` itself when it is already clean
+    so the read cache's list identity is kept."""
+    if all(isinstance(a, dict) for a in addons):
+        return addons
+    return [a for a in addons if isinstance(a, dict)]
+
+
+def _keep_corrupt_copy(path):
+    """Copy a corrupt ``path`` to ``<path>.corrupt`` before it is replaced
+    by a fresh default, so the user's bytes stay recoverable. Best-effort:
+    failing to keep the copy must not block recovery."""
+    try:
+        shutil.copyfile(path, path + ".corrupt")
+    except OSError:
+        pass
 
 
 def _parse_progress_timestamp(value):
@@ -905,8 +1041,10 @@ class Store:
 
     def __init__(self, data_dir):
         self.data_dir = data_dir
-        if not os.path.isdir(self.data_dir):
-            os.makedirs(self.data_dir)
+        # `exist_ok`: the service and a `default.py` process can both create
+        # the directory on a fresh install; the loser must not crash.
+        os.makedirs(self.data_dir, exist_ok=True)
+        _sweep_stale_tmp(self.data_dir)
         self._addons_path = os.path.join(self.data_dir, ADDONS_FILENAME)
         self._auth_path = os.path.join(self.data_dir, AUTH_FILENAME)
         self._search_history_path = os.path.join(self.data_dir, SEARCH_HISTORY_FILENAME)
@@ -914,14 +1052,17 @@ class Store:
         self._resume_offset_path = os.path.join(self.data_dir, RESUME_OFFSET_FILENAME)
         self._progress_path = os.path.join(self.data_dir, PROGRESS_FILENAME)
         self._last_version_path = os.path.join(self.data_dir, LAST_VERSION_FILENAME)
-        self._seen_episodes_path = os.path.join(self.data_dir, SEEN_EPISODES_FILENAME)
         #: Per-instance memoisation for `_cached_read`: `path -> ((mtime_ns,
         #: size), parsed_value)`. A single process/screen-render often
         #: calls e.g. `get_addons()` many times; a fresh eMMC/SD `open()`
         #: + `json.loads()` per call is far pricier than one `os.stat()`.
         #: NEVER consulted by `update_addons`'s compare-and-swap, which
         #: must always observe the current on-disk bytes -- see
-        #: `_cached_read`'s docstring.
+        #: `_cached_read`'s docstring. Its key set is closed on purpose --
+        #: exactly seven fixed paths (addons, auth, search_history,
+        #: now_playing, resume_offset, last_version, progress), which is
+        #: why it needs no size cap; `home_layout.json` is deliberately not
+        #: one of them. Adding a path is a decision to revisit that bound.
         self._read_cache = {}
         self._home_layout_path = os.path.join(self.data_dir, HOME_LAYOUT_FILENAME)
         #: `time.monotonic()` of this instance's last full age-based
@@ -938,8 +1079,9 @@ class Store:
         #: `MAX_PROGRESS_ENTRIES`, sweep or not.
         self._last_progress_sweep_monotonic = None
 
-    def _validated_home_layout(self, value):
-        from lib.homelayout import LayoutError, default_layout, normalize
+    def _checked_home_layout(self, value):
+        """``normalize(value)``, or ``None`` after logging why it was refused."""
+        from lib.homelayout import LayoutError, normalize
         from lib.stremio.addons import addon_error_detail
 
         try:
@@ -948,19 +1090,41 @@ class Store:
             import logging
 
             logging.getLogger(__name__).warning('Home layout reset: %s', addon_error_detail(exc))
-            return default_layout()
+            return None
+
+    def _validated_home_layout(self, value):
+        from lib.homelayout import default_layout
+
+        layout = self._checked_home_layout(value)
+        return default_layout() if layout is None else layout
 
     def get_home_layout(self):
         """Read fresh: Settings edits this file in a separate interpreter.
 
         Avoid adding a data-controlled key to _cached_read's closed set,
         and observe an atomic same-size rewrite even on coarse filesystems.
+
+        A saved layout this build cannot use (corrupt, or from another
+        layout version) is moved aside to ``home_layout.json.bak`` and the
+        defaults are served. Moving it aside rather than just ignoring it
+        does two things: the user's arrangement stays recoverable instead
+        of being overwritten by the next Settings edit, and the file stops
+        being re-read, re-rejected and re-logged on every render. A file
+        that is merely unreadable at this instant is left untouched.
         """
         from lib.homelayout import default_layout
 
-        if not os.path.exists(self._home_layout_path):
+        status, raw = _read_text(self._home_layout_path)
+        if status in (_MISSING, _UNREADABLE):
             return default_layout()
-        return self._validated_home_layout(_read_json(self._home_layout_path, None))
+        layout = self._checked_home_layout(_parse_json(raw, None))
+        if layout is not None:
+            return layout
+        try:
+            os.replace(self._home_layout_path, self._home_layout_path + ".bak")
+        except OSError:
+            pass
+        return default_layout()
 
     def set_home_layout(self, layout):
         """Validate and replace the arrangement atomically, never API data."""
@@ -1020,14 +1184,24 @@ class Store:
         """Return the list of installed addon descriptors.
 
         Seeds and persists :data:`DEFAULT_ADDONS` the first time this is
-        called (including recovery from a missing/corrupt addons.json).
-        Served from the per-instance read cache -- see `_cached_read`.
+        called, and again after a corrupt addons.json (kept as
+        ``addons.json.corrupt``). A file that is merely unreadable right
+        now -- a Windows sharing violation, a flaky Android mount -- is
+        NOT reseeded: the defaults are returned for this call only, since
+        persisting them would destroy every installed addon over a
+        transient error. Served from the per-instance read cache -- see
+        `_cached_read`.
         """
         addons = self._cached_read(self._addons_path, None)
         if not isinstance(addons, list):
+            status = _load_json(self._addons_path, list)[0]
             addons = copy.deepcopy(DEFAULT_ADDONS)
+            if status == _UNREADABLE:
+                return addons
+            if status == _CORRUPT:
+                _keep_corrupt_copy(self._addons_path)
             self.set_addons(addons)
-        return addons
+        return _dict_entries(addons)
 
     def get_enabled_addons(self):
         """Return installed addon descriptors minus the disabled and
@@ -1062,7 +1236,11 @@ class Store:
         interleave (last-writer-wins, no detection). This instead:
 
         1. Reads addons.json fresh (seeding :data:`DEFAULT_ADDONS` if it is
-           missing/corrupt, same as :meth:`get_addons`).
+           missing or corrupt -- a corrupt file is first kept as
+           ``addons.json.corrupt`` -- same as :meth:`get_addons`). A file
+           that exists but cannot be read right now counts as a failed
+           attempt instead: writing defaults-plus-the-change over it would
+           erase every installed addon over a transient error.
         2. Calls ``transform(current_addons)``, which must return the new
            list to persist -- or ``current_addons`` itself/an equal list to
            mean "no change needed", in which case nothing is written.
@@ -1085,7 +1263,8 @@ class Store:
         :meth:`install_addon` includes a network fetch -- down to a few
         in-process microseconds around an already-atomic ``os.replace``.
 
-        Raises :class:`ConcurrentUpdateError` if every attempt collides.
+        Raises :class:`ConcurrentUpdateError` if every attempt collides
+        or the file stays unreadable.
         Any exception raised by ``transform`` itself (e.g. the
         protected-addon refusal in :meth:`remove_addon`) propagates
         immediately, without retrying.
@@ -1093,25 +1272,32 @@ class Store:
         attempt = 0
         while True:
             attempt += 1
-            baseline_raw = _read_raw(self._addons_path)
-            current = _parse_json(baseline_raw, None)
-            if not isinstance(current, list):
-                current = copy.deepcopy(DEFAULT_ADDONS)
-            new_value = transform(current)
-            if new_value == current and baseline_raw is not None:
-                return current
-            if _read_raw(self._addons_path) == baseline_raw:
-                self.set_addons(new_value)
-                return new_value
+            # One read feeds both the parsed value and the compare-and-swap
+            # baseline, so they always describe identical bytes.
+            baseline = _read_text(self._addons_path)
+            status, current = _classify_json(baseline, list)
+            if status != _UNREADABLE:
+                if status == _OK:
+                    current = _dict_entries(current)
+                else:
+                    current = copy.deepcopy(DEFAULT_ADDONS)
+                new_value = transform(current)
+                if new_value == current and status == _OK:
+                    return current
+                if _read_text(self._addons_path) == baseline:
+                    if status == _CORRUPT:
+                        _keep_corrupt_copy(self._addons_path)
+                    self.set_addons(new_value)
+                    return new_value
             if attempt >= max_attempts:
                 raise ConcurrentUpdateError(
                     "could not update %s after %d attempts: another "
-                    "process kept writing it concurrently"
-                    % (ADDONS_FILENAME, max_attempts)
+                    "process kept writing it concurrently, or it could "
+                    "not be read" % (ADDONS_FILENAME, max_attempts)
                 )
-            # Another process changed addons.json since our read above;
-            # loop around and retry the whole read+transform against the
-            # fresh content it left behind.
+            # Another process changed addons.json since our read above (or
+            # it was momentarily unreadable); loop around and retry the
+            # whole read+transform against what is there now.
 
     def install_addon(self, transport_url, manifest):
         """Add or update the addon descriptor for ``transport_url``.
@@ -1159,7 +1345,7 @@ class Store:
             )
             if target is None:
                 return addons
-            if target.get("flags", {}).get("protected"):
+            if (target.get("flags") or {}).get("protected"):
                 raise ValueError(
                     "cannot remove protected addon: %s" % transport_url
                 )
@@ -1389,7 +1575,11 @@ class Store:
         """Return past search queries, most recent first. Served from
         the per-instance read cache -- see `_cached_read`."""
         history = self._cached_read(self._search_history_path, None)
-        return history if isinstance(history, list) else []
+        if not isinstance(history, list):
+            return []
+        # A hand-edited or partly corrupt file can hold numbers or nulls;
+        # `add_search_query` calls `.lower()` on every entry.
+        return [q for q in history if isinstance(q, str)]
 
     def add_search_query(self, query):
         """Record ``query`` at the front of the search history, deduping
@@ -1488,37 +1678,6 @@ class Store:
         _atomic_write(self._last_version_path, {"version": str(version)}, compact=True)
         self._invalidate_cache(self._last_version_path)
 
-    def get_seen_episodes(self):
-        """Return the persisted new-episode seen-set -- the capped dict
-        `lib.newepisodes.mark_seen` produces, keyed by that module's own
-        composite ``(type, id, video_id)`` string -- or ``{}`` if nothing
-        has been recorded yet (including a missing/corrupt file). Served
-        from the per-instance read cache -- see `_cached_read`.
-
-        Purely mechanical persistence, like every other small state file
-        here: the cap/prune reasoning lives in `lib.newepisodes.mark_seen`
-        (the caller runs it before calling `set_seen_episodes`), not in
-        this method -- this module stays business-logic-free.
-        """
-        seen = self._cached_read(self._seen_episodes_path, None)
-        return seen if isinstance(seen, dict) else {}
-
-    def set_seen_episodes(self, seen):
-        """Persist the seen-set wholesale, like `set_now_playing`/
-        `set_resume_offset_ms` -- always a full replace, never an
-        `update_addons`-style compare-and-swap: the caller has already
-        run `lib.newepisodes.mark_seen` to compute `seen` (capped), and a
-        lost update under two concurrent `default.py` processes at worst
-        re-shows one episode the user just dismissed elsewhere, corrected
-        the next time either process re-renders Home -- not the kind of
-        loss `update_addons()`'s retry machinery exists for, and unlike
-        addons.json this file is never the target of an install/remove
-        action a user would notice silently losing. Written compactly
-        (see `_atomic_write`): machine-only, never hand-inspected.
-        """
-        _atomic_write(self._seen_episodes_path, dict(seen or {}), compact=True)
-        self._invalidate_cache(self._seen_episodes_path)
-
     @staticmethod
     def _progress_key(content_type, content_id, video_id=None):
         """Flatten ``(content_type, content_id, video_id)`` into the
@@ -1529,6 +1688,24 @@ class Store:
         here could make two different tuples collide; ``"\\x1f"`` never
         appears in a Stremio id."""
         return "\x1f".join((content_type or "", content_id or "", video_id or ""))
+
+    def _load_progress_for_update(self):
+        """The ``progress.json`` dict for a read-modify-write, or ``None``
+        when the file exists but cannot be read right now.
+
+        ``None`` means "do not write": the content is probably intact, and
+        writing a one-entry map over it would wipe the whole watch history
+        over a transient error (Windows sharing violation, flaky storage).
+        Progress is resampled every ~15s, so a dropped write costs nothing.
+        A missing file starts empty; a corrupt one is kept as
+        ``progress.json.corrupt`` and then starts empty.
+        """
+        status, progress = _load_json(self._progress_path, dict)
+        if status == _UNREADABLE:
+            return None
+        if status == _CORRUPT:
+            _keep_corrupt_copy(self._progress_path)
+        return progress if status == _OK else {}
 
     def get_progress(self, content_type, content_id, video_id=None):
         """Return the cached local playback-progress dict for
@@ -1567,9 +1744,9 @@ class Store:
         since this instance's last sweep -- see
         ``_last_progress_sweep_monotonic`` and :func:`_prune_progress`.
         """
-        progress = _read_json(self._progress_path, None)
-        if not isinstance(progress, dict):
-            progress = {}
+        progress = self._load_progress_for_update()
+        if progress is None:
+            return
         key = self._progress_key(content_type, content_id, video_id)
         progress[key] = {
             "position_ms": int(position_ms),
@@ -1604,14 +1781,26 @@ class Store:
         :meth:`set_progress` (full age sweep, then the
         :data:`MAX_PROGRESS_ENTRIES` cap) -- an account with years of
         history must not bloat the local cache past its bound.
+
+        The return value counts only entries that survive that pruning, and
+        an entry already older than the age cutoff is never inserted. A pull
+        that adds nothing durable therefore returns 0 and leaves the file
+        alone, instead of rewriting it (and reporting an "update") on every
+        library pull for an account that holds old entries.
         """
-        progress = _read_json(self._progress_path, None)
-        if not isinstance(progress, dict):
-            progress = {}
-        written = 0
+        progress = self._load_progress_for_update()
+        if progress is None:
+            return 0
+        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        now_parsed = _parse_progress_timestamp(now)
+        max_age_seconds = MAX_PROGRESS_AGE_DAYS * 86400
+        merged = []
         for entry in entries:
             key = self._progress_key(entry["type"], entry["id"], entry.get("video_id"))
             updated_at = entry["updated_at"]
+            updated = _parse_progress_timestamp(updated_at)
+            if updated is None or (now_parsed - updated).total_seconds() > max_age_seconds:
+                continue
             local = progress.get(key)
             if isinstance(local, dict) and str(local.get("updated_at") or "") >= updated_at:
                 continue
@@ -1620,11 +1809,13 @@ class Store:
                 "duration_ms": int(entry["duration_ms"]),
                 "updated_at": updated_at,
             }
-            written += 1
+            merged.append(key)
+        if not merged:
+            return 0
+        progress = _prune_progress(progress, now, keep_key=None, sweep_age=True)
+        written = sum(1 for key in set(merged) if key in progress)
         if not written:
             return 0
-        now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        progress = _prune_progress(progress, now, keep_key=None, sweep_age=True)
         self._last_progress_sweep_monotonic = time.monotonic()
         _atomic_write(self._progress_path, progress, compact=True)
         self._invalidate_cache(self._progress_path)
@@ -1643,8 +1834,8 @@ class Store:
         deleting it here is the whole removal. Plain read-modify-write,
         same reasoning as :meth:`set_progress`.
         """
-        progress = _read_json(self._progress_path, None)
-        if not isinstance(progress, dict):
+        status, progress = _load_json(self._progress_path, dict)
+        if status != _OK:
             return 0
         prefix = self._progress_key(content_type, content_id, "")
         # `prefix` ends in the "\x1f" before the (empty) video id, so it

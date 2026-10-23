@@ -516,3 +516,11 @@ def test_progress_skips_unplayed_tombstoned_and_undatable_records():
     assert library.progress_from_library_item(_remote(state={"lastWatched": "garbage"})) is None
     assert library.progress_from_library_item(_remote(state={"video_id": "tt9"})) is None
     assert library.progress_from_library_item({"_id": "tt9"}) is None
+
+
+def test_progress_from_library_item_ignores_infinite_numbers():
+    """`json` parses the literal `Infinity`; `int(float('inf'))` raises
+    OverflowError, which must drop that record rather than abort the pull."""
+    assert library.progress_from_library_item(
+        _remote(state={"lastWatched": "2026-01-02T03:04:05Z", "timeOffset": float("inf"), "duration": 1000})
+    ) is None

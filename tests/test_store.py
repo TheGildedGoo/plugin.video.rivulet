@@ -240,14 +240,14 @@ def test_set_addon_disabled_goes_through_update_addons(tmp_path, monkeypatch):
     url = "https://custom.example/manifest.json"
     store.install_addon(url, {"id": "org.custom", "name": "Custom"})
 
-    real_read_raw = store_module._read_raw
+    real_read_text = store_module._read_text
     calls = []
 
-    def spy_read_raw(path):
+    def spy_read_text(path):
         calls.append(path)
-        return real_read_raw(path)
+        return real_read_text(path)
 
-    monkeypatch.setattr(store_module, "_read_raw", spy_read_raw)
+    monkeypatch.setattr(store_module, "_read_text", spy_read_text)
 
     store.set_addon_disabled(url, True)
 
@@ -378,14 +378,14 @@ def test_move_addon_goes_through_update_addons(tmp_path, monkeypatch):
     store.install_addon("https://a.example/manifest.json", {"id": "a"})
     store.install_addon("https://b.example/manifest.json", {"id": "b"})
 
-    real_read_raw = store_module._read_raw
+    real_read_text = store_module._read_text
     calls = []
 
-    def spy_read_raw(path):
+    def spy_read_text(path):
         calls.append(path)
-        return real_read_raw(path)
+        return real_read_text(path)
 
-    monkeypatch.setattr(store_module, "_read_raw", spy_read_raw)
+    monkeypatch.setattr(store_module, "_read_text", spy_read_text)
 
     store.move_addon("https://b.example/manifest.json", -1)
 
@@ -419,11 +419,11 @@ def test_move_addon_retries_and_reapplies_against_fresh_data_on_conflict(tmp_pat
 
     calls = []
 
-    def fake_read_raw(path):
+    def fake_read_text(path):
         calls.append(path)
-        return baseline_raw if len(calls) == 1 else concurrent_raw
+        return store_module._OK, (baseline_raw if len(calls) == 1 else concurrent_raw)
 
-    monkeypatch.setattr(store_module, "_read_raw", fake_read_raw)
+    monkeypatch.setattr(store_module, "_read_text", fake_read_text)
 
     store.move_addon("https://b.example/manifest.json", -1)
 
@@ -815,14 +815,14 @@ def test_update_addons_uncontended_path_reads_file_exactly_twice(tmp_path, monke
     store = make_store(tmp_path)
     store.get_addons()  # seed defaults to disk
 
-    real_read_raw = store_module._read_raw
+    real_read_text = store_module._read_text
     calls = []
 
-    def spy_read_raw(path):
+    def spy_read_text(path):
         calls.append(path)
-        return real_read_raw(path)
+        return real_read_text(path)
 
-    monkeypatch.setattr(store_module, "_read_raw", spy_read_raw)
+    monkeypatch.setattr(store_module, "_read_text", spy_read_text)
 
     store.install_addon("https://solo.example/manifest.json", {"id": "org.solo"})
 
@@ -853,11 +853,11 @@ def test_install_addon_retries_on_detected_concurrent_write(tmp_path, monkeypatc
 
     calls = []
 
-    def fake_read_raw(path):
+    def fake_read_text(path):
         calls.append(path)
-        return original_raw if len(calls) == 1 else concurrent_raw
+        return store_module._OK, (original_raw if len(calls) == 1 else concurrent_raw)
 
-    monkeypatch.setattr(store_module, "_read_raw", fake_read_raw)
+    monkeypatch.setattr(store_module, "_read_text", fake_read_text)
 
     store.install_addon("https://mine.example/manifest.json", {"id": "org.mine", "name": "Mine"})
 
@@ -888,11 +888,11 @@ def test_remove_addon_retries_and_reapplies_against_fresh_data_on_conflict(tmp_p
 
     calls = []
 
-    def fake_read_raw(path):
+    def fake_read_text(path):
         calls.append(path)
-        return baseline_raw if len(calls) == 1 else concurrent_raw
+        return store_module._OK, (baseline_raw if len(calls) == 1 else concurrent_raw)
 
-    monkeypatch.setattr(store_module, "_read_raw", fake_read_raw)
+    monkeypatch.setattr(store_module, "_read_text", fake_read_text)
 
     store.remove_addon(url_to_remove)
 
@@ -910,14 +910,14 @@ def test_remove_addon_protected_refusal_does_not_retry(tmp_path, monkeypatch):
     protected_url = DEFAULT_ADDONS[0]["transportUrl"]
     store.get_addons()  # seed
 
-    real_read_raw = store_module._read_raw
+    real_read_text = store_module._read_text
     calls = []
 
-    def spy_read_raw(path):
+    def spy_read_text(path):
         calls.append(path)
-        return real_read_raw(path)
+        return real_read_text(path)
 
-    monkeypatch.setattr(store_module, "_read_raw", spy_read_raw)
+    monkeypatch.setattr(store_module, "_read_text", spy_read_text)
 
     with pytest.raises(ValueError):
         store.remove_addon(protected_url)
@@ -931,11 +931,11 @@ def test_update_addons_raises_concurrenterror_after_exhausting_retries(tmp_path,
 
     calls = []
 
-    def always_changing_read_raw(path):
+    def always_changing_read_text(path):
         calls.append(path)
-        return "simulated-concurrent-content-%d" % len(calls)
+        return store_module._OK, "simulated-concurrent-content-%d" % len(calls)
 
-    monkeypatch.setattr(store_module, "_read_raw", always_changing_read_raw)
+    monkeypatch.setattr(store_module, "_read_text", always_changing_read_text)
 
     with pytest.raises(ConcurrentUpdateError, match="attempt"):
         store.install_addon("https://mine.example/manifest.json", {"id": "org.mine"})
@@ -949,11 +949,11 @@ def test_update_addons_respects_custom_max_attempts(tmp_path, monkeypatch):
 
     calls = []
 
-    def always_changing_read_raw(path):
+    def always_changing_read_text(path):
         calls.append(path)
-        return "simulated-concurrent-content-%d" % len(calls)
+        return store_module._OK, "simulated-concurrent-content-%d" % len(calls)
 
-    monkeypatch.setattr(store_module, "_read_raw", always_changing_read_raw)
+    monkeypatch.setattr(store_module, "_read_text", always_changing_read_text)
 
     def _add_x(addons):
         return addons + [
@@ -1447,47 +1447,6 @@ def test_atomic_write_matches_pure_python_json_dump_byte_for_byte(tmp_path):
         assert actual_bytes == expected_bytes
 
 
-# --- seen episodes (lib.newepisodes new-episode dismissal) -----------------
-
-
-def test_get_seen_episodes_returns_empty_dict_when_never_set(tmp_path):
-    store = make_store(tmp_path)
-    assert store.get_seen_episodes() == {}
-
-
-def test_set_and_get_seen_episodes_round_trip(tmp_path):
-    store = make_store(tmp_path)
-    seen = {"series\x1ftt1\x1ftt1:1:2": True}
-    store.set_seen_episodes(seen)
-    assert store.get_seen_episodes() == seen
-
-
-def test_seen_episodes_persists_across_store_instances(tmp_path):
-    data_dir = tmp_path / "addon_data"
-    seen = {"series\x1ftt1\x1ftt1:1:1": True}
-    Store(str(data_dir)).set_seen_episodes(seen)
-    assert Store(str(data_dir)).get_seen_episodes() == seen
-
-
-def test_corrupt_seen_episodes_json_returns_empty_dict_without_raising(tmp_path):
-    data_dir = tmp_path / "addon_data"
-    data_dir.mkdir()
-    (data_dir / "seen_episodes.json").write_text("{not valid json")
-    store = Store(str(data_dir))
-    assert store.get_seen_episodes() == {}  # must not raise
-
-
-def test_seen_episodes_cache_is_invalidated_after_write(tmp_path):
-    """`get_seen_episodes()` is served from `_cached_read`'s per-instance
-    memoisation; a `set_seen_episodes()` on the SAME instance must not
-    leave a stale empty result cached from the read before it."""
-    store = make_store(tmp_path)
-    assert store.get_seen_episodes() == {}  # populates the read cache
-    seen = {"series\x1ftt1\x1ftt1:1:3": True}
-    store.set_seen_episodes(seen)
-    assert store.get_seen_episodes() == seen
-
-
 def test_cached_read_detects_same_size_rewrite_under_frozen_stat(tmp_path, monkeypatch):
     """On coarse-mtime filesystems (FAT/exFAT -- common on the Android
     storage this addon targets), `os.stat()` can report an identical
@@ -1496,19 +1455,19 @@ def test_cached_read_detects_same_size_rewrite_under_frozen_stat(tmp_path, monke
     of the SAME length must still be observed -- the fingerprint must
     not rely on `(mtime_ns, size)` alone."""
     store = make_store(tmp_path)
-    seen = {"series\x1ftt1\x1ftt1:1:3": True}
-    store.set_seen_episodes(seen)
-    assert store.get_seen_episodes() == seen  # populates the read cache
+    context = {"id": "tt1:1:3"}
+    store.set_now_playing(context)
+    assert store.get_now_playing() == context  # populates the read cache
 
     other_store = make_store(tmp_path)
-    frozen_stat = os.stat(store._seen_episodes_path)
+    frozen_stat = os.stat(store._now_playing_path)
     monkeypatch.setattr(store_module.os, "stat", lambda path: frozen_stat)
 
-    replacement = {"series\x1ftt1\x1ftt1:1:4": True}  # same JSON length as `seen`
-    assert len(json.dumps(replacement)) == len(json.dumps(seen))
-    other_store.set_seen_episodes(replacement)
+    replacement = {"id": "tt1:1:4"}  # same JSON length as `context`
+    assert len(json.dumps(replacement)) == len(json.dumps(context))
+    other_store.set_now_playing(replacement)
 
-    assert store.get_seen_episodes() == replacement
+    assert store.get_now_playing() == replacement
 
 
 # --- merge_remote_progress (issue #74 pull) ----------------------------
@@ -1534,6 +1493,204 @@ def test_merge_remote_progress_respects_entry_cap(tmp_path, monkeypatch):
     monkeypatch.setattr(store_module, "MAX_PROGRESS_ENTRIES", 2)
     store = make_store(tmp_path)
     entries = [_remote_entry("2099-01-01T00:00:0%dZ" % i, video_id="tt9:1:%d" % i) for i in range(4)]
-    assert store.merge_remote_progress(entries) == 4
+    # Only the two entries that survive the cap count as written.
+    assert store.merge_remote_progress(entries) == 2
     kept = {e["video_id"] for e in store.get_progress_entries()}
     assert kept == {"tt9:1:2", "tt9:1:3"}
+
+
+# --- read failures never destroy data ------------------------------------
+
+
+@pytest.fixture
+def unreadable(monkeypatch):
+    """Make `open()` of any path ending in ``name`` fail like a Windows
+    sharing violation (an OSError that is not "file not found")."""
+    import builtins
+
+    real_open = builtins.open
+    blocked = []
+
+    def block(name):
+        blocked.append(name)
+
+    def flaky_open(file, *args, **kwargs):
+        if any(str(file).endswith(name) for name in blocked):
+            raise PermissionError(13, "sharing violation")
+        return real_open(file, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", flaky_open)
+    return block
+
+
+def test_get_addons_unreadable_file_serves_defaults_without_overwriting(tmp_path, unreadable):
+    store = make_store(tmp_path)
+    store.install_addon("https://mine.example/manifest.json", {"id": "org.mine"})
+    on_disk = (tmp_path / "addon_data" / "addons.json").read_text(encoding="utf-8")
+
+    unreadable("addons.json")
+    fresh = make_store(tmp_path)
+    assert fresh.get_addons() == DEFAULT_ADDONS
+
+    assert (tmp_path / "addon_data" / "addons.json").read_text(encoding="utf-8") == on_disk
+
+
+def test_update_addons_refuses_to_write_over_an_unreadable_file(tmp_path, unreadable):
+    store = make_store(tmp_path)
+    store.install_addon("https://mine.example/manifest.json", {"id": "org.mine"})
+    on_disk = (tmp_path / "addon_data" / "addons.json").read_text(encoding="utf-8")
+
+    unreadable("addons.json")
+    with pytest.raises(ConcurrentUpdateError):
+        store.install_addon("https://other.example/manifest.json", {"id": "org.other"})
+
+    assert (tmp_path / "addon_data" / "addons.json").read_text(encoding="utf-8") == on_disk
+
+
+@pytest.mark.parametrize("content", [b"{not json", b"", b"\xff\xfe\x00bad", b'{"a": 1}'],
+                         ids=["malformed", "zero-length", "not-utf8", "wrong-shape"])
+def test_corrupt_addons_json_is_kept_as_dot_corrupt_before_reseeding(tmp_path, content):
+    data_dir = tmp_path / "addon_data"
+    data_dir.mkdir()
+    (data_dir / "addons.json").write_bytes(content)
+
+    assert make_store(tmp_path).get_addons() == DEFAULT_ADDONS
+
+    assert (data_dir / "addons.json.corrupt").read_bytes() == content
+    assert json.loads((data_dir / "addons.json").read_text(encoding="utf-8")) == DEFAULT_ADDONS
+
+
+def test_update_addons_on_corrupt_file_keeps_a_copy_and_applies_the_change(tmp_path):
+    data_dir = tmp_path / "addon_data"
+    data_dir.mkdir()
+    (data_dir / "addons.json").write_bytes(b"{not json")
+
+    make_store(tmp_path).install_addon("https://mine.example/manifest.json", {"id": "org.mine"})
+
+    assert (data_dir / "addons.json.corrupt").read_bytes() == b"{not json"
+    urls = [a["transportUrl"] for a in make_store(tmp_path).get_addons()]
+    assert urls[-1] == "https://mine.example/manifest.json"
+
+
+def test_non_dict_addon_entries_do_not_break_mutations(tmp_path):
+    data_dir = tmp_path / "addon_data"
+    data_dir.mkdir()
+    good = {"transportUrl": "https://a.example/manifest.json", "manifest": {"id": "a"}, "flags": None}
+    (data_dir / "addons.json").write_text(json.dumps([good, None, 7, "x"]), encoding="utf-8")
+    store = make_store(tmp_path)
+
+    assert store.get_addons() == [good]
+    store.remove_addon("https://a.example/manifest.json")  # `flags: null` must not raise
+    assert make_store(tmp_path).get_addons() == []
+
+
+def test_set_progress_unreadable_file_drops_the_sample_instead_of_wiping_history(tmp_path, unreadable):
+    store = make_store(tmp_path)
+    store.set_progress("movie", "tt1", None, 1000, 5000, "2099-01-01T00:00:00Z")
+    on_disk = (tmp_path / "addon_data" / "progress.json").read_text(encoding="utf-8")
+
+    unreadable("progress.json")
+    store.set_progress("movie", "tt2", None, 2000, 5000, "2099-01-01T00:00:01Z")
+    assert store.merge_remote_progress([_remote_entry("2099-01-01T00:00:02Z")]) == 0
+    assert store.remove_progress_title("movie", "tt1") == 0
+
+    assert (tmp_path / "addon_data" / "progress.json").read_text(encoding="utf-8") == on_disk
+
+
+def test_corrupt_progress_is_kept_as_dot_corrupt_then_restarted(tmp_path):
+    data_dir = tmp_path / "addon_data"
+    data_dir.mkdir()
+    (data_dir / "progress.json").write_text("{not json", encoding="utf-8")
+    store = make_store(tmp_path)
+
+    store.set_progress("movie", "tt1", None, 1000, 5000, "2099-01-01T00:00:00Z")
+
+    assert (data_dir / "progress.json.corrupt").read_text(encoding="utf-8") == "{not json"
+    assert store.get_progress("movie", "tt1")["position_ms"] == 1000
+
+
+# --- merge_remote_progress: nothing durable, nothing written -------------
+
+
+def test_merge_remote_progress_with_only_expired_entries_writes_nothing(tmp_path):
+    store = make_store(tmp_path)
+    store.set_progress("movie", "tt1", None, 1000, 5000, "2099-01-01T00:00:00Z")
+    path = tmp_path / "addon_data" / "progress.json"
+    before = path.stat().st_mtime_ns
+
+    old = _remote_entry("2001-01-01T00:00:00Z")
+    assert store.merge_remote_progress([old]) == 0
+    assert store.merge_remote_progress([old]) == 0
+
+    assert path.stat().st_mtime_ns == before
+    assert {e["id"] for e in store.get_progress_entries()} == {"tt1"}
+
+
+# --- _atomic_write -------------------------------------------------------
+
+
+def test_atomic_write_retries_a_transient_permission_error(tmp_path, monkeypatch):
+    """Windows fails `os.replace` while another process holds the target
+    open; the playback flush must ride that out instead of raising."""
+    monkeypatch.setattr(store_module, "_REPLACE_RETRY_DELAY_SECONDS", 0)
+    real_replace = os.replace
+    attempts = []
+
+    def flaky_replace(src, dst):
+        attempts.append(src)
+        if len(attempts) < 3:
+            raise PermissionError(13, "in use")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(store_module.os, "replace", flaky_replace)
+    path = str(tmp_path / "out.json")
+
+    store_module._atomic_write(path, {"a": 1})
+
+    assert len(attempts) == 3
+    assert json.loads((tmp_path / "out.json").read_text(encoding="utf-8")) == {"a": 1}
+    assert [p.name for p in tmp_path.iterdir()] == ["out.json"]
+
+
+def test_atomic_write_gives_up_after_persistent_permission_error_and_cleans_up(tmp_path, monkeypatch):
+    monkeypatch.setattr(store_module, "_REPLACE_RETRY_DELAY_SECONDS", 0)
+
+    def denied(src, dst):
+        raise PermissionError(13, "in use")
+
+    monkeypatch.setattr(store_module.os, "replace", denied)
+
+    with pytest.raises(PermissionError):
+        store_module._atomic_write(str(tmp_path / "out.json"), {"a": 1})
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_store_sweeps_only_stale_tmp_files(tmp_path):
+    data_dir = tmp_path / "addon_data"
+    data_dir.mkdir()
+    stale, fresh, other = data_dir / ".tmp-stale", data_dir / ".tmp-fresh", data_dir / "addons.json"
+    for path in (stale, fresh, other):
+        path.write_text("x", encoding="utf-8")
+    old = time.time() - 3600
+    os.utime(str(stale), (old, old))
+    os.utime(str(other), (old, old))
+
+    make_store(tmp_path)
+
+    assert not stale.exists()
+    assert fresh.exists() and other.exists()
+
+
+# --- search history ------------------------------------------------------
+
+
+def test_non_string_search_history_entries_do_not_break_adding(tmp_path):
+    data_dir = tmp_path / "addon_data"
+    data_dir.mkdir()
+    (data_dir / "search_history.json").write_text(json.dumps(["dune", 7, None, "Alien"]), encoding="utf-8")
+    store = make_store(tmp_path)
+
+    store.add_search_query("alien")
+
+    assert store.get_search_history() == ["alien", "dune"]
