@@ -127,7 +127,7 @@ def _misses(cache, metas):
     return found
 
 
-_meta_misses = {}  # type: dict
+_meta_ids = {}  # type: dict
 
 
 def _facts_with_imdb(meta):
@@ -142,15 +142,19 @@ def _facts_with_imdb(meta):
     candidate = previews.lookup(sid)
     imdb_id = imdb_id_of(candidate)
     key = (_type_of(meta), sid)
-    with _lock:
-        missed = key in _meta_misses
-    if not imdb_id and not missed:
-        folder = getattr(get_store(), 'data_dir', None) or addon_profile_dir()
-        imdb_id = imdb_id_of(metacache.load_cached_meta(folder, _type_of(meta), sid))
-        if not imdb_id:
+    if not imdb_id:
+        # Hits are remembered as well as misses: a card whose scores have
+        # not arrived is asked about on every focus change and worker
+        # wake-up, and each ask would re-parse up to 256 KB from disk.
+        with _lock:
+            known = key in _meta_ids
+            imdb_id = _meta_ids.get(key)
+        if not known:
+            folder = getattr(get_store(), 'data_dir', None) or addon_profile_dir()
+            imdb_id = imdb_id_of(metacache.load_cached_meta(folder, _type_of(meta), sid))
             with _lock:
-                _meta_misses[key] = None
-                _cap(_meta_misses)
+                _meta_ids[key] = imdb_id or None
+                _cap(_meta_ids)
     return dict(meta, imdb_id=imdb_id) if imdb_id else meta
 
 
@@ -235,16 +239,6 @@ def overlay_text(meta, fallback, upcoming=None):
         return fallback
 
 
-def apply_to_property(listitem, meta, prop):
-    """Write the overlaid panel onto `prop` when it actually changed."""
-    if listitem is None or not isinstance(meta, dict):
-        return
-    fallback = listitem.getProperty(prop) or ''
-    text = overlay_text(meta, fallback)
-    if text != fallback:
-        listitem.setProperty(prop, text)
-
-
 def _schedule(imdb_id, omdb_key, mdblist_key, cache, prefetch=(), stype=''):
     """Replace the plan with `imdb_id` then `prefetch`. Latest wins.
 
@@ -314,7 +308,7 @@ def reset():
                 except OSError:
                     pass
         _cache = None
-        _meta_misses.clear()
+        _meta_ids.clear()
         _provider_until.clear()
         _provider_state.clear()
         _prefetch_until.clear()
@@ -479,10 +473,13 @@ def _store_result(cache, imdb_id, scores, paused, generation):
     with _lock:
         if generation != _generation or _stop.is_set():
             return
-        if partial:
-            cache.store(imdb_id, scores, ttl=_PARTIAL_TTL_SECONDS)
-        else:
-            cache.store(imdb_id, scores)
+    # The write runs outside `_lock`: the GUI thread takes it on every
+    # paint, and the cache's own lock already stops a retired cache
+    # (Refresh) from being written to.
+    if partial:
+        cache.store(imdb_id, scores, ttl=_PARTIAL_TTL_SECONDS)
+    else:
+        cache.store(imdb_id, scores)
     _count('partial' if partial else 'complete', generation=generation)
     _log_fetch(imdb_id, partial)
     if partial:

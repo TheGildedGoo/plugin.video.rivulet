@@ -547,7 +547,7 @@ def test_first_load_is_bounded_to_four_workers_and_keeps_plan_order(load_homewin
 
     monkeypatch.setattr(hw, '_fetch_library', lambda *_: task([]))
     monkeypatch.setattr(hw, '_open_shelf', lambda descriptor: task({'metas': [{'id': descriptor['catalog']['id']}]}))
-    rows = hw._load_rows(win, store, installed, store.get_auth())
+    rows = hw._load_rows(win, store, store.get_auth())
     assert peak == [4]
     assert [state['metas'][0]['id'] for state in rows[1:]] == ['c%d' % i for i in range(1, 9)]
 
@@ -562,11 +562,11 @@ def test_catalog_worker_failure_and_cancelled_load_leave_home_available(load_hom
         raise OSError('https://u:secret@host/path?token=hidden')
 
     monkeypatch.setattr(hw, '_open_shelf', fail)
-    rows = hw._load_rows(win, store, store.get_enabled_addons(), None)
+    rows = hw._load_rows(win, store, None)
     assert all(not state['items'] for state in rows)
     assert all('secret' not in msg and 'hidden' not in msg for msg, _ in ctx.env.log_calls)
     monkeypatch.setattr(uicommon, 'run_cancellable', lambda *_: uicommon.CANCELLED)
-    assert hw._load_rows(win, store, store.get_enabled_addons(), None) == []
+    assert hw._load_rows(win, store, None) == []
 
 
 def test_visiting_catalog_only_tab_does_not_cache_an_unfetched_library(load_homewindow, monkeypatch):
@@ -827,7 +827,7 @@ def test_explicit_series_alone_makes_anime_chip_and_toggle_rebuilds(load_homewin
     assert [state['kind'] for state in win._rows.values()] == ['continue', 'catalog', 'catalog']
     assert sorted(calls) == ['movies', 'shows']
     assert win._tab_loaded['home'] is True
-    assert hw._load_rows(type('Window', (), {'_active_tab': 'anime'})(), None, [], None) == []
+    assert hw._load_rows(type('Window', (), {'_active_tab': 'anime'})(), None, None) == []
     calls.clear()
     hw._switch_tab(win, 'anime')
     assert calls == []
@@ -849,3 +849,37 @@ def test_anime_off_keeps_explicit_placement_and_continue_elsewhere(load_homewind
     ctx.newhome._switch_tab(win, 'series')
     assert calls == ['cru']
     assert [row['kind'] for row in win._rows.values()] == ['continue', 'catalog']
+
+
+def test_a_switch_requested_during_a_tab_load_is_dropped(load_homewindow, monkeypatch):
+    """Queued input is delivered while the spinner is up; the nested switch
+    must not paint, or mark loaded, a tab other than the one loading."""
+    ctx = load_homewindow()
+    hw = ctx.newhome
+    win, _, calls = build(ctx, monkeypatch)
+    calls.clear()
+    real = hw._one_catalog_page
+    nested = []
+
+    def page(transport, manifest, catalog, extra=None):
+        if not nested:
+            nested.append(True)
+            hw._switch_tab(win, 'series')
+        return real(transport, manifest, catalog, extra)
+
+    monkeypatch.setattr(hw, '_one_catalog_page', page)
+    hw._switch_tab(win, 'movies')
+    assert win._active_tab == 'movies'
+    assert calls == ['movies']
+    assert win._tab_loaded.get('movies') is True and not win._tab_loaded.get('series')
+    assert win._catalog_pages and all(key.endswith('movies') or 'movies' in key for key in win._catalog_pages)
+    hw._switch_tab(win, 'series')
+    assert win._active_tab == 'series'
+
+
+def test_row_headings_from_manifests_cannot_inject_skin_markup(load_homewindow):
+    ctx = load_homewindow()
+    plan = [('cat:t|movie|x', 'catalog', {}, '', ('[COLOR red]$INFO[System.ProfileName]', 'Name'))]
+    rows = ctx.newhome._make_row_states(None, None, [], plan, {})
+    assert '$INFO' not in rows[0]['heading'].upper() and '[COLOR' not in rows[0]['heading']
+    assert rows[0]['heading'].endswith('NAME')

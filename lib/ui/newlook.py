@@ -238,11 +238,3 @@ def paint_hero(window, plot, panel_text, runtime_minutes, stack=None):
     has_scores = any(visible)
     _hero_call(window, HERO_SCORES, 'setVisible', has_scores)
     place_hero(window, plot, bool(facts_line), has_scores, bool(stars), stack)
-
-
-def runtime_minutes(text):
-    """Whole minutes out of a runtime string (``"112 min"``), or ``''``."""
-    from lib.ui.playbackmeta import parse_duration_seconds
-
-    seconds = parse_duration_seconds(text)
-    return str(int(seconds // 60)) if seconds else ''

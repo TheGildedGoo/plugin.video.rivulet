@@ -521,3 +521,31 @@ def test_context_menu_add_writes_the_selected_title_to_the_library(load_search, 
     assert payload['_id'] == META['id'] and payload['type'] == META['type']
     assert payload['removed'] is False
     assert ctx.newhome._library_dirty
+
+
+def test_clicks_delivered_during_a_running_search_are_ignored(load_search, monkeypatch):
+    """The spinner delivers queued input; a second GO or a letter must not
+    start a nested search or change the query the results are recorded for."""
+    ctx = load_search()
+    win = _init(ctx, monkeypatch)
+    win.query = 'Alien'
+    s = ctx.newsearch
+    seen = []
+
+    def query(store, client, text, report):
+        seen.append(text)
+        win.onClick(s.GO)
+        item = win.getControl(s.LETTERS).getListItem(0)
+        win.getControl(s.LETTERS).selectItem(0)
+        assert item is not None
+        win.onClick(s.LETTERS)
+        report.total_catalogs = report.queried = 1
+        return [META]
+
+    monkeypatch.setattr(ctx.searchwindow, 'run_query', query)
+    win._go()
+    assert seen == ['Alien'] and win.query == 'Alien'
+    assert win._metas and win._searching is False
+    monkeypatch.setattr(ctx.detailwindow, 'open_detail', lambda *args: False)
+    win.onClick(s.ROW)
+    assert ctx.store.search_queries == ['Alien']

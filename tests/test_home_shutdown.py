@@ -223,7 +223,7 @@ def test_first_load_collects_with_timed_waits_and_stops_queued_rows(session, mon
 
     monkeypatch.setattr(hw, '_open_shelf', fetch)
     monkeypatch.setattr(ctx.uicommon, 'run_cancellable', cancellable)
-    assert hw._load_rows(win, store, installed, None) == []
+    assert hw._load_rows(win, store, None) == []
     workers = workers_since(before)
     assert len(workers) == 4
     # Collector must return even while in-flight calls haven't completed.
@@ -259,7 +259,7 @@ def test_first_load_cannot_wait_forever_if_a_worker_exits_without_a_result(sessi
         def get(self, *args, **kwargs):
             pytest.fail('a dead worker must not leave the collector waiting')
     monkeypatch.setattr(hw.queue, 'Queue', NoBlockingGet)
-    rows = hw._load_rows(win, _FakeStore(), [], None)
+    rows = hw._load_rows(win, _FakeStore(), None)
     assert rows == []
     assert win._tab_loaded['home'] is False
 

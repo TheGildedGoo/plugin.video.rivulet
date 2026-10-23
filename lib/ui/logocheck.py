@@ -162,8 +162,15 @@ def _run():
                     return
                 continue
             good = texture_cached(url) or fetch_is_image(url)
-            if _STOP.is_set() or monitor.abortRequested():
-                return
+            with _LOCK:
+                # Decide and retire under the lock `ask()` takes. Returning
+                # first and deregistering in `finally` left a window where
+                # an ask saw this worker registered, queued its URL, and
+                # started no replacement.
+                if _STOP.is_set() or monitor.abortRequested():
+                    del _WORKER[:]
+                    retired = True
+                    return
             remember(url, good)
             if good:
                 _repaint()

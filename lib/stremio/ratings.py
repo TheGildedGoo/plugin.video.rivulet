@@ -457,6 +457,11 @@ class RatingsCache:
 
     The file holds scores only. A failed lookup is not written: the
     caller decides that, and a bad key must not stick for a day.
+
+    Two locks, always taken `_write_lock` then `_lock`. `_lock` guards the
+    in-memory entries and is only ever held for dictionary work, because
+    `lookup` runs on the GUI thread on every focus change. `_write_lock`
+    serializes the whole-file write, which can take long on slow flash.
     """
 
     def __init__(self, path, clock=None, keys=('', '')):
@@ -468,6 +473,7 @@ class RatingsCache:
         self._key_token = hashlib.sha256(json.dumps(('v3',) + configured).encode('utf-8')).hexdigest()
         self._clock = clock or time.time
         self._lock = threading.Lock()
+        self._write_lock = threading.Lock()
         self._entries = {}
         self._closed = False
         self._load()
@@ -511,10 +517,10 @@ class RatingsCache:
     def close(self):
         """Retire this cache before Refresh discards its file and workers.
 
-        Serializing with store ensures a write already in progress finishes
+        Taking the write lock ensures a write already in progress finishes
         before Refresh removes the file. Later stores cannot resurrect it.
         """
-        with self._lock:
+        with self._write_lock, self._lock:
             self._closed = True
 
     def store(self, imdb_id, scores, now=None, ttl=None):
@@ -539,10 +545,24 @@ class RatingsCache:
             if ttl is not None:
                 self._entries[self._entry_key(imdb_id)]['ttl'] = ttl
             self._trim()
+        self._flush()
+
+    def _flush(self):
+        """Write the newest entries to disk without blocking `lookup`.
+
+        The snapshot is taken after `_write_lock` is held, so writers that
+        queue up each persist the latest state and an older snapshot can
+        never overwrite a newer one.
+        """
+        with self._write_lock:
+            with self._lock:
+                if self._closed:
+                    return
+                snapshot = dict(self._entries)
             directory = os.path.dirname(self.path)
             if directory:
                 os.makedirs(directory, exist_ok=True)
-            _atomic_write(self.path, self._entries)
+            _atomic_write(self.path, snapshot)
 
     def _trim(self):
         """Bound the file. Oldest stamps go first. Called with the lock."""

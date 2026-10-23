@@ -332,12 +332,12 @@ def apply_library_writes(entries):
 
 def _read_library_entries(store):
     """Raw account read: Home must distinguish failure from an empty library."""
-    from lib.stremio.api import StremioAPI
+    from lib.ui.dependencies import get_api
 
     auth = store.get_auth()
     if not auth:
         return []
-    return StremioAPI().datastore_get(auth.get('authKey'), collection='libraryItem', all=True)
+    return get_api().datastore_get(auth.get('authKey'), collection='libraryItem', all=True)
 
 
 def _enrich(items, fetch_meta=None, map_items=None):

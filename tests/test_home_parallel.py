@@ -59,7 +59,7 @@ def test_three_ten_second_lookups_cannot_hold_startup_and_retry_next_load(load_h
         for worker in set(threading.enumerate()) - before:
             if worker is not collector:
                 worker.join(5)
-        rows = hw._load_rows(win, store, store.get_enabled_addons(), None)
+        rows = hw._load_rows(win, store, None)
         assert len(rows[0]['items']) == 3 and len(calls) == 6
     finally:
         release.set()
@@ -103,7 +103,7 @@ def test_missing_meta_is_not_retried_in_a_second_home_load(load_homewindow, monk
         return None
     monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', missing)
     win.onInit()
-    ctx.newhome._load_rows(win, store, store.get_enabled_addons(), None)
+    ctx.newhome._load_rows(win, store, None)
     assert calls == [True]
     assert ctx.newhome._continue_meta_misses == {('movie', 'tt0')}
     win.close()
@@ -136,7 +136,7 @@ def test_continue_budget_starts_after_twelve_slow_catalog_jobs(load_homewindow, 
         assert not should_stop()
         return {'id': sid, 'name': 'resolved', 'poster': 'p'}
     monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', fetch)
-    rows = ctx.newhome._load_rows(win, store, store.get_enabled_addons(), None)
+    rows = ctx.newhome._load_rows(win, store, None)
     assert catalog_id and calls == ['tt0']
     assert len(rows[0]['items']) == 1
     assert not ctx.newhome._continue_meta_misses
@@ -182,7 +182,7 @@ def test_seventeen_lookups_use_eight_workers_and_cutoff_is_not_a_miss(load_homew
     monkeypatch.setattr(ctx.newhome, '_collect_home_rows', cutoff)
     monkeypatch.setattr(ctx.views, '_fetch_meta_for_home', fetch)
     try:
-        rows = ctx.newhome._load_rows(win, store, store.get_enabled_addons(), None)
+        rows = ctx.newhome._load_rows(win, store, None)
         assert running[1] == 8 and len(finished) == 16
         assert len(rows[0]['items']) == min(16, ctx.newhome.SHELF_CAP)
         assert not ctx.newhome._continue_meta_misses

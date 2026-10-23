@@ -27,7 +27,7 @@ _RELOAD_MODULE_NAMES = (
     'lib.ui.gridwindow', 'lib.ui.detailwindow', 'lib.ui.newlook', 'lib.ui.newhome',
     'lib.ui.dialogs', 'lib.ui.dependencies', 'lib.ui.libraryaction', 'lib.ui.homelists',
     'lib.ui.player', 'lib.ui.streamswindow', 'lib.ui.views',
-    'lib.ui.catalogpages',
+    'lib.ui.catalogpages', 'lib.ui.newsearch',
 )
 
 
@@ -435,7 +435,7 @@ def test_onclick_list_with_no_focused_item_does_not_crash(load_homewindow):
 
 def test_onclick_search_button_opens_search(load_homewindow, monkeypatch):
     ctx = load_homewindow()
-    monkeypatch.setattr(ctx.searchwindow, 'open_search', lambda: True)
+    monkeypatch.setattr(ctx.newsearch, 'open_search', lambda: True)
     win = ctx.homewindow.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
 
     win.onClick(ctx.homewindow.BTN_SEARCH)

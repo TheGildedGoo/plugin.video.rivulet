@@ -227,7 +227,22 @@ def test_negative_imdb_lookup_is_memoized_and_refresh_clears_it(sched, monkeypat
     assert len(reads) == 2
     for i in range(2010):
         s._facts_with_imdb(dict(meta, id=str(i)))
-    assert len(s._meta_misses) == 2000
+    assert len(s._meta_ids) == 2000
+
+
+def test_resolved_imdb_lookup_is_memoized_too(sched, monkeypatch, tmp_path):
+    """A cache hit is not re-parsed from disk on every focus change."""
+    from lib.ui import dependencies, metacache, previews
+    monkeypatch.setattr(dependencies, 'get_store', lambda: SimpleNamespace(data_dir=str(tmp_path)))
+    s = sched.module
+    monkeypatch.setattr(previews, 'lookup', lambda sid: None)
+    reads = []
+    monkeypatch.setattr(metacache, 'load_cached_meta',
+                        lambda *args: reads.append(args) or {'imdb_id': 'tt1234567'})
+    meta = {'id': 'tmdb:1', 'type': 'movie'}
+    for _ in range(5):
+        assert s._facts_with_imdb(meta)['imdb_id'] == 'tt1234567'
+    assert len(reads) == 1
 
 
 @pytest.mark.parametrize('action', [5, 6, 104, 105])

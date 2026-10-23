@@ -663,3 +663,32 @@ def test_malformed_loaded_ratings_do_not_break_save_or_trim(tmp_path):
     cache.store('tt9999999', {'imdbRating': '8.0'})
     assert len(cache._entries) == 400
     assert RatingsCache(str(path), clock=lambda: 1000).lookup('tt9999999') == {'imdbRating': '8.0'}
+
+
+def test_lookup_is_not_blocked_by_a_slow_cache_write(tmp_path, monkeypatch):
+    """`lookup` runs on the GUI thread; the whole-file write must not hold
+    the lock it takes."""
+    import threading
+
+    from lib.stremio import ratings
+
+    cache = RatingsCache(str(tmp_path / 'ratings.json'), keys=('', 'k'))
+    cache.store('tt0000001', {'metascore': '70'})
+    started, release = threading.Event(), threading.Event()
+    real = ratings._atomic_write
+
+    def slow(path, payload):
+        started.set()
+        release.wait(5)
+        real(path, payload)
+
+    monkeypatch.setattr(ratings, '_atomic_write', slow)
+    writer = threading.Thread(target=cache.store, args=('tt0000002', {'metascore': '80'}))
+    writer.start()
+    assert started.wait(5)
+    try:
+        assert cache.lookup('tt0000001') is not None
+    finally:
+        release.set()
+        writer.join(5)
+    assert cache.lookup('tt0000002') is not None

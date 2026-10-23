@@ -57,6 +57,8 @@ class NewSearchWindow(BaseWindow):
         self.should_close_caller = False
         self._metas = []
         self._discover = []
+        self._results_query = ''
+        self._searching = False
         self._lock = threading.Lock()
         self._ready = []
         self._hero_painted = None
@@ -152,6 +154,12 @@ class NewSearchWindow(BaseWindow):
 
     @gated_input
     def onClick(self, control_id):
+        if self._searching:
+            # `run_cancellable` delivers queued clicks while its spinner is
+            # up. Acting on them would edit or start a search under the one
+            # still running, whose results would then be painted for a
+            # query the bar no longer shows.
+            return
         if control_id == LETTERS:
             item = self.getControl(LETTERS).getSelectedItem()
             if item is not None:
@@ -192,6 +200,7 @@ class NewSearchWindow(BaseWindow):
         from lib.ui.searchwindow import SearchReport, _search_notice, run_query
 
         report = SearchReport()
+        self._searching = True
         try:
             metas = run_query(get_store(), get_client(), query, report=report)
         except Exception as exc:
@@ -201,9 +210,12 @@ class NewSearchWindow(BaseWindow):
 
             log('newsearch: search failed: %s' % type(exc).__name__, xbmc.LOGWARNING)
             metas = []
+        finally:
+            self._searching = False
         if report.canceled:
             return
         self._metas = list(metas or [])
+        self._results_query = query
         if self._metas:
             self._show(self._metas, results=True)
             self.setFocusId(ROW)
@@ -269,11 +281,11 @@ class NewSearchWindow(BaseWindow):
         if index < 0 or index >= len(metas):
             return
         meta = metas[index]
-        if self._metas and self.query.strip():
+        if self._metas and self._results_query:
             from lib.ui.dependencies import get_store
 
             try:
-                get_store().add_search_query(self.query.strip())
+                get_store().add_search_query(self._results_query)
             except Exception:
                 pass
         from lib.ui.detailwindow import open_detail

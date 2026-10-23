@@ -96,7 +96,7 @@ def test_stopped_tab_load_is_incomplete_and_logs_stopped(load_homewindow, monkey
     win, store, calls = build(ctx, monkeypatch)
     ctx.newhome._home_stop(win).set()
     calls.clear()
-    assert ctx.newhome._load_rows(win, store, store.get_enabled_addons(), None) == []
+    assert ctx.newhome._load_rows(win, store, None) == []
     assert win._tab_loaded['home'] is False and calls == []
     assert any('home: tab home load stopped' in line for line, _ in ctx.env.log_calls)
     win.close()

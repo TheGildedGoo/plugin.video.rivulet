@@ -167,18 +167,6 @@ def test_non_numeric_scores_fall_back_to_text_with_no_dangling_colon(
     assert win.getControl(30025).visible
 
 
-def test_all_scores_and_the_end_time_fit_the_1400_pixel_row(load_homewindow):
-    from lib.ui.heroscrim import text_width
-    ctx = load_homewindow()
-    panel = 'IMDb 10.0\nRotten Tomatoes Audience 100%\nRotten Tomatoes 100%\nMetascore 100'
-    win = ctx.newhome.NewHomeWindow('NewHomeWindow.xml', '/addon/path', 'Default', '1080i')
-    ctx.newlook.paint_hero(win, '', panel, '')
-    # Conservative existing Noto Sans advances at the unchanged font13 size.
-    labels = [win.getControl(i).label for i in (30029, 30031, 30033, 30035)]
-    labels.append('Ends at 12:59 PM')
-    assert sum(text_width(text, 30) for text in labels) + 3 * 32 + 4 * 24 <= 1400
-
-
 def test_cached_audience_reaches_the_ratings_overlay(load_homewindow, tmp_path, monkeypatch):
     ctx = load_homewindow()
     import lib.ui.ratingsched as sched

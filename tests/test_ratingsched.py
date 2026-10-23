@@ -179,32 +179,6 @@ def test_the_overlay_never_raises(sched, monkeypatch, cache):
     assert sched.module.overlay_text({'id': 'tt0111161'}, 'catalog') == 'catalog'
 
 
-class _ListItem:
-    def __init__(self, props=None):
-        self.props = dict(props or {})
-        self.sets = []
-
-    def getProperty(self, key):
-        return self.props.get(key, '')
-
-    def setProperty(self, key, value):
-        self.sets.append((key, value))
-        self.props[key] = value
-
-
-def test_the_property_is_written_only_when_it_changed(sched, monkeypatch):
-    item = _ListItem({'hero_meta': 'catalog'})
-    monkeypatch.setattr(sched.module, 'overlay_text', lambda meta, fallback: fallback)
-    sched.module.apply_to_property(item, {'id': 'tt1'}, 'hero_meta')
-    assert item.sets == []
-    monkeypatch.setattr(sched.module, 'overlay_text', lambda meta, fallback: 'with scores')
-    sched.module.apply_to_property(item, {'id': 'tt1'}, 'hero_meta')
-    assert item.sets == [('hero_meta', 'with scores')]
-    sched.module.apply_to_property(None, {'id': 'tt1'}, 'hero_meta')
-    sched.module.apply_to_property(item, 'not a meta', 'hero_meta')
-    assert len(item.sets) == 1
-
-
 # --- the plan --------------------------------------------------------------------
 
 

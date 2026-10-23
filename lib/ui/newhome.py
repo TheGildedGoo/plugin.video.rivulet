@@ -28,6 +28,7 @@ Shared helpers this module calls and does not modify:
 `_enrich`, the resume percent constants), `lib.ui.views.iter_catalog_pages`
 and `lib.ui.detailwindow.open_detail`.
 """
+import contextlib
 import json
 import queue
 import threading
@@ -756,12 +757,16 @@ def _make_row_states(store, auth, entries, plan, fetched, suppressed=None, conti
     from lib.homelayout import heading_text, matches_library
     from lib.ui.compat import L
     from lib.ui.mystuff import library_metas
+    from lib.ui.uicommon import escape_label
 
     rows = []
     signed_out_card = False
     for list_id, kind, descriptor, variant, heading in plan:
+        # Catalog and addon names come from a manifest; the skin would
+        # evaluate any markup in them. Strip before `.upper()`, which would
+        # otherwise only rewrite the tags and leave the info label live.
         state = {'list_id': list_id, 'kind': kind, 'filter': variant,
-                 'heading': heading_text(heading, L).upper(), 'descriptor': descriptor,
+                 'heading': escape_label(heading_text(heading, L)).upper(), 'descriptor': descriptor,
                  'pending': [], 'exhausted': True, 'metas': [], 'items': []}
         if kind == 'catalog':
             state.update(fetched.get(list_id, {}))
@@ -882,7 +887,7 @@ def _tab_load_incomplete(window, reason):
     log('home: tab %s load %s' % (window._active_tab, reason), xbmc.LOGINFO)
 
 
-def _load_rows(window, store, addons, auth):
+def _load_rows(window, store, auth):
     """Fetch only this tab's plan. One account read feeds every personal row."""
     from lib.homelayout import resolve
     from lib.ui.compat import L, setting_bool
@@ -972,16 +977,13 @@ def _paint_rows(window, states):
         _set_shelf(window, list_id, header, prop, state['heading'], state['items'])
         if state['items']:
             window.getControl(list_id).selectItem(min(state.get('position', 0), len(state['items']) - 1))
-    window._shelf_more = window._rows
-    window._continue_items = next((s['items'] for s in states if s['kind'] == 'continue'), [])
-    window._library_items = next((s['items'] for s in states if s['kind'] == 'library'), [])
     window._catalog_pages = {s['list_id']: s['metas'] for s in states if s['kind'] == 'catalog'}
     _number_rows(window)
     _warm_shelf_posters(window, {s['list_id']: s['metas'] for s in states})
 
 
-def _fill_shelves(window, store, addons, auth, show_continue=True):
-    states = _load_rows(window, store, addons, auth)
+def _fill_shelves(window, store, auth):
+    states = _load_rows(window, store, auth)
     _paint_rows(window, states)
     _log_tab_paint(window, len(states))
     _top_up_shelves(window)
@@ -1019,45 +1021,82 @@ def _refresh_saved_rows(window, store=None):
     from lib.ui.compat import L
     from lib.ui.uicommon import CANCELLED, run_cancellable
 
+    if getattr(window, '_loading', False):
+        # Another load owns the rows. Painting under it would mix tabs, so
+        # leave the dirty flag for the next paint to re-read the library.
+        _library_dirty = True
+        return
     store = store or get_store()
     auth = store.get_auth()
-    entries = run_cancellable(lambda: _fetch_library(store, auth), L(30033))
-    if entries is CANCELLED or entries is None:
+    suppressed = getattr(window, '_continue_suppressed', None)
+    live = list(getattr(window, '_rows', {}).values())
+    cached_tabs = _snapshot_only_states(window)
+
+    def reload():
+        entries = _fetch_library(store, auth)
         if entries is None:
+            return None
+        # Continue rows may fetch metadata, so they are rebuilt here under
+        # the spinner rather than on the GUI thread afterwards.
+        return entries, _continue_rows(store, entries, live + cached_tabs, suppressed)
+
+    with _loading(window):
+        loaded = run_cancellable(reload, L(30033))
+    if loaded is CANCELLED or loaded is None:
+        if loaded is None:
             window._library_failed = True
             _set_tab_loaded(window, False)
         _library_dirty = True
         return
+    entries, continued = loaded
     _cancel_shelf_extends(window)
     window._library_entries = entries
     window._library_failed = False
     # Cached tabs may contain personal rows too. Rebuild them when revisited.
     place = _remember_place(window)
-    _refresh_snapshot_personal(list(getattr(window, '_rows', {}).values()), store, entries, auth,
-                               getattr(window, '_continue_suppressed', None))
+    _refresh_snapshot_personal(live, entries, auth, continued)
     for panel, state in getattr(window, '_rows', {}).items():
         if state['kind'] == 'catalog':
             continue
         label = 30140 if panel == CONTINUE_SHELF else next(h for _, p, h in _SHELVES if p == panel)
         prop = next(prop for p, prop, _ in _ROW_COUNTERS if p == panel)
         _set_shelf(window, panel, label, prop, state['heading'], state['items'])
-    for states, _focus in getattr(window, '_tab_snapshots', {}).values():
-        _refresh_snapshot_personal(states, store, entries, auth,
-                                   getattr(window, '_continue_suppressed', None))
+    _refresh_snapshot_personal(cached_tabs, entries, auth, continued)
     _number_rows(window)
     _library_dirty = False
     _restore_place(window, place)
 
 
-def _refresh_snapshot_personal(states, store, entries, auth, suppressed=None):
-    """Personal writes invalidate personal data, never a tab's loaded catalogs."""
+def _snapshot_only_states(window):
+    """Row states held by a tab snapshot and not painted right now.
+
+    A snapshot keeps the very state dicts that `_rows` holds for the active
+    tab, so refreshing both would rebuild that tab twice and leave
+    `state['items']` holding ListItems the control was not given.
+    """
+    live = {id(state) for state in getattr(window, '_rows', {}).values()}
+    return [state for states, _focus in getattr(window, '_tab_snapshots', {}).values()
+            for state in states if id(state) not in live]
+
+
+def _continue_rows(store, entries, states, suppressed=None):
+    """New Continue posters for every Continue row in `states`, by state id."""
+    return {id(state): _played_posters(store, entries, state['filter'], suppressed)
+            for state in states if state['kind'] == 'continue'}
+
+
+def _refresh_snapshot_personal(states, entries, auth, continued):
+    """Personal writes invalidate personal data, never a tab's loaded catalogs.
+
+    `continued` is `_continue_rows` output, built off the GUI thread.
+    """
     from lib.homelayout import matches_library
     from lib.ui.mystuff import library_metas
 
     signed_out_card = False
     for state in states:
         if state['kind'] == 'continue':
-            state['items'][:] = _played_posters(store, entries, state['filter'], suppressed)
+            state['items'][:] = continued[id(state)]
         elif state['kind'] == 'library':
             if not auth and signed_out_card:
                 state['items'][:] = []
@@ -1102,10 +1141,31 @@ def _select_active_chip(window):
             control.selectItem(index)
 
 
+@contextlib.contextmanager
+def _loading(window):
+    """Mark `window` as inside a load that shows a spinner.
+
+    `run_cancellable` delivers queued input as soon as the spinner is up, so
+    a second OK on a chip (or a library refresh) can re-enter while the
+    first load is still running. Whatever that nested call painted would
+    then be overwritten by the outer one, with rows and loaded flags of
+    different tabs mixed. Entry points check `window._loading` and drop
+    the nested request instead.
+    """
+    previous = getattr(window, '_loading', False)
+    window._loading = True
+    try:
+        yield
+    finally:
+        window._loading = previous
+
+
 def _switch_tab(window, tab):
     """Switch on OK only. Discard old queued/ready loads before slot reuse."""
     from lib.ui.compat import setting_bool
 
+    if getattr(window, '_loading', False):
+        return
     if tab == 'anime' and not setting_bool('home_show_anime', True):
         return
     complete = getattr(window, '_tab_loaded', {})
@@ -1113,19 +1173,20 @@ def _switch_tab(window, tab):
         _select_active_chip(window)
         window.setFocusId(BROWSE_LIST)
         return
-    if tab != window._active_tab:
-        _snapshot_tab(window)
-    _cancel_shelf_extends(window)
-    window._active_tab = tab
-    snapshot = window._tab_snapshots.get(tab)
-    if snapshot is not None and complete.get(tab, False):
-        rows, window._tab_last_row = snapshot
-        _paint_rows(window, rows)
-        _top_up_shelves(window)
-    else:
-        store = get_store()
-        _fill_shelves(window, store, store.get_enabled_addons(), store.get_auth())
-        window._tab_last_row = None
+    with _loading(window):
+        if tab != window._active_tab:
+            _snapshot_tab(window)
+        _cancel_shelf_extends(window)
+        window._active_tab = tab
+        snapshot = window._tab_snapshots.get(tab)
+        if snapshot is not None and complete.get(tab, False):
+            rows, window._tab_last_row = snapshot
+            _paint_rows(window, rows)
+            _top_up_shelves(window)
+        else:
+            store = get_store()
+            _fill_shelves(window, store, store.get_auth())
+            window._tab_last_row = None
     _select_active_chip(window)
     window.setFocusId(BROWSE_LIST)
     paint_hero(window)
@@ -1357,7 +1418,11 @@ def _remove_continue(window, item):
     state = window._rows[CONTINUE_SHELF]
     control = window.getControl(CONTINUE_SHELF)
     position = control.getSelectedPosition()
-    state['items'][:] = _played_posters(store, getattr(window, '_library_entries', []), state['filter'], suppressed)
+    # Drop the one title from the rows already built. Rebuilding them with
+    # `_played_posters` would re-enrich every nameless progress entry over
+    # the network on the GUI thread, with nothing pumping input.
+    sid = item.getProperty('sid')
+    state['items'][:] = [it for it in state['items'] if it.getProperty('sid') != sid]
     _set_shelf(window, CONTINUE_SHELF, 30140, 'shelf_continue', state['heading'], state['items'])
     if state['items']:
         control.selectItem(min(position, len(state['items']) - 1))
@@ -1365,10 +1430,9 @@ def _remove_continue(window, item):
     else:
         _select_active_chip(window)
         window.setFocusId(BROWSE_LIST)
-    for states, _focus in getattr(window, '_tab_snapshots', {}).values():
-        for saved in states:
-            if saved['kind'] == 'continue':
-                saved['items'][:] = _played_posters(store, getattr(window, '_library_entries', []), saved['filter'], suppressed)
+    for saved in _snapshot_only_states(window):
+        if saved['kind'] == 'continue':
+            saved['items'][:] = [it for it in saved['items'] if it.getProperty('sid') != sid]
     _number_rows(window)
     paint_hero(window)
 
@@ -1476,8 +1540,6 @@ def _append_to_shelf(window, list_id, metas, sparse=False):
     if state is not None:
         state['items'].extend(items)
         state['metas'].extend(metas)
-    elif list_id == LIBRARY_SHELF:
-        window._library_items.extend(items)
     _warm_shelf_posters(window, {'appended': metas})
 
 
@@ -2253,7 +2315,8 @@ class NewHomeWindow(BaseWindow):
         self.setProperty('HomeBrowse', '1' if browse else '')
         self.setProperty('HomeSignedOut', '' if auth else '1')
         self.getControl(STATUS_LABEL).setLabel(_status_text(auth))
-        _fill_shelves(self, store, addons, auth)
+        with _loading(self):
+            _fill_shelves(self, store, auth)
         _select_active_chip(self)
         if place is None:
             _focus_first(self)
@@ -2597,7 +2660,7 @@ def _open_detail_for(item, land_on=None):
 
 
 def _open_search(window):
-    from lib.ui.searchwindow import open_search
+    from lib.ui.newsearch import open_search
     _open_child(window, open_search)
 
 
