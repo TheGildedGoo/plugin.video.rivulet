@@ -264,10 +264,6 @@ msgctxt "#30084"
 msgid "No peers available for this stream"
 msgstr ""
 
-msgctxt "#30085"
-msgid "Session expired - please log in again"
-msgstr ""
-
 msgctxt "#30086"
 msgid "Connecting to streaming server…"
 msgstr ""
@@ -448,14 +444,6 @@ msgctxt "#30147"
 msgid "Stremio account auth key (HTTPS auto-cert)"
 msgstr ""
 
-msgctxt "#30148"
-msgid "Browse catalogs from your installed addons"
-msgstr ""
-
-msgctxt "#30149"
-msgid "Search across every installed addon"
-msgstr ""
-
 msgctxt "#30150"
 msgid "Your saved titles"
 msgstr ""
@@ -544,28 +532,12 @@ msgctxt "#30191"
 msgid "This addon is protected and cannot be removed"
 msgstr ""
 
-msgctxt "#30192"
-msgid "Add a Stremio addon by manifest URL"
-msgstr ""
-
-msgctxt "#30194"
-msgid "Filter"
-msgstr ""
-
 msgctxt "#30196"
 msgid "Cast & crew"
 msgstr ""
 
 msgctxt "#30197"
 msgid "No cast or crew information"
-msgstr ""
-
-msgctxt "#30198"
-msgid "All"
-msgstr ""
-
-msgctxt "#30199"
-msgid "search only"
 msgstr ""
 
 msgctxt "#30200"
@@ -602,10 +574,6 @@ msgstr ""
 
 msgctxt "#30210"
 msgid "back"
-msgstr ""
-
-msgctxt "#30211"
-msgid "exit"
 msgstr ""
 
 msgctxt "#30212"
@@ -686,10 +654,6 @@ msgstr ""
 
 msgctxt "#30242"
 msgid "NEXT UP"
-msgstr ""
-
-msgctxt "#30243"
-msgid "WATCHED"
 msgstr ""
 
 
@@ -826,26 +790,6 @@ msgctxt "#30313"
 msgid "New Episodes"
 msgstr ""
 
-msgctxt "#30314"
-msgid "Show new episodes under Series"
-msgstr ""
-
-msgctxt "#30315"
-msgid "%d new episode ready to watch"
-msgstr ""
-
-msgctxt "#30316"
-msgid "%d new episodes ready to watch"
-msgstr ""
-
-msgctxt "#30317"
-msgid "New episodes"
-msgstr ""
-
-msgctxt "#30318"
-msgid "NEW"
-msgstr ""
-
 msgctxt "#30280"
 msgid "Hide adult content"
 msgstr ""
@@ -950,10 +894,6 @@ msgstr ""
 
 msgctxt "#30374"
 msgid "Channels (comma-separated, blank = every active channel)"
-msgstr ""
-
-msgctxt "#30380"
-msgid "No results found"
 msgstr ""
 
 msgctxt "#30381"
@@ -1134,14 +1074,6 @@ msgstr ""
 
 msgctxt "#30482"
 msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
-msgstr ""
-
-msgctxt "#30483"
-msgid "Search from your phone"
-msgstr ""
-
-msgctxt "#30484"
-msgid "Type it on your phone"
 msgstr ""
 
 msgctxt "#30485"

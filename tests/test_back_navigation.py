@@ -36,8 +36,8 @@ from tests.kodistubs import install_kodi_stubs
 
 _RELOAD_MODULE_NAMES = (
     'lib.ui.compat', 'lib.ui.router', 'lib.ui.uicommon', 'lib.ui.dialogs', 'lib.ui.dependencies',
-    'lib.ui.views', 'lib.ui.streamswindow', 'lib.ui.searchwindow', 'lib.ui.infowindow',
-    'lib.ui.detailwindow', 'lib.ui.gridwindow', 'lib.ui.mystuff', 'lib.ui.catalogpicker',
+    'lib.ui.views', 'lib.ui.streamswindow', 'lib.ui.searchwindow', 'lib.ui.newsearch', 'lib.ui.infowindow',
+    'lib.ui.detailwindow', 'lib.ui.mystuff', 'lib.ui.catalogpicker',
     'lib.ui.addonswindow', 'lib.ui.addoncatalogwindow',
 )
 
@@ -276,20 +276,21 @@ def test_back_during_a_slow_catalog_first_page_returns_to_the_picker_and_never_o
     load_ui, monkeypatch,
 ):
     """The 45 s case from kodi.log: Back on the spinner returns to the
-    picker (no notification, no coverflow); when the orphaned fetch finally
+    caller (no notification, no coverflow); when the orphaned fetch finally
     answers, nothing opens."""
     ctx = load_ui()
     spinners = _track_spinners(monkeypatch, ctx)
     _press_back_on_pump(ctx, spinners)
     opened = []
     monkeypatch.setattr(ctx.infowindow, 'open_showcase', lambda *a, **k: opened.append(a) or None)
-    win = make_window(ctx.catalogpicker.CatalogPickerWindow)
     metas = [{'id': 'tt1', 'name': 'One', 'type': 'movie'}]
 
     with _gate(metas) as gate:
         monkeypatch.setattr(ctx.views, '_fetch_catalog', lambda *a, **k: gate())
         started = time.monotonic()
-        win._open_catalog('https://a.example/manifest.json', {'name': 'A'}, {'type': 'movie', 'id': 'top'})
+        ctx.catalogpicker.open_single_catalog(
+            'https://a.example/manifest.json', {'name': 'A'}, {'type': 'movie', 'id': 'top'},
+        )
 
         _assert_prompt(started)
         assert not gate.finished.is_set()
@@ -299,7 +300,6 @@ def test_back_during_a_slow_catalog_first_page_returns_to_the_picker_and_never_o
 
     assert opened == []
     assert ctx.env.notifications == []
-    assert win.closed is False and win.should_close_caller is False
     assert spinners[0]._window is None
 
 
@@ -518,41 +518,6 @@ def test_search_collect_answers_sees_back_while_no_answer_arrives(load_ui, monke
     assert report.canceled is True
 
 
-def test_back_while_the_series_screen_computes_new_episodes_returns_without_opening_it(load_ui, monkeypatch):
-    """The Series row's New Episodes meta fan-out ran with no spinner and no
-    way out; it now sits behind a cancellable spinner and Back returns to
-    the caller (Home) without ever constructing the picker."""
-    ctx = load_ui()
-    spinners = _track_spinners(monkeypatch, ctx)
-    _press_back_on_pump(ctx, spinners)
-    addon = {
-        'transportUrl': 'https://a.example/manifest.json',
-        'manifest': {
-            'id': 'a', 'name': 'A', 'resources': ['catalog'], 'types': ['series'],
-            'catalogs': [{'type': 'series', 'id': 'top'}],
-        },
-    }
-
-    class _Store:
-        def get_enabled_addons(self):
-            return [addon]
-
-    wire_store(ctx.catalogpicker, _Store())
-    monkeypatch.setattr(
-        ctx.catalogpicker.CatalogPickerWindow, 'start',
-        lambda *a, **k: pytest.fail('picker opened'),
-    )
-
-    with _gate([]) as gate:
-        monkeypatch.setattr(ctx.catalogpicker, '_new_episode_items', lambda store: gate())
-        started = time.monotonic()
-        result = ctx.catalogpicker.open_catalog_picker(types=['series', 'tv'], heading='Series')
-
-        _assert_prompt(started)
-    assert result is False
-    assert ctx.env.notifications == []
-
-
 # ---------------------------------------------------------------------------
 # Phases: Back / clicks across the 1 (addon) -> 2 (player) -> 3 (addon)
 # transitions. Phase state lives in uicommon (`input_suppressed()`); every
@@ -567,13 +532,11 @@ def _screens(ctx):
     showcase.metas = [{'id': 'tt1', 'name': 'One', 'type': 'movie'}]
     showcase.onInit()
     screens = {
-        'catalogpicker': make_window(ctx.catalogpicker.CatalogPickerWindow),
         'detail': make_window(ctx.detailwindow.DetailWindow),
         'showcase': showcase,
-        'grid': make_window(ctx.gridwindow.GridWindow),
         'addons': make_window(ctx.addonswindow.AddonsWindow),
         'addoncatalog': make_window(ctx.addoncatalogwindow.AddonCatalogWindow),
-        'search': make_window(ctx.searchwindow.SearchWindow),
+        'search': make_window(ctx.newsearch.NewSearchWindow),
         'streams': make_window(ctx.streamswindow.StreamsWindow),
     }
     return screens
@@ -605,24 +568,6 @@ def test_no_screen_reacts_to_back_while_the_player_owns_the_input_and_all_do_aga
     for name, win in screens.items():
         win.onAction(xbmcgui.Action(92))
         assert win.closed is True, name
-
-
-def test_a_click_queued_during_the_player_phase_opens_nothing(load_ui, monkeypatch):
-    """Replayed picks were the other half of the stale-input bug: a click
-    delivered in phase 2 must not start another fetch/screen."""
-    ctx = load_ui()
-    picker = make_window(ctx.catalogpicker.CatalogPickerWindow)
-    monkeypatch.setattr(
-        picker, '_open_catalog', lambda *a, **k: pytest.fail('a queued click opened a catalog'),
-    )
-    picker.catalogs = [('https://a.example/manifest.json', {'name': 'A'}, {'type': 'movie', 'id': 'top'})]
-    picker.onInit()
-    picker.getControl(ctx.catalogpicker.LIST).selected_index = 0
-
-    ctx.uicommon.begin_player_phase()
-    picker.onClick(ctx.catalogpicker.LIST)
-
-    ctx.uicommon.end_player_phase()
 
 
 def test_a_spinner_cancel_is_not_honoured_in_the_player_phase_but_works_before_and_after(load_ui, monkeypatch):

@@ -264,10 +264,6 @@ msgctxt "#30084"
 msgid "No peers available for this stream"
 msgstr "此流媒体源没有可用节点"
 
-msgctxt "#30085"
-msgid "Session expired - please log in again"
-msgstr "会话已过期 - 请重新登录"
-
 msgctxt "#30086"
 msgid "Connecting to streaming server…"
 msgstr "正在连接流媒体服务器…"
@@ -448,14 +444,6 @@ msgctxt "#30147"
 msgid "Stremio account auth key (HTTPS auto-cert)"
 msgstr "Stremio 账户认证密钥（HTTPS 自动证书）"
 
-msgctxt "#30148"
-msgid "Browse catalogs from your installed addons"
-msgstr "浏览已安装插件的目录"
-
-msgctxt "#30149"
-msgid "Search across every installed addon"
-msgstr "在所有已安装插件中搜索"
-
 msgctxt "#30150"
 msgid "Your saved titles"
 msgstr "你保存的内容"
@@ -544,14 +532,6 @@ msgctxt "#30191"
 msgid "This addon is protected and cannot be removed"
 msgstr "此插件受保护，无法移除"
 
-msgctxt "#30192"
-msgid "Add a Stremio addon by manifest URL"
-msgstr "通过清单 URL 添加 Stremio 插件"
-
-msgctxt "#30194"
-msgid "Filter"
-msgstr "筛选"
-
 msgctxt "#30196"
 msgid "Cast & crew"
 msgstr "演职员"
@@ -559,14 +539,6 @@ msgstr "演职员"
 msgctxt "#30197"
 msgid "No cast or crew information"
 msgstr "未找到演职员信息"
-
-msgctxt "#30198"
-msgid "All"
-msgstr "全部"
-
-msgctxt "#30199"
-msgid "search only"
-msgstr "仅搜索"
 
 msgctxt "#30200"
 msgid "SOURCES: %d"
@@ -603,10 +575,6 @@ msgstr "选择"
 msgctxt "#30210"
 msgid "back"
 msgstr "返回"
-
-msgctxt "#30211"
-msgid "exit"
-msgstr "退出"
 
 msgctxt "#30212"
 msgid "%d%% WATCHED"
@@ -687,10 +655,6 @@ msgstr "继续观看"
 msgctxt "#30242"
 msgid "NEXT UP"
 msgstr "下一集"
-
-msgctxt "#30243"
-msgid "WATCHED"
-msgstr "已观看"
 
 
 
@@ -826,26 +790,6 @@ msgctxt "#30313"
 msgid "New Episodes"
 msgstr "新剧集"
 
-msgctxt "#30314"
-msgid "Show new episodes under Series"
-msgstr "在剧集中显示新剧集"
-
-msgctxt "#30315"
-msgid "%d new episode ready to watch"
-msgstr "%d 集新剧集可观看"
-
-msgctxt "#30316"
-msgid "%d new episodes ready to watch"
-msgstr "%d 集新剧集可观看"
-
-msgctxt "#30317"
-msgid "New episodes"
-msgstr "新剧集"
-
-msgctxt "#30318"
-msgid "NEW"
-msgstr "新"
-
 msgctxt "#30280"
 msgid "Hide adult content"
 msgstr "隐藏成人内容"
@@ -951,10 +895,6 @@ msgstr "桥接端口"
 msgctxt "#30374"
 msgid "Channels (comma-separated, blank = every active channel)"
 msgstr "频道（逗号分隔，留空 = 所有活跃频道）"
-
-msgctxt "#30380"
-msgid "No results found"
-msgstr "未找到结果"
 
 msgctxt "#30381"
 msgid "No enabled addon supports search. Enable one, such as Cinemeta."
@@ -1135,14 +1075,6 @@ msgstr "输入邮箱和密码"
 msgctxt "#30482"
 msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
 msgstr "用手机扫描二维码或打开该地址，然后在那里登录 Stremio。"
-
-msgctxt "#30483"
-msgid "Search from your phone"
-msgstr "从手机搜索"
-
-msgctxt "#30484"
-msgid "Type it on your phone"
-msgstr "在手机上输入"
 
 msgctxt "#30485"
 msgid "Open this page on your phone and type what to search for. It works for 3 minutes."

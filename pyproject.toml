@@ -55,7 +55,6 @@ ignore = [
 max-complexity = 15
 
 [tool.ruff.lint.per-file-ignores]
-"lib/newepisodes.py" = ["C901"]
 "lib/s4me.py" = ["C901"]
 "lib/stremio/lzstring.py" = ["C901"]
 "lib/ui/player.py" = ["C901"]

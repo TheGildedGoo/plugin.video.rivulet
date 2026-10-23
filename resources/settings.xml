@@ -47,11 +47,6 @@
                         <heading>30518</heading>
                     </control>
                 </setting>
-                <setting id="home_show_new_episodes" type="boolean" label="30314">
-                    <level>0</level>
-                    <default>true</default>
-                    <control type="toggle"/>
-                </setting>
                 <setting id="home_hide_adult" type="boolean" label="30280">
                     <level>0</level>
                     <default>true</default>

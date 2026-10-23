@@ -12,15 +12,13 @@ lib.ui.detailwindow imports xbmcgui and lib.ui.uicommon at module scope;
 open_streams` and `open_detail()` lazily `from lib.ui.views import
 _fetch_meta` at call time - so load_detailwindow reloads lib.ui.compat/
 lib.ui.router/lib.ui.uicommon/lib.ui.views/lib.ui.streamswindow/
-lib.ui.detailwindow fresh together, the same way tests/test_catalogpicker.py
-reloads lib.ui.views/lib.ui.infowindow to get handles this file
+lib.ui.detailwindow fresh together, to get handles this file
 monkeypatches `_fetch_meta`/`open_streams` on directly.
 
 DetailWindow.onInit()/onClick()/onAction()/start() are called directly
-here, never through a real modal event loop, exactly like
-tests/test_catalogpicker.py drives CatalogPickerWindow: the fake
+here, never through a real modal event loop: the fake
 WindowXML.doModal() is a no-op counter, and getControl()/setFocusId()
-are plain in-memory fakes. DetailWindow.xml's actual skin rendering is
+are plain in-memory fakes. NewDetailWindow.xml's actual skin rendering is
 Kodi-skin-engine-only and is NOT, and cannot be, exercised by this suite.
 """
 import contextlib
@@ -381,6 +379,24 @@ def test_oninit_builds_one_item_per_row_with_row_id_property_for_a_series(load_d
     # A single season is exactly the pre-season-bar flat-list case: 30007
     # stays hidden, every episode is one row - unchanged, byte-for-byte.
     assert win.getControl(picker.SEASON_BAR).visible is False
+
+
+def test_oninit_after_a_playback_round_trip_returns_to_the_episode_that_was_opened(load_detailwindow, monkeypatch):
+    ctx = load_detailwindow()
+    picker = ctx.detailwindow
+    monkeypatch.setattr(ctx.streamswindow, 'open_streams', lambda *a, **k: False)
+    win = _make_window(picker)
+    win.start({
+        'id': 'tt1',
+        'videos': [{'id': 'v%d' % n, 'season': 1, 'episode': n, 'title': 'E%d' % n} for n in (1, 2, 3)],
+    }, 'series')
+    win.onInit()
+    win.getControl(picker.LIST).selectItem(2)
+
+    win.onClick(picker.LIST)
+    win.onInit()  # Kodi re-runs it when the modal reopens after playback
+
+    assert win.getControl(picker.LIST).getSelectedPosition() == 2
 
 
 def test_oninit_builds_season_bar_and_defaults_to_the_first_non_special_season(load_detailwindow):

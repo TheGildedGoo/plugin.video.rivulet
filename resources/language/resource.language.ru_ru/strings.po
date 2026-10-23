@@ -264,10 +264,6 @@ msgctxt "#30084"
 msgid "No peers available for this stream"
 msgstr "Нет доступных пиров для этого потока"
 
-msgctxt "#30085"
-msgid "Session expired - please log in again"
-msgstr "Сессия истекла - выполните вход снова"
-
 msgctxt "#30086"
 msgid "Connecting to streaming server…"
 msgstr "Подключение к серверу потоковой передачи…"
@@ -448,14 +444,6 @@ msgctxt "#30147"
 msgid "Stremio account auth key (HTTPS auto-cert)"
 msgstr "Ключ авторизации учётной записи Stremio (авто-сертификат HTTPS)"
 
-msgctxt "#30148"
-msgid "Browse catalogs from your installed addons"
-msgstr "Обзор каталогов установленных дополнений"
-
-msgctxt "#30149"
-msgid "Search across every installed addon"
-msgstr "Поиск по всем установленным дополнениям"
-
 msgctxt "#30150"
 msgid "Your saved titles"
 msgstr "Ваши сохранённые названия"
@@ -544,14 +532,6 @@ msgctxt "#30191"
 msgid "This addon is protected and cannot be removed"
 msgstr "Это дополнение защищено и не может быть удалено"
 
-msgctxt "#30192"
-msgid "Add a Stremio addon by manifest URL"
-msgstr "Добавить дополнение Stremio по URL манифеста"
-
-msgctxt "#30194"
-msgid "Filter"
-msgstr "Фильтр"
-
 msgctxt "#30196"
 msgid "Cast & crew"
 msgstr "Актёры и съёмочная группа"
@@ -559,14 +539,6 @@ msgstr "Актёры и съёмочная группа"
 msgctxt "#30197"
 msgid "No cast or crew information"
 msgstr "Нет информации об актёрах и съёмочной группе"
-
-msgctxt "#30198"
-msgid "All"
-msgstr "Все"
-
-msgctxt "#30199"
-msgid "search only"
-msgstr "только поиск"
 
 msgctxt "#30200"
 msgid "SOURCES: %d"
@@ -603,10 +575,6 @@ msgstr "выбрать"
 msgctxt "#30210"
 msgid "back"
 msgstr "назад"
-
-msgctxt "#30211"
-msgid "exit"
-msgstr "выход"
 
 msgctxt "#30212"
 msgid "%d%% WATCHED"
@@ -687,10 +655,6 @@ msgstr "Продолжить"
 msgctxt "#30242"
 msgid "NEXT UP"
 msgstr "ДАЛЕЕ"
-
-msgctxt "#30243"
-msgid "WATCHED"
-msgstr "ПРОСМОТРЕНО"
 
 
 
@@ -826,26 +790,6 @@ msgctxt "#30313"
 msgid "New Episodes"
 msgstr "Новые эпизоды"
 
-msgctxt "#30314"
-msgid "Show new episodes under Series"
-msgstr "Показывать новые эпизоды в разделе Сериалы"
-
-msgctxt "#30315"
-msgid "%d new episode ready to watch"
-msgstr "%d новый эпизод доступен"
-
-msgctxt "#30316"
-msgid "%d new episodes ready to watch"
-msgstr "Новые эпизоды готовы к просмотру: %d"
-
-msgctxt "#30317"
-msgid "New episodes"
-msgstr "Новые эпизоды"
-
-msgctxt "#30318"
-msgid "NEW"
-msgstr "НОВОЕ"
-
 msgctxt "#30280"
 msgid "Hide adult content"
 msgstr "Скрывать контент для взрослых"
@@ -951,10 +895,6 @@ msgstr "Порт моста"
 msgctxt "#30374"
 msgid "Channels (comma-separated, blank = every active channel)"
 msgstr "Каналы (через запятую, пусто = все активные каналы)"
-
-msgctxt "#30380"
-msgid "No results found"
-msgstr "Результаты не найдены"
 
 msgctxt "#30381"
 msgid "No enabled addon supports search. Enable one, such as Cinemeta."
@@ -1135,14 +1075,6 @@ msgstr "Ввести почту и пароль"
 msgctxt "#30482"
 msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
 msgstr "Отсканируйте QR или откройте адрес на телефоне и войдите там в Stremio."
-
-msgctxt "#30483"
-msgid "Search from your phone"
-msgstr "Искать с телефона"
-
-msgctxt "#30484"
-msgid "Type it on your phone"
-msgstr "Введите на телефоне"
 
 msgctxt "#30485"
 msgid "Open this page on your phone and type what to search for. It works for 3 minutes."

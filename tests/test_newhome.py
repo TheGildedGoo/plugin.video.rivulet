@@ -23,8 +23,8 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 _RELOAD_MODULE_NAMES = (
     'lib.ui.compat', 'lib.ui.uicommon', 'lib.ui.router', 'lib.ui.homewindow',
-    'lib.ui.catalogpicker', 'lib.ui.searchwindow', 'lib.ui.mystuff', 'lib.ui.addonswindow',
-    'lib.ui.gridwindow', 'lib.ui.detailwindow', 'lib.ui.newlook', 'lib.ui.newhome',
+    'lib.ui.catalogpicker', 'lib.ui.searchwindow', 'lib.ui.newsearch', 'lib.ui.mystuff', 'lib.ui.addonswindow',
+    'lib.ui.detailwindow', 'lib.ui.newlook', 'lib.ui.newhome',
     'lib.ui.dialogs', 'lib.ui.dependencies', 'lib.ui.libraryaction', 'lib.ui.homelists',
     'lib.ui.player', 'lib.ui.streamswindow', 'lib.ui.views',
     'lib.ui.catalogpages', 'lib.ui.newsearch',
@@ -94,8 +94,8 @@ def load_homewindow():
     """Factory fixture: `load_homewindow(addon_info=None, localized=None)`
     installs fresh stubs (via tests.kodistubs.install_kodi_stubs) reloading
     lib.ui.compat/lib.ui.uicommon/lib.ui.router/lib.ui.homewindow/
-    lib.ui.catalogpicker/lib.ui.searchwindow, and returns a namespace with
-    `.homewindow`, `.compat`, `.router`, `.catalogpicker`, `.searchwindow`,
+    lib.ui.catalogpicker/lib.ui.newsearch, and returns a namespace with
+    `.homewindow`, `.compat`, `.router`, `.catalogpicker`, `.newsearch`,
     and `.env`. `localized` overrides FakeAddon's default 'STR<id>' string
     marker - needed for string id 30022 ("Logged in as %s"), which
     HomeWindow's status label formats with `%`, the same shared string

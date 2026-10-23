@@ -264,10 +264,6 @@ msgctxt "#30084"
 msgid "No peers available for this stream"
 msgstr "このストリームに利用可能なピアがありません"
 
-msgctxt "#30085"
-msgid "Session expired - please log in again"
-msgstr "セッションが期限切れです - 再度ログインしてください"
-
 msgctxt "#30086"
 msgid "Connecting to streaming server…"
 msgstr "ストリーミングサーバーに接続中…"
@@ -448,14 +444,6 @@ msgctxt "#30147"
 msgid "Stremio account auth key (HTTPS auto-cert)"
 msgstr "Stremioアカウント認証キー (HTTPS自動証明書)"
 
-msgctxt "#30148"
-msgid "Browse catalogs from your installed addons"
-msgstr "インストール済みアドオンのカタログを閲覧"
-
-msgctxt "#30149"
-msgid "Search across every installed addon"
-msgstr "インストール済みのすべてのアドオンを検索"
-
 msgctxt "#30150"
 msgid "Your saved titles"
 msgstr "保存したタイトル一覧"
@@ -544,14 +532,6 @@ msgctxt "#30191"
 msgid "This addon is protected and cannot be removed"
 msgstr "このアドオンは保護されているため削除できません"
 
-msgctxt "#30192"
-msgid "Add a Stremio addon by manifest URL"
-msgstr "マニフェストURLでStremioアドオンを追加"
-
-msgctxt "#30194"
-msgid "Filter"
-msgstr "フィルター"
-
 msgctxt "#30196"
 msgid "Cast & crew"
 msgstr "キャスト・スタッフ"
@@ -559,14 +539,6 @@ msgstr "キャスト・スタッフ"
 msgctxt "#30197"
 msgid "No cast or crew information"
 msgstr "キャストまたはスタッフの情報がありません"
-
-msgctxt "#30198"
-msgid "All"
-msgstr "すべて"
-
-msgctxt "#30199"
-msgid "search only"
-msgstr "検索専用"
 
 msgctxt "#30200"
 msgid "SOURCES: %d"
@@ -603,10 +575,6 @@ msgstr "選択"
 msgctxt "#30210"
 msgid "back"
 msgstr "戻る"
-
-msgctxt "#30211"
-msgid "exit"
-msgstr "終了"
 
 msgctxt "#30212"
 msgid "%d%% WATCHED"
@@ -687,10 +655,6 @@ msgstr "続きを見る"
 msgctxt "#30242"
 msgid "NEXT UP"
 msgstr "次のエピソード"
-
-msgctxt "#30243"
-msgid "WATCHED"
-msgstr "視聴済み"
 
 
 
@@ -826,26 +790,6 @@ msgctxt "#30313"
 msgid "New Episodes"
 msgstr "新しいエピソード"
 
-msgctxt "#30314"
-msgid "Show new episodes under Series"
-msgstr "シリーズに新しいエピソードを表示"
-
-msgctxt "#30315"
-msgid "%d new episode ready to watch"
-msgstr "%d件の新しいエピソードを視聴できます"
-
-msgctxt "#30316"
-msgid "%d new episodes ready to watch"
-msgstr "%d件の新しいエピソードを視聴できます"
-
-msgctxt "#30317"
-msgid "New episodes"
-msgstr "新しいエピソード"
-
-msgctxt "#30318"
-msgid "NEW"
-msgstr "新着"
-
 msgctxt "#30280"
 msgid "Hide adult content"
 msgstr "アダルトコンテンツを非表示にする"
@@ -951,10 +895,6 @@ msgstr "ブリッジのポート"
 msgctxt "#30374"
 msgid "Channels (comma-separated, blank = every active channel)"
 msgstr "チャンネル（カンマ区切り、空欄 = すべてのアクティブなチャンネル）"
-
-msgctxt "#30380"
-msgid "No results found"
-msgstr "結果が見つかりません"
 
 msgctxt "#30381"
 msgid "No enabled addon supports search. Enable one, such as Cinemeta."
@@ -1135,14 +1075,6 @@ msgstr "メールアドレスとパスワードを入力"
 msgctxt "#30482"
 msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
 msgstr "スマホでQRを読み取るかアドレスを開き、そこでStremioにログインしてください。"
-
-msgctxt "#30483"
-msgid "Search from your phone"
-msgstr "スマホから検索"
-
-msgctxt "#30484"
-msgid "Type it on your phone"
-msgstr "スマホで入力"
 
 msgctxt "#30485"
 msgid "Open this page on your phone and type what to search for. It works for 3 minutes."

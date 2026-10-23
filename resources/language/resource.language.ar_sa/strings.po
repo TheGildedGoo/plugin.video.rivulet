@@ -264,10 +264,6 @@ msgctxt "#30084"
 msgid "No peers available for this stream"
 msgstr "لا يوجد نظراء متاحون لهذا البث"
 
-msgctxt "#30085"
-msgid "Session expired - please log in again"
-msgstr "انتهت الجلسة - يرجى تسجيل الدخول مرة أخرى"
-
 msgctxt "#30086"
 msgid "Connecting to streaming server…"
 msgstr "جارٍ الاتصال بخادم البث…"
@@ -448,14 +444,6 @@ msgctxt "#30147"
 msgid "Stremio account auth key (HTTPS auto-cert)"
 msgstr "مفتاح مصادقة حساب Stremio (شهادة HTTPS تلقائية)"
 
-msgctxt "#30148"
-msgid "Browse catalogs from your installed addons"
-msgstr "استعرض كتالوجات إضافاتك المثبتة"
-
-msgctxt "#30149"
-msgid "Search across every installed addon"
-msgstr "البحث في جميع الإضافات المثبتة"
-
 msgctxt "#30150"
 msgid "Your saved titles"
 msgstr "عناوينك المحفوظة"
@@ -544,14 +532,6 @@ msgctxt "#30191"
 msgid "This addon is protected and cannot be removed"
 msgstr "هذه الإضافة محمية ولا يمكن إزالتها"
 
-msgctxt "#30192"
-msgid "Add a Stremio addon by manifest URL"
-msgstr "أضف إضافة Stremio باستخدام عنوان URL للبيان"
-
-msgctxt "#30194"
-msgid "Filter"
-msgstr "تصفية"
-
 msgctxt "#30196"
 msgid "Cast & crew"
 msgstr "طاقم العمل"
@@ -559,14 +539,6 @@ msgstr "طاقم العمل"
 msgctxt "#30197"
 msgid "No cast or crew information"
 msgstr "لا تتوفر معلومات عن طاقم العمل"
-
-msgctxt "#30198"
-msgid "All"
-msgstr "الكل"
-
-msgctxt "#30199"
-msgid "search only"
-msgstr "بحث فقط"
 
 msgctxt "#30200"
 msgid "SOURCES: %d"
@@ -603,10 +575,6 @@ msgstr "تحديد"
 msgctxt "#30210"
 msgid "back"
 msgstr "رجوع"
-
-msgctxt "#30211"
-msgid "exit"
-msgstr "خروج"
 
 msgctxt "#30212"
 msgid "%d%% WATCHED"
@@ -687,10 +655,6 @@ msgstr "متابعة"
 msgctxt "#30242"
 msgid "NEXT UP"
 msgstr "التالي"
-
-msgctxt "#30243"
-msgid "WATCHED"
-msgstr "تمت المشاهدة"
 
 
 
@@ -826,26 +790,6 @@ msgctxt "#30313"
 msgid "New Episodes"
 msgstr "حلقات جديدة"
 
-msgctxt "#30314"
-msgid "Show new episodes under Series"
-msgstr "إظهار الحلقات الجديدة ضمن المسلسلات"
-
-msgctxt "#30315"
-msgid "%d new episode ready to watch"
-msgstr "%d حلقة جديدة جاهزة للمشاهدة"
-
-msgctxt "#30316"
-msgid "%d new episodes ready to watch"
-msgstr "حلقات جديدة جاهزة للمشاهدة: %d"
-
-msgctxt "#30317"
-msgid "New episodes"
-msgstr "حلقات جديدة"
-
-msgctxt "#30318"
-msgid "NEW"
-msgstr "جديد"
-
 msgctxt "#30280"
 msgid "Hide adult content"
 msgstr "إخفاء المحتوى للبالغين"
@@ -951,10 +895,6 @@ msgstr "منفذ الجسر"
 msgctxt "#30374"
 msgid "Channels (comma-separated, blank = every active channel)"
 msgstr "القنوات (مفصولة بفواصل، فارغ = جميع القنوات النشطة)"
-
-msgctxt "#30380"
-msgid "No results found"
-msgstr "لم يتم العثور على نتائج"
 
 msgctxt "#30381"
 msgid "No enabled addon supports search. Enable one, such as Cinemeta."
@@ -1135,14 +1075,6 @@ msgstr "اكتب البريد الإلكتروني وكلمة المرور"
 msgctxt "#30482"
 msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
 msgstr "امسح رمز QR أو افتح العنوان على الهاتف وسجّل الدخول إلى Stremio هناك."
-
-msgctxt "#30483"
-msgid "Search from your phone"
-msgstr "البحث من الهاتف"
-
-msgctxt "#30484"
-msgid "Type it on your phone"
-msgstr "اكتبه على الهاتف"
 
 msgctxt "#30485"
 msgid "Open this page on your phone and type what to search for. It works for 3 minutes."

@@ -22,7 +22,7 @@ from tests.kodistubs import install_kodi_stubs
 
 _RELOAD_MODULE_NAMES = (
     'lib.ui.compat', 'lib.ui.dependencies', 'lib.ui.uicommon', 'lib.ui.router',
-    'lib.ui.views', 'lib.ui.binge', 'lib.ui.gridwindow', 'lib.ui.detailwindow',
+    'lib.ui.views', 'lib.ui.binge', 'lib.ui.detailwindow',
     'lib.ui.mystuff',
 )
 

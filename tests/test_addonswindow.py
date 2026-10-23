@@ -17,8 +17,7 @@ tests/test_views.py wires `views.get_store`/`views.get_client`), rather
 than monkeypatching `lib.store`/`lib.stremio.addons`.
 
 AddonsWindow.onInit()/onClick() are called directly here, never through a
-real modal event loop, exactly like test_catalogpicker.py drives
-CatalogPickerWindow: the fake WindowXML.doModal() is a no-op counter, and
+real modal event loop: the fake WindowXML.doModal() is a no-op counter, and
 getControl()/setFocusId() are plain in-memory fakes. AddonsWindow.xml's
 actual skin rendering is Kodi-skin-engine-only and is NOT, and cannot be,
 exercised by this suite.

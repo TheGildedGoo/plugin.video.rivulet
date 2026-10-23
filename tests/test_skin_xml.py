@@ -79,8 +79,7 @@ def test_skin_file_discovery_finds_every_window():
     """Guards every other test in this file: a glob that silently matches
     nothing would make every rule below pass by scanning zero files."""
     paths = _skin_files()
-    # Keep search independently testable when the episode-page commit is split out.
-    expected = 16 + int(os.path.isfile(os.path.join(_SKIN_DIR, 'NewDetailWindow.xml')))
+    expected = 13
     assert len(paths) == expected, 'expected %d window XMLs in %s, found %d: %s' % (expected, _SKIN_DIR, len(paths), paths)
 
 

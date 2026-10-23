@@ -40,8 +40,8 @@ _DEFAULT_SETTINGS = {
 # detailwindow.py's singular/plural 'N SEASON(S)'/'N EPISODE(S)' labels, detailwindow.py's per-episode '%d%% WATCHED'
 # readout, and streamswindow.py's 'Hidden by filters: N' line); every other id not explicitly configured falls back to
 # a deterministic 'STR<id>' marker (see `FakeAddon.getLocalizedString`)
-# so assertions never need real strings.po text. 30189-30192, 30194,
-# 30196, 30197, and 30209-30211 (select/back/exit) are plain (non-`%`)
+# so assertions never need real strings.po text. 30189-30191,
+# 30196, 30197, and 30209-30210 (select/back) are plain (non-`%`)
 # strings, so they deliberately stay out of this dict and fall through
 # to their 'STR<id>' marker.
 _DEFAULT_LOCALIZED = {
@@ -63,8 +63,6 @@ _DEFAULT_LOCALIZED = {
     30208: 'CACHED: %d',
     30212: '%d%% WATCHED',
     30262: 'Hidden by filters: %d',
-    30315: '%d new episode ready to watch',
-    30316: '%d new episodes ready to watch',
     30341: '%s needs configuration. Open %s in a browser, configure it, then paste the resulting manifest URL',
     30348: 'Showing %d of %d',
     30360: 'New episodes: %d',

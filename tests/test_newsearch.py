@@ -382,13 +382,6 @@ def test_search_static_geometry_and_navigation(load_search, monkeypatch, logo):
 
 
 
-def test_open_search_routing_and_failure_always_close(load_search, monkeypatch):
-    ctx = load_search()
-    calls = []
-    monkeypatch.setattr(ctx.newsearch, 'open_search', lambda: calls.append('routed') or True)
-    assert ctx.searchwindow.open_search() is True and calls == ['routed']
-
-
 def test_pending_discover_cannot_replace_search_results(load_search, monkeypatch):
     ctx = load_search()
     win = _init(ctx, monkeypatch)

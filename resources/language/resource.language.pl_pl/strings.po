@@ -264,10 +264,6 @@ msgctxt "#30084"
 msgid "No peers available for this stream"
 msgstr "Brak dostępnych peerów dla tego strumienia"
 
-msgctxt "#30085"
-msgid "Session expired - please log in again"
-msgstr "Sesja wygasła - zaloguj się ponownie"
-
 msgctxt "#30086"
 msgid "Connecting to streaming server…"
 msgstr "Łączenie z serwerem transmisji strumieniowej…"
@@ -448,14 +444,6 @@ msgctxt "#30147"
 msgid "Stremio account auth key (HTTPS auto-cert)"
 msgstr "Klucz autoryzacji konta Stremio (auto-certyfikat HTTPS)"
 
-msgctxt "#30148"
-msgid "Browse catalogs from your installed addons"
-msgstr "Przeglądaj katalogi zainstalowanych dodatków"
-
-msgctxt "#30149"
-msgid "Search across every installed addon"
-msgstr "Szukaj we wszystkich zainstalowanych dodatkach"
-
 msgctxt "#30150"
 msgid "Your saved titles"
 msgstr "Twoje zapisane tytuły"
@@ -544,14 +532,6 @@ msgctxt "#30191"
 msgid "This addon is protected and cannot be removed"
 msgstr "Ten dodatek jest chroniony i nie można go usunąć"
 
-msgctxt "#30192"
-msgid "Add a Stremio addon by manifest URL"
-msgstr "Dodaj dodatek Stremio za pomocą adresu URL manifestu"
-
-msgctxt "#30194"
-msgid "Filter"
-msgstr "Filtr"
-
 msgctxt "#30196"
 msgid "Cast & crew"
 msgstr "Obsada i ekipa"
@@ -559,14 +539,6 @@ msgstr "Obsada i ekipa"
 msgctxt "#30197"
 msgid "No cast or crew information"
 msgstr "Brak informacji o obsadzie i ekipie"
-
-msgctxt "#30198"
-msgid "All"
-msgstr "Wszystkie"
-
-msgctxt "#30199"
-msgid "search only"
-msgstr "tylko wyszukiwanie"
 
 msgctxt "#30200"
 msgid "SOURCES: %d"
@@ -603,10 +575,6 @@ msgstr "wybierz"
 msgctxt "#30210"
 msgid "back"
 msgstr "wstecz"
-
-msgctxt "#30211"
-msgid "exit"
-msgstr "wyjście"
 
 msgctxt "#30212"
 msgid "%d%% WATCHED"
@@ -687,10 +655,6 @@ msgstr "Kontynuuj"
 msgctxt "#30242"
 msgid "NEXT UP"
 msgstr "NASTĘPNY"
-
-msgctxt "#30243"
-msgid "WATCHED"
-msgstr "OBEJRZANE"
 
 
 
@@ -826,26 +790,6 @@ msgctxt "#30313"
 msgid "New Episodes"
 msgstr "Nowe odcinki"
 
-msgctxt "#30314"
-msgid "Show new episodes under Series"
-msgstr "Pokaż nowe odcinki w sekcji Seriale"
-
-msgctxt "#30315"
-msgid "%d new episode ready to watch"
-msgstr "%d nowy odcinek dostępny"
-
-msgctxt "#30316"
-msgid "%d new episodes ready to watch"
-msgstr "Nowe odcinki dostępne: %d"
-
-msgctxt "#30317"
-msgid "New episodes"
-msgstr "Nowe odcinki"
-
-msgctxt "#30318"
-msgid "NEW"
-msgstr "NOWE"
-
 msgctxt "#30280"
 msgid "Hide adult content"
 msgstr "Ukryj treści dla dorosłych"
@@ -951,10 +895,6 @@ msgstr "Port mostka"
 msgctxt "#30374"
 msgid "Channels (comma-separated, blank = every active channel)"
 msgstr "Kanały (oddzielone przecinkami, puste = wszystkie aktywne kanały)"
-
-msgctxt "#30380"
-msgid "No results found"
-msgstr "Nie znaleziono wyników"
 
 msgctxt "#30381"
 msgid "No enabled addon supports search. Enable one, such as Cinemeta."
@@ -1135,14 +1075,6 @@ msgstr "Wpisz e-mail i hasło"
 msgctxt "#30482"
 msgid "Scan the QR or open the address on your phone and sign in to Stremio there."
 msgstr "Zeskanuj kod QR lub otwórz adres w telefonie i zaloguj się tam do Stremio."
-
-msgctxt "#30483"
-msgid "Search from your phone"
-msgstr "Szukaj z telefonu"
-
-msgctxt "#30484"
-msgid "Type it on your phone"
-msgstr "Wpisz to w telefonie"
 
 msgctxt "#30485"
 msgid "Open this page on your phone and type what to search for. It works for 3 minutes."

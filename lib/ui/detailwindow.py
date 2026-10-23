@@ -434,6 +434,10 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self._video_by_id = {}
         self.season_groups = []
         self.season_index = 0
+        #: `(season_index, row)` of the episode the user last opened, so
+        #: `onInit()` can put the cursor back there when Kodi re-runs it
+        #: after a playback or trailer round trip.
+        self._resume_position = None
         self.should_close_caller = False
 
     def start(self, meta, stype):
@@ -533,16 +537,22 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             log('detailwindow: get_progress failed for %r/%r/%r: %r' % (stype, sid, video_id, exc))
             return None
 
-    def _populate_episode_list(self, videos):
-        """Replace `LIST`'s contents with `videos`' rows, reset the
-        selection to the top, and refresh SEASON_COUNT's 'N EPISODES'
+    def _remember_position(self):
+        """Note the focused episode row so a round trip through the
+        player or the trailer lands back on it (see `onInit()`)."""
+        row = self.getControl(LIST).getSelectedPosition()
+        self._resume_position = (self.season_index, max(row, 0))
+
+    def _populate_episode_list(self, videos, select=0):
+        """Replace `LIST`'s contents with `videos`' rows, select row
+        `select` (the top by default), and refresh SEASON_COUNT's 'N EPISODES'
         readout to match - used for the initial populate and for every
         season switch alike, so the count always tracks whichever
         season is actually on screen."""
         control = self.getControl(LIST)
         control.reset()
         control.addItems(self._build_episode_items(videos))
-        control.selectItem(0)
+        control.selectItem(select if 0 <= select < len(videos) else 0)
         self._set_season_count(len(videos))
 
     def _set_season_count(self, count):
@@ -588,6 +598,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         if position == self.season_index or not 0 <= position < len(self.season_groups):
             return
         self.season_index = position
+        self._resume_position = None
         self._populate_episode_list(self._active_videos())
 
     def onInit(self):
@@ -608,7 +619,10 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         self.getControl(GENRES_LINE).setLabel(_genres_line(self.meta))
 
         self._build_season_bar()
-        self._populate_episode_list(self._active_videos())
+        select = 0
+        if self._resume_position and self._resume_position[0] == self.season_index:
+            select = self._resume_position[1]
+        self._populate_episode_list(self._active_videos(), select)
         self.setFocusId(LIST)
 
     @gated_input
@@ -708,6 +722,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         back where it was when the trailer stops."""
         from lib.ui.trailer import play_trailer
 
+        self._remember_position()
         meta = self.meta if isinstance(self.meta, dict) else {}
         play_trailer(meta, meta.get('type') or self.stype, meta.get('id') or '')
 
@@ -869,6 +884,7 @@ class DetailWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             return
         sid = focused.getProperty('row_id')
         video = self._video_by_id.get(sid)
+        self._remember_position()
 
         from lib.ui.streamswindow import open_streams
         # open_streams() only ever returns False (see its own module
