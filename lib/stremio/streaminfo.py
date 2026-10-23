@@ -48,7 +48,7 @@ _LABEL_TAG_RE = re.compile(
     r'\[/?(?:B|I|COLOR[^\]]*|CR|UPPERCASE|LOWERCASE|CAPITALIZE|LIGHT|TABS)\]',
     re.IGNORECASE,
 )
-_LABEL_INFO_RE = re.compile(r'\$(INFO|LOCALIZE|VAR|ESCINFO|ADDON|NUMBER)\[', re.IGNORECASE)
+_LABEL_INFO_RE = re.compile(r'\$(INFO|LOCALIZE|VAR|ESCINFO|ESCVAR|ADDON|NUMBER)\[', re.IGNORECASE)
 
 
 def escape_label(text):
@@ -294,7 +294,8 @@ def _parse_size(behavior_hints, text):
     video_size = (behavior_hints or {}).get('videoSize')
     try:
         video_size = int(video_size)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # OverflowError: `videoSize: 1e999` is valid JSON and parses to inf.
         video_size = None
     if video_size and video_size > 0:
         return video_size, _human_size(video_size)
@@ -303,7 +304,11 @@ def _parse_size(behavior_hints, text):
     if not match:
         return None, ''
     value, unit = match.group(1), match.group(2).upper()
-    size_bytes = int(round(float(value) * _UNIT_MULTIPLIERS[unit]))
+    try:
+        size_bytes = int(round(float(value) * _UNIT_MULTIPLIERS[unit]))
+    except OverflowError:
+        # A hundreds-of-digits number before "GB" in the free text.
+        return None, ''
     return size_bytes, '%s %s' % (value, unit)
 
 
@@ -849,17 +854,26 @@ def parse_stream(stream, addon_name=''):
     most of the markers that carry them; everything else uses the
     cleaned `raw` below, built from that same capped text.
     """
-    stream = stream or {}
-    name = stream.get('name') or ''
-    title = stream.get('title') or ''
-    description = stream.get('description') or ''
+    if not isinstance(stream, dict):
+        stream = {}
+
+    def _text(value):
+        # Addon JSON is untrusted: a number/list in a text field must not
+        # take the whole addon's results down in the join below.
+        return value if isinstance(value, str) else ''
+
+    name = _text(stream.get('name'))
+    title = _text(stream.get('title'))
+    description = _text(stream.get('description'))
     behavior_hints = stream.get('behaviorHints')
     # A Stremio addon is arbitrary user-installed code: behaviorHints
     # arriving as a string/list must not take the streams list down with
     # an AttributeError on the first .get() below.
     if not isinstance(behavior_hints, dict):
         behavior_hints = {}
-    filename = behavior_hints.get('filename') or ''
+    # Capped like `pre_clean`: the release-group regex rescans to the end
+    # of the string at every '-', so an uncapped filename is quadratic.
+    filename = _text(behavior_hints.get('filename'))[:_MAX_TEXT_LEN]
 
     pre_clean = '\n'.join(p for p in (name, title, description, filename) if p)[:_MAX_TEXT_LEN]
     raw = clean_text(pre_clean)

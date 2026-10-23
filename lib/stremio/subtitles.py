@@ -120,7 +120,10 @@ def _is_usable_subtitle_url(url):
     """Return True if `url` is a str with an allowed subtitle scheme."""
     if not isinstance(url, str) or not url:
         return False
-    return urlparse(url).scheme.lower() in _SUBTITLE_URL_SCHEMES
+    try:
+        return urlparse(url).scheme.lower() in _SUBTITLE_URL_SCHEMES
+    except ValueError:  # e.g. 'http://[x/a'
+        return False
 
 
 def _query_addons(client, transport_urls, rtype, rid, extra):
@@ -172,7 +175,11 @@ def collect_subtitles(client, addons, rtype, rid, extra=None):
     """
     transport_urls = []
     for descriptor in addons or []:
-        manifest = descriptor.get('manifest') or {}
+        if not isinstance(descriptor, dict):
+            continue
+        manifest = descriptor.get('manifest')
+        if not isinstance(manifest, dict):
+            continue
         if not addon_supports(manifest, 'subtitles', rtype, rid):
             continue
         transport_url = descriptor.get('transportUrl')
@@ -183,7 +190,7 @@ def collect_subtitles(client, addons, rtype, rid, extra=None):
     seen_urls = set()
     subs = []
     for raw in _query_addons(client, transport_urls, rtype, rid, extra):
-        for item in raw or []:
+        for item in raw if isinstance(raw, list) else ():
             if not isinstance(item, dict):
                 continue
             url = item.get('url')

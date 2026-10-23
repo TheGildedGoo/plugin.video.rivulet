@@ -475,3 +475,9 @@ def test_filter_subtitles_empty_list_returns_empty_list():
 
 def test_filter_subtitles_none_list_returns_empty_list():
     assert filter_subtitles(None, "en") == []
+
+
+def test_malformed_subtitle_url_is_dropped_not_raised():
+    from lib.stremio.subtitles import _is_usable_subtitle_url
+
+    assert _is_usable_subtitle_url("http://[x/a") is False

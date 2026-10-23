@@ -19,7 +19,7 @@ import, even where `requests` is missing; only constructing/using an
 AddonClient actually needs it.
 """
 import json
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
 #: `requests` costs ~35ms and ~200 transitive modules to import - resolved
 #: lazily on first `AddonClient.__init__()` call via `_ensure_requests()`
@@ -317,6 +317,104 @@ def error_meta_category(meta):
     return 'addon reported error'
 
 
+_MAX_REDIRECTS = 5
+_REDIRECT_STATUSES = (301, 302, 303, 307, 308)
+
+
+def get_validated(session, url, timeout, stream=False):
+    """`session.get(url)` that re-runs `validate_transport_url` on every
+    redirect hop.
+
+    `requests` follows redirects on its own, so the https-or-local-http
+    rule would otherwise bind only the first URL: an https addon could
+    302 to plaintext `http://public-host/...` and the body would be
+    accepted. Raises AddonError for a rejected hop or a redirect loop;
+    `requests` errors propagate for the caller's own handling.
+    """
+    url = validate_transport_url(url)
+    for _ in range(_MAX_REDIRECTS + 1):
+        resp = session.get(url, timeout=timeout, stream=stream, allow_redirects=False)
+        if resp.status_code not in _REDIRECT_STATUSES:
+            return resp
+        location = resp.headers.get('Location')
+        resp.close()
+        if not location or not isinstance(location, str):
+            raise AddonError('addon redirect without a target', category='bad redirect')
+        try:
+            url = validate_transport_url(urljoin(url, location))
+        except AddonError:
+            raise AddonError('addon redirected to a disallowed URL', category='bad redirect')
+    raise AddonError('too many addon redirects', category='bad redirect')
+
+
+def fetch_json(session, timeout, url):
+    """GET `url` and JSON-decode the body, capped at `_MAX_RESPONSE_BYTES`.
+
+    Streams via `iter_content()` and accumulates chunks itself rather
+    than calling `resp.json()`/`resp.content` directly: those buffer
+    the entire body in memory regardless of size, and a hostile or
+    just-huge third-party addon response used to OOM-kill this
+    addon's process on ~1 GB-RAM ARM Kodi boxes before any JSON
+    parsing even started. The `Content-Length` header is checked
+    first as a cheap short-circuit, but the chunk loop enforces the
+    cap unconditionally since a chunked/absent-length response can
+    still grow unbounded.
+    """
+    url = validate_transport_url(url)
+    safe = safe_url_for_log(url)
+    resp = None
+    try:
+        resp = get_validated(session, url, timeout, stream=True)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        category = _request_error_category(exc)
+        if resp is not None:
+            resp.close()
+        raise AddonError('GET %s failed: %s' % (safe, category), category=category)
+    try:
+        content_length = resp.headers.get('Content-Length')
+        if content_length is not None:
+            try:
+                too_big = int(content_length) > _MAX_RESPONSE_BYTES
+            except (TypeError, ValueError):
+                too_big = False
+            if too_big:
+                raise AddonError(
+                    'GET %s response exceeds the %d byte limit' % (safe, _MAX_RESPONSE_BYTES),
+                    category='response too large',
+                )
+        body = bytearray()
+        for chunk in resp.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+            body += chunk
+            if len(body) > _MAX_RESPONSE_BYTES:
+                raise AddonError(
+                    'GET %s response exceeds the %d byte limit' % (safe, _MAX_RESPONSE_BYTES),
+                    category='response too large',
+                )
+        try:
+            return json.loads(bytes(body))
+        except (ValueError, RecursionError):
+            # RecursionError: a few MiB of '[' stays under the size cap
+            # yet overflows the JSON parser's stack.
+            raise AddonError('GET %s returned invalid JSON' % safe, category='invalid JSON')
+    except requests.RequestException as exc:
+        # Raised by `iter_content()` while the body is still arriving
+        # (a read timeout after the headers landed, a reset, a
+        # truncated chunked body). `requests` only wraps those for
+        # the `get()`/`raise_for_status()` pair above, so without
+        # this branch a stalled-mid-body addon escaped as a bare
+        # `requests.ConnectionError`: no `except AddonError` site
+        # (search, the catalog picker, `views._fetch_meta()`'s worker
+        # thread) caught it, and the first uncaught one aborted the
+        # whole search with a traceback instead of costing one addon.
+        category = _request_error_category(exc)
+        raise AddonError('GET %s failed mid-stream: %s' % (safe, category), category=category)
+    finally:
+        resp.close()
+
+
 class AddonClient:
     """Thin HTTP client for the addon manifest/catalog/meta/stream/subtitles
     resources. One `requests.Session()` per client instance (stored as
@@ -331,69 +429,8 @@ class AddonClient:
         self.session.headers['User-Agent'] = USER_AGENT
 
     def _get_json(self, url):
-        """GET `url` and JSON-decode the body, capped at `_MAX_RESPONSE_BYTES`.
-
-        Streams via `iter_content()` and accumulates chunks itself rather
-        than calling `resp.json()`/`resp.content` directly: those buffer
-        the entire body in memory regardless of size, and a hostile or
-        just-huge third-party addon response used to OOM-kill this
-        addon's process on ~1 GB-RAM ARM Kodi boxes before any JSON
-        parsing even started. The `Content-Length` header is checked
-        first as a cheap short-circuit, but the chunk loop enforces the
-        cap unconditionally since a chunked/absent-length response can
-        still grow unbounded.
-        """
-        url = validate_transport_url(url)
-        safe = safe_url_for_log(url)
-        resp = None
-        try:
-            resp = self.session.get(url, timeout=self.timeout, stream=True)
-            resp.raise_for_status()
-        except requests.RequestException as exc:
-            category = _request_error_category(exc)
-            if resp is not None:
-                resp.close()
-            raise AddonError('GET %s failed: %s' % (safe, category), category=category)
-        try:
-            content_length = resp.headers.get('Content-Length')
-            if content_length is not None:
-                try:
-                    too_big = int(content_length) > _MAX_RESPONSE_BYTES
-                except (TypeError, ValueError):
-                    too_big = False
-                if too_big:
-                    raise AddonError(
-                        'GET %s response exceeds the %d byte limit' % (safe, _MAX_RESPONSE_BYTES),
-                        category='response too large',
-                    )
-            body = bytearray()
-            for chunk in resp.iter_content(chunk_size=65536):
-                if not chunk:
-                    continue
-                body += chunk
-                if len(body) > _MAX_RESPONSE_BYTES:
-                    raise AddonError(
-                        'GET %s response exceeds the %d byte limit' % (safe, _MAX_RESPONSE_BYTES),
-                        category='response too large',
-                    )
-            try:
-                return json.loads(bytes(body))
-            except ValueError:
-                raise AddonError('GET %s returned invalid JSON' % safe, category='invalid JSON')
-        except requests.RequestException as exc:
-            # Raised by `iter_content()` while the body is still arriving
-            # (a read timeout after the headers landed, a reset, a
-            # truncated chunked body). `requests` only wraps those for
-            # the `get()`/`raise_for_status()` pair above, so without
-            # this branch a stalled-mid-body addon escaped as a bare
-            # `requests.ConnectionError`: no `except AddonError` site
-            # (search, the catalog picker, `views._fetch_meta()`'s worker
-            # thread) caught it, and the first uncaught one aborted the
-            # whole search with a traceback instead of costing one addon.
-            category = _request_error_category(exc)
-            raise AddonError('GET %s failed mid-stream: %s' % (safe, category), category=category)
-        finally:
-            resp.close()
+        """GET `url` and JSON-decode it; see `fetch_json()`."""
+        return fetch_json(self.session, self.timeout, url)
 
     def _get_field(self, url, field, kind):
         """GET `url`, then extract `field` from the JSON envelope, enforcing
@@ -431,8 +468,19 @@ class AddonClient:
         return value
 
     def manifest(self, transport_url):
-        """GET the addon manifest (transport_url normally ends in /manifest.json)."""
-        return self._get_json(transport_url)
+        """GET the addon manifest (transport_url normally ends in /manifest.json).
+
+        Requires a dict with a string `id`: a persisted manifest of any
+        other shape would crash every later browse, so it is rejected
+        here, at the one place third-party JSON enters the store.
+        """
+        data = self._get_json(transport_url)
+        if not isinstance(data, dict) or not isinstance(data.get('id'), str):
+            raise AddonError(
+                'GET %s returned a malformed manifest' % safe_url_for_log(transport_url),
+                category='invalid JSON',
+            )
+        return data
 
     def catalog(self, base, rtype, cid, extra=None):
         """GET a catalog resource -> list of meta preview objects (resp['metas']).
@@ -489,8 +537,14 @@ class AddonClient:
 def _resource_entry(manifest, resource):
     """Return manifest['resources'] entry (short string or long-form dict)
     named `resource`, or None if the addon doesn't declare it at all."""
-    for entry in manifest.get('resources') or []:
-        name = entry if isinstance(entry, str) else entry.get('name')
+    resources = manifest.get('resources')
+    for entry in resources if isinstance(resources, list) else ():
+        if isinstance(entry, str):
+            name = entry
+        elif isinstance(entry, dict):
+            name = entry.get('name')
+        else:
+            continue
         if name == resource:
             return entry
     return None
@@ -522,9 +576,17 @@ def addon_supports(manifest, resource, rtype, rid=None):
     if id_prefixes is None:
         id_prefixes = manifest.get('idPrefixes') or []
 
+    if not isinstance(types, list):
+        types = []
+    if not isinstance(id_prefixes, list):
+        id_prefixes = []
     if rtype is not None and rtype not in types:
         return False
-    if rid is not None and id_prefixes and not any(rid.startswith(p) for p in id_prefixes):
+    if (
+        rid is not None
+        and id_prefixes
+        and not any(isinstance(p, str) and rid.startswith(p) for p in id_prefixes)
+    ):
         return False
     return True
 
@@ -536,9 +598,12 @@ def _catalog_extra_names(catalog):
     ManifestExtra encodings per manifest.rs)."""
     extra = catalog.get('extra')
     if isinstance(extra, list):
-        return {p.get('name') for p in extra if isinstance(p, dict) and p.get('name')}
-    names = set(catalog.get('extraSupported') or [])
-    names.update(catalog.get('extraRequired') or [])
+        return {p['name'] for p in extra if isinstance(p, dict) and isinstance(p.get('name'), str) and p['name']}
+    names = set()
+    for key in ('extraSupported', 'extraRequired'):
+        values = catalog.get(key)
+        if isinstance(values, list):
+            names.update(n for n in values if isinstance(n, str))
     return names
 
 
@@ -550,7 +615,7 @@ def catalog_supports_extra(catalog, name):
     callers that hold a single catalog rather than iterating.
 
     Used to decide whether a catalog can be paged with `skip` (see
-    `lib.ui.views.fetch_catalog_pages`). Never raises: a
+    `lib.ui.views.iter_catalog_pages`). Never raises: a
     missing/non-dict catalog, or a non-list `extra`, returns False."""
     if not isinstance(catalog, dict):
         return False
@@ -574,10 +639,14 @@ def catalog_required_extra_names(catalog):
     names = set()
     extra = catalog.get('extra')
     if isinstance(extra, list):
-        names.update(p.get('name') for p in extra if isinstance(p, dict) and p.get('isRequired') and p.get('name'))
+        names.update(
+            p['name']
+            for p in extra
+            if isinstance(p, dict) and p.get('isRequired') and isinstance(p.get('name'), str) and p['name']
+        )
     extra_required = catalog.get('extraRequired')
     if isinstance(extra_required, list):
-        names.update(n for n in extra_required if n)
+        names.update(n for n in extra_required if isinstance(n, str) and n)
     return names
 
 
@@ -655,13 +724,22 @@ def iter_catalogs(addons, extra_required=None, types=None):
     """
     wanted = set(types) if types is not None else None
     for descriptor in addons or []:
-        manifest = descriptor.get('manifest') or {}
+        if not isinstance(descriptor, dict):
+            continue
+        manifest = descriptor.get('manifest')
+        if not isinstance(manifest, dict):
+            continue
         transport_url = descriptor.get('transportUrl')
-        for catalog in manifest.get('catalogs') or []:
+        catalogs = manifest.get('catalogs')
+        for catalog in catalogs if isinstance(catalogs, list) else ():
+            if not isinstance(catalog, dict):
+                continue
             if extra_required and extra_required not in _catalog_extra_names(catalog):
                 continue
-            if wanted is not None and catalog.get('type') not in wanted:
-                continue
+            if wanted is not None:
+                ctype = catalog.get('type')
+                if not isinstance(ctype, str) or ctype not in wanted:
+                    continue
             yield transport_url, manifest, catalog
 
 
@@ -695,4 +773,6 @@ def _base_type(catalog_type):
     `anime.series`) to specialize a base type, and type strings are
     otherwise free-form and mixed-case - this is what lets `anime.movie`
     join the Anime row and a stray `TV` join Series alongside `tv`."""
-    return (catalog_type or '').split('.', 1)[0].lower()
+    if not isinstance(catalog_type, str):
+        return ''
+    return catalog_type.split('.', 1)[0].lower()

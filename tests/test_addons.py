@@ -29,7 +29,7 @@ from lib.stremio.addons import (
     safe_url_for_log,
     validate_transport_url,
 )
-from tests.conftest import FakeSession
+from tests.conftest import FakeResponse, FakeSession
 
 # --- encode_extra ------------------------------------------------------
 
@@ -1129,3 +1129,60 @@ def test_meta_that_is_a_real_meta_is_returned():
     client.session = FakeSession(responses=[_json_response({'meta': meta})])
 
     assert client.meta('https://addon.example/manifest.json', 'movie', 'tt1') == meta
+
+
+# --- hostile addon data ---------------------------------------------------
+
+
+@pytest.mark.parametrize("body", [["x"], {"name": "no id"}, {"id": 5}])
+def test_addon_client_manifest_rejects_a_malformed_manifest(body):
+    client = AddonClient()
+    client.session = FakeSession(responses=[_json_response(body)])
+    with pytest.raises(AddonError):
+        client.manifest(MANIFEST_URL)
+
+
+def test_type_confused_manifest_fields_never_raise():
+    manifest = {
+        "id": "x",
+        "catalogs": ["x", {"type": ["movie"], "id": "a", "extraSupported": 5}],
+        "resources": [5, {"name": "stream", "types": 3, "idPrefixes": [1]}],
+        "idPrefixes": [1],
+    }
+    descriptor = {"transportUrl": "https://a.example/manifest.json", "manifest": manifest}
+    assert list(iter_catalogs([descriptor, "junk"], types={"movie"})) == []
+    assert list(iter_catalogs([descriptor, "junk"], extra_required="search")) == []
+    assert addon_supports(manifest, "stream", "movie", "tt1") is False
+
+
+def test_get_json_turns_recursion_error_into_addon_error():
+    client = AddonClient()
+
+    class Deep(FakeResponse):
+        def iter_content(self, chunk_size=None):
+            yield b"[" * 200000
+
+    client.session = FakeSession(responses=[Deep()])
+    with pytest.raises(AddonError):
+        client.manifest(MANIFEST_URL)
+
+
+def test_redirect_to_plaintext_public_host_is_refused():
+    client = AddonClient()
+    client.session = FakeSession(
+        responses=[FakeResponse(status_code=302, headers={"Location": "http://evil.example/manifest.json"})]
+    )
+    with pytest.raises(AddonError):
+        client.manifest(MANIFEST_URL)
+    assert len(client.session.calls) == 1
+
+
+def test_redirect_to_https_is_followed():
+    client = AddonClient()
+    client.session = FakeSession(
+        responses=[
+            FakeResponse(status_code=301, headers={"Location": "https://other.example/manifest.json"}),
+            _json_response({"id": "org.moved"}),
+        ]
+    )
+    assert client.manifest(MANIFEST_URL) == {"id": "org.moved"}

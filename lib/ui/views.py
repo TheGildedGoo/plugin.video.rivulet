@@ -4,8 +4,8 @@
 """Shared data helpers and RunPlugin script actions for plugin.video.rivulet.
 
 The addon's real UI is the custom WindowXML dialog stack (NewHomeWindow,
-CatalogPickerWindow, infowindow.ShowcaseWindow, DetailWindow,
-StreamsWindow, SearchWindow, AddonsWindow, LibraryWindow) - this module no
+NewSearchWindow, infowindow.ShowcaseWindow, NewDetailWindow,
+StreamsWindow, AddonsWindow, AddonCatalogWindow) - this module no
 longer builds any of their directory listings. What remains here is:
 
 - Shared data-fetch/sync helpers (`_fetch_meta`, `_fetch_catalog`,
@@ -50,7 +50,7 @@ from lib.ui.uicommon import CANCELLED, run_cancellable
 #: of them one after another.
 _MAX_ADDON_WORKERS = 8
 
-#: Ceiling on `skip` pages `fetch_catalog_pages()` will walk for one
+#: Ceiling on `skip` pages `iter_catalog_pages()` will walk for one
 #: catalog. Pages are fetched serially (each `skip` depends on the
 #: previous page's size), so this bounds both the wait behind the busy
 #: dialog and how much a pathological catalog can pour into the
@@ -371,6 +371,9 @@ def _fetch_meta(stype, sid, store=True, on_miss=None):  # noqa: C901 - legacy; r
                 ):
                     return None
                 continue
+            except Exception as exc:  # noqa: BLE001 - a dead worker would hang the result queue
+                log('views._fetch_meta: %s raised %s' % (safe_url_for_log(transport_url), type(exc).__name__), xbmc.LOGWARNING)
+                return None
             log('views._fetch_meta: %s answered %s/%s with %s' % (
                 _addon_name(descriptor), stype, sid, _meta_summary(meta)), xbmc.LOGINFO)
             # A body that arrived is the addon's answer. Retrying `{}`
@@ -519,8 +522,7 @@ _pause_before_meta_retry = _pause_meta_retry_with_home_context
 
 def _fetch_catalog(transport, ctype, cid, extra=None):
     """Fetch one catalog's metas via the shared AddonClient - imported
-    lazily by CatalogPickerWindow and infowindow's discover-link picker
-    to build their listing/overlay. Raises AddonError on failure; each
+    lazily by infowindow's discover-link picker to build its overlay. Raises AddonError on failure; each
     caller decides how to surface it."""
     client = get_client()
     return client.catalog(transport, ctype, cid, extra=extra)
@@ -556,8 +558,7 @@ def iter_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest
     which is a worse screen: the user sees a handful of posters before
     they scroll. The coverflow instead opens on the first page and
     appends the rest as they land (see
-    `lib.ui.infowindow.ShowcaseWindow.start`); `fetch_catalog_pages()`
-    below is the eager wrapper for callers that do want the whole list.
+    `lib.ui.infowindow.ShowcaseWindow.start`).
 
     The first page is always yielded, and an `AddonError` fetching it
     propagates - the caller has nothing to show and already surfaces the
@@ -736,22 +737,6 @@ def _follow_pages(transport, ctype, cid, base_extra, served, page_size, seen, hi
     notify(message)
 
 
-def fetch_catalog_pages(transport, ctype, cid, extra=None, catalog=None, manifest=None):
-    """Every page of a catalog as one combined list - the eager form of
-    `iter_catalog_pages()`, for callers that cannot show partial results
-    and would rather wait (the discover-link path, which passes no
-    `catalog` and so never pages anyway).
-
-    The coverflow deliberately does NOT use this: see the generator's
-    docstring for why a long catalog must open on its first page rather
-    than behind a minute-long spinner.
-    """
-    metas = []
-    for page in iter_catalog_pages(transport, ctype, cid, extra=extra, catalog=catalog, manifest=manifest):
-        metas.extend(page)
-    return metas
-
-
 def _sync_addons_if_logged_in(store, notify_success=False, cancellable=False):
     """Best-effort push of the local addon collection back to Stremio's
     remote sync API when the user is logged in. A failed push is
@@ -766,7 +751,7 @@ def _sync_addons_if_logged_in(store, notify_success=False, cancellable=False):
     authKey itself was invalidated server-side, not a transient blip)
     additionally clears the stored auth via `store.set_auth(None)`, since
     retrying the same dead key can never succeed; the next user-facing
-    screen (LibraryWindow, AddonsWindow, Settings > Account) then
+    screen (NewHomeWindow, AddonsWindow, Settings > Account) then
     correctly shows "not logged in" instead of repeating this failure
     forever.
 
@@ -952,11 +937,14 @@ def _typed_login(api):
     if not password:
         return None
     try:
-        return api.login(email, password)
+        # On a worker under the spinner: a slow server must not freeze the
+        # screen with no way to press Back.
+        result = run_cancellable(lambda: api.login(email, password), L(30033))
     except ApiError as exc:
         log('views.login failed: %r' % (exc,), xbmc.LOGERROR)
         notify(L(30023))
         return None
+    return None if result is CANCELLED else result
 
 
 def login():
@@ -999,9 +987,11 @@ def sign_in():
     store.set_auth(result)
 
     try:
-        remote_addons = api.addon_collection_get(result.get('authKey'))
+        remote_addons = run_cancellable(lambda: api.addon_collection_get(result.get('authKey')), L(30033))
     except ApiError as exc:
         log('views.login: addon_collection_get failed: %r' % (exc,), xbmc.LOGERROR)
+        remote_addons = None
+    if remote_addons is CANCELLED:
         remote_addons = None
 
     if remote_addons is not None:
@@ -1048,7 +1038,7 @@ def sign_in():
             # Push the merged list right back up: closes the gap where an
             # addon installed before ever logging in would otherwise never
             # reach the account until its next unrelated install/remove.
-            _sync_addons_if_logged_in(store)
+            _sync_addons_if_logged_in(store, cancellable=True)
 
     user = result.get('user') or {}
     notify(L(30022) % (user.get('email') or user.get('name') or ''))

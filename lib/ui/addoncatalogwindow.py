@@ -162,8 +162,8 @@ class AddonCatalogWindow(BaseWindow):
         # screen with no feedback, hence the spinner every other
         # fetch-driven Rivulet screen already opens for this
         # (lib.ui.uicommon.busy_dialog's own docstring).
-        entries = run_cancellable(lambda: self._fetch_entries(installed), L(30033))
-        if entries is CANCELLED:
+        result = run_cancellable(lambda: self._fetch_entries(installed), L(30033))
+        if result is CANCELLED:
             # Back on the spinner. Nothing to show on a first load -> leave
             # the screen (the one Back the user pressed); on a RELOAD
             # (after an install/refresh) keep what is already listed.
@@ -171,7 +171,15 @@ class AddonCatalogWindow(BaseWindow):
                 self.close()
                 return
         else:
-            self.entries = entries
+            self.entries, failed_names = result
+            # One toast per failed source, from the GUI thread and only
+            # when the user did not cancel (a worker-thread notify would
+            # land over whatever screen is up by then).
+            from lib.ui.compat import notify
+            from lib.ui.uicommon import escape_label
+
+            for name in failed_names:
+                notify(L(30340) % escape_label(name))
 
         from lib.stremio.addoncatalogs import descriptor_state
 
@@ -179,7 +187,7 @@ class AddonCatalogWindow(BaseWindow):
         self._render()
 
     def _fetch_entries(self, installed):
-        """Best-effort aggregate of every `addon_catalog` resource
+        """Returns `(entries, failed_source_names)`. Best-effort aggregate of every `addon_catalog` resource
         declared by an installed addon: one GET per declaring addon per
         unique catalog id, not per declared `(type, id)` pair and not per
         listed entry.
@@ -237,12 +245,13 @@ class AddonCatalogWindow(BaseWindow):
         from lib.stremio.addoncatalogs import fetch_addon_catalogs, iter_unique_addon_catalogs
         from lib.stremio.addons import addon_error_detail, safe_url_for_log
         from lib.stremio.contentrating import is_adult_manifest
-        from lib.ui.compat import L, log, notify, setting_bool
+        from lib.ui.compat import log, setting_bool
 
         sources = []
         names = {}
         for transport_url, manifest, addon_catalog in iter_unique_addon_catalogs(installed):
-            source = (transport_url, addon_catalog.get('type'), addon_catalog.get('id'))
+            ctype = addon_catalog.get('type')
+            source = (transport_url, ctype if isinstance(ctype, str) else 'all', addon_catalog.get('id'))
             sources.append(source)
             names.setdefault(transport_url, manifest.get('name', '?'))
 
@@ -256,11 +265,12 @@ class AddonCatalogWindow(BaseWindow):
 
         fetched, failures = fetch_addon_catalogs(get_client(), sources)
 
+        failed_names = []
         for transport_url, _type, _id, exc in failures:
             log('addoncatalogwindow: addon_catalog fetch failed for %s: %s' % (
                 safe_url_for_log(transport_url or ''), addon_error_detail(exc),
             ), xbmc.LOGWARNING)
-            notify(L(30340) % names.get(transport_url, '?'))
+            failed_names.append(str(names.get(transport_url, '?')))
 
         hide_adult = setting_bool('home_hide_adult', True)
         seen = {}
@@ -268,10 +278,13 @@ class AddonCatalogWindow(BaseWindow):
             url = entry.get('transportUrl')
             if not url or url in seen:
                 continue
-            if hide_adult and is_adult_manifest(entry.get('manifest') or {}):
+            manifest = entry.get('manifest')
+            if not isinstance(manifest, dict):
+                continue
+            if hide_adult and is_adult_manifest(manifest):
                 continue
             seen[url] = entry
-        return list(seen.values())
+        return list(seen.values()), failed_names
 
     def _visible_indices(self):
         """Indices into `self.entries`/`self.states` matching

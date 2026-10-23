@@ -1417,3 +1417,28 @@ def test_resolve_art_falls_back_to_meta_fields_when_art_empty():
 
 def test_resolve_art_missing_fields_are_omitted_entirely():
     assert playbackmeta.resolve_art(None, None) == {}
+
+
+# --- untrusted field types ------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "stream",
+    [
+        {"name": 123, "title": ["x"], "description": {"a": 1}},
+        {"behaviorHints": {"filename": 5, "videoSize": 1e999}},
+        {"description": "9" * 400 + " GB"},
+    ],
+)
+def test_parse_stream_survives_type_confused_fields(stream):
+    parse_stream(stream)
+
+
+def test_parse_stream_caps_the_filename_before_the_release_group_regex():
+    started = time.monotonic()
+    parse_stream({"behaviorHints": {"filename": "-." * 200000}})
+    assert time.monotonic() - started < 2
+
+
+def test_escape_label_neutralises_escvar():
+    assert "$ESCVAR[" not in escape_label("$ESCVAR[Foo]")

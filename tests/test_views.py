@@ -813,12 +813,17 @@ def test_fetch_meta_on_miss_is_not_called_for_a_cache_hit(load_views, tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# fetch_catalog_pages()
+# iter_catalog_pages()
 # ---------------------------------------------------------------------------
 
 #: A catalog declaring `skip`, in the modern `extra` array form AIOLists
 #: (the addon whose 20-per-page lists motivated paging) ships.
 _PAGED_CATALOG = {'id': 'list', 'type': 'movie', 'extra': [{'name': 'skip'}]}
+
+
+def _fetch_all_pages(views, *args, **kwargs):
+    """Every page `iter_catalog_pages()` yields, flattened into one list."""
+    return [meta for page in views.iter_catalog_pages(*args, **kwargs) for meta in page]
 
 
 class FakePagingClient:
@@ -829,7 +834,7 @@ class FakePagingClient:
     by dividing `skip` by a fixed page size, so pages of DIFFERENT
     lengths are expressible: `pages=[20, 25, 10]` answers `skip=0` with
     the first, `skip=20` with the second, `skip=45` with the third. That
-    is exactly the arithmetic `fetch_catalog_pages` is expected to
+    is exactly the arithmetic `iter_catalog_pages` is expected to
     perform, so a walker that counted in first-page multiples instead
     would ask for an offset no page starts at and get an empty answer.
     An entry that is an Exception is raised instead.
@@ -841,7 +846,7 @@ class FakePagingClient:
     def __init__(self, pages, ignores_skip=False):
         self._pages = pages
         self._ignores_skip = ignores_skip
-        self.calls = []  # [extra, ...] exactly as fetch_catalog_pages passed it
+        self.calls = []  # [extra, ...] exactly as iter_catalog_pages passed it
 
     def catalog(self, transport, rtype, cid, extra=None):
         self.calls.append(extra)
@@ -875,7 +880,7 @@ def _metas(start, count):
     return [{'id': 'tt%d' % n, 'name': 'Movie %d' % n} for n in range(start, start + count)]
 
 
-def test_fetch_catalog_pages_follows_skip_past_the_first_page(load_views):
+def test_iter_catalog_pages_follows_skip_past_the_first_page(load_views):
     """The bug this fixes: an addon serving 20 metas per page (AIOLists)
     showed only its first 20 titles, because the catalog was fetched with
     a single un-skipped call."""
@@ -884,14 +889,14 @@ def test_fetch_catalog_pages_follows_skip_past_the_first_page(load_views):
     client = FakePagingClient([_metas(0, 20), _metas(20, 20), _metas(40, 5)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 45
     assert [m['id'] for m in metas] == ['tt%d' % n for n in range(45)]
     assert client.calls == [None, [('skip', 20)], [('skip', 40)]]
 
 
-def test_fetch_catalog_pages_stops_on_a_short_page(load_views):
+def test_iter_catalog_pages_stops_on_a_short_page(load_views):
     """A page shorter than the first is the last one - no request is made
     past it, even though the addon would answer an empty page."""
     ctx = load_views()
@@ -899,13 +904,13 @@ def test_fetch_catalog_pages_stops_on_a_short_page(load_views):
     client = FakePagingClient([_metas(0, 20), _metas(20, 3)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 23
     assert len(client.calls) == 2
 
 
-def test_fetch_catalog_pages_counts_skip_from_what_was_actually_served(load_views):
+def test_iter_catalog_pages_counts_skip_from_what_was_actually_served(load_views):
     """A page LONGER than the first: `skip` must be the running served
     count, not a first-page multiple. Counting in multiples of 20 would
     ask for skip=40 after a 25-long second page, skipping five titles the
@@ -915,13 +920,13 @@ def test_fetch_catalog_pages_counts_skip_from_what_was_actually_served(load_view
     client = FakePagingClient([_metas(0, 20), _metas(20, 25), _metas(45, 10)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert [m['id'] for m in metas] == ['tt%d' % n for n in range(55)]
     assert client.calls == [None, [('skip', 20)], [('skip', 45)]]
 
 
-def test_fetch_catalog_pages_stops_on_a_short_page_even_after_a_longer_one(load_views):
+def test_iter_catalog_pages_stops_on_a_short_page_even_after_a_longer_one(load_views):
     """Oscillating page sizes [20, 5, 20]: the 5-long page is shorter
     than the first, so paging ends there and the third page is never
     requested - the short-page rule is judged against the first page's
@@ -931,13 +936,13 @@ def test_fetch_catalog_pages_stops_on_a_short_page_even_after_a_longer_one(load_
     client = FakePagingClient([_metas(0, 20), _metas(20, 5), _metas(25, 20)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 25
     assert client.calls == [None, [('skip', 20)]]
 
 
-def test_fetch_catalog_pages_keeps_an_id_less_meta_repeated_across_pages(load_views):
+def test_iter_catalog_pages_keeps_an_id_less_meta_repeated_across_pages(load_views):
     """An id-less meta can't be compared against `seen`, so it is kept
     every time it appears: a cosmetic duplicate beats silently dropping a
     title the addon served. Pinning the behaviour, which the dedupe
@@ -952,25 +957,25 @@ def test_fetch_catalog_pages_keeps_an_id_less_meta_repeated_across_pages(load_vi
     ])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 42  # 19 + 19 + 2 ids, plus the id-less meta twice
     assert [m for m in metas if m.get('id') is None] == [id_less, id_less]
 
 
-def test_fetch_catalog_pages_stops_on_an_empty_page(load_views):
+def test_iter_catalog_pages_stops_on_an_empty_page(load_views):
     ctx = load_views()
     views = ctx.views
     client = FakePagingClient([_metas(0, 20), _metas(20, 20), []])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 40
     assert len(client.calls) == 3
 
 
-def test_fetch_catalog_pages_stops_when_the_addon_ignores_skip(load_views):
+def test_iter_catalog_pages_stops_when_the_addon_ignores_skip(load_views):
     """An addon that re-serves page one for every `skip` must terminate
     paging (nothing new arrived), not loop to the page cap."""
     ctx = load_views()
@@ -978,13 +983,13 @@ def test_fetch_catalog_pages_stops_when_the_addon_ignores_skip(load_views):
     client = FakePagingClient([_metas(0, 20)], ignores_skip=True)
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 20
     assert len(client.calls) == 2  # the first page, then one probe that added nothing
 
 
-def test_fetch_catalog_pages_drops_ids_repeated_across_pages(load_views):
+def test_iter_catalog_pages_drops_ids_repeated_across_pages(load_views):
     """A shifting window can re-serve a title on the next page; the
     coverflow must never be handed the same id twice."""
     ctx = load_views()
@@ -993,21 +998,21 @@ def test_fetch_catalog_pages_drops_ids_repeated_across_pages(load_views):
     client = FakePagingClient([_metas(0, 20), overlapping, _metas(35, 2)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     ids = [m['id'] for m in metas]
     assert len(ids) == len(set(ids))
     assert len(ids) == 37
 
 
-def test_fetch_catalog_pages_honours_the_page_cap(load_views):
+def test_iter_catalog_pages_honours_the_page_cap(load_views):
     ctx = load_views()
     views = ctx.views
     pages = [_metas(index * 20, 20) for index in range(views._MAX_CATALOG_PAGES + 5)]
     client = FakePagingClient(pages)
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(client.calls) == views._MAX_CATALOG_PAGES
     assert len(metas) == views._MAX_CATALOG_PAGES * 20
@@ -1039,7 +1044,7 @@ def test_iter_catalog_pages_does_not_notify_when_the_catalog_ends_naturally(load
     assert notices == []
 
 
-def test_fetch_catalog_pages_does_not_page_a_catalog_without_skip(load_views):
+def test_iter_catalog_pages_does_not_page_a_catalog_without_skip(load_views):
     """No `skip` declaration means one request, exactly as before - a
     catalog that doesn't page must not be probed for a second page."""
     ctx = load_views()
@@ -1047,7 +1052,7 @@ def test_fetch_catalog_pages_does_not_page_a_catalog_without_skip(load_views):
     client = FakePagingClient([_metas(0, 20), _metas(20, 20)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages(
+    metas = _fetch_all_pages(views,
         't1', 'movie', 'list', catalog={'id': 'list', 'type': 'movie', 'extra': [{'name': 'genre'}]},
     )
 
@@ -1055,7 +1060,7 @@ def test_fetch_catalog_pages_does_not_page_a_catalog_without_skip(load_views):
     assert client.calls == [None]
 
 
-def test_fetch_catalog_pages_does_not_page_without_a_catalog(load_views):
+def test_iter_catalog_pages_does_not_page_without_a_catalog(load_views):
     """The discover-link path has no catalog object to inspect - it must
     fall back to the single-page behaviour rather than assume paging."""
     ctx = load_views()
@@ -1063,11 +1068,11 @@ def test_fetch_catalog_pages_does_not_page_without_a_catalog(load_views):
     client = FakePagingClient([_metas(0, 20), _metas(20, 20)])
     _wire_data_layer(views, FakeStore(), client)
 
-    assert len(views.fetch_catalog_pages('t1', 'movie', 'list')) == 20
+    assert len(_fetch_all_pages(views, 't1', 'movie', 'list')) == 20
     assert client.calls == [None]
 
 
-def test_fetch_catalog_pages_recognises_legacy_extra_supported_skip(load_views):
+def test_iter_catalog_pages_recognises_legacy_extra_supported_skip(load_views):
     """`extraSupported: ["skip"]` is the legacy encoding of the same
     declaration and must page identically."""
     ctx = load_views()
@@ -1075,14 +1080,14 @@ def test_fetch_catalog_pages_recognises_legacy_extra_supported_skip(load_views):
     client = FakePagingClient([_metas(0, 20), _metas(20, 4)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages(
+    metas = _fetch_all_pages(views,
         't1', 'movie', 'list', catalog={'id': 'list', 'type': 'movie', 'extraSupported': ['skip']},
     )
 
     assert len(metas) == 24
 
 
-def test_fetch_catalog_pages_preserves_caller_extra_on_every_page(load_views):
+def test_iter_catalog_pages_preserves_caller_extra_on_every_page(load_views):
     """A chosen genre must stay applied as paging continues, or page two
     onwards would silently come from the unfiltered catalog."""
     ctx = load_views()
@@ -1090,20 +1095,20 @@ def test_fetch_catalog_pages_preserves_caller_extra_on_every_page(load_views):
     client = FakePagingClient([_metas(0, 20), _metas(20, 2)])
     _wire_data_layer(views, FakeStore(), client)
 
-    views.fetch_catalog_pages(
+    _fetch_all_pages(views,
         't1', 'movie', 'list', extra=[('genre', 'Drama')], catalog=_PAGED_CATALOG,
     )
 
     assert client.calls == [[('genre', 'Drama')], [('genre', 'Drama'), ('skip', 20)]]
 
 
-def test_fetch_catalog_pages_leaves_a_caller_supplied_skip_alone(load_views):
+def test_iter_catalog_pages_leaves_a_caller_supplied_skip_alone(load_views):
     ctx = load_views()
     views = ctx.views
     client = FakePagingClient([_metas(0, 20), _metas(20, 20)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages(
+    metas = _fetch_all_pages(views,
         't1', 'movie', 'list', extra=[('skip', 20)], catalog=_PAGED_CATALOG,
     )
 
@@ -1111,17 +1116,17 @@ def test_fetch_catalog_pages_leaves_a_caller_supplied_skip_alone(load_views):
     assert client.calls == [[('skip', 20)]]
 
 
-def test_fetch_catalog_pages_propagates_a_first_page_error(load_views):
+def test_iter_catalog_pages_propagates_a_first_page_error(load_views):
     ctx = load_views()
     views = ctx.views
     client = FakePagingClient([AddonError('boom')])
     _wire_data_layer(views, FakeStore(), client)
 
     with pytest.raises(AddonError):
-        views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+        _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
 
-def test_fetch_catalog_pages_keeps_earlier_pages_when_a_later_one_fails(load_views):
+def test_iter_catalog_pages_keeps_earlier_pages_when_a_later_one_fails(load_views):
     """A partial catalog the user can already browse beats an error
     dialog over it."""
     ctx = load_views()
@@ -1129,19 +1134,19 @@ def test_fetch_catalog_pages_keeps_earlier_pages_when_a_later_one_fails(load_vie
     client = FakePagingClient([_metas(0, 20), AddonError('boom')])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 20
     assert any('boom' not in msg and 'AddonError' in msg for msg, _level in ctx.env.log_calls)
 
 
-def test_fetch_catalog_pages_returns_first_page_result_when_empty(load_views):
+def test_iter_catalog_pages_returns_first_page_result_when_empty(load_views):
     ctx = load_views()
     views = ctx.views
     client = FakePagingClient([[]])
     _wire_data_layer(views, FakeStore(), client)
 
-    assert views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG) == []
+    assert _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG) == []
     assert client.calls == [None]
 
 
@@ -1179,7 +1184,7 @@ def test_iter_catalog_pages_stops_fetching_when_the_consumer_stops(load_views):
     assert client.calls == [None, [('skip', 20)]]
 
 
-def test_fetch_catalog_pages_keeps_metas_without_an_id(load_views):
+def test_iter_catalog_pages_keeps_metas_without_an_id(load_views):
     """A meta with no `id` can't be de-duplicated, but must still reach
     the coverflow rather than being dropped by the dedupe."""
     ctx = load_views()
@@ -1187,7 +1192,7 @@ def test_fetch_catalog_pages_keeps_metas_without_an_id(load_views):
     client = FakePagingClient([_metas(0, 19) + [{'name': 'No Id'}], _metas(20, 1)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 21
     assert {'name': 'No Id'} in metas
@@ -1203,7 +1208,7 @@ _ADULT_CATALOG = {'id': 'xxx-list', 'type': 'movie', 'name': 'XXX Movies',
                    'extra': [{'name': 'skip'}]}
 
 
-def test_fetch_catalog_pages_never_fetches_an_adult_catalog_by_default(load_views):
+def test_iter_catalog_pages_never_fetches_an_adult_catalog_by_default(load_views):
     """home_hide_adult defaults to True - an adult catalog descriptor
     must never reach the addon: not one HTTP request is made."""
     ctx = load_views()
@@ -1211,25 +1216,25 @@ def test_fetch_catalog_pages_never_fetches_an_adult_catalog_by_default(load_view
     client = FakePagingClient([_metas(0, 5)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'xxx-list', catalog=_ADULT_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'xxx-list', catalog=_ADULT_CATALOG)
 
     assert metas == []
     assert client.calls == []
 
 
-def test_fetch_catalog_pages_fetches_an_adult_catalog_when_setting_is_off(load_views):
+def test_iter_catalog_pages_fetches_an_adult_catalog_when_setting_is_off(load_views):
     ctx = load_views(settings={'home_hide_adult': 'false'})
     views = ctx.views
     client = FakePagingClient([_metas(0, 5)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'xxx-list', catalog=_ADULT_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'xxx-list', catalog=_ADULT_CATALOG)
 
     assert len(metas) == 5
     assert client.calls  # the request was actually made
 
 
-def test_fetch_catalog_pages_filters_adult_metas_out_of_an_ordinary_catalog_by_default(load_views):
+def test_iter_catalog_pages_filters_adult_metas_out_of_an_ordinary_catalog_by_default(load_views):
     """The catalog itself isn't flagged, but one item in it is - that
     item must be dropped from the results by default, the rest kept."""
     ctx = load_views()
@@ -1238,28 +1243,28 @@ def test_fetch_catalog_pages_filters_adult_metas_out_of_an_ordinary_catalog_by_d
     client = FakePagingClient([page])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert [m['id'] for m in metas] == ['tt0', 'tt1', 'tt2']
 
 
-def test_fetch_catalog_pages_keeps_adult_metas_when_setting_is_off(load_views):
+def test_iter_catalog_pages_keeps_adult_metas_when_setting_is_off(load_views):
     ctx = load_views(settings={'home_hide_adult': 'false'})
     views = ctx.views
     page = _metas(0, 3) + [{'id': 'ttx', 'name': 'Adult One', 'adult': True}]
     client = FakePagingClient([page])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert 'ttx' in [m['id'] for m in metas]
     assert len(metas) == 4
 
 
-def test_fetch_catalog_pages_keeps_paging_past_a_page_that_is_entirely_adult(load_views):
+def test_iter_catalog_pages_keeps_paging_past_a_page_that_is_entirely_adult(load_views):
     """A page that is entirely new content, but all of it adult, must not
     be mistaken for an addon ignoring `skip` and re-serving an
-    already-seen window (test_fetch_catalog_pages_stops_when_the_addon_
+    already-seen window (test_iter_catalog_pages_stops_when_the_addon_
     ignores_skip above) - paging must continue to the next page, and the
     `skip` sent for it must still count the filtered-out items as served."""
     ctx = load_views()
@@ -1269,7 +1274,7 @@ def test_fetch_catalog_pages_keeps_paging_past_a_page_that_is_entirely_adult(loa
     client = FakePagingClient([_metas(0, 20), all_adult_page, _metas(40, 5)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages('t1', 'movie', 'list', catalog=_PAGED_CATALOG)
+    metas = _fetch_all_pages(views, 't1', 'movie', 'list', catalog=_PAGED_CATALOG)
 
     assert len(metas) == 25  # 20 + 0 (filtered) + 5
     assert not any(m.get('adult') for m in metas)
@@ -1277,14 +1282,14 @@ def test_fetch_catalog_pages_keeps_paging_past_a_page_that_is_entirely_adult(loa
 
 
 #: A catalog descriptor with a neutral id/name/type - only the owning
-#: addon's manifest names an adult type, a signal `fetch_catalog_pages()`
+#: addon's manifest names an adult type, a signal `iter_catalog_pages()`
 #: only has when a caller passes `manifest` through (catalogpicker's
 #: `_fetch_and_show()` is the real caller that does).
 _NEUTRAL_CATALOG = {'id': 'popular', 'type': 'movie', 'name': 'Popular'}
 _ADULT_ONLY_MANIFEST = {'types': ['xxx']}
 
 
-def test_fetch_catalog_pages_never_fetches_a_neutral_catalog_from_an_adult_only_manifest(load_views):
+def test_iter_catalog_pages_never_fetches_a_neutral_catalog_from_an_adult_only_manifest(load_views):
     """The catalog's own id/name/type give no signal at all - only the
     manifest's types name an adult type. Without threading `manifest`
     through to `is_adult_catalog()`, this catalog would be fetched even
@@ -1294,7 +1299,7 @@ def test_fetch_catalog_pages_never_fetches_a_neutral_catalog_from_an_adult_only_
     client = FakePagingClient([_metas(0, 5)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages(
+    metas = _fetch_all_pages(views,
         't1', 'movie', 'popular', catalog=_NEUTRAL_CATALOG, manifest=_ADULT_ONLY_MANIFEST,
     )
 
@@ -1302,13 +1307,13 @@ def test_fetch_catalog_pages_never_fetches_a_neutral_catalog_from_an_adult_only_
     assert client.calls == []
 
 
-def test_fetch_catalog_pages_fetches_a_neutral_catalog_from_an_adult_only_manifest_when_setting_is_off(load_views):
+def test_iter_catalog_pages_fetches_a_neutral_catalog_from_an_adult_only_manifest_when_setting_is_off(load_views):
     ctx = load_views(settings={'home_hide_adult': 'false'})
     views = ctx.views
     client = FakePagingClient([_metas(0, 5)])
     _wire_data_layer(views, FakeStore(), client)
 
-    metas = views.fetch_catalog_pages(
+    metas = _fetch_all_pages(views,
         't1', 'movie', 'popular', catalog=_NEUTRAL_CATALOG, manifest=_ADULT_ONLY_MANIFEST,
     )
 

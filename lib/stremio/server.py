@@ -182,6 +182,9 @@ _MAX_ARCHIVE_URL_ENTRIES = 32
 _SENSITIVE_QUERY_KEYS = frozenset({
     'lz', 'token', 'access_token', 'api_key', 'apikey', 'key', 'password', 'pass', 'passwd',
     'secret', 'auth', 'authorization', 'signature', 'sig',
+    # Private-tracker announce URLs carry the account passkey, in a `tr=`
+    # value or a `passkey=` parameter.
+    'tr', 'passkey',
 })
 
 #: Stream ids `/yt/{id}` is built for (YouTube ids are 11 chars; some slack).
@@ -224,8 +227,14 @@ def _redact_error_url(base_url, url):
     """`url` with its `base_url` prefix (the free-text server_url setting,
     which may carry `user:pass@` userinfo) replaced by
     `safe_url_for_log(base_url)`, and sensitive query values masked - so a
-    `ServerError` message never echoes credentials."""
+    `ServerError` message never echoes credentials.
+
+    The query string is dropped outright: it holds `tr=` announce URLs
+    (private-tracker passkeys can sit in their path, which masking by key
+    name cannot catch) and `lz` payloads, and an error message has no use
+    for either."""
     safe_base = safe_url_for_log(base_url)
+    url = url.partition('?')[0]
     suffix = url[len(base_url):] if url.startswith(base_url) else url
     if suffix.startswith('/') or suffix.startswith('?') or not suffix:
         return redact_url(safe_base + suffix)
@@ -286,7 +295,7 @@ def normalize_trackers(values):
     """
     seen = set()
     normalized = []
-    for value in values or []:
+    for value in values if isinstance(values, list) else ():
         if not isinstance(value, str):
             continue
         decoded = unquote(value).strip()
@@ -309,8 +318,31 @@ def stream_trackers(stream):
     "tracker:udp://host:port/announce", "dht:<hash>"). Feed the result to
     `normalize_trackers()` (every URL builder here does) before use.
     """
-    stream = stream or {}
-    return stream.get('announce') or stream.get('sources') or []
+    if not isinstance(stream, dict):
+        return []
+    trackers = stream.get('announce') or stream.get('sources')
+    return trackers if isinstance(trackers, list) else []
+
+
+def _close_quietly(resp):
+    """Close `resp` if there is one; closing must never mask the real outcome."""
+    if resp is None:
+        return
+    try:
+        resp.close()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _clean_file_idx(value):
+    """`value` if it is a real file index (an int, bool excluded, >= -1),
+    else UNKNOWN_FILE_IDX. `fileIdx` is untrusted addon data interpolated
+    into the engine URL path: a string like `0/../../settings?` would
+    otherwise be normalized by the player into a request for any engine
+    endpoint."""
+    if isinstance(value, int) and not isinstance(value, bool) and value >= UNKNOWN_FILE_IDX:
+        return value
+    return UNKNOWN_FILE_IDX
 
 
 def _is_ftp_url(value):
@@ -328,7 +360,11 @@ def _ftp_filename(url):
     `EnvError` when there's no path segment to use; this addon just
     treats that url as unusable.
     """
-    segments = [segment for segment in urlparse(url).path.split('/') if segment]
+    try:
+        path = urlparse(url).path
+    except ValueError:
+        return None
+    segments = [segment for segment in path.split('/') if segment]
     return segments[-1] if segments else None
 
 
@@ -356,7 +392,10 @@ def _validate_direct_url(url):
     scheme (never sensitive on its own) is included when that's what
     failed; anything else (missing/malformed) gets a generic message.
     """
-    parsed = urlparse(url) if isinstance(url, str) and url else None
+    try:
+        parsed = urlparse(url) if isinstance(url, str) and url else None
+    except ValueError:
+        parsed = None
     if parsed is None or not parsed.netloc:
         raise UnsupportedStreamError('Stream url is empty, relative, or malformed')
     scheme = parsed.scheme.lower()
@@ -477,14 +516,17 @@ class ServerClient:
         normalized_hash = normalize_info_hash(info_hash)
         if normalized_hash is None:
             return None
-        return '%s/%s/%s%s' % (self.base_url, normalized_hash, file_idx, self._tr_query(announce))
+        return '%s/%s/%s%s' % (self.base_url, normalized_hash, _clean_file_idx(file_idx), self._tr_query(announce))
 
     def _magnet_to_torrent_url(self, magnet):
         """Parse `magnet:?dn=...&xt=urn:btih:<hash>&tr=...` (the exact shape
         stremio-core's build_magnet_uri produces, stream.rs:1036-1071) back
         into a torrent_url(), or None if it has no usable btih info hash.
         """
-        query = parse_qs(urlparse(magnet).query)
+        try:
+            query = parse_qs(urlparse(magnet).query)
+        except ValueError:
+            return None
         info_hash = next(
             (xt.split(':', 2)[2] for xt in query.get('xt', []) if xt.lower().startswith('urn:btih:')),
             None,
@@ -554,7 +596,7 @@ class ServerClient:
         """
         if requests is None:
             raise ServerError('the "requests" package is required for ServerClient')
-        url = '%s/%s/%s/stats.json' % (self.base_url, str(info_hash).lower(), file_idx)
+        url = '%s/%s/%s/stats.json' % (self.base_url, str(info_hash).lower(), _clean_file_idx(file_idx))
         try:
             resp = self.session.get(url, timeout=10)
             resp.raise_for_status()
@@ -619,12 +661,16 @@ class ServerClient:
         """
         if requests is None:
             raise ServerError('the "requests" package is required for ServerClient')
-        url = '%s/%s/%s%s' % (self.base_url, str(info_hash).lower(), file_idx, self._tr_query(trackers))
+        url = '%s/%s/%s%s' % (self.base_url, str(info_hash).lower(), _clean_file_idx(file_idx), self._tr_query(trackers))
         headers = {'Range': 'bytes=%d-%d' % (start_byte, want_bytes - 1)}
+        resp = None
         try:
             resp = self.session.get(url, headers=headers, stream=True, timeout=timeout)
             resp.raise_for_status()
         except requests.RequestException as exc:
+            # stream=True keeps the connection open on an HTTP error
+            # status; the iteration `finally` below is not reached yet.
+            _close_quietly(resp)
             status = getattr(getattr(exc, 'response', None), 'status_code', None)
             message = 'GET %s failed: %s' % (_redact_error_url(self.base_url, url), _request_error_category(exc))
             if status == 416:
@@ -644,10 +690,7 @@ class ServerClient:
                 raise ServerError('GET %s failed mid-stream: %s' % (_redact_error_url(self.base_url, url), _request_error_category(exc)))
             return
         finally:
-            try:
-                resp.close()
-            except Exception:  # noqa: BLE001 - closing must never mask the real outcome
-                pass
+            _close_quietly(resp)
 
     def _lz_query_url(self, path, body, keyed=False):
         """GET `{base}/{path}?lz=<payload>` - the shape shared by every
@@ -725,8 +768,10 @@ class ServerClient:
         to build `/ftp/{filename}` from).
         """
         entries = []
-        for raw in (raw_urls or [])[:_MAX_ARCHIVE_URL_ENTRIES]:
-            if not raw or not isinstance(raw, (list, tuple)) or not raw[0]:
+        if not isinstance(raw_urls, list):
+            raw_urls = []
+        for raw in raw_urls[:_MAX_ARCHIVE_URL_ENTRIES]:
+            if not raw or not isinstance(raw, (list, tuple)) or not raw[0] or not isinstance(raw[0], str):
                 continue
             url = raw[0]
             num_bytes = raw[1] if len(raw) > 1 else None
@@ -740,7 +785,7 @@ class ServerClient:
 
         body = {'urls': entries}
         if file_idx is not None:
-            body['fileIdx'] = file_idx
+            body['fileIdx'] = _clean_file_idx(file_idx)
         if file_must_include:
             body['fileMustInclude'] = list(file_must_include)
         return self._lz_query_url('%s/create' % kind, body, keyed=True)
@@ -758,7 +803,8 @@ class ServerClient:
         `ftp://`/`ftps://` scheme.
         """
         servers = []
-        for server_url in stream.get('servers') or []:
+        raw_servers = stream.get('servers')
+        for server_url in raw_servers if isinstance(raw_servers, list) else ():
             if not isinstance(server_url, str) or not server_url:
                 continue
             if _is_ftp_url(server_url):
@@ -772,7 +818,7 @@ class ServerClient:
         body = {'servers': servers}
 
         single_url = stream.get('nzbUrl')
-        if single_url:
+        if isinstance(single_url, str) and single_url:
             if _is_ftp_url(single_url):
                 single_url = self._ftp_create_url(single_url)
                 if single_url is None:
@@ -780,7 +826,8 @@ class ServerClient:
             body['nzbUrl'] = single_url
 
         multi_urls = []
-        for nzb_url in (stream.get('nzbUrls') or [])[:_MAX_ARCHIVE_URL_ENTRIES]:
+        raw_nzb_urls = stream.get('nzbUrls')
+        for nzb_url in (raw_nzb_urls if isinstance(raw_nzb_urls, list) else ())[:_MAX_ARCHIVE_URL_ENTRIES]:
             if not isinstance(nzb_url, str) or not nzb_url:
                 continue
             if _is_ftp_url(nzb_url):
@@ -828,7 +875,8 @@ class ServerClient:
           neither is a URL Kodi's player can ever open.
         - anything else (no recognized key at all): None, unrecognized.
         """
-        stream = stream or {}
+        if not isinstance(stream, dict):
+            return None
 
         url = stream.get('url')
         if url:
@@ -840,9 +888,7 @@ class ServerClient:
 
         info_hash = stream.get('infoHash')
         if info_hash:
-            file_idx = stream.get('fileIdx')
-            if file_idx is None:
-                file_idx = UNKNOWN_FILE_IDX
+            file_idx = _clean_file_idx(stream.get('fileIdx'))
             announce = stream_trackers(stream)
             return self.torrent_url(info_hash, file_idx, announce)
 

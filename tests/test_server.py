@@ -1253,3 +1253,50 @@ def test_iter_front_error_message_with_trackers_never_leaks_base_url_credentials
         list(client.iter_front(_TR_HASH, 0, want_bytes=1, trackers=["udp://t1/announce"]))
     assert "s3cr3t" not in str(excinfo.value)
     assert "admin" not in str(excinfo.value)
+
+
+# --- untrusted stream fields ----------------------------------------------
+
+
+@pytest.mark.parametrize("bad", ["0/../../settings?", True, -5, 1.5, [1]])
+def test_resolve_stream_never_puts_an_untrusted_file_idx_in_the_path(bad):
+    client = make_client()
+    resolved = client.resolve_stream({"infoHash": "aa" * 20, "fileIdx": bad})
+    assert resolved == BASE + "/" + "aa" * 20 + "/-1"
+
+
+@pytest.mark.parametrize(
+    "stream",
+    [
+        {"url": "http://[x/a"},
+        {"url": "ftp://[x/a"},
+        {"url": "magnet:?xt=urn:btih:" + "a" * 40 + "&tr=http://[x"},
+    ],
+)
+def test_resolve_stream_malformed_url_is_unsupported_not_a_crash(stream):
+    client = make_client()
+    try:
+        client.resolve_stream(stream)  # a ValueError here would escape the caller
+    except UnsupportedStreamError:
+        pass
+
+
+@pytest.mark.parametrize(
+    "stream",
+    [
+        {"nzbUrl": "https://a/x.nzb", "servers": 5},
+        {"nzbUrls": {}, "servers": ["nntp://s"]},
+        {"infoHash": "aa" * 20, "announce": 5},
+        "not a dict",
+    ],
+)
+def test_resolve_stream_type_confusion_does_not_raise(stream):
+    make_client().resolve_stream(stream)
+
+
+def test_server_error_message_never_carries_tracker_query():
+    client = make_client()
+    client.session = FakeSession(exc=requests.ConnectionError("boom"))
+    with pytest.raises(ServerError) as info:
+        list(client.iter_front("aa" * 20, 0, 10, trackers=["udp://t.example/PASSKEY123/announce"]))
+    assert "PASSKEY123" not in str(info.value)

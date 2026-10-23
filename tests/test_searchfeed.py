@@ -237,3 +237,21 @@ def test_number_coerces_loosely_typed_feed_fields(load_searchfeed):
     assert ctx.searchfeed._number(3) == 3.0
     assert ctx.searchfeed._number(None) == 0.0
     assert ctx.searchfeed._number('n/a') == 0.0
+
+
+def test_non_finite_feed_numbers_do_not_corrupt_ranking(load_searchfeed):
+    ctx = load_searchfeed()
+    records = [{'id': 'tt1', 'type': 'movie', 'imdbRating': 'inf', 'popularity': 'nan'}] + RECORDS
+    index, max_rating, max_popularity = ctx.searchfeed.build_index(records)
+
+    assert max_rating == 8.0 and max_popularity == 100.0
+    assert ctx.searchfeed.boost({'id': 'tt2', 'type': 'movie'}, index, max_rating, max_popularity) > 1.0
+
+
+def test_load_records_returns_the_fetched_records_when_the_cache_cannot_be_written(load_searchfeed, tmp_path):
+    ctx = load_searchfeed()
+    session = FakeSession(responses=[FakeResponse(RECORDS)])
+
+    records = ctx.searchfeed.load_records(str(tmp_path / 'missing-dir'), session)
+
+    assert records == RECORDS

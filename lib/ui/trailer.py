@@ -151,7 +151,7 @@ def play_trailer(meta, stype='', sid=''):
 
     from lib.stremio.addons import safe_url_for_log
     from lib.ui.compat import L, log, notify
-    from lib.ui.uicommon import CANCELLED, run_cancellable
+    from lib.ui.uicommon import CANCELLED, escape_label, run_cancellable
 
     full = _full_meta(meta if isinstance(meta, dict) else {}, stype, sid)
     if full is CANCELLED:
@@ -160,7 +160,9 @@ def play_trailer(meta, stype='', sid=''):
     if not yt:
         notify(L(30497))
         return False
-    name = (full or {}).get('name') or ''
+    # Addon-supplied: the label reaches the player OSD and the spinner.
+    name = (full or {}).get('name')
+    name = escape_label(name) if isinstance(name, str) else ''
     label = ('%s – %s' % (name, L(30499))) if name else L(30499)
     server = run_cancellable(lambda: _server_url(yt), label)
     if server is CANCELLED:

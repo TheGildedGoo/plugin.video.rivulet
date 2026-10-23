@@ -122,10 +122,16 @@ def iter_addon_catalogs(addons):
     or replaced by the user.
     """
     for descriptor in addons or []:
-        manifest = descriptor.get('manifest') or {}
+        if not isinstance(descriptor, dict):
+            continue
+        manifest = descriptor.get('manifest')
+        if not isinstance(manifest, dict):
+            continue
         transport_url = descriptor.get('transportUrl')
-        for addon_catalog in manifest.get('addonCatalogs') or []:
-            yield transport_url, manifest, addon_catalog
+        declared = manifest.get('addonCatalogs')
+        for addon_catalog in declared if isinstance(declared, list) else ():
+            if isinstance(addon_catalog, dict):
+                yield transport_url, manifest, addon_catalog
 
 
 def fetch_addon_catalog(client_or_session, transport_url, type_, id_):
@@ -166,24 +172,23 @@ def fetch_addon_catalog(client_or_session, transport_url, type_, id_):
 
     url = validate_transport_url(build_resource_url(transport_url, 'addon_catalog', type_, id_))
     safe = safe_url_for_log(url)
-    try:
-        resp = session.get(url, timeout=timeout)
-        resp.raise_for_status()
-    except requests_mod.RequestException as exc:
-        category = _addons._request_error_category(exc)
-        raise AddonError('GET %s failed: %s' % (safe, category), category=category)
-
-    try:
-        data = resp.json()
-    except ValueError:
-        raise AddonError('GET %s returned invalid JSON' % safe, category='invalid JSON')
+    # Same capped, redirect-validated, response-closing read as every
+    # AddonClient resource: the third-party catalog body is ~650 full
+    # manifests on ~1 GB-RAM boxes.
+    data = _addons.fetch_json(session, timeout, url)
 
     addons_list = data.get('addons') if isinstance(data, dict) else None
     if not isinstance(addons_list, list):
         raise AddonError(
             'GET %s returned a malformed addon_catalog envelope' % safe, category='invalid JSON'
         )
-    return addons_list
+    # Keep only entries the window can read: a dict with a str transportUrl
+    # (it is used as a dict key and a URL).
+    return [
+        entry
+        for entry in addons_list
+        if isinstance(entry, dict) and isinstance(entry.get('transportUrl'), str)
+    ]
 
 
 def iter_unique_addon_catalogs(addons):
@@ -207,13 +212,20 @@ def iter_unique_addon_catalogs(addons):
     This is the collapsing helper callers can opt into instead.
     """
     for descriptor in addons or []:
-        manifest = descriptor.get('manifest') or {}
+        if not isinstance(descriptor, dict):
+            continue
+        manifest = descriptor.get('manifest')
+        if not isinstance(manifest, dict):
+            continue
         transport_url = descriptor.get('transportUrl')
         chosen = {}
         order = []
-        for addon_catalog in manifest.get('addonCatalogs') or []:
+        declared = manifest.get('addonCatalogs')
+        for addon_catalog in declared if isinstance(declared, list) else ():
+            if not isinstance(addon_catalog, dict):
+                continue
             catalog_id = addon_catalog.get('id')
-            if catalog_id is None:
+            if not isinstance(catalog_id, str):
                 continue
             if catalog_id not in chosen:
                 order.append(catalog_id)
@@ -308,6 +320,9 @@ def fetch_addon_catalog_cached(client_or_session, transport_url, type_, id_):
     be bookkeeping this cache does not need - every live key gets re-read
     on the next browse and self-evicts here when it goes stale.
     """
+    # Coerced so a list-typed addon-authored value can't make the key
+    # unhashable.
+    type_, id_ = str(type_), str(id_)
     key = (transport_url, type_, id_)
     now = time.monotonic()
     with _catalog_cache_lock:
@@ -348,6 +363,8 @@ def fetch_addon_catalogs(client_or_session, sources):
             return fetch_addon_catalog_cached(client_or_session, transport_url, type_, id_), None
         except AddonError as exc:
             return None, (transport_url, type_, id_, exc)
+        except Exception as exc:  # noqa: BLE001 - one bad source must not cost the others
+            return None, (transport_url, type_, id_, AddonError('unexpected %s' % type(exc).__name__))
 
     if len(sources) == 1:
         results = [_fetch_one(sources[0])]
@@ -377,7 +394,7 @@ def _version_key(version):
     comparing usefully rather than breaking anything."""
     parts = []
     for segment in str(version or '').split('.'):
-        parts.append((0, int(segment)) if segment.isdigit() else (1, segment))
+        parts.append((0, int(segment)) if segment.isdecimal() and segment.isascii() else (1, segment))
     return parts
 
 

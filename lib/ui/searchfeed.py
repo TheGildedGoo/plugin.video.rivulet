@@ -148,7 +148,7 @@ def _fetch(session, timeout):
             except Exception:  # noqa: BLE001 - closing a failed response must not mask the failure
                 pass
     try:
-        records = json.loads(bytes(body))
+        records = json.loads(body)
     except ValueError:
         log('searchfeed: feed returned invalid JSON', xbmc.LOGWARNING)
         return None
@@ -169,7 +169,12 @@ def load_records(data_dir, session, timeout=30):
     if records is None:
         return []
     log('searchfeed: fetched %d feed records' % len(records), xbmc.LOGINFO)
-    _atomic_write(_path(data_dir), {'ts': time.time(), 'records': records})
+    try:
+        _atomic_write(_path(data_dir), {'ts': time.time(), 'records': records})
+    except OSError as exc:
+        # Unwritable profile directory: the fetched records are still good
+        # for this search; only the cache is lost.
+        log('searchfeed: cannot cache feed: %s' % type(exc).__name__, xbmc.LOGWARNING)
     return records
 
 
@@ -202,11 +207,13 @@ def build_index(records):
 def _number(value):
     """`value` as a float, or 0.0 if it is missing or not numeric - the
     feed types these fields loosely (`imdbRating` arrives as a string in
-    some records)."""
+    some records) and a non-finite value counts as missing."""
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return 0.0
+    # "nan"/"inf" parse as floats; either would corrupt the ranking maxima.
+    return number if math.isfinite(number) else 0.0
 
 
 def boost(meta, index, max_rating, max_popularity):

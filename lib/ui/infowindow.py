@@ -194,14 +194,17 @@ def _item_properties(meta):
     art = resolve_art(None, meta)
     rating = meta.get('imdbRating')
     runtime = meta.get('runtime')
+    genres = meta.get('genres')
+    if not isinstance(genres, list):
+        genres = []
     props = {
         'thumbnail': art.get('thumb') or logo or '',
         'fanart': art.get('fanart') or poster or '',
-        'genre': escape_label(', '.join(meta.get('genres') or [])),
-        'rating': str(rating) if rating not in (None, '') else '',
+        'genre': escape_label(', '.join(g for g in genres if isinstance(g, str))),
+        'rating': escape_label(str(rating)) if rating not in (None, '') else '',
         'plot': escape_label(meta.get('description') or ''),
-        'year': _year_text(meta),
-        'runtime': str(runtime) if runtime not in (None, '') else '',
+        'year': escape_label(_year_text(meta)),
+        'runtime': escape_label(str(runtime)) if runtime not in (None, '') else '',
     }
     # Precomposed for the skin: `meta_line` is what the hero actually
     # renders, but `year`/`rating`/`runtime`/`genre` stay individually
@@ -299,7 +302,9 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         counting to 400. Exhausting it is best-effort: a page that never
         arrives, or an addon that fails halfway, just leaves the strip at
         whatever did land."""
-        self.metas = list(metas or [])
+        # Catalog pages keep non-dict entries on purpose (see
+        # views._dedupe_page); the strip reads every meta with .get().
+        self.metas = [m for m in metas or [] if isinstance(m, dict)]
         self.selected = None
         self.catalog_title = catalog_title
         self._reset_enrich_state()
@@ -326,10 +331,11 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
                     # The window closed while this page was in flight -
                     # stop walking rather than fetch for a dead strip.
                     return
+                page = [m for m in page or [] if isinstance(m, dict)]
                 if not page:
                     continue
                 with self._paging_lock:
-                    self._pending_pages.append(list(page))
+                    self._pending_pages.append(page)
                 # Wake the UI thread to drain the queue, exactly as the
                 # enrich workers do - see `_enrich_fetch`'s tail.
                 xbmc.executebuiltin('Action(noop)')
@@ -686,6 +692,10 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
             meta = self.metas[int(focused.getProperty('position'))]
             if meta.get('type') == 'movie' and meta.get('id'):
                 self._play_movie(meta)
+                # Playback force-closed this window (flag set) so doModal()
+                # would reopen it behind the player; this click is the one
+                # real close, so cancel the reopen.
+                self._closed_for_playback = False
                 self.close()
                 return
             self.selected = meta
@@ -710,8 +720,8 @@ class ShowcaseWindow(ModalStackWindow, xbmcgui.WindowXMLDialog):
         while it sits underneath the StreamsWindow round trip: that
         force-close cannot take effect until `open_streams()` (called
         below, still on this stack frame) returns, at which point
-        `onClick()`'s own `self.close()` immediately follows - so
-        `ModalStackWindow.doModal()` never gets a chance to reopen a
+        `onClick()` clears `_closed_for_playback` and calls its own
+        `self.close()` - so `ModalStackWindow.doModal()` never reopens a
         window that was about to close anyway."""
         from lib.ui.streamswindow import open_streams
 

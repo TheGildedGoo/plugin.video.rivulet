@@ -84,7 +84,7 @@ class AddonsWindow(BaseWindow):
         for index, descriptor in enumerate(self.addons):
             manifest = descriptor.get('manifest') or {}
             flags = descriptor.get('flags') or {}
-            label = '%s  \u00b7  v%s' % (escape_label(manifest.get('name', '?')), manifest.get('version', '?'))
+            label = '%s  \u00b7  v%s' % (escape_label(manifest.get('name', '?')), escape_label(str(manifest.get('version', '?'))))
             if flags.get('disabled'):
                 label += '  \u00b7  ' + L(30251)
             item = xbmcgui.ListItem(label=label, label2=escape_label(_clean_description(manifest.get('description', ''))))
