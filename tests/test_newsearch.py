@@ -457,3 +457,67 @@ def test_phone_limit_and_query_markup_escaping(load_search, monkeypatch):
     win._phone()
     assert len(win.query) == 60 and calls[0][1] == 'A' * 60
     assert ctx.newsearch._with_query('No results %s', '[B]Title[/B]') == 'No results Title'
+
+
+@pytest.mark.parametrize('results', [False, True], ids=['discover', 'results'])
+def test_context_menu_uses_the_selected_poster_meta(load_search, monkeypatch, results):
+    ctx = load_search()
+    win = _init(ctx, monkeypatch)
+    selected = dict(META, id='tt0944947', type='series', name='Selected show')
+    win._show([META, selected], results=results)
+    win.getControl(ctx.newsearch.ROW).selectItem(1)
+    win.setFocusId(ctx.newsearch.ROW)
+    from lib.ui import libraryaction
+
+    offered = []
+    monkeypatch.setattr(libraryaction, 'poster_menu', lambda meta: offered.append(meta))
+    import xbmcgui
+    win.onAction(xbmcgui.Action(117))
+    assert len(offered) == 1
+    assert offered[0]['id'] == selected['id'] and offered[0]['type'] == 'series'
+
+
+@pytest.mark.parametrize('control', ['LETTERS', 'PHONE', 'GO'])
+def test_context_menu_off_the_poster_row_does_nothing(load_search, monkeypatch, control):
+    ctx = load_search()
+    win = _init(ctx, monkeypatch)
+    win._show([META], results=True)
+    win.setFocusId(getattr(ctx.newsearch, control))
+    from lib.ui import libraryaction
+
+    monkeypatch.setattr(libraryaction, 'poster_menu', lambda meta: pytest.fail('poster menu off row'))
+    import xbmcgui
+    win.onAction(xbmcgui.Action(117))
+    assert not win.closed and win.query == ''
+
+
+def test_context_menu_on_an_empty_poster_row_does_nothing(load_search, monkeypatch):
+    ctx = load_search()
+    win = _init(ctx, monkeypatch)
+    win.setFocusId(ctx.newsearch.ROW)
+    from lib.ui import libraryaction
+
+    monkeypatch.setattr(libraryaction, 'poster_menu', lambda meta: pytest.fail('empty poster menu'))
+    import xbmcgui
+    win.onAction(xbmcgui.Action(117))
+    assert not win.closed
+
+
+@pytest.mark.parametrize('results', [False, True], ids=['discover', 'results'])
+def test_context_menu_add_writes_the_selected_title_to_the_library(load_search, monkeypatch, results):
+    from tests.test_libraryaction import _Api, _wire
+
+    ctx = load_search()
+    win = _init(ctx, monkeypatch)
+    win._show([META], results=results)
+    win.setFocusId(ctx.newsearch.ROW)
+    api = _Api()
+    _, menus = _wire(monkeypatch, api, pick=0)
+    import xbmcgui
+    win.onAction(xbmcgui.Action(117))
+    assert len(menus) == 1 and menus[0][1] == ['STR30293', 'STR30499']
+    assert len(api.puts) == 1
+    payload = api.puts[0][1]
+    assert payload['_id'] == META['id'] and payload['type'] == META['type']
+    assert payload['removed'] is False
+    assert ctx.newhome._library_dirty
