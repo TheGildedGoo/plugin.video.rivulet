@@ -13,7 +13,7 @@ bottom of the screen. Down moves to the next row and Up moves back; the
 hero follows the focused poster. The tabs (Home, My Stuff, Movies, Series, Anime) sit in a pill row under the clock, and Search, Add-ons and
 Settings are icon buttons in a right-aligned grouplist so they stay on
 the right edge at any resolution. The active tab resolves a saved layout into
-one pinned landscape Continue slot and up to twelve poster slots. OK switches
+one pinned landscape Continue slot and up to forty poster slots. OK switches
 on the chip bar; Left/Right only move focus. Back first resets the row, then
 moves to the active chip, then Home, then closes. Native Up/Down never rebuild
 rows. Snapshots retain each tab's loaded pages and positions for this window.
@@ -70,6 +70,7 @@ SHELF_CAP = 12
 #: First paint/append batch. Rows keep loading to the end, with a safety
 #: ceiling for broken addons that keep producing distinct ids forever.
 _ROW_INITIAL = 24
+_INITIAL_POSTER_ROWS = 8
 _ROW_CEILING = 2000
 PREFETCH_THRESHOLD = 5
 _ROW_RETRY_SECONDS = 30.0
@@ -80,12 +81,13 @@ _ROW_MAX_FAILURES = 3
 #: Library row until the auth key changed.
 _library_dirty = False
 
-#: One landscape Continue slot is pinned first, followed by twelve poster
-#: slots. New header ids use the 30160s to avoid the old counter ids.
+#: One landscape Continue slot is pinned first, followed by forty poster
+#: slots. Keep the original twelve ids; the new block avoids the buttons.
 #: The same slots are reused by each tab; its state lives in snapshots.
 _SHELVES = tuple(
-    ('slot%d' % index, 30041 + index, 30141 + index if index < 5 else 30160 + index - 5)
-    for index in range(12)
+    ('slot%d' % index, 30041 + index if index < 12 else 30200 + index - 12,
+     (30141 + index if index < 5 else 30160 + index - 5) if index < 12 else 30300 + index - 12)
+    for index in range(40)
 )
 _CLICKABLE = frozenset((BROWSE_LIST, CONTINUE_SHELF) + tuple(p for _, p, _ in _SHELVES))
 _SHELF_IDS = (CONTINUE_SHELF,) + tuple(p for _, p, _ in _SHELVES)
@@ -489,7 +491,8 @@ def _set_shelf(window, list_id, label_id, prop, heading, items):
 #: (NewHomeWindow.xml). Only one row is on screen at a time, so the count is
 #: the only cue to how far down the list you are (#20).
 _ROW_COUNTERS = ((CONTINUE_SHELF, 'shelf_continue', 30150),) + tuple(
-    (panel, 'shelf_%s' % slot, 30151 + index if index < 5 else 30170 + index - 5)
+    (panel, 'shelf_%s' % slot,
+     (30151 + index if index < 5 else 30170 + index - 5) if index < 12 else 30400 + index - 12)
     for index, (slot, panel, _header) in enumerate(_SHELVES)
 )
 
@@ -862,7 +865,9 @@ def _collect_home_rows(results, count, threads, stopped, deadline=None):
     """Cancellation and a dead worker both end the first-paint collector."""
     fetched = {}
     while len(fetched) < count and not stopped():
-        if results.empty() and not any(thread.is_alive() for thread in threads):
+        # Check producers first: a worker may publish and finish between
+        # an empty-queue check and is_alive(), leaving a valid result.
+        if not any(thread.is_alive() for thread in threads) and results.empty():
             break
         timeout = min(0.75, deadline - time.monotonic()) if deadline is not None else 0.75
         if timeout <= 0:
@@ -872,7 +877,7 @@ def _collect_home_rows(results, count, threads, stopped, deadline=None):
             fetched[key] = value
         except queue.Empty:
             # A worker dying outside Exception handling must not strand us.
-            if not any(thread.is_alive() for thread in threads):
+            if not any(thread.is_alive() for thread in threads) and results.empty():
                 break
     return fetched
 
@@ -950,7 +955,13 @@ def _tab_load_incomplete(window, reason):
 
 
 def _load_rows(window, store, auth):
-    """Fetch only this tab's plan. One account read feeds every personal row."""
+    """First eight catalog rows plus personal rows before first paint.
+
+    The rest keep plain, empty states in plan order. After paint the
+    existing paging pool fetches them; they become visible only when the
+    GUI applies items. Missing background jobs never fail this tab load.
+    One account read still feeds every personal row.
+    """
     from lib.homelayout import resolve
     from lib.ui.compat import L, setting_bool
     from lib.ui.uicommon import CANCELLED, run_cancellable
@@ -981,10 +992,16 @@ def _load_rows(window, store, auth):
     def load():
         jobs, needs_library, cached = _home_personal_jobs(
             cached_entries, library_failed, suppressed, store, auth, plan, stopped, cancelled, timing)
+        deferred = {}
+        posters = 0
         for list_id, kind, descriptor, _variant, _heading in plan:
             if kind == 'catalog':
-                jobs.append((list_id, partial(_open_shelf, dict(descriptor, _stop=cancelled)),
-                             {'metas': [], 'exhausted': True}))
+                posters += 1
+                if posters <= _INITIAL_POSTER_ROWS:
+                    jobs.append((list_id, partial(_open_shelf, dict(descriptor, _stop=cancelled)),
+                                 {'metas': [], 'exhausted': True}))
+                else:
+                    deferred[list_id] = {'unloaded': True, 'metas': [], 'exhausted': False}
         # Library must be able to complete without a Continue waiter
         # occupying one of the first four row slots.
         jobs.sort(key=lambda job: job[0] == 'continue')
@@ -993,6 +1010,7 @@ def _load_rows(window, store, auth):
             return None
         if len(fetched) != len(jobs):
             return None
+        fetched.update(deferred)
         entries = fetched.pop('library', cached)
         continued = fetched.pop('continue', {})
         rows = _make_row_states(store, auth, cached if entries is None and cached is not None else entries, plan, fetched,
@@ -1028,7 +1046,7 @@ def _warm_shelf_posters(window, pages):
 
 
 def _paint_rows(window, states):
-    """Map this tab onto one landscape and twelve unchanged poster slots."""
+    """Map this tab onto one landscape and forty matching poster slots."""
     for list_id, prop, _counter in _ROW_COUNTERS:
         label = 30140 if list_id == CONTINUE_SHELF else next(
             header for _slot, panel, header in _SHELVES if panel == list_id)
@@ -1137,6 +1155,7 @@ def _refresh_saved_rows(window, store=None):
     _number_rows(window)
     _library_dirty = False
     _restore_place(window, place)
+    _top_up_shelves(window)
 
 
 def _snapshot_only_states(window):
@@ -1673,7 +1692,13 @@ def _schedule_shelf_extend(window, panel, room):
         inflight[panel] = (generation, state)
         jobs = getattr(window, '_shelf_queue', [])
         window._shelf_queue = jobs
-        jobs.append((generation, panel, _paging_snapshot(window, state), room))
+        job = (generation, panel, _paging_snapshot(window, state), room)
+        if state.get('unloaded'):
+            # Keep background first pages in plan order, behind any page
+            # the user explicitly requested by moving along a visible row.
+            jobs.insert(0, job)
+        else:
+            jobs.append(job)
         running = getattr(window, '_shelf_running', 0)
         threads = getattr(window, '_shelf_threads', [])
         window._shelf_threads = [thread for thread in threads if thread.is_alive()]
@@ -1742,7 +1767,15 @@ def _shelf_worker(window_ref):
             try:
                 if not _shelf_job_wanted(window_ref(), generation, panel):
                     continue
-                metas = _pull_more(private, room)
+                if private.get('unloaded'):
+                    # A later row's first page uses this same two-worker
+                    # queue, cancellation token and generation guard.
+                    loaded = _open_shelf(dict(private['descriptor'], _stop=private['_stop']))
+                    private.update(loaded)
+                    private['unloaded'] = False
+                    metas = private.pop('metas')
+                else:
+                    metas = _pull_more(private, room)
                 queued = _publish_shelf_page(window_ref, generation, panel, private, metas)
                 if queued:
                     import xbmc
@@ -1777,13 +1810,20 @@ def _apply_shelf_extends(window):
         scheduled = getattr(window, '_shelf_inflight', {}).get(panel)
         state = scheduled[1] if scheduled is not None and scheduled[0] == generation else None
         if (state is None or not _current_shelf(window, generation, panel, state)
-                or not _focusable(window, panel)):
+                or (not state.get('unloaded') and not _focusable(window, panel))):
             window._shelf_inflight.pop(panel, None)
             continue
-        for key in ('pending', 'seen_ids', 'served', 'exhausted', 'failed', 'end_reason', 'page_number'):
+        was_unloaded = state.get('unloaded')
+        for key in ('pending', 'seen_ids', 'served', 'exhausted', 'failed', 'end_reason', 'page_number',
+                    'unloaded', 'transport', 'manifest', 'catalog', 'extra'):
             if key in private:
                 state[key] = private[key]
         _append_to_shelf(window, panel, metas, sparse=(state['kind'] == 'library'))
+        if was_unloaded and state['items']:
+            slot, _panel, header = next(shelf for shelf in _SHELVES if shelf[1] == panel)
+            window.getControl(header).setLabel('[B]%s[/B]' % state['heading'])
+            window.setProperty('shelf_%s' % slot, '1')
+            _number_rows(window)
         window._shelf_inflight.pop(panel, None)
         if len(state['metas']) >= _ROW_CEILING:
             state['exhausted'] = True

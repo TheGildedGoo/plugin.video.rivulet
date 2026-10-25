@@ -53,6 +53,13 @@ def test_new_home_declares_every_control_the_window_code_uses(load_homewindow):
     from lib.ui.posterwarm import WARM_SLOTS
 
     declared = _ids('NewHomeWindow.xml')
+    all_ids = [int(c.get('id')) for c in
+               ET.parse(os.path.join(_SKIN, 'NewHomeWindow.xml')).iter('control') if c.get('id')]
+    assert len(all_ids) == len(set(all_ids))
+    assert len(newhome._SHELVES) == 40
+    assert {p for _, p, _ in newhome._SHELVES[12:]} == set(range(30200, 30228))
+    assert {h for _, _, h in newhome._SHELVES[12:]} == set(range(30300, 30328))
+    assert {c for _, _, c in newhome._ROW_COUNTERS[13:]} == set(range(30400, 30428))
     used = {
         newhome.BACKGROUND, newhome.STATUS_LABEL, newhome.BROWSE_LIST, newhome.TOOLS_LIST,
         newhome.HERO_TITLE, newhome.HERO_META, newhome.HERO_PLOT, newhome.HERO_LOGO,

@@ -57,9 +57,9 @@ def _append(store, layout, tab, list_id):
 
 
 def _add_list(store, layout, tab, catalogs):
-    ids = list(homelayout.CONTINUE_IDS) + ['library:movie', 'library:series', 'library']
+    ids = ['library:movie', 'library:series', 'library']
     ids += [catalog['list_id'] for kind in homelayout.KINDS for catalog in catalogs if catalog['kind'] == kind]
-    ids = [list_id for list_id in ids if list_id not in layout['tabs'][tab]]
+    ids = list(dict.fromkeys(ids))
     by_id = {catalog['list_id']: catalog for catalog in catalogs}
     rows = []
     for list_id in ids:
@@ -69,7 +69,21 @@ def _add_list(store, layout, tab, catalogs):
             type_id = {'movie': 30213, 'series': 30214, 'anime-movie': 30535, 'anime-series': 30536}[catalog['kind']]
             subtitle = '%s · %s' % (L(type_id), catalog['manifest'].get('name') or catalog['manifest'].get('id') or '')
         rows.append((_label(list_id, catalogs), subtitle))
-    picked = dialogs.choose(L(30522), rows)
+    preselect = [index for index, list_id in enumerate(ids) if list_id in layout['tabs'][tab]]
+    picked = dialogs.choose_many(L(30548), rows, preselect)
+    if picked is not None:
+        changed, ok = homelayout.set_rows(layout, tab, [ids[index] for index in picked], ids)
+        if not ok:
+            notify(L(30527))
+        elif changed != layout:
+            _save(store, changed)
+            return changed
+    return layout
+
+
+def _add_continue(store, layout, tab, catalogs):
+    ids = [list_id for list_id in homelayout.CONTINUE_IDS if list_id not in layout['tabs'][tab]]
+    picked = dialogs.choose(L(30241), [_label(list_id, catalogs) for list_id in ids])
     if 0 <= picked < len(ids):
         return _append(store, layout, tab, ids[picked])
     return layout
@@ -114,12 +128,14 @@ def _edit_tab(store, layout, tab, catalogs):
     layout = materialized
     while True:
         ids = layout['tabs'][tab]
-        rows = [_label(list_id, catalogs) for list_id in ids] + [L(30522)]
+        rows = [_label(list_id, catalogs) for list_id in ids] + [L(30548), L(30241)]
         picked = dialogs.choose(L(homelayout.TAB_LABELS[tab]), rows)
         if picked < 0:
             return layout
         if picked == len(ids):
             layout = _add_list(store, layout, tab, catalogs)
+        elif picked == len(ids) + 1:
+            layout = _add_continue(store, layout, tab, catalogs)
         elif picked < len(ids):
             layout = _list_actions(store, layout, tab, ids[picked], catalogs)
 

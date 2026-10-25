@@ -469,6 +469,72 @@ def test_choose_populates_two_line_rows_and_plain_string_rows(load_dialogs, monk
     assert labels == [('Plain row', ''), ('Idris Farrow', 'Constable Mabel Thorne (voice)')]
 
 
+def test_choose_many_toggles_without_closing_and_ok_returns_sorted_indices(load_dialogs, monkeypatch):
+    ctx = load_dialogs()
+    d = ctx.dialogs
+    def modal(self):
+        self.onInit()
+        ctrl = self.getControl(d.OPTIONLIST_LIST)
+        assert ctrl.size() == 11 and ctrl.height == 504
+        assert ctrl.getListItem(2).getProperty('checked') == '1'
+        assert ctrl.getListItem(0).getProperty('checked') == ''
+        assert ctrl.getListItem(0).getLabel() == 'Plain'
+        assert ctrl.getListItem(1).label2 == 'Subtitle'
+        assert ctrl.getListItem(10).getProperty('checked') == ''
+        for index in (8, 2, 0):
+            ctrl.selectItem(index)
+            self.onClick(d.OPTIONLIST_LIST)
+            assert not self.closed and self.result is None
+        assert ctrl.getListItem(2).getProperty('checked') == ''
+        assert ctrl.getListItem(8).getProperty('checked') == '1'
+        self.onClick(d.OPTIONLIST_HEADING)  # not a list click
+        ctrl.selectItem(10)
+        self.onClick(d.OPTIONLIST_LIST)
+        assert self.closed
+    monkeypatch.setattr(d._MultiOptionListWindow, 'doModal', modal)
+    assert d.choose_many('Lists', ['Plain', ('Two', 'Subtitle')] + ['Row'] * 8, [2, -1, 99]) == [0, 8]
+
+
+@pytest.mark.parametrize('action', [9, 10, 92])
+def test_choose_many_back_cancels_even_after_toggling(load_dialogs, monkeypatch, action):
+    ctx = load_dialogs()
+    d = ctx.dialogs
+    def modal(self):
+        self.onInit()
+        self.onClick(d.OPTIONLIST_LIST)
+        self.onAction(_FakeAction(action))
+        assert self.closed
+    monkeypatch.setattr(d._MultiOptionListWindow, 'doModal', modal)
+    assert d.choose_many('Lists', ['One'], [0]) is None
+
+
+def test_choose_many_ok_allows_an_empty_selection(load_dialogs, monkeypatch):
+    ctx = load_dialogs()
+    d = ctx.dialogs
+    def modal(self):
+        self.onInit()
+        self.getControl(d.OPTIONLIST_LIST).selectItem(0)
+        self.onClick(d.OPTIONLIST_LIST)
+    monkeypatch.setattr(d._MultiOptionListWindow, 'doModal', modal)
+    assert d.choose_many('Lists', []) == []
+
+
+@pytest.mark.parametrize('answer', [None, [2, 0]])
+def test_choose_many_stock_fallback_only_on_xml_failure(load_dialogs, monkeypatch, answer):
+    ctx = load_dialogs()
+    d = ctx.dialogs
+    import xbmcgui
+    calls = []
+    class Fallback:
+        def multiselect(self, heading, rows, preselect):
+            calls.append((heading, rows, preselect))
+            return answer
+    monkeypatch.setattr(xbmcgui, 'Dialog', Fallback)
+    monkeypatch.setattr(d, 'open_window', lambda *args: (_ for _ in ()).throw(RuntimeError('XML')))
+    assert d.choose_many('Lists', ['a', 'b', 'c'], [2, 0]) == (None if answer is None else [0, 2])
+    assert calls == [('Lists', ['a', 'b', 'c'], [0, 2])]
+
+
 # ---------------------------------------------------------------------------
 # WindowXML fake's getControl() - Non-Existent Control contract
 # ---------------------------------------------------------------------------

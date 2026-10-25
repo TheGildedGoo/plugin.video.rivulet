@@ -2,6 +2,7 @@
 import contextlib
 import os
 import re
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -53,6 +54,17 @@ def test_the_menu_fits_its_rows(load):
     # wrap a `scrollbar`, so the group is what gets moved with the list.
     scroll = win.getControl(dialogs.OPTIONLIST_SCROLL_GROUP)
     assert scroll.y == top + dialogs._OPTION_HEAD_H
+
+
+def test_checked_rows_use_the_shipped_checkmark_in_both_layouts():
+    root = ET.fromstring(_read('DarkOptionListDialog.xml'))
+    control = next(c for c in root.iter('control') if c.get('id') == '30341')
+    for layout in ('itemlayout', 'focusedlayout'):
+        checks = [image for image in control.find(layout).findall("control[@type='image']")
+                  if image.findtext('texture') == 'newlook_check.png']
+        assert len(checks) == 1
+        assert checks[0].findtext('visible') == '!String.IsEmpty(ListItem.Property(checked))'
+        assert checks[0].findtext('width') == '20'
 
 
 def test_the_option_list_never_asks_python_for_the_scrollbar(load):

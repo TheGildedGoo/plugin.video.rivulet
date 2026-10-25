@@ -109,22 +109,26 @@ def test_default_tabs_only_fetch_the_active_plan(load_homewindow, monkeypatch, t
     assert [state['kind'] for state in win._rows.values()] == ids
     assert sorted(calls) == sorted(fetched)
     assert all(panel <= 30052 for panel in win._rows)
-    assert all(not win.getProperty('shelf_slot%d' % i) for i in range(len(ids), 12))
+    assert all(not win.getProperty('shelf_slot%d' % i) for i in range(len(ids), homelayout.MAX_POSTER_ROWS))
 
 
-def test_twelve_poster_slots_use_the_new_ids_and_number_visible_rows(load_homewindow, monkeypatch):
+def test_forty_poster_slots_use_disjoint_ids_and_number_visible_rows(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     layout = homelayout.default_layout()
     layout['tabs']['home'] = ['rest:movie']
     installed = addons()
     installed[0]['manifest']['catalogs'] = [{'id': 'c%d' % i, 'type': 'movie', 'name': 'Catalog %d' % i}
-                                          for i in range(20)]
+                                          for i in range(41)]
     win, _, calls = build(ctx, monkeypatch, layout=layout, installed=installed)
-    assert len(win._rows) == 12
-    assert len(calls) == 12
-    assert list(win._rows) == list(range(30041, 30053))
+    ctx.newhome._join_shelf_extends(win)
+    ctx.newhome._apply_shelf_extends(win)
+    assert len(win._rows) == 40
+    assert len(calls) == 40
+    assert list(win._rows) == list(range(30041, 30053)) + list(range(30200, 30228))
     assert win.getControl(30160).label == '[B]CATALOG 6[/B]'
-    assert win.getControl(30176).label == '12 / 12'
+    assert win.getControl(30176).label == '12 / 40'
+    assert win.getControl(30427).label == '40 / 40'
+    assert win.getProperty('shelf_slot39') == '1'
     assert win.getProperty('shelf_slot11') == '1'
 
 
@@ -504,9 +508,10 @@ def test_skin_slot_copies_and_active_pills_are_the_existing_primitives():
         assert 'ListItem.Property(active)' in active.findtext('visible')
     assert controls[30040].findtext('onup') == '30010'
     assert controls[30041].findtext('onup') == '30040'
-    assert controls[30052].findtext('ondown') == '30052'
+    assert controls[30052].findtext('ondown') == '30200'
+    assert controls[30227].findtext('ondown') == '30227'
     original = ET.tostring(controls[30045].find('itemlayout'))
-    for panel in range(30046, 30053):
+    for panel in list(range(30046, 30053)) + list(range(30200, 30228)):
         assert ET.tostring(controls[panel].find('itemlayout')) == original
 
 

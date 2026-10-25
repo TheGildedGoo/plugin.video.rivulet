@@ -17,7 +17,7 @@ TAB_LABELS = dict(zip(TABS, (30495, 30516, 30213, 30214, 30215)))
 KINDS = ('movie', 'series', 'anime-movie', 'anime-series')
 CONTINUE_IDS = ('continue', 'continue:movie', 'continue:series', 'continue:anime')
 LIBRARY_IDS = ('library', 'library:movie', 'library:series')
-MAX_POSTER_ROWS = 12
+MAX_POSTER_ROWS = 40
 NEW_TOKENS = ('new', 'latest', 'recent', 'recently', 'release', 'releases',
               'premiere', 'premieres', 'fresh', 'airing', 'ongoing',
               'theaters', 'theatres', 'now playing')
@@ -295,13 +295,34 @@ def heading_text(parts, localize):
 
 
 def materialize(layout, tab, catalogs, hide_adult=True):
+    """Expand saved intent without applying the renderer's visibility/cap.
+
+    Opening Settings must not turn a render limit (or a hidden addon) into
+    permanent data loss. `_expand` also retains explicit missing ids in
+    their original positions, ready for a later reinstall.
+    """
     result = normalize(layout)
-    resolved = resolve(result, tab, catalogs, hide_adult)
-    known = {entry['list_id'] for entry in catalogs}
-    # Preserve explicit missing-addon ids. Reinstalling still restores them.
-    missing = [value for value in result['tabs'][tab] if value.startswith('cat:') and value not in known]
-    result['tabs'][tab] = [entry[0] for entry in resolved] + missing
+    result['tabs'][tab] = [list_id for list_id, _catalog, _heading
+                           in _expand(result['tabs'][tab], catalogs)]
     return normalize(result)
+
+
+def set_rows(layout, tab, wanted_ids, known_ids):
+    """Apply one picker selection, retaining order and unavailable addons.
+
+    The picker owns only its known poster ids. Continue and missing-addon
+    ids are never removed implicitly, including when selection is empty.
+    """
+    result = normalize(layout)
+    known = set(known_ids) - set(CONTINUE_IDS)
+    wanted = list(dict.fromkeys(value for value in wanted_ids
+                               if value in known and valid_id(value)))
+    rows = [value for value in result['tabs'][tab] if value not in known or value in wanted]
+    rows.extend(value for value in wanted if value not in rows)
+    if sum(value not in CONTINUE_IDS for value in rows) > MAX_POSTER_ROWS:
+        return layout, False
+    result['tabs'][tab] = rows
+    return result, True
 
 
 def add(layout, tab, list_id, replace_continue=False):

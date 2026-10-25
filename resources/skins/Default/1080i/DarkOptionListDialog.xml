@@ -28,6 +28,7 @@
                 <onleft>30341</onleft><onright>30341</onright>
                 <pagecontrol>30342</pagecontrol>
                 <itemlayout height="72">
+                    <control type="image"><left>10</left><top>22</top><width>20</width><height>20</height><texture colordiffuse="FFFFFFFF">newlook_check.png</texture><visible>!String.IsEmpty(ListItem.Property(checked))</visible></control>
                     <control type="label"><left>32</left><top>14</top><width>664</width><height>34</height><font>font13</font><textcolor>D9FFFFFF</textcolor>
                         <label>$INFO[ListItem.Label]</label>
                     </control>
@@ -38,6 +39,7 @@
                 </itemlayout>
                 <focusedlayout height="72">
                     <control type="image"><left>8</left><width>712</width><height>72</height><texture border="20" colordiffuse="FF2E2E2E">dlg_row.png</texture></control>
+                    <control type="image"><left>10</left><top>22</top><width>20</width><height>20</height><texture colordiffuse="FFFFFFFF">newlook_check.png</texture><visible>!String.IsEmpty(ListItem.Property(checked))</visible></control>
                     <control type="label"><left>32</left><top>14</top><width>664</width><height>34</height><font>font13</font><textcolor>FFFFFFFF</textcolor>
                         <label>$INFO[ListItem.Label]</label>
                     </control>

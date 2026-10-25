@@ -627,3 +627,60 @@ def choose(heading, rows):
     window.rows = list(rows)
     window.doModal()
     return window.result
+
+
+class _MultiOptionListWindow(_OptionListWindow):
+    """The same dark list, with toggles and a final OK row instead of auto-close."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.result = None
+        self.checked = set()
+
+    def onInit(self):
+        super().onInit()
+        ctrl = _get_control(self, OPTIONLIST_LIST)
+        if ctrl is None:
+            raise RuntimeError('multi-select XML has no list')
+        for index in range(len(self.rows) - 1):
+            ctrl.getListItem(index).setProperty('checked', '1' if index in self.checked else '')
+
+    @gated_input
+    def onClick(self, control_id):
+        if control_id != OPTIONLIST_LIST:
+            return
+        ctrl = _get_control(self, OPTIONLIST_LIST)
+        if ctrl is None:
+            return
+        position = ctrl.getSelectedPosition()
+        if position == len(self.rows) - 1:
+            self.result = sorted(self.checked)
+            self.close()
+        elif 0 <= position < len(self.rows) - 1:
+            self.checked.symmetric_difference_update({position})
+            ctrl.getListItem(position).setProperty('checked', '1' if position in self.checked else '')
+
+
+def choose_many(heading, rows, preselect=()):
+    """Dark multiselect: sorted selected indices on OK, None on Back.
+
+    Stock multiselect is reserved for a missing/broken dialog XML, never
+    the normal path. The final OK row participates in the existing scroll
+    list, so the seven-row fit and remote navigation stay unchanged.
+    """
+    rows = list(rows)
+    selected = {index for index in preselect if isinstance(index, int) and 0 <= index < len(rows)}
+    window = None
+    try:
+        window = open_window(_MultiOptionListWindow, 'DarkOptionListDialog.xml')
+        window.heading = heading
+        window.rows = rows + [xbmc.getLocalizedString(186)]
+        window.checked = selected
+        window.doModal()
+        return window.result
+    except Exception as exc:
+        if window is not None:
+            window.close()
+        log('dialogs: multiselect XML failed: %s' % type(exc).__name__, xbmc.LOGWARNING)
+        result = xbmcgui.Dialog().multiselect(heading, rows, preselect=sorted(selected))
+        return sorted(result) if result is not None else None

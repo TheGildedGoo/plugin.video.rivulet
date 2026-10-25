@@ -114,7 +114,7 @@ def test_missing_meta_is_not_retried_in_a_second_home_load(load_homewindow, monk
     win.close()
 
 
-def test_continue_budget_starts_after_twelve_slow_catalog_jobs(load_homewindow, monkeypatch):
+def test_continue_budget_starts_after_eight_initial_slow_catalog_jobs(load_homewindow, monkeypatch):
     ctx = load_homewindow()
     win, store = continue_plan(ctx, monkeypatch, count=1)
     layout = store.get_home_layout()
@@ -126,7 +126,7 @@ def test_continue_budget_starts_after_twelve_slow_catalog_jobs(load_homewindow, 
     win._catalogs = installed_catalogs(store.get_enabled_addons())
     plan = resolve(layout, 'home', win._catalogs)
     catalog = next(job for job in plan if job[2] is not None)
-    plan = [plan[0]] + [(30041 + i, *catalog[1:]) for i in range(12)]
+    plan = [plan[0]] + [(30041 + i, *catalog[1:]) for i in range(ctx.newhome._INITIAL_POSTER_ROWS)]
     monkeypatch.setattr('lib.homelayout.resolve', lambda *args: plan)
     now, clock_lock = [0.0], threading.Lock()
     monkeypatch.setattr(ctx.newhome, 'time', SimpleNamespace(monotonic=lambda: now[0]))

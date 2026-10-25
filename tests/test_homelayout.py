@@ -126,13 +126,69 @@ def test_editing_materializes_and_preserves_missing_addons():
     assert h.reset() == h.DEFAULT
 
 
+def test_materialize_never_trims_expanded_rows_or_moves_missing_ids():
+    cats = h.installed_catalogs([addon([catalog(str(i)) for i in range(65)])])
+    layout = empty()
+    missing = 'cat:missing|series|saved'
+    layout['tabs']['movies'] = ['continue:movie', 'new:movie', missing, 'rest:movie']
+    expanded = h.materialize(layout, 'movies', cats)
+    expected = ['continue:movie', cats[0]['list_id'], missing] + [c['list_id'] for c in cats[1:]]
+    assert expanded['tabs']['movies'] == expected
+    assert len(h.resolve(expanded, 'movies', cats)) == 41
+    assert layout['tabs']['movies'][-1] == 'rest:movie'
+    assert h.materialize(expanded, 'movies', cats) == expanded
+
+
+def test_saved_twelve_row_layout_reloads_without_writing_or_trimming(tmp_path):
+    layout = empty()
+    layout['tabs']['home'] = ['continue'] + ['cat:a|movie|%d' % i for i in range(12)]
+    path = tmp_path / 'home_layout.json'
+    path.write_text(json.dumps(layout, indent=3))
+    before = path.read_bytes()
+    store = Store(str(tmp_path))
+    assert store.get_home_layout() == layout
+    cats = h.installed_catalogs([addon([catalog(str(i)) for i in range(50)])])
+    assert len(h.resolve(store.get_home_layout(), 'home', cats)) == 13
+    assert h.materialize(layout, 'home', cats) == layout
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize('wanted, expected', [
+    (['library:series', 'library:movie', 'library'],
+     ['continue:movie', 'library', 'cat:missing|movie|saved', 'library:movie', 'library:series']),
+    ([], ['continue:movie', 'cat:missing|movie|saved']),
+    (['library:series', 'library:series'],
+     ['continue:movie', 'cat:missing|movie|saved', 'library:series']),
+])
+def test_set_rows_retains_order_and_missing_ids_and_appends_in_picker_order(wanted, expected):
+    layout = empty()
+    layout['tabs']['home'] = ['continue:movie', 'library', 'cat:missing|movie|saved', 'library:movie']
+    original = json.dumps(layout)
+    changed, ok = h.set_rows(layout, 'home', wanted, h.LIBRARY_IDS)
+    assert ok and changed['tabs']['home'] == expected
+    assert json.dumps(layout) == original
+    assert changed['tabs']['movies'] == layout['tabs']['movies']
+
+
+def test_set_rows_ignores_unknown_and_continue_selections_and_rejects_overflow_atomically():
+    layout = empty()
+    layout['tabs']['home'] = ['continue:anime'] + ['cat:missing|movie|%d' % i for i in range(39)]
+    changed, ok = h.set_rows(layout, 'home', ['library', 'continue', 'unknown'], ['library', 'continue'])
+    assert ok and len(changed['tabs']['home']) == 41
+    assert changed['tabs']['home'][0] == 'continue:anime'
+    assert changed['tabs']['home'][-1] == 'library'
+    rejected, ok = h.set_rows(changed, 'home', ['library', 'library:movie'], h.LIBRARY_IDS)
+    assert not ok and rejected == changed
+    assert len(layout['tabs']['home']) == 40
+
+
 def test_row_cap_and_disambiguated_headings():
-    cats = h.installed_catalogs([addon([catalog(str(i), name='Same') for i in range(14)]),
+    cats = h.installed_catalogs([addon([catalog(str(i), name='Same') for i in range(44)]),
                                  addon([catalog('anime', 'anime', 'Same')], 'b', 'Second')])
     layout = empty()
     layout['tabs']['home'] = ['continue'] + [c['list_id'] for c in cats]
     plan = h.resolve(layout, 'home', cats)
-    assert len(plan) == 13
+    assert len(plan) == 41
     assert plan[1][4] == ('Same', 'Addon')
     assert not h.add(layout, 'home', 'library')[1]
     layout['tabs']['home'] = [cats[-1]['list_id']]

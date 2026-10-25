@@ -681,10 +681,11 @@ def test_home_row_navigation_follows_the_entire_slot_chain():
     root = ET.parse(os.path.join(_SKIN_DIR, 'NewHomeWindow.xml')).getroot()
     panels = {int(panel.get('id')): panel for panel in root.iter('control')
               if panel.get('type') == 'panel' and panel.get('id')}
-    for panel_id in range(30040, 30053):
+    chain = list(range(30040, 30053)) + list(range(30200, 30228))
+    for index, panel_id in enumerate(chain):
         panel = panels[panel_id]
-        expected_up = 30010 if panel_id == 30040 else panel_id - 1
-        expected_down = panel_id + 1 if panel_id < 30052 else panel_id
+        expected_up = 30010 if index == 0 else chain[index - 1]
+        expected_down = chain[min(index + 1, len(chain) - 1)]
         assert int(panel.findtext('onup')) != panel_id, panel_id
         assert int(panel.findtext('onup')) == expected_up, panel_id
         assert int(panel.findtext('ondown')) == expected_down, panel_id
