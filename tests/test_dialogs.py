@@ -475,7 +475,7 @@ def test_choose_many_toggles_without_closing_and_ok_returns_sorted_indices(load_
     def modal(self):
         self.onInit()
         ctrl = self.getControl(d.OPTIONLIST_LIST)
-        assert ctrl.size() == 11 and ctrl.height == 504
+        assert ctrl.size() == 11 and ctrl.height == d._OPTION_ROW_H * d._OPTION_MAX_ROWS
         assert ctrl.getListItem(2).getProperty('checked') == '1'
         assert ctrl.getListItem(0).getProperty('checked') == ''
         assert ctrl.getListItem(0).getLabel() == 'Plain'

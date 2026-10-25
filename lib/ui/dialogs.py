@@ -576,8 +576,9 @@ class _OptionListWindow(BaseWindow):
             self.close()
 
 
-#: DarkOptionListDialog.xml geometry: rows are 72px, at most 7 show at once.
-_OPTION_ROW_H = 72
+#: DarkOptionListDialog.xml geometry: rows are 88px (tall enough to centre a
+#: label + sublabel pair under the focus plate), at most 7 show at once.
+_OPTION_ROW_H = 88
 _OPTION_MAX_ROWS = 7
 _OPTION_PANEL = (580, 760)  # left, width
 _OPTION_HEAD_H = 110  # plate top to the first row
